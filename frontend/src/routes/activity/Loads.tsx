@@ -23,9 +23,22 @@
  * six. Enregistrer sans avoir rien changé n'écrit rien du tout — le serveur le vérifie
  * aussi, mais l'écran n'a pas à envoyer une écriture qu'il sait vide.
  *
- * **Aucune suppression.** On corrige une valeur, on bascule au poids du corps ; on ne
- * revient pas à « jamais renseigné ». Le geste manque, il est nommé dans `charges.md` §10,
- * et il vaut mieux qu'un second vocabulaire de destruction sur une surface neuve.
+ * **Aucune suppression sur les trois sections.** On corrige une valeur, on bascule au
+ * poids du corps ; on ne revient pas à « jamais renseigné ». Le geste manque, il est
+ * nommé dans `charges.md` §10, et il vaut mieux qu'un second vocabulaire de destruction
+ * sur une surface neuve.
+ *
+ * ## La quatrième section, et pourquoi elle détruit
+ *
+ * « Plus dans aucune séance » montre les charges dont l'exercice a quitté tous les
+ * circuits. Elles n'étaient nulle part : la ligne survivait dans `circuit_loads.csv`,
+ * invisible et donc indestructible, et ressuscitait avec une valeur périmée le jour où
+ * le nom revenait dans un circuit.
+ *
+ * C'est la seule section de la page où il y a quelque chose à détruire, et le seul geste
+ * qu'elle offre. Elle n'invente aucun vocabulaire : `SwipeRow`, comme partout ailleurs —
+ * glissement pour révéler, un appui qui arme, un second qui exécute. Ce que le journal
+ * a retenu, lui, ne part pas : `circuit_load_log.csv` ne se rature pas.
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -42,6 +55,7 @@ import {
   PageHead,
   Sheet,
   Stepper,
+  SwipeRow,
 } from '@/components/ui';
 import { IconBodyweight, IconWeight } from '@/components/ui/icons';
 import { activityApi, type Load, type LoadDetail, type LoadPayload } from '@/features/activity/api';
@@ -163,10 +177,29 @@ export function Loads() {
     },
   });
 
+  const remove = useMutation({
+    // Position, jeton et nom, plutôt que la carte entière : une charge orpheline a
+    // toujours les trois, et les exiger ici rend impossible d'appeler la route sur une
+    // carte « à renseigner », qui n'a pas de ligne à retirer.
+    mutationFn: ({ id, token }: { id: number; token: string; name: string }) =>
+      activityApi.deleteLoad(id, token),
+    onSuccess: (_result, load) => {
+      setError(null);
+      invalidate();
+      notify(`${load.name} · charge retirée`, 'signal');
+    },
+    onError: (failure: unknown) => {
+      if (failure instanceof ApiError) setError(failure);
+    },
+  });
+
   const loads = data?.loads ?? [];
+  const orphans = data?.orphans ?? [];
   const step = data?.step_kg ?? 1;
   const needle = fold(query.trim());
   const shown = needle === '' ? loads : loads.filter((load) => fold(load.name).includes(needle));
+  const strayed =
+    needle === '' ? orphans : orphans.filter((load) => fold(load.name).includes(needle));
   const unset = shown.filter((load) => load.state === 'unset');
   const weighted = shown.filter((load) => load.state === 'weighted');
   const bodyweight = shown.filter((load) => load.state === 'bodyweight');
@@ -189,7 +222,7 @@ export function Loads() {
         {/* Deux lignes, et pas deux colonnes. Une colonne de nom à côté d'une colonne de
             commande cassait « Développé haltères assis » sur deux lignes tout en laissant
             la commande sur une seule : des cartes de hauteurs inégales dans une grille,
-            exactement le défaut que `LogButton` traîne déjà. En pleine largeur, le nom a
+            exactement le défaut qui a fini par emporter `LogButton`. En pleine largeur, le nom a
             la place de tenir, et le pas-à-pas celle de garder son champ au-dessus de
             44 px. */}
         <div className={styles.loadHead}>
@@ -388,6 +421,50 @@ export function Loads() {
               ))}
             </Card>
           )}
+        </section>
+      )}
+
+      {/* La quatrième section, en dernier : elle ne demande rien, elle propose de
+          nettoyer. La mettre plus haut ferait passer un reliquat avant les exercices
+          qu'on joue vraiment. */}
+      {strayed.length > 0 && (
+        <section className={styles.section}>
+          <h2 className="eyebrow">Plus dans aucune séance</h2>
+          {/* Une phrase, comme les trois autres sections n'en ont aucune. La version
+              longue expliquait le journal, la résurrection du nom et le sort de la
+              courbe : six lignes sur un téléphone, au-dessus d'une liste de deux
+              entrées qu'on vient ranger. */}
+          <p className={styles.note}>
+            Aucun circuit n’emploie plus ces exercices. Si le nom revient, c’est cette charge-là qui
+            s’affichera.
+          </p>
+          <Card className={styles.strays}>
+            {strayed.map(({ id, token, ...load }) =>
+              id === null || token === null ? null : (
+                <SwipeRow
+                  key={load.name}
+                  actionLabel={`Retirer la charge de ${load.name}`}
+                  busy={remove.isPending && remove.variables?.name === load.name}
+                  onAction={() => {
+                    remove.mutate({ id, token, name: load.name });
+                  }}
+                >
+                  <div className={styles.loadDense}>
+                    <button
+                      type="button"
+                      className={styles.loadDenseName}
+                      onClick={() => {
+                        setOpened(load.name);
+                      }}
+                    >
+                      <span>{load.name}</span>
+                      <span className={styles.note}>{reading({ ...load, id, token })}</span>
+                    </button>
+                  </div>
+                </SwipeRow>
+              ),
+            )}
+          </Card>
         </section>
       )}
 

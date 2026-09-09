@@ -10,6 +10,7 @@
 import type { DashboardView } from '@/features/aggregates/api';
 import type { DayInspection, GridsView, HeatDay, TracksView } from '@/features/heatmap/api';
 import type { NotificationsView } from '@/features/notifications/api';
+import type { HistoryDay, NutritionHistory } from '@/features/nutrition/api';
 import type { SettingsView } from '@/features/settings/api';
 
 export const DASHBOARD: DashboardView = {
@@ -157,6 +158,7 @@ const DEFAULT_VALUES = {
   target_weight_kg: 70,
   target_protein_g: 150,
   max_added_sugar_g: 30,
+  target_calories: 2200,
   target_hydration_ml: 2000,
   hydration_presets_ml: [250, 500, 750],
   heatmap_metric: 'activity',
@@ -313,6 +315,7 @@ const TORSO_GRID: GridsView['grids'][number] = {
 
 export const GRIDS: GridsView = {
   range: { from: '2026-07-20', to: '2026-07-26' },
+  today: '2026-07-26',
   grids: [WATER_GRID, TORSO_GRID],
 };
 
@@ -356,6 +359,7 @@ export const DAY_DETAIL: DayInspection = {
 };
 
 export const TRACKS: TracksView = {
+  today: '2026-07-26',
   tracks: [
     {
       id: 0,
@@ -431,4 +435,145 @@ export const TRACKS: TracksView = {
   ],
   highlight: 'eau',
   accents: ['signal', 'effort', 'load', 'recover'],
+};
+
+// ── Historique de la nutrition (`NUT-11`) ─────────────
+
+/**
+ * Cinq semaines pleines finissant le dimanche 2 août 2026, comme le serveur les sert.
+ *
+ * Les jours sont **construits** et non écrits à la main : trente-cinq cellules recopiées
+ * seraient illisibles, et la seule chose qui compte ici est qu'elles couvrent les quatre
+ * cas — chiffré, noté sans chiffres, vide, et antérieur au premier repas.
+ */
+function historyDays(): HistoryDay[] {
+  const start = Date.UTC(2026, 5, 29); // lundi 29 juin 2026
+  const day = 86_400_000;
+
+  return Array.from({ length: 35 }, (_, index) => {
+    const date = new Date(start + index * day).toISOString().slice(0, 10);
+
+    if (index < 7) {
+      return {
+        date,
+        calories: 0,
+        protein_g: 0,
+        added_sugar_g: 0,
+        meals: 0,
+        calories_known: 0,
+        state: 'off' as const,
+        level: 0,
+        reason: 'before_track' as const,
+      };
+    }
+    if (index === 10) {
+      return {
+        date,
+        calories: 0,
+        protein_g: 42,
+        added_sugar_g: 0,
+        meals: 2,
+        calories_known: 0,
+        state: 'off' as const,
+        level: 0,
+        reason: 'unmeasured' as const,
+      };
+    }
+    if (index % 3 === 0) {
+      return {
+        date,
+        calories: 0,
+        protein_g: 0,
+        added_sugar_g: 0,
+        meals: 0,
+        calories_known: 0,
+        state: 'off' as const,
+        level: 0,
+        reason: null,
+      };
+    }
+    const calories = 1400 + ((index * 137) % 900);
+    return {
+      date,
+      calories,
+      protein_g: 90 + (index % 40),
+      added_sugar_g: 8 + (index % 30),
+      meals: 3,
+      calories_known: 3,
+      state: 'done' as const,
+      level: calories > 2310 ? 4 : calories > 1760 ? 3 : 2,
+      reason: null,
+    };
+  });
+}
+
+export const NUTRITION_HISTORY: NutritionHistory = {
+  range: 'month',
+  from: '2026-06-29',
+  to: '2026-08-02',
+  today: '2026-07-27',
+  granularity: 'day',
+  target_calories: 2200,
+  added_sugar_max_g: 30,
+  days: historyDays(),
+  series: [
+    {
+      date: '2026-07-20',
+      calories: 2100,
+      trend_calories: 2050,
+      protein_g: 120,
+      added_sugar_g: 14,
+      days: 1,
+    },
+    {
+      date: '2026-07-21',
+      calories: 1850,
+      trend_calories: 1975,
+      protein_g: 108,
+      added_sugar_g: 34,
+      days: 1,
+    },
+    {
+      date: '2026-07-23',
+      calories: 2400,
+      trend_calories: 2117,
+      protein_g: 132,
+      added_sugar_g: 9,
+      days: 1,
+    },
+    {
+      date: '2026-07-24',
+      calories: 2260,
+      trend_calories: 2153,
+      protein_g: 126,
+      added_sugar_g: 21,
+      days: 1,
+    },
+  ],
+  stats: {
+    target_calories: 2200,
+    days: 29,
+    logged_days: 18,
+    measured_days: 17,
+    avg_calories: 2153,
+    avg_protein_g: 121.5,
+    avg_added_sugar_g: 19.4,
+    on_target_days: 9,
+    over_sugar_days: 3,
+  },
+  weekdays: [
+    { weekday: 0, avg_calories: 2050, days: 3, ratio: 0.82, over_target: false },
+    { weekday: 1, avg_calories: 2180, days: 3, ratio: 0.87, over_target: false },
+    { weekday: 2, avg_calories: 1960, days: 2, ratio: 0.78, over_target: false },
+    { weekday: 3, avg_calories: 2240, days: 3, ratio: 0.9, over_target: true },
+    { weekday: 4, avg_calories: 2310, days: 2, ratio: 0.92, over_target: true },
+    { weekday: 5, avg_calories: 2500, days: 2, ratio: 1, over_target: true },
+    { weekday: 6, avg_calories: null, days: 0, ratio: 0, over_target: false },
+  ],
+  types: [
+    { meal_type: 'déjeuner', calories: 14_200, share: 0.41, meals: 17 },
+    { meal_type: 'dîner', calories: 11_600, share: 0.34, meals: 16 },
+    { meal_type: 'petit-déjeuner', calories: 6100, share: 0.18, meals: 15 },
+    { meal_type: 'collation', calories: 2400, share: 0.07, meals: 6 },
+  ],
 };

@@ -1554,7 +1554,29 @@ class CircuitLoadService:
             )
 
         loads.sort(key=lambda load: (order[load.state], fold(load.name)))
-        return LoadList(loads=loads)
+
+        # Les charges dont l'exercice a quitté tous les circuits. Elles ne sont pas dans
+        # `loads` — on ne demande pas de renseigner un exercice qu'on ne joue plus — mais
+        # les omettre les rendait indestructibles : aucune route ne peut viser une ligne
+        # qu'aucun écran ne montre.
+        orphans = [
+            Load(
+                id=row.index,
+                token=row.token,
+                name=row.model.name.strip(),
+                state=self._state(row.model),
+                weight_kg=row.model.weight_kg if self._state(row.model) == "weighted" else None,
+                updated=row.model.updated,
+                circuits=0,
+                days_since_change=progression.get(key, (None, None))[0],
+                sessions_since=progression.get(key, (None, None))[1],
+            )
+            for key, row in declared.items()
+            if key not in in_circuits
+        ]
+        orphans.sort(key=lambda load: fold(load.name))
+
+        return LoadList(loads=loads, orphans=orphans)
 
     async def detail(self, name: str) -> LoadDetail:
         """La courbe des décisions et les trente derniers jours de séances.
@@ -1722,6 +1744,33 @@ class CircuitLoadService:
             await self._remember(payload, day)
 
         return await self._one(fold(payload.name))
+
+    async def delete(self, index: int, token: str) -> None:
+        """Retire une charge — sous garde, comme toute suppression (`STO-05`).
+
+        ## Ce qui part, et ce qui reste
+
+        La ligne de `circuit_loads.csv` part ; `circuit_load_log.csv` ne bouge pas. Les
+        deux fichiers n'ont pas le même statut et c'est écrit plus haut : l'un dit ce
+        qu'on charge aujourd'hui et se corrige, l'autre dit ce qu'on a décidé et ne se
+        corrige jamais. Effacer le journal en même temps réécrirait le passé pour effacer
+        le présent.
+
+        La conséquence est visible et voulue : re-déclarer l'exercice plus tard retrouve
+        sa courbe. C'est la même règle que partout — un journal se lit, il ne se rature
+        pas.
+
+        ## Pourquoi cette route existe
+
+        Un exercice qui quitte tous les circuits emportait sa carte hors de l'écran, mais
+        sa ligne survivait dans le fichier : invisible, non corrigeable, et prête à
+        ressusciter avec une charge périmée le jour où le nom revenait dans un circuit.
+        `LoadList.orphans` la montre, cette route la retire.
+        """
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageConflictError(detail=f"charge {index} absente")
+        await self._repo.delete_by_token(index, token)
 
     async def _one(self, key: str) -> Load:
         """La carte d'un exercice après écriture, relue depuis la liste.

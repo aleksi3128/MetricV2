@@ -1,7 +1,44 @@
 /* Grille d'assiduité. Reprise de GuidelinesUI.html section 05, étendue aux quatre états
    de `HEAT-05` — la charte n'en connaissait qu'un gradient. */
 
+/* Le cadre : la colonne des jours à gauche, la grille défilante à droite.
+
+   La colonne est **hors du défilement**, et c'est tout l'intérêt : sur la plage annuelle
+   la grille se tire au doigt sur 795 px, et des étiquettes qui partiraient avec elle ne
+   serviraient plus à rien passé la troisième semaine. */
+.frame {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+/* Sept initiales, alignées sur les sept lignes de la grille.
+
+   Le décalage du haut vaut la rangée des mois — 18 px de hauteur et 8 px de marge — et
+   c'est pour ça que `.months` porte une hauteur explicite : sans elle, l'alignement
+   dépendrait de la police et se décalerait d'un thème à l'autre. */
+.weekdays {
+  display: grid;
+  grid-template-rows: repeat(7, var(--heat-cell));
+  gap: var(--heat-gap);
+  margin-top: 26px;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+  flex: none;
+}
+
+.weekdays span {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
 .scroll {
+  /* Une piste de défilement dans une boîte flex ne se rétrécit pas sous son contenu sans
+     ceci : la grille annuelle pousserait la carte au lieu de défiler dedans. */
+  min-width: 0;
+  flex: 1;
   overflow-x: auto;
   padding-bottom: 6px;
   /* 53 semaines de 15 px font 795 px : la grille annuelle déborde par construction, sur
@@ -147,6 +184,10 @@
 .months {
   display: grid;
   grid-auto-flow: column;
+  /* Hauteur explicite : la colonne des jours de la semaine s'aligne dessus, et une
+     rangée dont la hauteur dépendrait de la police décalerait les sept initiales. */
+  height: 18px;
+  align-items: center;
   font-family: var(--mono);
   /* Un mois tient dans ~4,3 semaines, soit ~64 px : « jan » à 12 px en occupe 22.
      Le passage de 10 à 12 px ne fait donc chevaucher aucune étiquette. */

@@ -14,12 +14,12 @@ import {
   Empty,
   Field,
   Heatmap,
-  LogButton,
   PageHead,
   Progress,
   Ring,
   Rule,
   Segmented,
+  Skeleton,
   Sparkline,
   Stat,
   Stepper,
@@ -304,7 +304,7 @@ export function KitchenSink() {
   const total = Object.keys(checked).length;
 
   return (
-    <div className="wrap">
+    <div className={cx('wrap', styles.screen)}>
       <PageHead eyebrow="Référence visuelle · bibliothèque de composants" title="Charte">
         Reprise fidèle de <code>GuidelinesUI.html</code>. Cette page est le test visuel du projet :
         toute dérive de la charte se voit ici avant de se voir dans un écran.
@@ -386,15 +386,13 @@ export function KitchenSink() {
             </Button>
           </div>
 
-          <h3 className={styles.subhead}>Saisie rapide</h3>
+          <h3 className={styles.subhead}>Attente</h3>
           <p className={styles.note}>
-            La cible : un relevé en un geste. Ces boutons remplissent le formulaire avec la dernière
-            valeur connue.
+            L'état de chargement, dessiné plutôt qu'écrit. Il occupe la place de ce qui arrive : la
+            page ne saute pas quand la donnée se pose.
           </p>
           <div className="stack mt">
-            <LogButton label="Course · 5 km" hint="dernier : 27:14" />
-            <LogButton label="Sommeil" hint="dernier : 7 h 20" />
-            <LogButton label="Session de code" hint="dernier : 2 h 05" />
+            <Skeleton />
           </div>
         </Card>
 

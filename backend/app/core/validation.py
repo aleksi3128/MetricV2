@@ -102,6 +102,17 @@ Calories = Annotated[int, Field(ge=0, le=10000, description="Calories")]
 ProteinG = Annotated[float, Field(ge=0, le=500, description="Protéines en grammes")]
 SugarG = Annotated[float, Field(ge=0, le=1000, description="Sucres ajoutés en grammes")]
 
+#: Valeurs **pour 100 g** d'un ingrédient (`NUT-12`).
+#:
+#: Bornes différentes de celles d'une assiette, et c'est le point : 300 g de protéines
+#: dans un repas est plausible, 300 g pour 100 g d'aliment ne l'est pas. Le plafond
+#: calorique est 900 — l'huile pure, le maximum physique — arrondi à 1 000.
+Per100Calories = Annotated[float, Field(ge=0, le=1000, description="Calories pour 100 g")]
+Per100G = Annotated[float, Field(ge=0, le=100, description="Grammes pour 100 g")]
+#: Quantité pesée d'un ingrédient. Strictement positive : un ingrédient à zéro gramme
+#: n'est pas dans le plat, et l'écrire ferait une ligne qui n'apporte rien au total.
+QuantityG = Annotated[float, Field(gt=0, le=5000, description="Quantité en grammes")]
+
 # ── Hydratation (`HYD`) ───────────────────────────────
 
 VolumeMl = Annotated[int, Field(gt=0, le=5000, description="Volume d'une prise en millilitres")]

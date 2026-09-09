@@ -30,8 +30,96 @@ export interface DayTotals {
   added_sugar_max_g: number;
   over_sugar: boolean;
   calories: number;
+  /** Objectif quotidien, réglable dans `/reglages`. */
+  calories_target: number;
+  /** Rapport à l'objectif, **déjà plafonné à 1** par le serveur. */
+  calories_ratio: number;
   calories_known: number;
   meals: number;
+}
+
+/** Les trois plages de l'historique. Le serveur les refuse par son contrat. */
+export type HistoryRange = 'month' | 'quarter' | 'year';
+
+/**
+ * Une cellule de la grille.
+ *
+ * Le vocabulaire est celui du composant `Heatmap`, que la grille d'assiduité définit —
+ * mais la nutrition n'émet que `done` et `off` : elle n'a ni jour manqué ni bonus.
+ */
+export interface HistoryDay {
+  date: string;
+  calories: number;
+  protein_g: number;
+  added_sugar_g: number;
+  meals: number;
+  /**
+   * Repas du jour dont les calories sont renseignées.
+   *
+   * Zéro avec `meals > 0` est un état à part entière — relevé, non chiffré — et surtout
+   * pas une journée à jeun.
+   */
+  calories_known: number;
+  state: 'done' | 'off';
+  level: number;
+  reason: 'before_track' | 'future' | 'unmeasured' | null;
+}
+
+export interface HistoryPoint {
+  date: string;
+  calories: number;
+  /** `null` sur une série hebdomadaire, qui est déjà une moyenne. */
+  trend_calories: number | null;
+  protein_g: number;
+  added_sugar_g: number;
+  days: number;
+}
+
+export interface HistoryStats {
+  target_calories: number;
+  days: number;
+  logged_days: number;
+  measured_days: number;
+  /** `null` sans aucun jour chiffré : un zéro se lirait comme une journée à jeun. */
+  avg_calories: number | null;
+  avg_protein_g: number | null;
+  avg_added_sugar_g: number | null;
+  on_target_days: number;
+  over_sugar_days: number;
+}
+
+export interface WeekdayProfile {
+  /** 0 = lundi. */
+  weekday: number;
+  avg_calories: number | null;
+  days: number;
+  /** Part de la barre, rapportée au jour le plus copieux. Calculée par le serveur. */
+  ratio: number;
+  over_target: boolean;
+}
+
+export interface TypeShare {
+  meal_type: string;
+  calories: number;
+  /** 0 à 1, calculée par le serveur. */
+  share: number;
+  meals: number;
+}
+
+export interface NutritionHistory {
+  range: HistoryRange;
+  from: string;
+  to: string;
+  /** Le jour courant vient du serveur : un écran ne date jamais rien lui-même. */
+  today: string;
+  granularity: 'day' | 'week';
+  target_calories: number;
+  added_sugar_max_g: number;
+  days: HistoryDay[];
+  series: HistoryPoint[];
+  stats: HistoryStats;
+  weekdays: WeekdayProfile[];
+  types: TypeShare[];
 }
 
 export interface Favorite {
@@ -44,6 +132,50 @@ export interface Favorite {
   calories: number | null;
 }
 
+/** Une entrée du catalogue d'ingrédients (`NUT-12`). */
+export interface Ingredient {
+  id: number;
+  token: string;
+  ingredient_id: string;
+  name: string;
+  calories_100g: number | null;
+  protein_100g: number | null;
+  added_sugar_100g: number | null;
+}
+
+/** Un ingrédient pesé, tel qu'il part au calcul. */
+export interface IngredientLine {
+  name: string;
+  quantity_g: number;
+  calories_100g?: number | null;
+  protein_100g?: number | null;
+  added_sugar_100g?: number | null;
+}
+
+export interface ComposedLine {
+  name: string;
+  quantity_g: number;
+  calories: number;
+  protein_g: number;
+  added_sugar_g: number;
+}
+
+/**
+ * Le total d'un plat, **calculé par le serveur** (`NUT-12`).
+ *
+ * Ce n'est pas une proposition : c'est une multiplication sur des valeurs saisies. Elle
+ * ne se marque donc ni en `AiBlock` ni en `proposed` — le vocabulaire de la proposition
+ * est réservé à ce qu'un modèle rend.
+ */
+export interface Composition {
+  lines: ComposedLine[];
+  calories: number;
+  protein_g: number;
+  added_sugar_g: number;
+  /** Vrai quand aucune ligne ne porte de valeur : il n'y a rien à totaliser. */
+  empty: boolean;
+}
+
 export interface NutritionView {
   date: string;
   totals: DayTotals;
@@ -51,6 +183,26 @@ export interface NutritionView {
   favorites: Favorite[];
   suggested_type: string;
   types: string[];
+  ingredients: Ingredient[];
+}
+
+/**
+ * Un produit lu chez Open Food Facts, depuis son code-barres (`NUT-13`).
+ *
+ * **Ce n'est pas une proposition.** C'est la lecture d'une base de données, au même titre
+ * que le rappel d'un ingrédient du catalogue — qui remplit déjà les champs en clair, sans
+ * marque. Le vocabulaire de la proposition reste à ce qu'un modèle rend.
+ */
+export interface Product {
+  barcode: string;
+  name: string;
+  /** Pour reconnaître le produit. N'est jamais enregistrée. */
+  brand: string | null;
+  calories_100g: number | null;
+  protein_100g: number | null;
+  added_sugar_100g: number | null;
+  /** Vrai quand **aucune** des trois valeurs n'est connue : il n'y aura rien à totaliser. */
+  partial: boolean;
 }
 
 export interface MealFormValues {
@@ -103,8 +255,34 @@ export const nutritionApi = {
   day: (limit?: number) =>
     request<NutritionView>('/api/nutrition', limit ? { query: { limit } } : {}),
 
+  /** Grille, courbe et habitudes sur une plage — une seule requête (`NUT-11`). */
+  history: (range: HistoryRange) =>
+    request<NutritionHistory>('/api/nutrition/history', { query: { range } }),
+
   create: (values: MealFormValues) =>
     request<Meal>('/api/nutrition', { method: 'POST', form: multipart(values) }),
+
+  /**
+   * Le produit derrière un code-barres. **N'écrit rien** (`NUT-13`).
+   *
+   * Le serveur interroge Open Food Facts et normalise sa réponse : ni l'en-tête
+   * d'identité qu'exige ce service, ni le quota de quinze lectures par minute, ni les
+   * conversions d'unités ne se traitent depuis un navigateur.
+   */
+  product: (barcode: string) => request<Product>(`/api/nutrition/products/${barcode}`),
+
+  /** Totalise des ingrédients pesés. **N'écrit rien** (`NUT-12`). */
+  compose: (lines: IngredientLine[]) =>
+    request<Composition>('/api/nutrition/compose', { method: 'POST', body: { lines } }),
+
+  /**
+   * Enregistre un repas composé, et retient ses ingrédients (`NUT-12`).
+   *
+   * Le total n'est pas envoyé : le serveur le **recalcule**. Le transmettre inviterait à
+   * croire qu'il fait foi, alors que ce qui entre dans le fichier vient du serveur.
+   */
+  createComposed: (payload: { meal_type: string; comment: string; lines: IngredientLine[] }) =>
+    request<Meal>('/api/nutrition/composed', { method: 'POST', body: payload }),
 
   /**
    * Propose des macros depuis une photo, une description, ou les deux. **N'écrit rien**

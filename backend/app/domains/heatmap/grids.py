@@ -166,7 +166,11 @@ class GridService:
         moment = today or today_local()
         span = window or default_range(moment)
         items = await self.grids(track_ids, window=span, today=moment)
-        return GridsView(range=range_view(span), grids=[grid_view(item) for item in items])
+        return GridsView(
+            range=range_view(span),
+            today=moment,
+            grids=[grid_view(item) for item in items],
+        )
 
     async def inspect(
         self, track_id: str, day: date, *, today: date | None = None

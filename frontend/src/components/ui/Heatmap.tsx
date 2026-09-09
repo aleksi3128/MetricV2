@@ -28,7 +28,8 @@
  * rouges y verrait un sans-faute permanent.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { cx, cssVars } from '@/lib/cx';
 import { longDate, monthAbbrev, num } from '@/lib/format';
@@ -38,8 +39,15 @@ import styles from './Heatmap.module.css';
 /** Les quatre états du serveur (`HEAT-05`). */
 export type DayState = 'off' | 'missed' | 'done' | 'bonus';
 
-/** Nuance d'affichage d'un `off`. Ne décide jamais si le jour compte. */
-export type DayReason = 'neutralised' | 'before_track' | 'future' | 'pending';
+/**
+ * Nuance d'affichage d'un `off`. Ne décide jamais si le jour compte.
+ *
+ * `unmeasured` est arrivé avec la grille de nutrition : le jour a été relevé mais rien
+ * n'a été chiffré. Il porte le même hachuré qu'un jour neutralisé — ni réussite ni échec,
+ * une case dont on ne peut rien tirer — sans en prendre le mot, qui appartient à
+ * l'assiduité et n'aurait rien voulu dire dans une infobulle de repas.
+ */
+export type DayReason = 'neutralised' | 'before_track' | 'future' | 'pending' | 'unmeasured';
 
 export interface HeatDay {
   /** `AAAA-MM-JJ`, jour local (`HEAT-32`). */
@@ -90,6 +98,7 @@ const REASON_LABEL: Record<DayReason, string> = {
   before_track: 'avant la création de la piste',
   future: 'à venir',
   pending: 'journée en cours',
+  unmeasured: 'non chiffré',
 };
 
 function cellClass(day: HeatDay, isToday: boolean): string {
@@ -102,7 +111,9 @@ function cellClass(day: HeatDay, isToday: boolean): string {
   if (day.state === 'missed') return cx(styles.cell, styles.missed, marker);
 
   // `off` — et c'est là que la nuance sert.
-  if (day.reason === 'neutralised') return cx(styles.cell, styles.neutralised, marker);
+  if (day.reason === 'neutralised' || day.reason === 'unmeasured') {
+    return cx(styles.cell, styles.neutralised, marker);
+  }
   if (day.reason === 'before_track') return cx(styles.cell, styles.void);
   return cx(styles.cell, styles.off, marker);
 }
@@ -138,6 +149,33 @@ function monthLabels(columns: readonly HeatDay[][]): (string | null)[] {
   });
 }
 
+/** Pastilles disponibles pour une légende. Les classes restent dans ce module. */
+export type SwatchTone =
+  'off' | 'missed' | 'neutralised' | 'void' | 'level1' | 'level2' | 'level3' | 'level4';
+
+const SWATCH_CLASS: Record<SwatchTone, string | undefined> = {
+  off: styles.off,
+  missed: styles.missed,
+  neutralised: styles.neutralised,
+  void: styles.void,
+  level1: styles.level1,
+  level2: styles.level2,
+  level3: styles.level3,
+  level4: styles.level4,
+};
+
+/**
+ * Une pastille de légende.
+ *
+ * Exportée pour qu'un écran écrive sa propre légende sans recopier les couleurs : la
+ * grille de nutrition ne parle ni de « manqué » ni de « validé », mais elle doit montrer
+ * exactement les mêmes teintes que ses cellules. Rendue **dans** la légende, elle hérite
+ * de l'accent posé sur le cadre.
+ */
+export function HeatSwatch({ tone }: { tone: SwatchTone }) {
+  return <i className={cx(styles.legendCell, SWATCH_CLASS[tone])} aria-hidden="true" />;
+}
+
 export interface HeatmapProps {
   days: readonly HeatDay[];
   /** Renseigné pour une piste `per_week` : c'est la semaine qui porte le statut. */
@@ -150,7 +188,36 @@ export interface HeatmapProps {
   /** `AAAA-MM-JJ` du jour courant, pour repérer la cellule d'aujourd'hui. */
   today?: string | undefined;
   onSelectDay?: ((day: HeatDay) => void) | undefined;
+  /**
+   * Ce que l'infobulle et l'étiquette accessible disent d'un jour.
+   *
+   * Sans elle, le vocabulaire d'assiduité — « validé », « manqué » — s'appliquerait à
+   * n'importe quel domaine qui emprunte la grille.
+   */
+  describeDay?: ((day: HeatDay) => string) | undefined;
+  /** Légende de remplacement. La légende d'assiduité est le défaut, pas une obligation. */
+  legend?: ReactNode | undefined;
+  /**
+   * Colonne des jours de la semaine, à gauche et **hors du défilement**.
+   *
+   * À n'activer que si la cellule est assez haute pour porter un mot : à 12 px, sept
+   * étiquettes de 12 px se chevaucheraient. C'est l'appelant qui connaît la taille de
+   * cellule qu'il a posée.
+   */
+  weekdays?: boolean | undefined;
 }
+
+/** Lundi en premier, comme `date.weekday()` et comme la grille. */
+const WEEKDAYS: readonly string[] = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const WEEKDAY_NAMES: readonly string[] = [
+  'lundi',
+  'mardi',
+  'mercredi',
+  'jeudi',
+  'vendredi',
+  'samedi',
+  'dimanche',
+];
 
 export function Heatmap({
   days,
@@ -160,102 +227,158 @@ export function Heatmap({
   label,
   today,
   onSelectDay,
+  describeDay,
+  legend,
+  weekdays = false,
 }: HeatmapProps) {
   const [hovered, setHovered] = useState<{ day: HeatDay; x: number; y: number } | null>(null);
+  const track = useRef<HTMLDivElement>(null);
 
   const columns = useMemo(() => toColumns(days), [days]);
   const months = useMemo(() => monthLabels(columns), [columns]);
+  const say = (day: HeatDay) => describeDay?.(day) ?? describe(day, unit);
+
+  /**
+   * La grille s'ouvre sur **la fin**, jamais sur son début.
+   *
+   * Une plage annuelle fait 795 px de large : elle déborde de toute carte, et se
+   * présentait donc sur son bord gauche — les semaines les plus anciennes. Sur un
+   * historique commencé il y a six mois, les cinq premiers mois sont des trous, et la
+   * grille apparaissait **vide** : rien n'y était faux, il n'y avait simplement rien à
+   * cet endroit-là. C'est le genre de défaut qu'aucune mesure ne trouve et qu'une
+   * capture montre en une seconde.
+   *
+   * `instant` : `base.css` pose `scroll-behavior: smooth`, et une animation au premier
+   * rendu ferait défiler la grille sous les yeux à chaque changement de plage. Le repli
+   * sur `scrollLeft` n'est pas de la prudence gratuite : jsdom n'implémente pas
+   * `scrollTo`, et sans lui les dix-sept tests de grille tombaient sur un `TypeError`.
+   */
+  useEffect(() => {
+    const element = track.current;
+    if (!element) return;
+    if (typeof element.scrollTo === 'function') {
+      element.scrollTo({ left: element.scrollWidth, behavior: 'instant' });
+      return;
+    }
+    element.scrollLeft = element.scrollWidth;
+  }, [days]);
+
+  /** Pose l'infobulle au-dessus d'une cellule, en coordonnées relatives au cadre. */
+  const point = (cell: HTMLElement, day: HeatDay) => {
+    const box = cell.getBoundingClientRect();
+    const host = cell.closest(`.${styles.wrap}`)?.getBoundingClientRect();
+    if (!host) return;
+    setHovered({ day, x: box.left - host.left + box.width / 2, y: box.top - host.top });
+  };
+
+  const dismiss = () => {
+    setHovered(null);
+  };
 
   return (
     <div className={styles.wrap} style={cssVars({ '--accent-rgb': accentRgb })}>
-      <div className={styles.scroll}>
-        <div
-          className={styles.months}
-          style={{
-            gridTemplateColumns: `repeat(${columns.length}, calc(var(--heat-cell) + var(--heat-gap)))`,
-          }}
-          aria-hidden="true"
-        >
-          {months.map((month, index) => (
-            <span className={styles.month} key={index}>
-              {month}
-            </span>
-          ))}
-        </div>
-
-        <div className={styles.grid} role="grid" aria-label={label}>
-          {columns.map((column, columnIndex) =>
-            column.map((day) => (
-              <button
-                key={day.date}
-                type="button"
-                className={cellClass(day, day.date === today)}
-                title={`${longDate(day.date)} — ${describe(day, unit)}`}
-                aria-label={`${longDate(day.date)}, ${describe(day, unit)}`}
-                // Avant l'existence de la piste il n'y a rien à ouvrir, et après
-                // aujourd'hui rien ne s'est encore produit.
-                disabled={day.reason === 'before_track' || day.reason === 'future'}
-                onClick={() => onSelectDay?.(day)}
-                onMouseEnter={(event) => {
-                  const cell = event.currentTarget.getBoundingClientRect();
-                  const host = event.currentTarget
-                    .closest(`.${styles.wrap}`)
-                    ?.getBoundingClientRect();
-                  if (!host) return;
-                  setHovered({
-                    day,
-                    x: cell.left - host.left + cell.width / 2,
-                    y: cell.top - host.top,
-                  });
-                }}
-                onMouseLeave={() => {
-                  setHovered(null);
-                }}
-                data-column={columnIndex}
-                data-state={day.state}
-                data-reason={day.reason ?? undefined}
-              />
-            )),
-          )}
-        </div>
-
-        {weeks != null && (
-          <div className={styles.weekBar} role="list" aria-label={`Statut hebdomadaire — ${label}`}>
-            {weeks.map((week) => (
-              <span
-                key={week.start}
-                role="listitem"
-                className={cx(styles.weekMark, WEEK_CLASS[week.status])}
-                data-status={week.status}
-                title={`Semaine du ${longDate(week.start)} — ${week.done}/${week.expected}`}
-              />
+      <div className={styles.frame}>
+        {weekdays && (
+          <div className={styles.weekdays} aria-hidden="true">
+            {WEEKDAYS.map((initial, index) => (
+              <span key={WEEKDAY_NAMES[index]}>{initial}</span>
             ))}
           </div>
         )}
+        <div className={styles.scroll} ref={track}>
+          <div
+            className={styles.months}
+            style={{
+              gridTemplateColumns: `repeat(${columns.length}, calc(var(--heat-cell) + var(--heat-gap)))`,
+            }}
+            aria-hidden="true"
+          >
+            {months.map((month, index) => (
+              <span className={styles.month} key={index}>
+                {month}
+              </span>
+            ))}
+          </div>
+
+          <div className={styles.grid} role="grid" aria-label={label}>
+            {columns.map((column, columnIndex) =>
+              column.map((day) => (
+                <button
+                  key={day.date}
+                  type="button"
+                  className={cellClass(day, day.date === today)}
+                  title={`${longDate(day.date)} — ${say(day)}`}
+                  aria-label={`${longDate(day.date)}, ${say(day)}`}
+                  // Avant l'existence de la piste il n'y a rien à ouvrir, et après
+                  // aujourd'hui rien ne s'est encore produit.
+                  disabled={day.reason === 'before_track' || day.reason === 'future'}
+                  onClick={() => onSelectDay?.(day)}
+                  onMouseEnter={(event) => {
+                    point(event.currentTarget, day);
+                  }}
+                  onMouseLeave={dismiss}
+                  // **Le focus ouvre l'infobulle, et pas seulement le survol.** Une
+                  // grille dont le clic n'ouvre rien — celle de la nutrition — n'aurait
+                  // rien à dire au pouce sans cette ligne : il n'y a pas de survol sur un
+                  // téléphone, et c'est l'appui qui donne le focus.
+                  onFocus={(event) => {
+                    point(event.currentTarget, day);
+                  }}
+                  onBlur={dismiss}
+                  data-column={columnIndex}
+                  data-state={day.state}
+                  data-reason={day.reason ?? undefined}
+                />
+              )),
+            )}
+          </div>
+
+          {weeks != null && (
+            <div
+              className={styles.weekBar}
+              role="list"
+              aria-label={`Statut hebdomadaire — ${label}`}
+            >
+              {weeks.map((week) => (
+                <span
+                  key={week.start}
+                  role="listitem"
+                  className={cx(styles.weekMark, WEEK_CLASS[week.status])}
+                  data-status={week.status}
+                  title={`Semaine du ${longDate(week.start)} — ${week.done}/${week.expected}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {hovered && (
         <div className={styles.tip} style={{ left: hovered.x, top: hovered.y }} role="status">
           <div className={styles.tipDate}>{longDate(hovered.day.date)}</div>
-          {describe(hovered.day, unit)}
+          {say(hovered.day)}
         </div>
       )}
 
       <div className={styles.legend}>
-        <span>rien attendu</span>
-        <i className={cx(styles.legendCell, styles.off)} />
-        <span className={styles.legendSpacer} />
-        <span>manqué</span>
-        <i className={cx(styles.legendCell, styles.missed)} />
-        <span className={styles.legendSpacer} />
-        <span>neutralisé</span>
-        <i className={cx(styles.legendCell, styles.neutralised)} />
-        <span className={styles.legendSpacer} />
-        <span>validé</span>
-        <i className={cx(styles.legendCell, styles.level1)} />
-        <i className={cx(styles.legendCell, styles.level2)} />
-        <i className={cx(styles.legendCell, styles.level3)} />
-        <i className={cx(styles.legendCell, styles.level4)} />
+        {legend ?? (
+          <>
+            <span>rien attendu</span>
+            <HeatSwatch tone="off" />
+            <span className={styles.legendSpacer} />
+            <span>manqué</span>
+            <HeatSwatch tone="missed" />
+            <span className={styles.legendSpacer} />
+            <span>neutralisé</span>
+            <HeatSwatch tone="neutralised" />
+            <span className={styles.legendSpacer} />
+            <span>validé</span>
+            <HeatSwatch tone="level1" />
+            <HeatSwatch tone="level2" />
+            <HeatSwatch tone="level3" />
+            <HeatSwatch tone="level4" />
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, Card, Chip, Empty, Field, Rule } from '@/components/ui';
+import { Button, Card, Chip, Empty, Field, Rule, Skeleton } from '@/components/ui';
 import { assistantApi, type ProfilePayload, type ProfileView } from '@/features/assistant/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -147,7 +147,9 @@ export function Profile() {
     return (
       <>
         <Rule>Ce que je suis</Rule>
-        <Card>chargement…</Card>
+        <Card>
+          <Skeleton />
+        </Card>
       </>
     );
   }

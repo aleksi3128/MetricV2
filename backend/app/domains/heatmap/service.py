@@ -118,6 +118,7 @@ class TrackService:
     async def view(self) -> TracksView:
         """Tout l'écran de configuration en une requête."""
         return TracksView(
+            today=today_local(),
             tracks=await self.all(include_inactive=True),
             sources=[
                 SourceDescriptor(

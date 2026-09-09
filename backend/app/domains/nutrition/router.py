@@ -2,21 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, Header, Path, Query, Response, UploadFile, status
 
 from app.core.dates import today_local
 from app.core.deps import StoreDep
 from app.domains.ai.deps import AiServiceDep
+from app.domains.nutrition.deps import ProductClientDep
 from app.domains.nutrition.photos import MAX_BYTES, PhotoError
 from app.domains.nutrition.schemas import (
+    ComposedMealPayload,
+    ComposePayload,
+    Composition,
     Favorite,
     FavoritePayload,
     Meal,
     MealEstimate,
     MealPayload,
+    NutritionHistory,
     NutritionView,
+    Product,
 )
 from app.domains.nutrition.service import NutritionService
 from app.storage.errors import StorageConflictError
@@ -25,6 +31,13 @@ router = APIRouter(prefix="/nutrition", tags=["nutrition"])
 
 RowId = Annotated[int, Path(ge=0)]
 IfMatch = Annotated[str | None, Header(alias="If-Match")]
+
+#: Les trois plages de l'historique, déclarées en `Literal` comme celles des agrégats :
+#: une plage inconnue est refusée par le contrat lui-même, sans code de garde et avec un
+#: message de validation utile.
+HistoryRange = Annotated[
+    Literal["month", "quarter", "year"], Query(description="Plage de l'historique")
+]
 
 #: Un an. Le chemin d'une photo contient son horodatage et un aléa : il ne désigne jamais
 #: deux contenus différents, la réponse est donc cachable durablement (`NUT-08`).
@@ -92,6 +105,17 @@ async def create(
         calories=calories,
         source=source,
     )
+
+
+@router.get("/history", response_model=NutritionHistory, summary="Historique des repas")
+async def history(store: StoreDep, range: HistoryRange = "month") -> NutritionHistory:
+    """Grille, courbe et habitudes sur une plage (`NUT-11`).
+
+    Une seule requête pour toute la section : la grille, la courbe, les moyennes, le
+    profil de semaine et la répartition par type de repas. Les découper aurait fait cinq
+    allers-retours pour un écran qui se lit d'un coup.
+    """
+    return await NutritionService(store).history(today_local(), range)
 
 
 # ── Estimation assistée (`NUT-04`) ────────────────────
@@ -184,6 +208,59 @@ async def photo(relative: str, store: StoreDep) -> Response:
 def limits() -> dict[str, int]:
     """Le client affiche la limite plutôt que de la deviner."""
     return {"max_photo_bytes": MAX_BYTES}
+
+
+# ── Repas composé (`NUT-12`) ──────────────────────────
+
+
+@router.post("/compose", response_model=Composition, summary="Totaliser des ingrédients")
+def compose_meal(payload: ComposePayload) -> Composition:
+    """Additionne des ingrédients pesés. **N'écrit rien** (`NUT-12`).
+
+    Le calcul est ici et non à l'écran parce qu'il en a deux raisons de l'être :
+    l'arrondi, qui doit se faire une seule fois sur le total, et l'assistant, qui compose
+    lui aussi et ne doit pas en avoir une seconde définition.
+
+    Sans stockage ni authentification de données : cette route ne lit aucun fichier.
+    """
+    return NutritionService.composition(payload)
+
+
+@router.post(
+    "/composed",
+    response_model=Meal,
+    status_code=status.HTTP_201_CREATED,
+    summary="Enregistrer un repas composé",
+)
+async def create_composed(payload: ComposedMealPayload, store: StoreDep) -> Meal:
+    """Compose le plat, l'enregistre, et retient ses ingrédients (`NUT-12`).
+
+    Le total est **recalculé** et non repris du client : ce qui entre dans le fichier
+    vient du serveur. Les ingrédients rejoignent le catalogue au passage, pour que la
+    composition suivante n'en redemande pas les valeurs.
+    """
+    return await NutritionService(store).create_composed(payload)
+
+
+# ── Base produits (`NUT-13`) ──────────────────────────
+
+
+@router.get(
+    "/products/{barcode}",
+    response_model=Product,
+    summary="Lire un produit par son code-barres",
+)
+async def read_product(barcode: str, products: ProductClientDep) -> Product:
+    """Interroge Open Food Facts. **N'écrit rien.**
+
+    Le produit n'entre au catalogue qu'à l'enregistrement du repas, par le chemin qui y
+    fait déjà entrer les ingrédients tapés (`NUT-12`) : un scan qu'on abandonne ne doit
+    rien laisser derrière lui, comme le reste de la feuille.
+
+    La validation du code se fait avant l'appel réseau — voir `products.py` pour ce que
+    cela évite.
+    """
+    return await products.product(barcode)
 
 
 # ── Favoris (`NUT-10`) ────────────────────────────────

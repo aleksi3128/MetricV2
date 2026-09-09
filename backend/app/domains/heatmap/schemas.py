@@ -192,6 +192,10 @@ class Order(BaseModel):
 class TracksView(BaseModel):
     """Réponse unique de l'écran de configuration."""
 
+    #: Jour courant, pour borner les sélecteurs de date des jours neutralisés. L'écran
+    #: le prenait de `new Date()` : sur un téléphone en avance, il proposait de
+    #: neutraliser demain, que le serveur refuse ensuite (`PastDate`).
+    today: date
     tracks: list[Track]
     #: Catalogue des sources : l'écran de création n'en code aucune (`HEAT-02`).
     sources: list[SourceDescriptor]
@@ -309,6 +313,14 @@ class GridsView(BaseModel):
     """
 
     range: RangeView
+    #: Jour courant dans le fuseau de l'application. La grille marque « aujourd'hui »
+    #: d'un liseré : l'écran le prenait de `new Date()`, alors que l'état des cellules,
+    #: lui, a été décidé par l'horloge du serveur. Les deux pouvaient désigner deux
+    #: jours différents, et le liseré tombait à côté de la dernière cellule évaluée.
+    #:
+    #: Servi à part de `range.to` : la plage par défaut ne finit pas forcément
+    #: aujourd'hui, et s'appuyer dessus serait vrai par coïncidence.
+    today: date
     grids: list[GridView]
 
 

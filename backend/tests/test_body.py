@@ -449,3 +449,34 @@ async def test_the_trend_is_computed_server_side_only(store: FileStore) -> None:
 
     assert view.series == []
     assert view.stats.count == 0
+
+
+# ── Le jour vient du serveur ──────────────────────────
+
+
+def test_both_views_serve_the_current_day(app_client: TestClient, auth: dict[str, str]) -> None:
+    """Le formulaire de pesée datait ses lignes avec `new Date()` — l'horloge du
+    téléphone, qui n'est ni dans le fuseau de l'application ni forcément à l'heure. Une
+    pesée du matin partait la veille, et rien à l'écran ne le disait.
+
+    Les deux vues le servent, parce que les deux portent un formulaire.
+    """
+    today = today_local().isoformat()
+
+    weight = app_client.get(WEIGHT, headers=auth).json()
+    measurements = app_client.get(MEASUREMENTS, headers=auth).json()
+
+    assert weight["today"] == today
+    assert measurements["today"] == today
+
+
+def test_the_day_is_served_even_when_nothing_has_been_recorded(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """C'est précisément le cas qui compte : sur un historique vide, l'écran n'a aucune
+    autre date à laquelle se raccrocher, et c'est là qu'il retomberait sur l'horloge
+    locale."""
+    body = app_client.get(WEIGHT, headers=auth).json()
+
+    assert body["entries"] == []
+    assert body["today"] == today_local().isoformat()

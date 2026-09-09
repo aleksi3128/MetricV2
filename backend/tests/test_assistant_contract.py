@@ -575,8 +575,12 @@ def test_a_greeting_gets_a_greeting_not_a_file_reading() -> None:
     du cas où l'on ne demande **rien**."""
     text = prompt(actions=CATALOGUE, slices=SLICES)
 
-    assert "un bonjour\n  appelle un bonjour" in text
-    assert "ne récite pas mon dossier" in text
+    # Repliée sur la largeur du fichier : on compare sans les retours à la ligne, sinon
+    # reformater la consigne casse un test qui ne porte pas sur sa mise en page.
+    flat = " ".join(text.split())
+    assert "un bonjour appelle un bonjour" in flat
+    assert "ne récite pas mon dossier" in flat
+    assert "écrite comme tu la dirais" in flat
 
 
 def test_the_model_is_told_not_to_narrate_its_own_plumbing() -> None:

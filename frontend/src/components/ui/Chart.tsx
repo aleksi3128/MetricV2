@@ -63,26 +63,23 @@ const VIEW_W = 720;
 const VIEW_H_BAND = 274;
 const VIEW_H_PLAIN = 212;
 /**
- * Gouttière de gauche : la place réservée aux graduations verticales.
+ * Gouttière de gauche — **six unités, et plus une colonne d'étiquettes**.
  *
- * La charte donnait 54, calibrés sur des étiquettes de 9 unités. Depuis que le texte des
- * axes est dimensionné pour être **lu** — 26 unités sur téléphone, parce que le SVG est
- * réduit d'un facteur 0,47 —, une graduation coûte bien davantage.
+ * Elle en a valu 78, puis 118, et c'était la même erreur les deux fois : réserver au
+ * texte des graduations une colonne qui ne sert qu'à lui. Sur un écran large, où le SVG
+ * s'étire à 930 px pour un `viewBox` de 720, ces 118 unités arrivaient à **152 px de
+ * blanc** à gauche de chaque graphique — avant même le rembourrage de la carte et la
+ * marge de page, qui en ajoutent 80 autres.
  *
- * **Le chiffre est mesuré, plus estimé.** `getComputedTextLength()` sur les étiquettes
- * réellement rendues donne **17,68 unités par caractère**, letter-spacing compris et à
- * la virgule près sur tous les échantillons. La valeur précédente, 78, prétendait tenir
- * « cinq caractères de chasse fixe » : cinq en demandent 88,4, plus 10 de gouttière, soit
- * 98. Elle n'en tenait pas quatre — « 5:11 » débordait déjà de 2,4 unités —, et une
- * étiquette de six comme « 1,25 m » sortait de 38, soit 17 px de la carte sur un
- * téléphone. `overflow: visible` sur le `<svg>` — voulu, pour l'infobulle — laissait le
- * texte se peindre par-dessus le rembourrage de la carte, vers le bord de la page.
+ * Les graduations sont donc **posées sur leur ligne**, alignées à gauche et légèrement
+ * au-dessus d'elle, à l'intérieur du tracé. La ligne de grille passe dessous en
+ * `--line` : un chiffre gris clair sur une ligne d'un gris plus clair encore ne
+ * concurrence pas la donnée, et c'est la disposition de tous les graphiques compacts.
  *
- * 118 tient **six caractères** : 6 × 17,68 = 106, plus les 10 unités qui séparent la
- * graduation de l'axe, et une unité de battement. Au-delà de six, l'étiquette ressortira :
- * une graduation n'a pas à porter son unité, que la légende écrit déjà.
+ * Ce qui reste, six unités, n'est plus une gouttière mais le retrait qui empêche la
+ * première étiquette de coller au bord du cadre.
  */
-const LEFT = 118;
+const LEFT = 6;
 
 /**
  * Largeur maximale d'une barre de bande, en unités de viewBox.
@@ -128,6 +125,14 @@ export interface Series {
 export interface BandSeries extends Series {
   /** Sous ce seuil, les barres passent en `recover` : le signal qu'on cherche à voir venir. */
   alertBelow?: number | undefined;
+  /**
+   * Au-dessus de ce seuil, la même bascule — un plafond plutôt qu'un plancher.
+   *
+   * Les deux existent parce que les deux signaux existent : un sommeil qui tombe se
+   * guette par en dessous, des sucres ajoutés qui débordent par au-dessus. Sans ce
+   * pendant, une bande de dépassement se serait peinte de la couleur du calme.
+   */
+  alertAbove?: number | undefined;
   /** Bornes de la bande. Par défaut, les extrêmes de la série. */
   domain?: readonly [number, number] | undefined;
 }
@@ -176,6 +181,12 @@ function scale(value: number, [min, max]: readonly [number, number], top: number
 
 function extent(values: readonly number[]): readonly [number, number] {
   return [Math.min(...values), Math.max(...values)];
+}
+
+/** Une barre de bande hors de ses bornes — sous un plancher, ou au-dessus d'un plafond. */
+function alerts(band: BandSeries, value: number): boolean {
+  if (band.alertBelow !== undefined && value < band.alertBelow) return true;
+  return band.alertAbove !== undefined && value > band.alertAbove;
 }
 
 export function Chart({
@@ -314,7 +325,9 @@ export function Chart({
                 stroke="var(--line)"
                 strokeWidth="1"
               />
-              <text x={LEFT - 10} y={yPrimary(tick) + 3} textAnchor="end" className={styles.axis}>
+              {/* Au-dessus de sa ligne et non à côté : c'est ce qui rend au tracé la
+                  colonne que la gouttière lui prenait. */}
+              <text x={LEFT} y={yPrimary(tick) - 5} textAnchor="start" className={styles.axis}>
                 {formatPrimary(tick)}
               </text>
             </g>
@@ -350,7 +363,7 @@ export function Chart({
                 .join(' ')}
               fill="none"
               stroke={TONE_VAR[context.tone]}
-              strokeWidth="1.5"
+              strokeWidth="1"
               strokeDasharray="4 3"
               strokeOpacity="0.85"
             />
@@ -364,7 +377,7 @@ export function Chart({
                 .join(' ')}
               fill="none"
               stroke={TONE_VAR[overlay.tone]}
-              strokeWidth="1.5"
+              strokeWidth="1"
               strokeLinejoin="round"
               {...(overlay.dashed ? { strokeDasharray: '4 3' } : {})}
             />
@@ -374,13 +387,13 @@ export function Chart({
             points={primaryPoints}
             fill="none"
             stroke={TONE_VAR[primary.tone]}
-            strokeWidth="2"
+            strokeWidth="1.5"
             strokeLinejoin="round"
           />
           <circle
             cx={x(count - 1)}
             cy={yPrimary(primary.values[count - 1] ?? 0)}
-            r="4"
+            r="3"
             fill={TONE_VAR[primary.tone]}
           />
 
@@ -398,7 +411,7 @@ export function Chart({
                   3,
                   ((value - bandDomain[0]) / span) * (BAND_BOTTOM - BAND_TOP),
                 );
-                const alerting = band.alertBelow !== undefined && value < band.alertBelow;
+                const alerting = alerts(band, value);
                 return (
                   <rect
                     key={index}
@@ -442,10 +455,10 @@ export function Chart({
               <circle
                 cx={x(active)}
                 cy={yPrimary(primary.values[active] ?? 0)}
-                r="4"
+                r="3"
                 fill="var(--bg)"
                 stroke={TONE_VAR[primary.tone]}
-                strokeWidth="2"
+                strokeWidth="1.5"
               />
             </>
           )}
@@ -487,11 +500,9 @@ export function Chart({
                   <span
                     className={styles.tipMark}
                     style={{
-                      color:
-                        band.alertBelow !== undefined &&
-                        (band.values[active] ?? 0) < band.alertBelow
-                          ? TONE_VAR.recover
-                          : TONE_VAR[band.tone],
+                      color: alerts(band, band.values[active] ?? 0)
+                        ? TONE_VAR.recover
+                        : TONE_VAR[band.tone],
                     }}
                   >
                     ▬

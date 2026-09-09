@@ -102,6 +102,13 @@ def _catalogue() -> dict[str, Metric]:
             load=lambda store, _: NutritionService(store).protein_points(),
         ),
         Metric(
+            key="daily_calories",
+            label="Calories",
+            unit="kcal",
+            granularity="day",
+            load=lambda store, _: NutritionService(store).calorie_points(),
+        ),
+        Metric(
             key="weekly_minutes",
             label="Volume hebdomadaire",
             unit="min",

@@ -36,6 +36,8 @@ export interface WeightStats {
 }
 
 export interface WeightView {
+  /** Le jour courant selon le serveur. Le formulaire ne le devine pas. */
+  today: string;
   stats: WeightStats;
   series: WeightPoint[];
   entries: WeightEntry[];
@@ -72,6 +74,8 @@ export interface MeasurementIndicator {
 }
 
 export interface MeasurementView {
+  /** Même raison que sur `WeightView` : le jour d'un relevé vient du serveur. */
+  today: string;
   indicators: MeasurementIndicator[];
   entries: MeasurementEntry[];
   total: number;

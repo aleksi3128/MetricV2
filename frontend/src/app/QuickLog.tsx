@@ -1,9 +1,10 @@
 /**
  * Saisie rapide — la feuille du bouton central.
  *
- * `LogButton` porte depuis le début le principe du projet : « un relevé en un geste ».
- * Il demandait pourtant d'aller d'abord sur le bon écran, ce qui en fait trois. Cette
- * feuille s'ouvre depuis n'importe où et ramène un relevé à **deux appuis**.
+ * « Un relevé en un geste » est le principe du projet. Il a d'abord vécu dans un bouton
+ * posé sur l'écran du domaine — ce qui demandait d'aller d'abord sur le bon écran, et en
+ * faisait trois. Cette feuille s'ouvre depuis n'importe où et ramène un relevé à **deux
+ * appuis** ; le bouton, lui, n'a plus servi et a été retiré.
  *
  * **Trois écritures seulement**, et c'est délibéré. Un verre d'eau, un supplément et une
  * pesée sont des gestes à un chiffre — ou à zéro. Un repas et une séance demandent un
@@ -24,7 +25,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { Button, Chip, ChipStrip, Sheet, SheetGroup, SheetRow, Stepper } from '@/components/ui';
+import {
+  Button,
+  Chip,
+  ChipStrip,
+  Sheet,
+  SheetGroup,
+  SheetRow,
+  Skeleton,
+  Stepper,
+} from '@/components/ui';
 import { IconActivity, IconNutrition } from '@/components/ui/icons';
 import { bodyApi } from '@/features/body/api';
 import { routineApi } from '@/features/routine/api';
@@ -133,7 +143,7 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
     >
       <SheetGroup title="Hydratation">
         {hydration.isPending ? (
-          <p className={styles.wait}>chargement…</p>
+          <Skeleton />
         ) : presets.length === 0 ? (
           <p className={styles.wait}>Aucun format enregistré.</p>
         ) : (

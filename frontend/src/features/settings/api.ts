@@ -13,6 +13,7 @@ export interface SettingsValues {
   target_weight_kg: number;
   target_protein_g: number;
   max_added_sugar_g: number;
+  target_calories: number;
   target_hydration_ml: number;
   hydration_presets_ml: number[];
   heatmap_metric: string;

@@ -110,7 +110,10 @@ describe('écran Réglages', () => {
     renderSettings();
 
     expect(await screen.findByText('réglé')).toBeInTheDocument();
-    expect(screen.getAllByText('valeur par défaut')).toHaveLength(5);
+    // Six depuis que l'objectif de calories existe : poids, protéines, sucres,
+    // calories, hydratation, raccourcis. Seul le poids cible est réglé dans le
+    // fixture.
+    expect(screen.getAllByText('valeur par défaut')).toHaveLength(6);
     expect(screen.getByText(/défaut 70 kg/)).toBeInTheDocument();
     expect(screen.getByText(/défaut 250, 500, 750 ml/)).toBeInTheDocument();
   });

@@ -314,7 +314,11 @@ async def test_several_tracks_come_back_in_one_call_sharing_one_range(
 
     body = get(app_client, auth, GRIDS, tracks="eau,torse")
 
-    assert set(body) == {"range", "grids"}
+    # `today` accompagne la plage : la grille marque le jour courant, et l'écran ne doit
+    # pas le prendre de l'horloge du téléphone — elle peut désigner un autre jour que
+    # celle qui a décidé l'état des cellules.
+    assert set(body) == {"range", "today", "grids"}
+    assert body["today"] == today.isoformat()
     assert [grid["track"]["id"] for grid in body["grids"]] == ["eau", "torse"]
     assert all(
         grid["range"] == body["range"] and len(grid["days"]) == 371 for grid in body["grids"]

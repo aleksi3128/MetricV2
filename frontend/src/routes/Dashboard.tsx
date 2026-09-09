@@ -49,6 +49,7 @@ import {
   PageHead,
   Rule,
   Segmented,
+  Skeleton,
 } from '@/components/ui';
 import {
   aggregatesApi,
@@ -167,7 +168,7 @@ function Graph({ shipped }: { shipped: SeriesView }) {
       )}
 
       {custom.isPending && choice !== null ? (
-        <p className={styles.empty}>chargement…</p>
+        <Skeleton lines={4} />
       ) : series === undefined || series.points.length < 2 ? (
         <p className={styles.empty}>
           Deux relevés suffisent pour tracer une courbe. Il en manque encore.
@@ -324,7 +325,7 @@ export function Dashboard() {
             « chargement… » sur fond noir ne dit pas où l'on vient d'arriver, et la seconde
             d'attente se lit comme un écran qui n'a pas répondu. */}
         <PageHead eyebrow="Aujourd’hui" title="Tableau de bord" />
-        <p className={styles.empty}>chargement…</p>
+        <Skeleton lines={4} />
       </div>
     );
   }

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from app.core.dates import today_local
 from app.domains.app_settings.service import SettingsService
 from app.domains.body.models import MEASUREMENT_FIELDS, MeasurementRow, WeightRow
 from app.domains.body.schemas import (
@@ -59,6 +60,7 @@ class WeightService:
         page = recent[offset : offset + limit]
 
         return WeightView(
+            today=today_local(),
             stats=self._stats(chronological, target),
             series=self._series(chronological),
             entries=[self._entry(row) for row in page],
@@ -203,6 +205,7 @@ class MeasurementService:
         recent = sorted(rows, key=lambda row: (row.model.date, row.index), reverse=True)
 
         return MeasurementView(
+            today=today_local(),
             indicators=self._indicators(chronological),
             entries=[self._entry(row) for row in recent[offset : offset + limit]],
             total=len(rows),

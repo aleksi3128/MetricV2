@@ -37,6 +37,7 @@ import {
   PageHead,
   Rule,
   Scatter,
+  Skeleton,
   Stat,
   Table,
 } from '@/components/ui';
@@ -165,7 +166,7 @@ export function Runs() {
         </Card>
       ) : isPending ? (
         <Card>
-          <p className={styles.empty}>chargement…</p>
+          <Skeleton lines={4} />
         </Card>
       ) : data.total_runs === 0 ? (
         <Card>

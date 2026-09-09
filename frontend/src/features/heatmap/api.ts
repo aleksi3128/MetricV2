@@ -97,6 +97,8 @@ export interface Grid {
 export interface GridsView {
   /** Partagée par toutes les grilles : elles s'affichent alignées. */
   range: DateRange;
+  /** Le jour courant selon le serveur — celui qui a décidé l'état des cellules. */
+  today: string;
   grids: Grid[];
 }
 
@@ -167,6 +169,8 @@ export interface OffDay {
 }
 
 export interface TracksView {
+  /** Le jour courant selon le serveur — borne des sélecteurs de jours neutralisés. */
+  today: string;
   tracks: Track[];
   /** Catalogue servi par le serveur : l'écran n'en code aucune source (`HEAT-02`). */
   sources: SourceDescriptor[];

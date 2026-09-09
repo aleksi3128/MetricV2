@@ -13,6 +13,7 @@ import {
   Progress,
   Ring,
   Rule,
+  Skeleton,
   Sparkline,
   Stat,
 } from '@/components/ui';
@@ -239,7 +240,11 @@ function Checklist() {
     <Card>
       <div className="spread">
         <div>
-          <h3>{longDate(new Date())}</h3>
+          {/* Le jour vient du serveur, dans le fuseau local — `ChecklistView.date`, le
+              même que celui qui a décidé quels suppléments sont dus. `longDate(new Date())`
+              lisait l'horloge du téléphone : à minuit passé, le titre annonçait un jour
+              dont la checklist en dessous n'était pas celle-là. */}
+          <h3>{data !== undefined ? longDate(data.date) : '—'}</h3>
           <p className={cx('eyebrow', styles.tightEyebrow)}>
             {data?.ratio.complete === true ? 'journée complète' : 'checklist du jour'}
           </p>
@@ -252,7 +257,7 @@ function Checklist() {
       </div>
 
       {isPending ? (
-        <p className={cx(styles.empty, styles.emptyInset)}>chargement…</p>
+        <Skeleton className={styles.emptyInset} />
       ) : items.length === 0 ? (
         <Empty title="Aucun supplément au planning">
           Ajoute ce que tu prends, et la checklist se remplit toute seule chaque matin.
@@ -476,7 +481,7 @@ export function Routine() {
   const stats = hydration?.stats;
 
   return (
-    <div className="wrap">
+    <div className={cx('wrap', styles.screen)}>
       <PageHead eyebrow="Routine du jour" title={<>Hydratation &amp; suppléments</>} />
 
       <Rule>Aujourd'hui</Rule>

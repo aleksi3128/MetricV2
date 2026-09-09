@@ -144,7 +144,6 @@
      tenaient parce qu'un survol *éclaircit* sur fond sombre ; sur fond clair il doit
      assombrir, et un littéral ne sait pas faire les deux. */
   --signal-hover: #7dd3fc;
-  --log-hover: #1b2530;
 
   /* Élévation des surfaces flottantes (infobulles, tiroirs). */
   --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
@@ -311,7 +310,6 @@
 
   /* Un survol assombrit, au lieu d'éclaircir. */
   --signal-hover: #172554;
-  --log-hover: #eef2f7;
 
   /* Une ombre portée sur fond clair se lit à 12 % là où il en fallait 45 sur fond
      sombre : au-delà, elle salit la page au lieu de détacher la surface. */

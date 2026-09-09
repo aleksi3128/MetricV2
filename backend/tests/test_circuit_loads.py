@@ -656,3 +656,100 @@ def test_a_pasted_link_still_ignores_the_note(
 
     assert response.status_code == 201, response.text
     assert response.json()["exercises"][0]["note"] == ""
+
+
+# ── La suppression, et les charges devenues orphelines ─
+
+
+def orphans(client: TestClient, auth: dict[str, str]) -> Any:
+    return loads(client, auth)["orphans"]
+
+
+def drop_circuit(client: TestClient, auth: dict[str, str], circuit: Any) -> None:
+    """Retire la séance qui employait les exercices — c'est ce qui crée une orpheline."""
+    response = client.delete(
+        f"{ACTIVITY}/circuits/{circuit['id']}",
+        headers={**auth, "If-Match": circuit["token"]},
+    )
+    assert response.status_code == 204, response.text
+
+
+def test_a_load_whose_exercise_left_every_circuit_is_still_visible(
+    app_client: TestClient, auth: dict[str, str], circuit: Any
+) -> None:
+    """**Le défaut que ce lot corrige.** La ligne survivait dans `circuit_loads.csv` sans
+    qu'aucun écran ne puisse la montrer : invisible, donc indestructible, et prête à
+    ressusciter avec une valeur périmée le jour où le nom revenait dans un circuit."""
+    declare(app_client, auth, name="Rowing", weight_kg=12)
+    drop_circuit(app_client, auth, circuit)
+
+    body = loads(app_client, auth)
+
+    assert body["loads"] == []
+    assert [item["name"] for item in body["orphans"]] == ["Rowing"]
+    # `circuits` vaut zéro et le dit : c'est la seule raison d'être de la section.
+    assert body["orphans"][0]["circuits"] == 0
+    assert body["orphans"][0]["weight_kg"] == 12
+
+
+def test_an_orphan_carries_what_it_takes_to_delete_it(
+    app_client: TestClient, auth: dict[str, str], circuit: Any
+) -> None:
+    """Position et jeton, sans quoi la route de suppression reste inatteignable — c'est
+    exactement la situation d'avant."""
+    declare(app_client, auth, name="Rowing", weight_kg=12)
+    drop_circuit(app_client, auth, circuit)
+
+    stray = orphans(app_client, auth)[0]
+
+    assert stray["id"] is not None
+    assert stray["token"]
+
+
+def test_removing_a_load_takes_the_line_and_leaves_the_journal(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, circuit: Any
+) -> None:
+    """`circuit_loads.csv` dit ce qu'on charge aujourd'hui et se corrige ;
+    `circuit_load_log.csv` dit ce qu'on a décidé et ne se rature pas. Effacer le journal
+    en même temps réécrirait le passé pour effacer le présent."""
+    declare(app_client, auth, name="Rowing", weight_kg=12)
+    drop_circuit(app_client, auth, circuit)
+    stray = orphans(app_client, auth)[0]
+
+    response = app_client.delete(
+        f"{ACTIVITY}/loads/{stray['id']}",
+        headers={**auth, "If-Match": stray["token"]},
+    )
+
+    assert response.status_code == 204, response.text
+    assert orphans(app_client, auth) == []
+    assert "Rowing" not in dav.content_of(LOADS_FILE)
+    assert "Rowing" in dav.content_of(LOG_FILE)
+
+
+def test_removing_a_load_without_its_token_is_a_conflict(
+    app_client: TestClient, auth: dict[str, str], circuit: Any
+) -> None:
+    """`STO-05` — un `If-Match` absent est un conflit, jamais une permission. La règle ne
+    s'assouplit pas parce que la ligne est un reliquat."""
+    declare(app_client, auth, name="Rowing", weight_kg=12)
+    drop_circuit(app_client, auth, circuit)
+    stray = orphans(app_client, auth)[0]
+
+    response = app_client.delete(f"{ACTIVITY}/loads/{stray['id']}", headers=auth)
+
+    assert response.status_code == 409
+    assert orphans(app_client, auth) != []
+
+
+def test_a_load_still_used_by_a_circuit_is_not_an_orphan(
+    app_client: TestClient, auth: dict[str, str], circuit: Any
+) -> None:
+    """La section ne doit pas doubler les cartes : ce qui est dans `loads` n'est jamais
+    dans `orphans`, sinon la page proposerait de détruire ce qu'elle demande de remplir."""
+    declare(app_client, auth, name="Rowing", weight_kg=12)
+
+    body = loads(app_client, auth)
+
+    assert "Rowing" in [item["name"] for item in body["loads"]]
+    assert body["orphans"] == []

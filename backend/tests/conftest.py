@@ -18,6 +18,7 @@ from app.domains.ai.client import OpenRouterClient
 from app.domains.ai.service import AiProvider, AiService, ModelCatalogue
 from app.domains.notifications.provider import PushProvider
 from app.domains.notifications.push import PushSender
+from app.domains.nutrition.products import OpenFoodFactsClient, ProductProvider
 from app.main import create_app
 from app.storage.cache import FileCache
 from app.storage.files import FileStore
@@ -27,6 +28,7 @@ from app.storage.webdav import WebDavClient
 # **Importé pour son effet de bord** : il fige l'horloge de la session, et doit le
 # faire avant que les fichiers de test ne calculent leur « TODAY » à l'import.
 from tests import _clock  # noqa: F401
+from tests.fake_openfoodfacts import NUTELLA, FakeOpenFoodFacts
 from tests.fake_openrouter import FakeOpenRouter, free_model
 from tests.fake_webdav import FakeWebDav
 from tests.fake_webpush import FakeWebPush
@@ -196,6 +198,29 @@ def ai_service(ai_client: OpenRouterClient) -> AiService:
     return AiService(ai_client, ModelCatalogue(ai_client))
 
 
+# ── Base produits (`NUT-13`) ──────────────────────────
+
+
+@pytest.fixture
+def openfoodfacts() -> FakeOpenFoodFacts:
+    """Base produits scénarisable. Le Nutella y est, parce que sa fiche est réelle."""
+    return FakeOpenFoodFacts(products={"3017620422003": dict(NUTELLA)})
+
+
+@pytest.fixture
+async def product_client(
+    openfoodfacts: FakeOpenFoodFacts,
+) -> AsyncIterator[OpenFoodFactsClient]:
+    client = OpenFoodFactsClient(
+        base_url="https://openfoodfacts.test",
+        transport=httpx2.ASGITransport(app=openfoodfacts),
+    )
+    try:
+        yield client
+    finally:
+        await client.aclose()
+
+
 @pytest.fixture
 def store_client(client: TestClient, store: FileStore) -> TestClient:
     """Application dont le stockage est branché sur le double, **sans** assistance IA.
@@ -206,6 +231,15 @@ def store_client(client: TestClient, store: FileStore) -> TestClient:
     assert isinstance(provider, StorageProvider)
     provider.use(store)
     return client
+
+
+@pytest.fixture
+def product_app_client(store_client: TestClient, product_client: OpenFoodFactsClient) -> TestClient:
+    """Application dont le stockage **et** la base produits sont branchés sur des doubles."""
+    products = store_client.app.state.products  # type: ignore[attr-defined]
+    assert isinstance(products, ProductProvider)
+    products.use(product_client)
+    return store_client
 
 
 @pytest.fixture

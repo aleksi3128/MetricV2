@@ -27,6 +27,11 @@ DEFAULTS: dict[str, str] = {
     "target_weight_kg": "70",
     "target_protein_g": "150",
     "max_added_sugar_g": "30",
+    # Arrivé avec l'historique de `/nutrition` : les calories étaient relevées depuis
+    # le début et n'avaient aucune référence. 2 200 kcal est un ordre de grandeur
+    # d'adulte actif, pas une prescription — c'est un repli, et l'écran dit qu'il en
+    # est un tant qu'on ne l'a pas choisi.
+    "target_calories": "2200",
     "target_hydration_ml": "2000",
     "hydration_presets_ml": "250,500,750",
     "heatmap_metric": "activity",
@@ -85,6 +90,7 @@ def _typed(raw: dict[str, str]) -> SettingsValues:
         target_weight_kg=_decimal(raw["target_weight_kg"], 70),
         target_protein_g=_decimal(raw["target_protein_g"], 150),
         max_added_sugar_g=_decimal(raw["max_added_sugar_g"], 30),
+        target_calories=_whole(raw["target_calories"], 2200),
         target_hydration_ml=_whole(raw["target_hydration_ml"], 2000),
         hydration_presets_ml=_volumes(raw["hydration_presets_ml"], [250, 500, 750]),
         heatmap_metric=raw["heatmap_metric"].strip() or "activity",

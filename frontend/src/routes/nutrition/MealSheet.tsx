@@ -29,11 +29,18 @@
  */
 
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AiBlock, Button, Field, Sheet, SheetRow, Stepper } from '@/components/ui';
 import { useAiStatus } from '@/features/ai/useAiStatus';
-import { nutritionApi, type MealEstimate, type MealFormValues } from '@/features/nutrition/api';
+import {
+  nutritionApi,
+  type Composition,
+  type Ingredient,
+  type MealEstimate,
+  type MealFormValues,
+  type Product,
+} from '@/features/nutrition/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { fileSize, reduceImage } from '@/lib/image';
@@ -41,34 +48,62 @@ import { useToast } from '@/lib/toast';
 
 import styles from '../Nutrition.module.css';
 import { estimateSentence } from './estimate';
+import { CompositionTotal, IngredientTable } from './Ingredients';
+import {
+  emptyIngredient,
+  ingredientFromProduct,
+  isBlank,
+  toLines,
+  type IngredientDraft,
+} from './ingredient-draft';
+import {
+  clearDraft,
+  readDraft,
+  writeDraft,
+  type Macro,
+  type MealDraft,
+  type MealMode,
+} from './meal-draft';
+import { FoodDetail } from './FoodDetail';
+import { ScanStep } from './ScanStep';
 
-/** Les trois macros qu'une estimation peut proposer, et que l'écran marque comme telles. */
-type Macro = 'protein_g' | 'added_sugar_g' | 'calories';
+/* `Macro` et `MealMode` vivent dans `meal-draft.ts` : c'est lui qui doit les reconnaître
+   dans du texte relu, et deux déclarations de la même liste finiraient par diverger. */
 
-/** Les quatre modes du ticket, dans l'ordre où ils sont proposés. */
-type Mode = 'photo' | 'photo-texte' | 'texte' | 'manuel';
-
-const MODES: { value: Mode; label: string; hint: string }[] = [
+/** Les cinq modes de saisie, dans l'ordre où ils sont proposés. */
+const MODES: { value: MealMode; label: string; hint: string }[] = [
   { value: 'photo', label: 'Photo', hint: 'l’assiette suffit' },
   { value: 'photo-texte', label: 'Photo et description', hint: 'le plus précis' },
   { value: 'texte', label: 'Description', hint: 'sans photo' },
+  { value: 'compose', label: 'Repas composé', hint: 'ingrédients pour 100 g et quantités' },
   { value: 'manuel', label: 'Valeurs à la main', hint: 'protéines, sucres, calories' },
 ];
 
+/** Les deux modes qui n'appellent aucun modèle, et restent donc offerts sans clé. */
+const OFFLINE_MODES: readonly MealMode[] = ['manuel', 'compose'];
+
 /** Le mode demande-t-il une photo ? */
-function wantsPhoto(mode: Mode): boolean {
+function wantsPhoto(mode: MealMode): boolean {
   return mode === 'photo' || mode === 'photo-texte';
 }
 
 /** Le mode demande-t-il une description ? */
-function wantsText(mode: Mode): boolean {
+function wantsText(mode: MealMode): boolean {
   return mode === 'photo-texte' || mode === 'texte';
 }
 
-/** Le mode passe-t-il par une estimation ? Le quatrième, non — c'est tout son sens. */
-function wantsEstimate(mode: Mode): boolean {
-  return mode !== 'manuel';
+/** Le mode passe-t-il par une estimation ? Les deux derniers, non — c'est tout leur sens. */
+function wantsEstimate(mode: MealMode): boolean {
+  return !OFFLINE_MODES.includes(mode);
 }
+
+/**
+ * Ce que la feuille montre : son formulaire, ou l'une des deux surfaces qui la prennent.
+ *
+ * La fiche porte la **clé** de sa ligne et non la ligne : ce qui est à l'écran doit rester
+ * la ligne vivante, pas une photographie prise à l'ouverture.
+ */
+type Step = { kind: 'form' } | { kind: 'scan' } | { kind: 'food'; key: string };
 
 const EMPTY: MealFormValues = {
   meal_type: '',
@@ -86,28 +121,61 @@ export function MealSheet({
   onSaved,
   suggested,
   types,
+  ingredients,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
   suggested: string;
   types: string[];
+  /** Catalogue d'ingrédients, servi avec le reste de l'écran (`NUT-12`). */
+  ingredients: Ingredient[];
 }) {
   const { notify } = useToast();
   const ai = useAiStatus();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const [mode, setMode] = useState<Mode | null>(null);
+  const [mode, setMode] = useState<MealMode | null>(null);
   const [values, setValues] = useState<MealFormValues>(EMPTY);
   const [preview, setPreview] = useState<string | null>(null);
   const [weight, setWeight] = useState<number | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // Vrai quand la saisie reprise portait une photo, qui elle n'a pas suivi. C'est la
+  // seule chose qu'une reprise perd, et donc la seule qu'elle ait à annoncer : des champs
+  // remplis se lisent tout seuls, un cadre photo vide ne dit pas ce qu'il a perdu.
+  const [photoLost, setPhotoLost] = useState(false);
+
+  // La feuille tient-elle déjà une saisie ? Une référence et non un état : l'effet de
+  // reprise ne doit se rejouer qu'à l'ouverture, pas à chaque frappe.
+  const live = useRef(false);
 
   // Ce que le modèle a proposé, et lesquelles de ces valeurs sont encore les siennes.
   // Deux états et non un : une valeur retouchée cesse d'être une proposition, mais
   // l'estimation reste affichée — elle explique d'où vient ce qui est dans les champs.
   const [estimate, setEstimate] = useState<MealEstimate | null>(null);
   const [proposed, setProposed] = useState<Macro[]>([]);
+
+  // Le repas composé : ses lignes, et le total que le serveur en a tiré.
+  //
+  // **Vide au départ** (`NUT-14`). Une ligne vierge posée d'avance mettait cinq champs
+  // entre l'ouverture du mode et le geste qui compte, et il fallait la traverser pour
+  // atteindre le scan.
+  const [rows, setRows] = useState<IngredientDraft[]>([]);
+  const [total, setTotal] = useState<Composition | null>(null);
+
+  // Les surfaces qui prennent la feuille et la rendent : le scan (`NUT-13`) et la fiche
+  // d'un aliment (`NUT-14`). Des étapes et non des `Sheet` imbriquées — le raisonnement
+  // complet est en tête de `ScanStep.tsx`.
+  //
+  // Un seul état pour les deux : deux booléens auraient permis d'être dans les deux à la
+  // fois, ce qui n'a pas de sens et se serait vu un jour à l'écran.
+  //
+  // **Hors du brouillon, délibérément.** Rouvrir la feuille doit rendre la saisie, pas
+  // rallumer une caméra que personne n'a redemandée ni rouvrir une fiche.
+  const [step, setStep] = useState<Step>({ kind: 'form' });
+  // La ligne arrivée par un scan, qui attend son poids — c'est là que va le focus.
+  const [weighing, setWeighing] = useState<string | null>(null);
 
   // Révocation au démontage : sans elle, fermer la feuille avec un aperçu ouvert fuirait
   // sa mémoire jusqu'au rechargement.
@@ -118,8 +186,17 @@ export function MealSheet({
     };
   }, [preview]);
 
-  /** Tout remettre à zéro — c'est ce que « annuler » veut dire, à n'importe quelle étape. */
-  function reset(): void {
+  /**
+   * Tout remettre à zéro — c'est ce que « annuler » veut dire, à n'importe quelle étape.
+   *
+   * **Le brouillon part avec.** C'est le seul geste qui dit « je ne veux plus de cette
+   * saisie » : fermer la feuille, lui, ne l'efface plus.
+   *
+   * `useCallback` sans dépendance, et ce n'est pas une optimisation : l'effet de reprise
+   * appelle cette fonction et doit ne se rejouer qu'à l'ouverture. Une fonction recréée à
+   * chaque rendu l'y ferait entrer à chaque frappe.
+   */
+  const reset = useCallback((): void => {
     setMode(null);
     setValues(EMPTY);
     setPreview((current) => {
@@ -129,14 +206,76 @@ export function MealSheet({
     setWeight(null);
     setEstimate(null);
     setProposed([]);
+    setRows([]);
+    setTotal(null);
     setError(null);
+    setPhotoLost(false);
+    setStep({ kind: 'form' });
+    setWeighing(null);
+    clearDraft();
+    live.current = false;
     if (fileInput.current) fileInput.current.value = '';
-  }
+  }, []);
 
-  function close(): void {
-    reset();
-    onClose();
-  }
+  /**
+   * Remet à l'écran ce qui avait été rangé.
+   *
+   * Le total n'en est pas : il appartient aux lignes qui l'ont produit et se redemande
+   * d'un appui. Le reprendre afficherait un calcul que personne n'a refait — exactement
+   * ce que le reste de la feuille prend soin de jeter dès qu'une quantité bouge.
+   */
+  const resume = useCallback((draft: MealDraft): void => {
+    setMode(draft.mode);
+    setValues({ ...draft.values, photo: null });
+    setRows(draft.rows);
+    setStep({ kind: 'form' });
+    setWeighing(null);
+    setProposed(draft.proposed);
+    setEstimate(draft.estimate);
+    setTotal(null);
+    setError(null);
+    setPhotoLost(draft.photo);
+    live.current = true;
+  }, []);
+
+  /**
+   * À l'ouverture : reprendre la saisie rangée, ou repartir du choix du mode.
+   *
+   * `open` seul en dépendance de fond — la feuille ne se relit **qu'en s'ouvrant**. `live`
+   * dit si elle tient déjà cette saisie : dans ce cas on n'y touche pas, sans quoi chaque
+   * réouverture écraserait la photo, son aperçu et le total, qui ne vivent qu'en mémoire.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const draft = readDraft();
+    if (draft === null) {
+      // Rien, ou plus rien : passé le délai, la feuille repart à zéro même si elle n'a
+      // jamais été démontée. Une seule règle vaut mieux que deux durées de vie.
+      if (live.current) reset();
+      return;
+    }
+    if (!live.current) resume(draft);
+  }, [open, reset, resume]);
+
+  /**
+   * À chaque frappe : ranger. Le délai court depuis la dernière, pas depuis l'ouverture.
+   *
+   * `writeDraft` efface de lui-même une saisie redevenue vide : effacer sa description
+   * fait donc disparaître le brouillon, ce qui est bien ce que le geste dit.
+   */
+  useEffect(() => {
+    if (!open || mode === null) return;
+    const { photo, ...rest } = values;
+    writeDraft({
+      mode,
+      values: rest,
+      rows,
+      proposed,
+      estimate,
+      photo: photo !== null,
+      saved_at: Date.now(),
+    });
+  }, [open, mode, values, rows, proposed, estimate]);
 
   /**
    * « Pas d'accord » — et l'action fait vraiment ce qu'elle dit.
@@ -220,6 +359,38 @@ export function MealSheet({
     setProposed(filled);
   }
 
+  /**
+   * Le total, demandé au serveur. **N'écrit rien** (`NUT-12`).
+   *
+   * Sur demande et non à chaque frappe : cinq champs par ingrédient feraient une requête
+   * par caractère. C'est aussi ce qui rend le total lisible — il apparaît quand on a fini
+   * de saisir, pas pendant.
+   */
+  const computeTotal = useMutation({
+    mutationFn: () => nutritionApi.compose(toLines(rows)),
+    onSuccess: setTotal,
+    onError: (caught: unknown) => {
+      setError(caught instanceof ApiError ? caught : null);
+    },
+  });
+
+  const saveComposed = useMutation({
+    mutationFn: () =>
+      nutritionApi.createComposed({
+        meal_type: values.meal_type || suggested,
+        comment: values.comment.trim(),
+        lines: toLines(rows),
+      }),
+    onSuccess: () => {
+      notify('Repas composé enregistré. Ses ingrédients sont retenus.', 'effort');
+      reset();
+      onSaved();
+    },
+    onError: (caught: unknown) => {
+      setError(caught instanceof ApiError ? caught : null);
+    },
+  });
+
   const save = useMutation({
     mutationFn: () => nutritionApi.create({ ...values, meal_type: values.meal_type || suggested }),
     onSuccess: () => {
@@ -232,36 +403,117 @@ export function MealSheet({
     },
   });
 
+  /**
+   * Ce qu'un produit scanné devient : une ligne, et un doigt sur le champ du poids.
+   *
+   * Deux gestes en plus de l'insertion, et chacun a sa raison :
+   *
+   * * **la ligne vierge est remplacée**, pas suivie. Le tableau en garde toujours une à
+   *   remplir ; laisser la première vide au-dessus du produit scanné ferait un plat qui
+   *   commence par du vide ;
+   * * **le nom du plat est repris du premier produit** s'il est encore vide. Un repas
+   *   composé sans nom ne s'enregistre pas — et pour l'immense majorité des scans, un
+   *   produit, c'est le repas. Ce n'est pas une valeur inventée : elle vient de ce qui a
+   *   été scanné, elle est à l'écran, et elle se retape.
+   */
+  function addProduct(product: Product): void {
+    const row = ingredientFromProduct(product);
+    setRows((current) => [...current.filter((item) => !isBlank(item)), row]);
+    setWeighing(row.key);
+    // Le total appartient aux lignes qui l'ont produit.
+    setTotal(null);
+    setValues((current) =>
+      current.comment.trim() === '' ? { ...current, comment: product.name } : current,
+    );
+    // **Des champs vides sans un mot se lisent comme une panne.** Un produit qu'Open Food
+    // Facts connaît sans ses macros est fréquent — les produits frais, les marques de
+    // distributeur — et la ligne vaut d'être ajoutée quand même : elle dit ce qu'il y
+    // avait dans l'assiette. Encore faut-il savoir qu'il n'y aura rien à totaliser.
+    if (product.partial) {
+      notify(
+        'Open Food Facts ne connaît pas les valeurs pour 100 g de ce produit. Ses champs restent vides.',
+        'load',
+      );
+    }
+    setStep({ kind: 'form' });
+  }
+
   const setMacro = (name: Macro) => (value: string) => {
     setValues((current) => ({ ...current, [name]: value }));
     // Retoucher une proposition la fait sienne, et la marque disparaît.
     setProposed((current) => current.filter((macro) => macro !== name));
   };
 
+  /** Revenir au formulaire — ce que « Retour » veut dire dans les deux surfaces. */
+  function back(): void {
+    setStep({ kind: 'form' });
+  }
+
+  /**
+   * La ligne dont la fiche est ouverte.
+   *
+   * Retrouvée par sa clé à chaque rendu plutôt que copiée dans l'état : une ligne dont on
+   * garderait une copie afficherait des valeurs d'avant si elle changeait sous la fiche.
+   * `undefined` si elle a disparu — retirée depuis une autre surface, ou brouillon repris.
+   */
+  const inspected = step.kind === 'food' ? rows.find((row) => row.key === step.key) : undefined;
+
   const sentence = estimate === null ? '' : estimateSentence(estimate);
-  const nothingToLog = values.comment.trim() === '' && values.photo === null;
+  const composing = mode === 'compose';
+  const lines = toLines(rows);
+  // Un repas composé a besoin de son nom **et** d'au moins un ingrédient pesé : sans le
+  // premier il arriverait au journal sans rien pour le reconnaître, sans le second il n'y
+  // aurait rien à composer.
+  const nothingToLog = composing
+    ? values.comment.trim() === '' || lines.length === 0
+    : values.comment.trim() === '' && values.photo === null;
   const nothingToEstimate = values.photo === null && values.comment.trim() === '';
-  const busy = choose.isPending || suggest.isPending || save.isPending;
+  const busy =
+    choose.isPending ||
+    suggest.isPending ||
+    save.isPending ||
+    saveComposed.isPending ||
+    computeTotal.isPending;
 
   return (
     <Sheet
       open={open}
-      onClose={close}
-      title="Ajouter un repas"
+      /* Fermer ne jette plus la saisie : les quatre portes de sortie de `Sheet` sont aussi
+         celles d'un pouce qui dérape ou d'un aller simple vers l'appareil photo. Le
+         brouillon la garde quinze minutes ; « Changer de mode » reste le geste qui
+         l'efface vraiment. */
+      onClose={onClose}
+      /* Le titre suit la surface — une feuille qui garde son titre ne dit pas où l'on
+         est — et la fiche prend le nom de son aliment. Le répéter en tête de la fiche
+         aurait écrit deux fois « Nutella » à deux centimètres d'écart. */
+      title={step.kind === 'scan' ? 'Scanner un aliment' : (inspected?.name ?? 'Ajouter un repas')}
       lede={
         mode === null
           ? 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
-          : undefined
+          : step.kind === 'scan'
+            ? 'Le code-barres suffit. Rien n’est enregistré avant ta validation.'
+            : undefined
       }
     >
-      {mode === null ? (
+      {step.kind === 'scan' ? (
+        <ScanStep
+          onFound={addProduct}
+          onBack={back}
+          onManual={() => {
+            setRows((current) => [...current, emptyIngredient()]);
+            setStep({ kind: 'form' });
+          }}
+        />
+      ) : inspected !== undefined ? (
+        <FoodDetail row={inspected} onBack={back} />
+      ) : mode === null ? (
         <div className={styles.modes}>
-          {MODES.filter((item) => ai.enabled || item.value === 'manuel').map((item) => (
-            /* `SheetRow` et non `LogButton` : c'est la ligne que la charte réserve aux
-               feuilles — pleine largeur, `--tap-lg`, libellé à gauche et indice à droite.
-               `LogButton` est le vocabulaire de la saisie rapide, où l'indice est une
-               **mesure** rappelée ; ici c'est une phrase, et le rendre en chasse fixe la
-               faisait passer pour un relevé. */
+          {MODES.filter((item) => ai.enabled || OFFLINE_MODES.includes(item.value)).map((item) => (
+            /* `SheetRow` : c'est la ligne que la charte réserve aux feuilles — pleine
+               largeur, `--tap-lg`, libellé à gauche et indice à droite. L'indice y est
+               une phrase, et le rendre en chasse fixe — comme le faisait l'ancien
+               `LogButton`, dont l'indice était une **mesure** rappelée — la faisait
+               passer pour un relevé. */
             <SheetRow
               key={item.value}
               label={item.label}
@@ -271,6 +523,7 @@ export function MealSheet({
               aria-label={item.label}
               onClick={() => {
                 setMode(item.value);
+                live.current = true;
               }}
             />
           ))}
@@ -284,6 +537,10 @@ export function MealSheet({
           className={styles.form}
           onSubmit={(event) => {
             event.preventDefault();
+            if (composing) {
+              saveComposed.mutate();
+              return;
+            }
             save.mutate();
           }}
           noValidate
@@ -291,6 +548,15 @@ export function MealSheet({
           {error !== null && (
             <p className={styles.error} role="alert">
               {error.message}
+            </p>
+          )}
+
+          {/* Fermer et rouvrir la feuille garde la photo ; recharger la page, non. Le
+              seul moment où la reprise perd quelque chose est aussi le seul où elle
+              parle. */}
+          {photoLost && (
+            <p className={styles.note}>
+              Saisie reprise. La photo, elle, n’a pas suivi — à reprendre.
             </p>
           )}
 
@@ -350,16 +616,60 @@ export function MealSheet({
             </div>
           )}
 
-          {(wantsText(mode) || mode === 'manuel') && (
+          {(wantsText(mode) || mode === 'manuel' || composing) && (
             <Field
-              label="Description"
-              placeholder="poulet, riz, brocolis"
+              label={composing ? 'Nom du plat' : 'Description'}
+              placeholder={composing ? 'bowl poulet riz' : 'poulet, riz, brocolis'}
               value={values.comment}
               error={error?.messageFor('comment')}
               onChange={(event) => {
                 setValues((current) => ({ ...current, comment: event.target.value }));
               }}
             />
+          )}
+
+          {composing && (
+            <>
+              <IngredientTable
+                rows={rows}
+                catalogue={ingredients}
+                weighing={weighing}
+                onScan={() => {
+                  setStep({ kind: 'scan' });
+                }}
+                onInspect={(key) => {
+                  setStep({ kind: 'food', key });
+                }}
+                onChange={(next) => {
+                  setRows(next);
+                  // Le total appartient aux lignes qui l'ont produit : changer une
+                  // quantité sans le jeter laisserait un chiffre d'un autre plat à
+                  // l'écran, et c'est celui-là qu'on croirait enregistrer.
+                  setTotal(null);
+                }}
+              />
+
+              <Button
+                variant="ghost"
+                busy={computeTotal.isPending}
+                disabled={lines.length === 0}
+                onClick={() => {
+                  computeTotal.mutate();
+                }}
+              >
+                Calculer le total
+              </Button>
+
+              {total !== null && (
+                <CompositionTotal
+                  lines={total.lines}
+                  calories={total.calories}
+                  proteinG={total.protein_g}
+                  addedSugarG={total.added_sugar_g}
+                  empty={total.empty}
+                />
+              )}
+            </>
           )}
 
           {wantsEstimate(mode) &&
@@ -424,8 +734,12 @@ export function MealSheet({
             ))}
 
           {/* Pas-à-pas et non champs libres : une valeur proposée doit pouvoir se corriger
-              au pouce, sinon elle sera adoptée telle quelle faute de pouvoir la retoucher. */}
-          <div className={styles.triple}>
+              au pouce, sinon elle sera adoptée telle quelle faute de pouvoir la retoucher.
+
+              **Absents du mode composé** : les macros y viennent du calcul du serveur, et
+              trois champs modifiables à côté d'un total calculé laisseraient croire qu'on
+              peut avoir les deux — alors que l'enregistrement recalcule. */}
+          <div className={cx(styles.triple, composing && styles.hidden)} hidden={composing}>
             <Stepper
               label="Protéines (g)"
               value={values.protein_g}
@@ -461,7 +775,7 @@ export function MealSheet({
               type="submit"
               variant="primary"
               className={cx(styles.commit)}
-              busy={save.isPending}
+              busy={save.isPending || saveComposed.isPending}
               disabled={nothingToLog || busy}
             >
               Enregistrer le repas
@@ -475,7 +789,9 @@ export function MealSheet({
 
           {nothingToLog && (
             <p className={styles.empty}>
-              Une photo ou une description suffit. Les macros peuvent attendre.
+              {composing
+                ? 'Un nom de plat et un ingrédient pesé suffisent. Les valeurs pour 100 g peuvent rester vides.'
+                : 'Une photo ou une description suffit. Les macros peuvent attendre.'}
             </p>
           )}
         </form>

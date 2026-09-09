@@ -21,6 +21,9 @@ function json(status: number, body: unknown): Response {
 }
 
 const WEIGHT_VIEW = {
+  // Le jour vient du serveur : les deux formulaires de l'écran s'en servent, et sans lui
+  // ils refusent d'écrire plutôt que de dater une pesée avec l'horloge du navigateur.
+  today: '2026-07-21',
   stats: {
     latest_kg: 68.4,
     latest_date: '2026-07-20',
@@ -51,6 +54,7 @@ const WEIGHT_VIEW = {
 };
 
 const MEASUREMENT_VIEW = {
+  today: '2026-07-21',
   indicators: [
     {
       field: 'waist_cm',

@@ -321,3 +321,401 @@
   background: rgb(var(--recover-rgb) / var(--badge-bg-a));
   color: var(--recover);
 }
+
+/* ── Historique (`NUT-11`) ────────────────────────── */
+
+/* La cellule grossit quand les colonnes se raréfient.
+
+   Cinq colonnes de 12 px occuperaient 75 px au milieu d'une carte qui en fait 330 : la
+   grille aurait l'air d'un timbre. À 34 px elle remplit sa carte sur un téléphone, et
+   chaque case redevient une cible qu'un pouce peut viser pour lire son infobulle.
+
+   Les trois tailles sont posées ici et non dans le composant : c'est l'écran qui sait
+   combien de colonnes il a demandées. La feuille de style de la grille, elle, ne connaît
+   que la variable. */
+.heat {
+  --heat-cell: 20px;
+  --heat-gap: 4px;
+  --heat-radius: 4px;
+}
+
+/* Les trois plages visent une **hauteur voisine** : 144, 116 et 96 px. C'est la seule
+   dimension qui compte pour que la carte ne saute pas d'une plage à l'autre — la largeur,
+   elle, doit varier, puisque c'est elle qui porte le temps.
+
+   Un premier essai mettait le mois à 34 px de cellule : la grille remplissait sa carte,
+   et c'était précisément le défaut — un mois de calories occupait autant de place que le
+   journal du jour, pour beaucoup moins à dire. */
+.gridMonth {
+  --heat-cell: 18px;
+  --heat-gap: 3px;
+  --heat-radius: 4px;
+}
+
+/* Treize colonnes à 14 px font 218 px : la plage trimestrielle tient entière dans une
+   carte de téléphone, sans avoir à la tirer. */
+.gridQuarter {
+  --heat-cell: 14px;
+  --heat-gap: 3px;
+  --heat-radius: 3px;
+}
+
+/* La taille de la charte. 53 colonnes débordent par construction, et se tirent au doigt
+   comme celles de `/assiduite`. */
+.gridYear {
+  --heat-cell: 12px;
+  --heat-gap: 2px;
+  --heat-radius: 3px;
+}
+
+/* Dès qu'il y a la largeur, les cellules la prennent.
+
+   Sur un Mac, la carte de l'historique fait 730 px : cinq colonnes de 18 px y occupaient
+   100 px, un timbre-poste au bord d'une carte vide. Les trois plages grandissent
+   ensemble, en gardant leur écart — sans quoi passer de « 1 mois » à « 1 an » ne
+   changerait plus seulement la profondeur, mais l'échelle de lecture. */
+@media (min-width: 600px) {
+  .gridMonth {
+    --heat-cell: 30px;
+    --heat-gap: 5px;
+    --heat-radius: 6px;
+  }
+
+  .gridQuarter {
+    --heat-cell: 21px;
+    --heat-gap: 4px;
+    --heat-radius: 4px;
+  }
+
+  .gridYear {
+    --heat-cell: 13px;
+    --heat-gap: 3px;
+  }
+}
+
+/* Le dégagement entre deux groupes d'une légende. Sans lui, « aucun repas » et « non
+   chiffré » se lisent comme une seule expression. */
+.legendGap {
+  width: 10px;
+}
+
+/* Le dégradé et ses deux bouts, insécables. À 390 px la légende passait à la ligne entre
+   « moins » et « plus » : quatre pastilles orphelines au bout d'une ligne, et le mot qui
+   les explique au début de la suivante. */
+.legendScale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.habit {
+  margin-top: var(--s4);
+}
+
+/* ── Repas composé (`NUT-12`) ─────────────────────── */
+
+.ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* **Une ligne fine, et trois choses dessus** (`NUT-14`) : l'aliment, ce qu'on en a mis,
+   et de quoi le retirer. Les valeurs pour 100 g sont tenues et envoyées, jamais montrées.
+
+   La grille et non `flex` : le champ des grammes doit garder une largeur **fixe** — un
+   nom long ne doit pas le comprimer sous la largeur où trois chiffres tiennent. */
+.food {
+  display: grid;
+  grid-template-columns: 1fr 92px auto;
+  gap: var(--s3);
+  /* Plus d'étiquette au-dessus du champ depuis que l'unité est dedans : les trois
+     éléments se centrent, et la ligne y gagne la hauteur d'une ligne de texte. */
+  align-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: var(--s3);
+}
+
+/* Le nom d'un aliment scanné : du texte, et une **cible** — il ouvre la fiche. D'où
+   `--tap` en plancher : c'est une cible pleine, pas un libellé cliquable par courtoisie. */
+.foodName {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.foodLabel {
+  font-size: var(--t-body);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+/* Dessiné en CSS et non écrit en « › » : ce caractère manque à la police d'affichage, qui
+   le remplaçait par un « > » de fortune — vu à l'écran, à 360 px. Deux bordures et une
+   rotation ne dépendent d'aucune police. */
+.foodChevron {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 8px;
+  border-right: 1.5px solid var(--ink-low);
+  border-bottom: 1.5px solid var(--ink-low);
+  transform: rotate(-45deg);
+  vertical-align: middle;
+}
+
+/* Un aliment que ni la base ni le catalogue ne chiffrent ne pèse rien dans le total.
+   Avec les champs à l'écran, cela se voyait — ils étaient vides. Sans eux, il faut le
+   dire. */
+.foodUnknown {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.foodPick,
+.foodQuantity {
+  min-width: 0;
+}
+
+/* `--tap` en dur plutôt qu'un `Button` : la touche vit dans une ligne dont la hauteur est
+   celle du champ, et un bouton du dépôt y ajouterait ses propres marges. */
+.foodRemove {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--s2);
+  background: none;
+  border: 0;
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  cursor: pointer;
+  transition: var(--t);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .foodRemove:hover {
+    color: var(--recover);
+  }
+}
+
+/* Le total. Sobre à dessein : ce n'est pas une proposition, et lui donner l'apparence
+   d'un `AiBlock` affaiblirait la marque là où elle sert. */
+.total {
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: var(--s3) var(--s4);
+  background: var(--surface-2);
+}
+
+.totalHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* « Le chiffre qu'on vient lire », dans l'échelle de la charte : c'est un total
+   secondaire, pas le nombre d'un tableau de bord. */
+.totalHead strong {
+  font-size: var(--t-num-md);
+}
+
+.totalHead span {
+  color: var(--ink-mid);
+  font-size: var(--t-meta);
+}
+
+.totalLines {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.totalLines li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.totalLines li span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* `hidden` seul est neutralisé par `display: grid` de `.triple` : la règle du socle ne
+   peut pas l'atteindre depuis un module. */
+.hidden {
+  display: none;
+}
+
+/* ── Scanner un aliment (`NUT-13`) ──────────────────── */
+
+.scan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+/* Deux portes côte à côte, et la place se partage : « Ajouter un aliment » ouvre le scan,
+   « Ajouter à la main » reste pour ce qui n'a pas de code-barres. En colonne sous 400 px —
+   deux boutons de front y tomberaient sous la largeur où leur libellé tient sur une
+   ligne, et c'est le défaut que `LogButton` traîne déjà ailleurs. */
+.ingredientActions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s2);
+}
+
+@media (min-width: 400px) {
+  .ingredientActions {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+/* Le viseur. `aspect-ratio` plutôt qu'une hauteur fixe : la feuille fait 330 px de large
+   sur un téléphone et 560 sur une tablette, et un cadre de hauteur fixe y serait un
+   bandeau. */
+.viewfinder {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Une fenêtre claire au centre, et le reste assombri. Le cadre ne **découpe** rien —
+   `zbar` lit l'image entière — il dit où viser, ce qui suffit à rendre le geste sûr. */
+.target {
+  position: absolute;
+  inset: 22% 12%;
+  border: 2px solid rgb(var(--accent-rgb) / 0.9);
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+.scanHint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--s3);
+  text-align: center;
+  margin: 0;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.8);
+}
+
+.scanForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.scanError {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.scanActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  justify-content: space-between;
+}
+
+/* ── La fiche d'un aliment (`NUT-14`) ───────────────── */
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.detailSource {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.detailValues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.detailValuesHead {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+/* Trois de front : ce sont trois nombres courts, et les mettre en colonne ferait descendre
+   « Retour » sous la ligne de flottaison pour rien. */
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s3);
+}
+
+.detailValue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: var(--s3);
+  min-width: 0;
+}
+
+.detailValueHead {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+/* Un chiffre qu'on vient lire suit l'échelle des chiffres, pas celle du texte. */
+.detailValue strong {
+  font-family: var(--mono);
+  font-size: var(--t-num-md);
+  overflow-wrap: anywhere;
+}

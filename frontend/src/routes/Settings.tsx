@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Badge, Button, Card, Empty, Field, PageHead, Rule, Segmented } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  Empty,
+  Field,
+  PageHead,
+  Rule,
+  Segmented,
+  Skeleton,
+} from '@/components/ui';
 import {
   settingsApi,
   type SettingsPayload,
@@ -61,6 +71,12 @@ const NUMBERS: readonly FieldSpec[] = [
     unit: 'g',
   },
   {
+    key: 'target_calories',
+    label: 'Calories par jour',
+    hint: 'Anneau du jour, et couleur de la grille',
+    unit: 'kcal',
+  },
+  {
     key: 'target_hydration_ml',
     label: 'Hydratation par jour',
     hint: 'Objectif de l’anneau et de la grille',
@@ -76,6 +92,7 @@ function toDraft(values: SettingsValues): Draft {
     target_weight_kg: String(values.target_weight_kg),
     target_protein_g: String(values.target_protein_g),
     max_added_sugar_g: String(values.max_added_sugar_g),
+    target_calories: String(values.target_calories),
     target_hydration_ml: String(values.target_hydration_ml),
     hydration_presets_ml: values.hydration_presets_ml.join(', '),
     heatmap_metric: values.heatmap_metric,
@@ -298,12 +315,12 @@ export function Settings() {
 
   if (isPending) {
     return (
-      <div className="wrap">
+      <div className={cx('wrap', styles.screen)}>
         {/* L'en-tête est là **avant** la donnée. Un écran qui n'affiche qu'un
           « chargement… » sur fond noir ne dit pas où l'on vient d'arriver, et la seconde
           d'attente se lit comme un écran qui n'a pas répondu. */}
         <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>} />
-        <p className={styles.empty}>chargement…</p>
+        <Skeleton lines={4} />
         <Appearance />
       </div>
     );
@@ -311,7 +328,7 @@ export function Settings() {
 
   if (error || !data) {
     return (
-      <div className="wrap">
+      <div className={cx('wrap', styles.screen)}>
         <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>} />
         <Empty title="Réglages indisponibles">
           {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
@@ -330,7 +347,7 @@ export function Settings() {
   const dirty = Object.keys(changes(fields, data.values)).length > 0;
 
   return (
-    <div className="wrap">
+    <div className={cx('wrap', styles.screen)}>
       <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>}>
         Ces valeurs servent de référence à tous les écrans. Tant qu’un réglage n’est pas renseigné,
         c’est le défaut du serveur qui s’applique — et il est affiché tel quel, jamais deviné.

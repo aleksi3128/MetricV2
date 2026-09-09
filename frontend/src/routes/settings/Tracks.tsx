@@ -10,7 +10,7 @@ import {
   type TracksView,
 } from '@/features/heatmap/api';
 import { ApiError } from '@/lib/api';
-import { isoDay, shortDate } from '@/lib/format';
+import { shortDate } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
@@ -762,10 +762,13 @@ export function Tracks() {
           </label>
 
           <div className={styles.pair}>
+            {/* Les deux bornes viennent du serveur : `isoDay(new Date())` lisait
+                l'horloge du téléphone, qui peut proposer un jour que le serveur
+                refusera. */}
             <Field
               label="Du"
               type="date"
-              max={isoDay(new Date())}
+              max={data.today}
               value={off.from}
               error={refusal?.messageFor('date_from')}
               onChange={(event) => {
@@ -775,7 +778,7 @@ export function Tracks() {
             <Field
               label="Au"
               type="date"
-              max={isoDay(new Date())}
+              max={data.today}
               value={off.to}
               error={refusal?.messageFor('date_to')}
               onChange={(event) => {

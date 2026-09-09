@@ -80,6 +80,12 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = ""
 
+    # ── Base produits (`NUT-13`) ──────────────────────
+    # Aucune clé : Open Food Facts sert la lecture en accès libre, contre un `User-Agent`
+    # nommé et quinze requêtes par minute. L'adresse est un réglage pour que la batterie
+    # et une éventuelle instance miroir n'aient pas à réécrire le client.
+    openfoodfacts_base_url: str = "https://world.openfoodfacts.org"
+
     # ── Export iCal (`PLAN-05`) ───────────────────────
     # Sans clé, le flux public n'est pas publié du tout — et le planning reste
     # consultable, modifiable et téléchargeable sous jeton.

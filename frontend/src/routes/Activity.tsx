@@ -51,7 +51,7 @@ export function Activity() {
    */
   const [creating, setCreating] = useState(false);
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: keys.activity.overview(),
     queryFn: activityApi.overview,
   });
@@ -134,6 +134,7 @@ export function Activity() {
       <History
         data={data}
         isPending={isPending}
+        error={error}
         removing={remove.isPending}
         onOpen={(row) => {
           // Le détail d'une course est une page, avec ses paliers et sa dérive. Une

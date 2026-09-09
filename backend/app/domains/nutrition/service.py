@@ -10,21 +10,35 @@ from app.domains.ai.images import prepare_data_url
 from app.domains.ai.service import AiService
 from app.domains.app_settings.service import SettingsService
 from app.domains.nutrition.analysis import INSTRUCTION, photo_prompt, read_estimate, text_prompt
-from app.domains.nutrition.models import TYPE_BY_HOUR, FavoriteRow, MealRow, MealType
+from app.domains.nutrition.compose import compose
+from app.domains.nutrition.history import build as build_history
+from app.domains.nutrition.models import (
+    TYPE_BY_HOUR,
+    FavoriteRow,
+    IngredientRow,
+    MealRow,
+    MealType,
+)
 from app.domains.nutrition.photos import PhotoError, build_path, content_type, storage_path
 from app.domains.nutrition.schemas import (
+    ComposedMealPayload,
+    ComposePayload,
+    Composition,
     DayTotals,
     Favorite,
     FavoritePayload,
+    Ingredient,
+    IngredientLine,
     Meal,
     MealEstimate,
     MealPayload,
+    NutritionHistory,
     NutritionView,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
 from app.storage.files import FileStore
-from app.storage.paths import MEAL_FAVORITES, MEAL_PHOTOS, MEALS
+from app.storage.paths import MEAL_FAVORITES, MEAL_INGREDIENTS, MEAL_PHOTOS, MEALS
 
 
 def suggested_type(moment: datetime) -> MealType:
@@ -41,6 +55,9 @@ class NutritionService:
         self._meals: CsvRepository[MealRow] = CsvRepository(store, MEALS, MealRow)
         self._favorites: CsvRepository[FavoriteRow] = CsvRepository(
             store, MEAL_FAVORITES, FavoriteRow
+        )
+        self._ingredients: CsvRepository[IngredientRow] = CsvRepository(
+            store, MEAL_INGREDIENTS, IngredientRow
         )
         self._settings = SettingsService(store)
 
@@ -78,6 +95,9 @@ class NutritionService:
         protein = sum(row.model.protein_g or 0 for row in today)
         sugar = sum(row.model.added_sugar_g or 0 for row in today)
 
+        calories = sum(row.model.calories or 0 for row in today)
+        calorie_target = values.target_calories
+
         return DayTotals(
             protein_g=round(protein, 1),
             protein_target_g=protein_target,
@@ -88,7 +108,11 @@ class NutritionService:
             # Un dépassement est un signal, pas une réussite : il se dit à part du ratio
             # de protéines.
             over_sugar=sugar > sugar_max,
-            calories=sum(row.model.calories or 0 for row in today),
+            calories=calories,
+            calories_target=calorie_target,
+            # Même plafonnement que les protéines : l'anneau ne sait pas dessiner un
+            # dépassement, et c'est le détail sous le chiffre qui le dit.
+            calories_ratio=min(1.0, calories / calorie_target) if calorie_target else 0.0,
             calories_known=sum(1 for row in today if row.model.calories is not None),
             meals=len(today),
         )
@@ -116,6 +140,39 @@ class NutritionService:
             per_day[day] = per_day.get(day, 0.0) + (row.model.protein_g or 0)
         return sorted((day, round(value, 1)) for day, value in per_day.items())
 
+    async def history(self, today: date, range_key: str) -> NutritionHistory:
+        """Grille, courbe et habitudes sur une plage (`NUT-11`).
+
+        Le service lit et délègue : tout le calcul vit dans `history.py`, en fonctions
+        pures qui s'éprouvent sans fichier ni dépôt.
+        """
+        rows = await self._meals.read_all()
+        values = await self._settings.values()
+        return build_history(
+            rows,
+            today=today,
+            range_key=range_key,
+            target=values.target_calories,
+            sugar_max=values.max_added_sugar_g,
+        )
+
+    async def calorie_points(self) -> list[tuple[date, float]]:
+        """Calories consignées par jour (`AGG-04`).
+
+        Même règle que `protein_points`, et pour la même raison : seuls les jours portant
+        au moins un repas **chiffré** apparaissent. Un jour noté sans ses calories n'est
+        pas un jour à zéro, et le compter ainsi ferait plonger toute moyenne qui s'en
+        sert.
+        """
+        rows = await self._meals.read_all()
+        per_day: dict[date, float] = {}
+        for row in rows:
+            if row.model.calories is None:
+                continue
+            day = local_day_of(row.model.datetime_)
+            per_day[day] = per_day.get(day, 0.0) + row.model.calories
+        return sorted(per_day.items())
+
     async def view(self, day: date, *, limit: int | None = None) -> NutritionView:
         rows = await self._meals.read_all()
         today = [row for row in rows if local_day_of(row.model.datetime_) == day]
@@ -131,6 +188,7 @@ class NutritionService:
             favorites=await self.favorites(),
             suggested_type=suggested_type(now_local()).value,
             types=[kind.value for kind in MealType],
+            ingredients=await self.ingredients(),
         )
 
     # ── Écriture (`NUT-01`, `NUT-02`, `NUT-09`) ───────
@@ -275,6 +333,103 @@ class NutritionService:
 
         data, _ = await self.read_photo(relative)
         return await self.estimate(ai, data)
+
+    # ── Repas composé (`NUT-12`) ──────────────────────
+
+    @staticmethod
+    def composition(payload: ComposePayload) -> Composition:
+        """Le total d'un plat depuis ses ingrédients. **N'écrit rien** (`NUT-12`).
+
+        Statique, et le dire dans la signature vaut mieux que de le promettre en
+        commentaire : cette opération ne touche pas au stockage.
+        """
+        return compose(payload.lines)
+
+    async def create_composed(self, payload: ComposedMealPayload) -> Meal:
+        """Compose, enregistre, et retient les ingrédients (`NUT-12`).
+
+        **Le total est recalculé ici**, il n'est pas repris du client. C'est la même
+        raison que partout ailleurs : ce qui entre dans le fichier doit venir du serveur,
+        sans quoi un client qui se tromperait — ou qui aurait vieilli — écrirait un total
+        que rien n'a vérifié.
+
+        Les ingrédients rejoignent le catalogue **après** l'écriture du repas. Dans
+        l'autre ordre, un échec d'écriture du journal laisserait un catalogue enrichi pour
+        un repas qui n'existe pas ; ici, le pire est un repas juste sans son catalogue à
+        jour, ce qui se rattrape à la composition suivante.
+        """
+        total = compose(payload.lines)
+
+        meal = await self.create(
+            meal_type=payload.meal_type,
+            comment=payload.comment,
+            photo=None,
+            protein_g=total.protein_g if not total.empty else None,
+            added_sugar_g=total.added_sugar_g if not total.empty else None,
+            calories=total.calories if not total.empty else None,
+        )
+        await self.remember(payload.lines)
+        return meal
+
+    async def ingredients(self) -> list[Ingredient]:
+        """Le catalogue, sans les lignes qu'on ne saurait pas rejouer."""
+        rows = await self._ingredients.read_all()
+        return [
+            Ingredient(
+                id=row.index,
+                token=row.token,
+                ingredient_id=row.model.id,
+                name=row.model.name,
+                calories_100g=row.model.calories_100g,
+                protein_100g=row.model.protein_100g,
+                added_sugar_100g=row.model.added_sugar_100g,
+            )
+            for row in rows
+            if row.model.id and row.model.name
+        ]
+
+    async def remember(self, lines: list[IngredientLine]) -> None:
+        """Retient les valeurs pour 100 g des ingrédients d'un plat (`NUT-12`).
+
+        **La dernière saisie gagne.** Un ingrédient déjà connu voit ses valeurs
+        remplacées plutôt que conservées : on recompose avec l'emballage qu'on a sous la
+        main, et c'est celui-là qui est juste aujourd'hui. Le rapprochement se fait sur le
+        nom réduit — même casse, mêmes espaces —, jamais approximativement : deux yaourts
+        dont les noms diffèrent d'une lettre sont deux produits.
+
+        Une ligne sans aucune valeur n'entre pas au catalogue : elle n'a rien à y
+        apprendre, et y figurer ferait une suggestion qui ne remplirait aucun champ.
+        """
+        useful = [
+            line
+            for line in lines
+            if line.calories_100g is not None
+            or line.protein_100g is not None
+            or line.added_sugar_100g is not None
+        ]
+        if not useful:
+            return
+
+        rows = await self._ingredients.read_all(fresh=True)
+        by_name = {row.model.name.strip().casefold(): row for row in rows if row.model.name}
+
+        for line in useful:
+            existing = by_name.get(line.name.strip().casefold())
+            model = IngredientRow(
+                id=existing.model.id if existing and existing.model.id else secrets.token_hex(6),
+                name=line.name.strip(),
+                calories_100g=line.calories_100g,
+                protein_100g=line.protein_100g,
+                added_sugar_100g=line.added_sugar_100g,
+            )
+            if existing is None:
+                await self._ingredients.append(model)
+            else:
+                # La garde porte sur la ligne **qu'on vient de lire**, pas sur un jeton
+                # venu du client : celui-ci n'a jamais vu cette ligne, il n'a rien à
+                # confirmer. C'est une conséquence de l'enregistrement du repas, pas une
+                # correction voulue.
+                await self._ingredients.replace(existing.index, existing.model, model)
 
     # ── Favoris (`NUT-10`) ────────────────────────────
 

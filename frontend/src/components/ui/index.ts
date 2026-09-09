@@ -11,8 +11,16 @@ export type { BandSeries, ChartProps, Series } from './Chart';
 export { Scatter } from './Scatter';
 export type { ScatterPoint, ScatterProps } from './Scatter';
 
-export { Heatmap } from './Heatmap';
-export type { DayReason, DayState, HeatDay, HeatWeek, HeatmapProps, WeekStatus } from './Heatmap';
+export { Heatmap, HeatSwatch } from './Heatmap';
+export type {
+  DayReason,
+  DayState,
+  HeatDay,
+  HeatWeek,
+  HeatmapProps,
+  SwatchTone,
+  WeekStatus,
+} from './Heatmap';
 
 export { Toaster } from './Toaster';
 
@@ -36,10 +44,10 @@ export {
   Eyebrow,
   Field,
   LinkButton,
-  LogButton,
   PageHead,
   Rule,
   Segmented,
+  Skeleton,
   Stepper,
   Steps,
   SwipeRow,

@@ -150,8 +150,8 @@
  *
  * C'était une grille de deux colonnes portant tout le catalogue. Deux effets : à vingt
  * exercices elle prenait plus d'une hauteur d'écran au-dessus des champs qu'on vient
- * remplir, et à 390 px chaque `LogButton` disposait de ~163 px — « Développé couché
- * incliné » y tombait sur trois lignes, ce qui donnait des rangées de hauteurs inégales.
+ * remplir, et à 390 px chaque bouton disposait de ~163 px — « Développé couché incliné »
+ * y tombait sur trois lignes, ce qui donnait des rangées de hauteurs inégales.
  *
  * La recherche ramène la liste à six ou huit lignes : une colonne tient largement, et
  * chaque nom retrouve toute la largeur de la carte.
@@ -906,8 +906,8 @@
 /*
  * `margin-top: auto` et la carte en colonne pleine hauteur : sans les deux, un nom qui
  * passe sur deux lignes décale son pas-à-pas d'une ligne par rapport à celui d'à côté, et
- * la grille rend deux cartes de hauteurs inégales. C'est le défaut que `LogButton` traîne
- * déjà — il n'entre pas ici en même temps que la deuxième colonne.
+ * la grille rend deux cartes de hauteurs inégales. C'était le défaut que `LogButton`
+ * traînait, et la raison pour laquelle il n'entre pas ici avec la deuxième colonne.
  */
 .loadCard {
   display: flex;
@@ -1126,4 +1126,17 @@
   border-radius: var(--r);
   background: var(--media-bg);
   object-fit: contain;
+}
+
+/*
+ * Les lignes de « Plus dans aucune séance ».
+ *
+ * Le séparateur ne peut pas venir de `.loadDense + .loadDense` comme dans la liste du
+ * poids du corps : chaque ligne est ici enfermée dans son `SwipeRow`, et deux `SwipeRow`
+ * ne sont pas deux `.loadDense` adjacents. La règle remonte donc d'un cran, sur les
+ * enfants directs de la carte — elle ne présuppose rien de leur classe, qui appartient
+ * au module des primitives.
+ */
+.strays > * + * {
+  border-top: 1px solid var(--line);
 }

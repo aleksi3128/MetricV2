@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Toaster } from '@/components/ui';
 import { tokenStore } from '@/lib/api';
 import { createQueryClient } from '@/lib/query';
+import { NUTRITION_HISTORY } from '@/test/fixtures';
 
 import { Nutrition } from './Nutrition';
 
@@ -39,6 +40,8 @@ const VIEW = {
     added_sugar_max_g: 30,
     over_sugar: false,
     calories: 0,
+    calories_target: 2200,
+    calories_ratio: 0,
     calories_known: 0,
     meals: 1,
   },
@@ -59,6 +62,17 @@ const VIEW = {
   favorites: [],
   suggested_type: 'déjeuner',
   types: ['petit-déjeuner', 'déjeuner', 'dîner', 'collation'],
+  ingredients: [
+    {
+      id: 0,
+      token: 'jeton-ing',
+      ingredient_id: 'i1',
+      name: 'riz basmati',
+      calories_100g: 356,
+      protein_100g: 8.1,
+      added_sugar_100g: 0.2,
+    },
+  ],
 };
 
 const ESTIMATE = {
@@ -90,6 +104,11 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
       } as unknown as Response);
     }
     if (url.includes('/api/nutrition/analyze')) return Promise.resolve(json(200, ESTIMATE));
+    // Avant le fourre-tout `/api/nutrition` : la section historique s'y ferait
+    // servir la vue du jour, dont elle n'a aucun des champs.
+    if (url.includes('/api/nutrition/history')) {
+      return Promise.resolve(json(200, NUTRITION_HISTORY));
+    }
     if (url.includes('/api/nutrition')) return Promise.resolve(json(200, VIEW));
     return Promise.resolve(json(200, {}));
   });
@@ -163,8 +182,9 @@ afterEach(() => {
 describe('estimation d’une assiette', () => {
   it('n’offre que la saisie manuelle sans clé configurée', async () => {
     // `IA-07` : ce qui n'est pas configuré est **annoncé** indisponible, jamais deviné.
-    // Trois des quatre modes n'ont rien à proposer sans clé : ils ne sont pas grisés,
-    // ils ne sont pas là, et l'écran dit pourquoi.
+    // Trois des cinq modes n'ont rien à proposer sans clé : ils ne sont pas grisés,
+    // ils ne sont pas là, et l'écran dit pourquoi. Les deux qui restent — les valeurs à
+    // la main et le repas composé — n'appellent aucun modèle.
     stub((url) =>
       url.includes('/api/ai/status')
         ? json(200, { enabled: false, message: 'Aucune clé OpenRouter n’est configurée.' })
@@ -176,6 +196,8 @@ describe('estimation d’une assiette', () => {
 
     expect(screen.queryByRole('button', { name: 'Photo' })).not.toBeInTheDocument();
     expect(await screen.findByText(/Aucune clé OpenRouter/)).toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Repas composé' })).toBeInTheDocument();
 
     // Et la saisie reste entière : c'est la promesse de `IA-07`.
     await userEvent.click(screen.getByRole('button', { name: 'Valeurs à la main' }));

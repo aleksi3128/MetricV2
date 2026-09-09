@@ -2,10 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { Badge, Button, Card, Empty, Heatmap, PageHead, Rule } from '@/components/ui';
+import { Badge, Button, Card, Empty, Heatmap, PageHead, Rule, Skeleton } from '@/components/ui';
 import { heatmapApi, type DayEntry, type Grid } from '@/features/heatmap/api';
-import { duration, integer, isoDay, km, longDate, num, percent } from '@/lib/format';
+import { duration, integer, km, longDate, num, percent } from '@/lib/format';
 import { keys } from '@/lib/query';
+
+import { cx } from '@/lib/cx';
 
 import styles from './Assiduity.module.css';
 
@@ -167,7 +169,7 @@ function DayDrawer({
         </Button>
       </div>
 
-      {isPending && <p className={styles.muted}>chargement…</p>}
+      {isPending && <Skeleton />}
 
       {error && (
         <p className={styles.muted} role="alert">
@@ -257,7 +259,6 @@ function TrackCard({
 
 export function Assiduity() {
   const [opened, setOpened] = useState<{ trackId: string; day: string } | null>(null);
-  const today = isoDay(new Date());
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.heatmap.screen(),
@@ -266,19 +267,19 @@ export function Assiduity() {
 
   if (isPending) {
     return (
-      <div className="wrap">
+      <div className={cx('wrap', styles.screen)}>
         {/* L'en-tête est là **avant** la donnée. Un écran qui n'affiche qu'un
           « chargement… » sur fond noir ne dit pas où l'on vient d'arriver, et la seconde
           d'attente se lit comme un écran qui n'a pas répondu. */}
         <PageHead eyebrow="Assiduité" title="Ce que tu tiens" />
-        <p className={styles.muted}>chargement…</p>
+        <Skeleton lines={4} />
       </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div className="wrap">
+      <div className={cx('wrap', styles.screen)}>
         <PageHead eyebrow="Assiduité" title="Ce que tu tiens" />
         <Empty title="Assiduité indisponible">
           {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
@@ -288,7 +289,7 @@ export function Assiduity() {
   }
 
   return (
-    <div className="wrap">
+    <div className={cx('wrap', styles.screen)}>
       <PageHead
         eyebrow="Assiduité"
         title="Ce que tu tiens"
@@ -316,7 +317,7 @@ export function Assiduity() {
               <TrackCard
                 key={grid.track.id}
                 grid={grid}
-                today={today}
+                today={data.today}
                 onSelectDay={(date) => {
                   setOpened({ trackId: grid.track.id, day: date });
                 }}

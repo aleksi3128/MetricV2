@@ -368,3 +368,24 @@ async def update_load(
     courbe (**C2**).
     """
     return await CircuitLoadService(store).update(row_id, _token(if_match), payload)
+
+
+@router.delete(
+    "/loads/{row_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Retirer une charge",
+)
+async def delete_load(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
+    """Retire la charge courante d'un exercice, sous garde (`STO-05`).
+
+    Le domaine savait en créer et en corriger, jamais en retirer. Une ligne dont
+    l'exercice avait quitté tous les circuits n'apparaissait plus nulle part et survivait
+    dans `circuit_loads.csv` — prête à ressusciter avec une valeur périmée le jour où le
+    nom revenait dans un circuit. `LoadList.orphans` les montre désormais, et c'est cette
+    route qui les retire.
+
+    **Le journal ne bouge pas.** `circuit_load_log.csv` dit ce qui a été décidé et ne se
+    rature pas : re-déclarer l'exercice retrouve sa courbe, ce qui est la règle du
+    domaine et non un oubli.
+    """
+    await CircuitLoadService(store).delete(row_id, _token(if_match))

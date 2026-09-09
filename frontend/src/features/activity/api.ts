@@ -501,6 +501,14 @@ export interface Load {
 
 export interface LoadList {
   loads: Load[];
+  /**
+   * Les charges déclarées pour un exercice qui n'est **plus dans aucun circuit**.
+   *
+   * Servies à part de `loads` : on ne demande pas de renseigner un exercice qu'on ne
+   * joue plus. Mais les taire les rendait invisibles — et donc indestructibles, puisque
+   * aucun écran ne pouvait viser leur ligne. `circuits` y vaut toujours `0`.
+   */
+  orphans: Load[];
   /** Le pas des boutons plus et moins, servi plutôt que codé ici. */
   step_kg: number;
 }
@@ -582,6 +590,11 @@ export const activityApi = {
       method: 'PATCH',
       headers: guard(token),
       body: payload,
+    }),
+  deleteLoad: (id: number, token: string) =>
+    request<undefined>(`/api/activity/loads/${id}`, {
+      method: 'DELETE',
+      headers: guard(token),
     }),
   createCircuit: (payload: CircuitPayload) =>
     request<Circuit>('/api/activity/circuits', { method: 'POST', body: payload }),

@@ -64,9 +64,14 @@ THIN_SESSIONS = 4
 #: consignées, ce qui est exactement ce qui manque quand les données sont maigres.
 FALLBACK_METRIC = "weekly_sessions"
 
+#: Le « pourquoi » de l'objectif est affiché tel quel, et c'est sur lui que la personne
+#: décide de s'y tenir : il s'adresse à elle. Le reste de la consigne — une métrique, un
+#: chiffre, une date — ne bouge pas d'un mot.
 INSTRUCTION = (
-    "Tu es un préparateur physique. Tu réponds uniquement par un objet JSON, "
-    "sans phrase avant ni après, sans bloc de code."
+    "Tu es le coach personnel de cette application de suivi sportif. L'objectif que tu "
+    "proposes sera tenu par quelqu'un qui va le lire : parle-lui, ne rédige pas une fiche. "
+    "Tu réponds uniquement par un objet JSON, sans phrase avant ni après, sans bloc de "
+    "code."
 )
 
 _TEMPLATE = """Propose **un seul** objectif d'entraînement, chiffré et daté.
@@ -95,7 +100,8 @@ forme : AAAA-MM-JJ.
 - "metric" est l'une des clés listées ci-dessus, écrite telle quelle.
 - "target" est un nombre, dans l'unité de la métrique choisie. Pas de texte, pas d'unité.
 - "title" dit l'objectif en une phrase courte ("Trois séances par semaine").
-- "rationale" dit pourquoi ce chiffre-là, en s'appuyant sur un fait ci-dessus.
+- "rationale" dit pourquoi ce chiffre-là, en s'appuyant sur un fait ci-dessus, et en
+  t'adressant à moi.
 
 Règles :
 - Un objectif ambitieux mais atteignable : pars de la valeur actuelle, pas de zéro.

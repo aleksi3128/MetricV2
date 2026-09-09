@@ -45,6 +45,7 @@ import {
   PageHead,
   Rule,
   Segmented,
+  Skeleton,
 } from '@/components/ui';
 import { activityApi, type Circuit, type CircuitPayload } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
@@ -461,7 +462,7 @@ export function Circuits() {
             {unreadable instanceof ApiError ? unreadable.message : 'Séances illisibles.'}
           </p>
         ) : isPending ? (
-          <p className={styles.empty}>chargement…</p>
+          <Skeleton lines={4} />
         ) : circuits.length === 0 ? (
           <Empty title="Aucune séance">
             Une séance créée ici s’ouvre dans Cadence d’un appui, et se consigne au journal quand

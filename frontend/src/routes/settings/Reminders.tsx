@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
-import { Badge, Button, Card, Empty, Field, Rule } from '@/components/ui';
+import { Badge, Button, Card, Empty, Field, Rule, Skeleton } from '@/components/ui';
 import {
   notificationsApi,
   type NotificationsView,
@@ -250,7 +250,9 @@ export function Reminders() {
     return (
       <>
         <Rule>Rappels</Rule>
-        <Card>chargement…</Card>
+        <Card>
+          <Skeleton />
+        </Card>
       </>
     );
   }

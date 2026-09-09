@@ -175,20 +175,6 @@ export function ExternalLinkButton({
  * C'est la cible du projet — un relevé en un geste. Le rappel de la dernière valeur
  * évite d'aller consulter l'historique pour choisir sa charge (`ACT-08`).
  */
-export function LogButton({
-  label,
-  hint,
-  className,
-  ...rest
-}: { label: ReactNode; hint?: ReactNode | undefined } & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button type="button" className={cx(styles.btn, styles.log, className)} {...rest}>
-      <span className={styles.logLabel}>{label}</span>
-      {hint !== undefined && <em className={styles.logHint}>{hint}</em>}
-    </button>
-  );
-}
-
 // ── Carte ─────────────────────────────────────────────
 
 export function Card({
@@ -241,23 +227,60 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Message d'erreur par champ, tel que renvoyé par l'API (`API-06`). */
   error?: string | undefined;
   hint?: string | undefined;
+  /**
+   * Unité posée **dans** le champ, calée à droite.
+   *
+   * Pour les cas où l'étiquette dirait deux fois la même chose : « Grammes » au-dessus
+   * d'une case qui reçoit des grammes coûte une ligne de hauteur par ligne d'une liste.
+   * L'unité au bout de la case le dit une fois, à l'endroit où on lit le nombre.
+   *
+   * Elle ne prend pas le doigt — `pointer-events: none` — sinon appuyer sur l'unité
+   * raterait le champ qu'elle qualifie.
+   */
+  unit?: string | undefined;
+  /**
+   * Masque l'étiquette **visuellement**, jamais pour la synthèse vocale.
+   *
+   * À n'employer que là où le contexte la dit déjà — une ligne dont le nom est à gauche
+   * et l'unité à droite. Une étiquette retirée du document ferait un champ sans nom.
+   */
+  hideLabel?: boolean | undefined;
 }
 
-export function Field({ label, error, hint, className, id, ...rest }: FieldProps) {
+export function Field({ label, error, hint, unit, hideLabel, className, id, ...rest }: FieldProps) {
   const generated = useId();
   const fieldId = id ?? generated;
   const describedBy = error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined;
 
+  const input = (
+    <input
+      id={fieldId}
+      className={cx(
+        styles.input,
+        unit !== undefined && styles.inputUnit,
+        error && styles.inputInvalid,
+      )}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={describedBy}
+      {...rest}
+    />
+  );
+
   return (
     <div className={cx(styles.field, className)}>
-      <label htmlFor={fieldId}>{label}</label>
-      <input
-        id={fieldId}
-        className={cx(styles.input, error && styles.inputInvalid)}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        {...rest}
-      />
+      <label htmlFor={fieldId} className={hideLabel ? 'sr-only' : undefined}>
+        {label}
+      </label>
+      {unit === undefined ? (
+        input
+      ) : (
+        <span className={styles.unitWrap}>
+          {input}
+          <span className={styles.unit} aria-hidden="true">
+            {unit}
+          </span>
+        </span>
+      )}
       {error !== undefined && (
         <span className={styles.fieldError} id={`${fieldId}-error`} role="alert">
           {error}
@@ -659,6 +682,43 @@ export function Empty({
       <p className="eyebrow">{title}</p>
       {children !== undefined && <p>{children}</p>}
       {action}
+    </div>
+  );
+}
+
+// ── Attente ───────────────────────────────────────────
+
+/**
+ * L'attente, dessinée plutôt qu'écrite.
+ *
+ * Huit écrans posaient `<p>chargement…</p>` sous trois classes différentes — `.empty`,
+ * `.muted`, `.emptyInset` — soit trois apparences pour un seul état. Le mot seul a deux
+ * défauts que la mesure ne voit pas : il ne dit pas **combien** arrive, et sur fond noir
+ * il se lit comme un écran qui a renoncé. La page sautait ensuite de trois lignes de
+ * texte à une pile de cartes.
+ *
+ * Ce composant ne montre aucun chiffre — c'est ce qui l'autorise : il dessine la
+ * **forme** de ce qui vient, jamais une valeur qui passerait pour une mesure. Les
+ * largeurs décroissantes sont décoratives et fixes ; les tirer au hasard ferait bouger
+ * la page à chaque rendu.
+ *
+ * `role="status"` et le libellé caché portent la même information pour qui n'a pas
+ * l'image — la synthèse vocale annonce l'attente, comme le mot le faisait.
+ */
+export function Skeleton({
+  lines = 3,
+  className,
+}: {
+  /** Nombre de barres. Trois pour un bloc, une pour une ligne isolée. */
+  lines?: number | undefined;
+  className?: string | undefined;
+}) {
+  return (
+    <div className={cx(styles.skeleton, className)} role="status">
+      <span className="sr-only">Chargement…</span>
+      {Array.from({ length: lines }, (_, index) => (
+        <span key={index} className={styles.skeletonLine} aria-hidden="true" />
+      ))}
     </div>
   );
 }

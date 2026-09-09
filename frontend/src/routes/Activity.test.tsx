@@ -319,3 +319,25 @@ describe('écran Activité', () => {
     expect(await screen.findByText(/n'est pas une durée/)).toBeInTheDocument();
   });
 });
+
+describe('l’historique en panne', () => {
+  it('ne fait pas passer une panne pour une semaine sans activité', async () => {
+    // Le défaut : la requête échouait, `isPending` retombait à faux, et la carte
+    // affichait « Aucune activité ». L'écran affirmait une semaine vide qu'il n'avait
+    // pas pu lire.
+    //
+    // Une erreur **non transitoire** : `storage_unavailable`, le cas réel, est rejoué
+    // deux fois par `shouldRetry` et sa temporisation dépasse l'attente d'un `findBy`.
+    stub((url) =>
+      url.endsWith('/api/activity')
+        ? json(422, { code: 'validation_failed', message: 'Requête invalide.' })
+        : undefined,
+    );
+    renderActivity();
+
+    expect(await screen.findByText('Historique indisponible')).toBeInTheDocument();
+    expect(screen.queryByText('Aucune activité')).not.toBeInTheDocument();
+    // Le message vient du serveur et s'affiche tel quel.
+    expect(screen.getByText('Requête invalide.')).toBeInTheDocument();
+  });
+});

@@ -1,3 +1,14 @@
+/* Le conteneur de page : `wrap` plafonne la largeur de lecture et pose les marges,
+   `screen` gère l'empilement. En oublier un désaligne le contenu de l'en-tête — le défaut
+   a été trouvé deux fois, jamais par un test.
+
+   Sans `gap` : cet écran règle déjà ses écarts par les marges de `.rule` et de ses
+   sections, et en ajouter un les doublerait. C'est la variante du tableau de bord. */
+.screen {
+  display: flex;
+  flex-direction: column;
+}
+
 .name {
   color: var(--ink);
   font-size: var(--t-sub);

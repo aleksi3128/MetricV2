@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.core.validation import (
     BaseUrl,
+    Calories,
     HydrationTargetMl,
     Label,
     ProteinG,
@@ -34,6 +35,7 @@ class SettingsValues(BaseModel):
     target_weight_kg: float = Field(description="Objectif de poids, `BODY-03`")
     target_protein_g: float = Field(description="Objectif quotidien de protéines, `NUT-06`")
     max_added_sugar_g: float = Field(description="Plafond de sucres ajoutés, `NUT-06`")
+    target_calories: int = Field(description="Objectif quotidien de calories, `NUT-06`")
     target_hydration_ml: int = Field(description="Objectif quotidien d'hydratation, `HYD-03`")
     hydration_presets_ml: list[int] = Field(description="Raccourcis de volume, `HYD-02`")
     heatmap_metric: str = Field(description="Métrique mise en avant, `HEAT-08`")
@@ -55,6 +57,9 @@ class SettingsPayload(BaseModel):
     target_weight_kg: WeightKg | None = None
     target_protein_g: ProteinG | None = None
     max_added_sugar_g: SugarG | None = None
+    #: Emprunte les bornes d'une assiette (0 à 10 000). Un objectif invraisemblable
+    #: passerait donc ; c'est noté dans `docs/nutrition-historique.md` §5.
+    target_calories: Calories | None = None
     target_hydration_ml: HydrationTargetMl | None = None
     #: Entre un et six raccourcis : au-delà, la rangée de boutons cesse d'être un geste.
     hydration_presets_ml: list[VolumeMl] | None = Field(default=None, min_length=1, max_length=6)

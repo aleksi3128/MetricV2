@@ -35,6 +35,7 @@ from app.domains.api import protected_router, public_router
 from app.domains.brief.scheduler import BriefScheduler
 from app.domains.heatmap.cache import GridCache
 from app.domains.notifications.provider import PushProvider
+from app.domains.nutrition.products import ProductProvider
 from app.domains.planning import calendar_router
 from app.storage.provider import StorageProvider
 
@@ -81,6 +82,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         push = PushProvider(settings)
         await push.start(provider)
 
+        # La base produits (`NUT-13`). Un pool de connexions de plus, et le seul service
+        # tiers du projet qui ne demande aucune clé : rien à configurer, donc rien à
+        # annoncer comme manquant. Ce qui peut manquer est le réseau, et cela se dit au
+        # moment du scan.
+        products = ProductProvider(settings.openfoodfacts_base_url)
+        await products.start()
+
         # La lecture du jour, et sa passe horaire.
         #
         # **Deuxième tâche de fond du projet, et elle ne dépend pas de la première.**
@@ -97,6 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.storage = provider
         app.state.ai = ai
         app.state.push = push
+        app.state.products = products
         app.state.password_checker = PasswordChecker(settings)
         app.state.token_issuer = TokenIssuer(settings)
         app.state.login_throttle = LoginThrottle()
@@ -112,6 +121,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             if briefs is not None:
                 await briefs.stop()
             await push.stop()
+            await products.stop()
             await ai.stop()
             await provider.stop()
 

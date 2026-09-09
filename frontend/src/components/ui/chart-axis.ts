@@ -31,16 +31,16 @@
  * Taille du texte d'axe, en unités du `viewBox`.
  *
  * Le `font-size` d'un `<text>` SVG s'exprime dans le système de coordonnées du `viewBox` :
- * les 26 px que pose `Chart.module.css` sont donc 26 unités ici, quelle que soit la
+ * les 20 px que pose `Chart.module.css` sont donc 20 unités ici, quelle que soit la
  * largeur à laquelle le graphique est rendu.
  *
  * On prend la **plus grande** des trois tailles de la feuille — celle du téléphone —, qui
- * est le cas le plus serré. Au-delà de 600 px la police descend à 18 et il y aurait la
- * place pour deux ou trois dates de plus ; les compter demanderait d'observer la largeur
+ * est le cas le plus serré. Au-delà de 600 px la police descend à 12 et il y aurait la
+ * place pour plusieurs dates de plus ; les compter demanderait d'observer la largeur
  * réelle du SVG, donc un `ResizeObserver` et un état, pour un gain qui ne se voit que sur
  * un écran large — celui qui manque le moins de place.
  */
-const AXIS_SIZE = 26;
+const AXIS_SIZE = 20;
 
 /** Chasse de JetBrains Mono, et l'interlettrage que `.axis` lui ajoute. */
 const MONO_ADVANCE = 0.6;

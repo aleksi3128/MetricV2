@@ -52,6 +52,24 @@
 }
 
 /*
+ * Les traits s'expriment en **pixels d'écran**, pas en unités de `viewBox`.
+ *
+ * Sans cette ligne, l'épaisseur suit l'échelle du dessin : le même trait de 2 unités
+ * rendait 0,94 px sur un téléphone — un cheveu — et 2,6 px sur un Mac, où la carte fait
+ * 930 px pour un `viewBox` de 720. La courbe était fine là où l'écran est petit et
+ * épaisse là où il est grand, exactement l'inverse de ce qu'on veut.
+ *
+ * Les épaisseurs ci-dessous se lisent donc directement en pixels, et sont les mêmes
+ * partout.
+ */
+.svg line,
+.svg polyline,
+.svg circle,
+.svg path {
+  vector-effect: non-scaling-stroke;
+}
+
+/*
  * Les graduations, et le seul endroit du projet où une taille de texte ne veut pas dire
  * ce qu'elle dit.
  *
@@ -63,30 +81,44 @@
  * Les trois valeurs ci-dessous sont calculées pour rendre ~11 px réels à chaque palier,
  * à partir de la largeur de carte que la gouttière et le retrait laissent :
  *
- *   téléphone   402 − 32 − 32 = 336 px   facteur 0,47   → 26 unités
- *   tablette    600 − 56 − 40 = 502 px   facteur 0,70   → 18 unités
- *   ordinateur  la carte du tableau de bord, ~552 px    → 16 unités
+ *   téléphone   402 − 32 − 32 = 336 px   facteur 0,47   → 20 unités   ~9,4 px
+ *   tablette    une carte pleine largeur, ~740 px       → 12 unités   ~12 px
+ *   ordinateur  une carte pleine largeur, ~930 px       → 10 unités   ~13 px
+ *
+ * **Les trois valeurs ont été réduites d'un tiers**, et les deux dernières davantage. La
+ * calibration précédente visait 11 px partout, mais elle était faite sur des cartes
+ * étroites — celle du tableau de bord, dans une grille à deux colonnes. Sur une carte
+ * pleine largeur d'ordinateur, ces mêmes 16 unités arrivaient à **20 px** : des
+ * graduations plus grosses que le texte courant de la page, qui concurrençaient la donnée
+ * au lieu de la situer.
+ *
+ * La contrepartie est assumée : sur un téléphone, une graduation descend sous le plancher
+ * de 12 px du projet (§3 de `CLAUDE.md`). C'est le seul texte dans ce cas, il ne porte
+ * jamais qu'un nombre que l'infobulle redonne en entier, et il n'y a pas de largeur où
+ * une même taille de `viewBox` puisse tenir le plancher sans écraser l'écran d'à côté.
  *
  * Si le gabarit d'un écran change, ce sont ces trois nombres qu'il faut refaire — pas la
- * taille apparente, qui est déjà la bonne. Le vérificateur est la mesure n° 5 de
- * `docs/front.md` §5, et `scripts/audit-mobile.mjs` la rejoue à chaque passage.
+ * taille apparente. Le vérificateur est la mesure n° 5 de `docs/front.md` §5, et
+ * `scripts/audit-mobile.mjs` la rejoue à chaque passage. **`AXIS_SIZE` dans
+ * `chart-axis.ts` recopie la première valeur** : les deux se changent ensemble, sinon le
+ * calcul d'espacement des dates raisonne sur une police qui n'existe plus.
  */
 .axis {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 26px;
+  font-size: 20px;
   fill: var(--ink-low);
   letter-spacing: 0.08em;
 }
 
 @media (min-width: 600px) {
   .axis {
-    font-size: 18px;
+    font-size: 12px;
   }
 }
 
 @media (min-width: 960px) {
   .axis {
-    font-size: 16px;
+    font-size: 10px;
   }
 }
 

@@ -50,6 +50,7 @@ import {
   LinkButton,
   PageHead,
   Rule,
+  Skeleton,
   Stat,
   Table,
 } from '@/components/ui';
@@ -378,7 +379,7 @@ export function Run() {
         </Card>
       ) : isPending ? (
         <Card>
-          <p className={styles.empty}>chargement…</p>
+          <Skeleton lines={4} />
         </Card>
       ) : run === null || detail === undefined ? (
         <Card>

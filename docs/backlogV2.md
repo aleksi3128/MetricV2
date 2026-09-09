@@ -111,7 +111,7 @@ comportement observable, pas un écran.
 | NUT-08 | Service sécurisé des photos | Endpoint authentifié restreint au dossier photos, tout parcours d'arborescence bloqué. Chemins uniques → réponses cachables durablement. |
 | NUT-09 | Modifier ou supprimer un repas | Correction de l'heure, du type, du commentaire ou des macros ; photo d'origine et source préservées. |
 | NUT-10 | Repas favoris / récurrents | Enregistrer un repas comme modèle réutilisable (nom + macros) et le rejouer en une action, sans photo ni IA. Couvre les repas identiques du quotidien. *(nouveau)* |
-| NUT-11 | Base produits & code-barres | Recherche dans une base publique type Open Food Facts et scan de code-barres pour remplir les macros. Complète l'estimation IA sur les produits industriels. *(reste à faire)* |
+| NUT-13 | Base produits & code-barres | Scan d'un code-barres et lecture chez Open Food Facts pour remplir les macros d'un ingrédient. Complète l'estimation IA sur les produits industriels. *(fait — `docs/scan-aliment.md`. Renuméroté : `NUT-11` a été pris entre-temps par l'historique de la nutrition. La recherche **par nom** reste écartée : un scan désigne un produit, un nom en rend trente.)* |
 
 ## 7. Hydratation — `HYD` *(nouveau domaine)*
 

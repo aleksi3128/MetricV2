@@ -3,6 +3,7 @@
 `nutrition/meals.csv` : datetime, meal_type, comment, photo, protein_g, added_sugar_g,
 calories, source
 `nutrition/favorites.csv` : id, name, protein_g, added_sugar_g, calories
+`nutrition/ingredients.csv` : id, name, calories_100g, protein_100g, added_sugar_100g
 """
 
 from __future__ import annotations
@@ -76,6 +77,22 @@ class FavoriteRow(CsvModel):
     protein_g: float | None = None
     added_sugar_g: float | None = None
     calories: int | None = None
+
+
+class IngredientRow(CsvModel):
+    """Un ingrédient du catalogue, avec ses valeurs **pour 100 g** (`NUT-12`).
+
+    Catalogue et non mesure, comme `FavoriteRow` : une ligne incomplète est ignorée à la
+    lecture plutôt que de rendre le fichier illisible (`STO-04`). C'est ce qui permet de
+    le corriger au tableur — et c'est bien l'usage : un catalogue d'ingrédients se
+    constitue au fil des courses, pas dans un écran.
+    """
+
+    id: str = ""
+    name: str = ""
+    calories_100g: float | None = None
+    protein_100g: float | None = None
+    added_sugar_100g: float | None = None
 
 
 #: Bornes horaires du type suggéré (`NUT-03`). Le type reste modifiable : ce n'est

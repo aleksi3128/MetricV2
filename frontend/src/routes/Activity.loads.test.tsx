@@ -78,7 +78,11 @@ const SESSIONS = Array.from({ length: 30 }, (_, index) => ({
   count: index === 4 || index === 19 ? 1 : 0,
 }));
 
-function stub(loads: unknown[] = [FENTES, ROWING, GAINAGE], detail?: unknown) {
+function stub(
+  loads: unknown[] = [FENTES, ROWING, GAINAGE],
+  detail?: unknown,
+  orphans: unknown[] = [],
+) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
     calls.push({ url, init });
@@ -106,7 +110,8 @@ function stub(loads: unknown[] = [FENTES, ROWING, GAINAGE], detail?: unknown) {
       if (init?.method === 'POST')
         return Promise.resolve(json(201, { ...FENTES, id: 3, state: 'weighted', weight_kg: 20 }));
       if (init?.method === 'PATCH') return Promise.resolve(json(200, { ...ROWING, weight_kg: 16 }));
-      return Promise.resolve(json(200, { loads, step_kg: 1 }));
+      if (init?.method === 'DELETE') return Promise.resolve(json(204, null));
+      return Promise.resolve(json(200, { loads, orphans, step_kg: 1 }));
     }
     return Promise.resolve(json(200, {}));
   });
@@ -419,5 +424,69 @@ describe('charges des exercices de tabata', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Rowing' }));
 
     expect(await screen.findByText(/La courbe demande un second point/)).toBeInTheDocument();
+  });
+});
+
+// ── Les charges devenues orphelines ───────────────────
+
+/** Un exercice qui a quitté tous les circuits : sa charge survivait, invisible. */
+const ORPHELINE = {
+  id: 7,
+  token: 'jeton-butterfly',
+  name: 'Butterfly',
+  state: 'weighted',
+  weight_kg: 25,
+  updated: '2026-05-02',
+  circuits: 0,
+  days_since_change: 120,
+  sessions_since: 0,
+};
+
+describe('les charges plus dans aucune séance', () => {
+  it('les montre, au lieu de les laisser invisibles dans le fichier', async () => {
+    stub([FENTES, ROWING, GAINAGE], undefined, [ORPHELINE]);
+    renderLoads();
+
+    expect(await screen.findByText('Plus dans aucune séance')).toBeInTheDocument();
+    expect(screen.getByText('Butterfly')).toBeInTheDocument();
+  });
+
+  it('n’affiche pas la section quand il n’y a rien à nettoyer', async () => {
+    // Une section vide sur une page qui n'a rien à ranger est un titre qui inquiète.
+    stub();
+    renderLoads();
+
+    await screen.findByText('Rowing');
+    expect(screen.queryByText('Plus dans aucune séance')).not.toBeInTheDocument();
+  });
+
+  it('supprime sous garde, et il faut deux appuis', async () => {
+    stub([FENTES, ROWING, GAINAGE], undefined, [ORPHELINE]);
+    renderLoads();
+
+    const action = await screen.findByRole('button', {
+      name: 'Retirer la charge de Butterfly',
+    });
+
+    // Le premier appui **arme** : rien n'est parti. C'est `SwipeRow`, et le projet n'a
+    // aucune annulation.
+    await userEvent.click(action);
+    expect(sent('DELETE')).toBeUndefined();
+
+    // Le second appui exécute. Le nom accessible change avec l'armement, ce qui est ce
+    // qu'entend la synthèse vocale.
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Retirer la charge de Butterfly — confirmer' }),
+    );
+
+    await waitFor(() => {
+      const removal = sent('DELETE');
+      expect(removal?.url).toContain('/api/activity/loads/7');
+      // `If-Match` sur toute suppression (`STO-05`) : la règle ne s'assouplit pas parce
+      // que la ligne est un reliquat.
+      expect((removal?.init?.headers as Record<string, string> | undefined)?.['If-Match']).toBe(
+        'jeton-butterfly',
+      );
+    });
   });
 });

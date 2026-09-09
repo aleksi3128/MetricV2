@@ -15,7 +15,7 @@
  * séries (`ACT-04`), et l'état armé le dit avant que le second appui ne l'exécute.
  */
 
-import { Card, Chip, Empty, SwipeRow } from '@/components/ui';
+import { Card, Chip, Empty, Skeleton, SwipeRow } from '@/components/ui';
 import type { ActivityItem, ActivityOverview } from '@/features/activity/api';
 import { cx } from '@/lib/cx';
 import { duration, km, pace, plural, shortDate } from '@/lib/format';
@@ -114,6 +114,7 @@ function HistoryRow({
 export function History({
   data,
   isPending,
+  error,
   removing,
   onOpen,
   onEdit,
@@ -121,6 +122,8 @@ export function History({
 }: {
   data: ActivityOverview | undefined;
   isPending: boolean;
+  /** L'échec de la requête, pour le distinguer d'un historique réellement vide. */
+  error: unknown;
   removing: boolean;
   onOpen: (row: ActivityItem) => void;
   onEdit: (row: ActivityItem) => void;
@@ -132,8 +135,17 @@ export function History({
         Historique {data !== undefined && <span className={styles.empty}>· {data.total}</span>}
       </h3>
 
+      {/* Quatre états. Sans la branche d'erreur, une requête en échec — `data` indéfini
+          et `isPending` retombé à faux — tombait dans « Aucune activité » : l'écran
+          affirmait une semaine sans sortie alors qu'il n'avait rien pu lire. */}
       {isPending ? (
-        <p className={cx(styles.empty, styles.flushPad)}>chargement…</p>
+        <Skeleton className={styles.flushPad} />
+      ) : error ? (
+        <div className={styles.flushPad}>
+          <Empty title="Historique indisponible">
+            {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+          </Empty>
+        </div>
       ) : data && data.history.length > 0 ? (
         <ul className={styles.history} aria-label="Historique des activités">
           {data.history.map((row) => (

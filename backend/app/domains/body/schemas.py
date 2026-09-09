@@ -68,6 +68,11 @@ class WeightView(BaseModel):
     écran seraient trois allers-retours vers Nextcloud (`AGG-01` en esprit).
     """
 
+    #: Jour courant dans le fuseau de l'application. Le formulaire de pesée le prenait
+    #: de `new Date()` — l'horloge du téléphone, qui n'est pas celle qui date les lignes
+    #: du CSV. Un vol de nuit ou un fuseau mal réglé écrivait la pesée la veille, et
+    #: rien à l'écran ne le disait.
+    today: date
     stats: WeightStats
     series: list[WeightPoint]
     entries: list[WeightEntry]
@@ -131,6 +136,8 @@ class MeasurementIndicator(BaseModel):
 
 
 class MeasurementView(BaseModel):
+    #: Même raison que pour `WeightView` : le jour d'un relevé vient du serveur.
+    today: date
     indicators: list[MeasurementIndicator]
     entries: list[MeasurementEntry]
     total: int

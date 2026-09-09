@@ -21,7 +21,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode, SyntheticEvent } from 'react';
 
-import { Button, Field, Sheet } from '@/components/ui';
+import { Button, Field, Sheet, Skeleton } from '@/components/ui';
 import { activityApi, type Run } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { celebrate } from '@/lib/confetti';
@@ -215,7 +215,7 @@ function Loaded<T>({
     );
   }
   if (query.isPending || query.data === undefined) {
-    return <p className={styles.empty}>chargement…</p>;
+    return <Skeleton />;
   }
   return <>{render(query.data)}</>;
 }

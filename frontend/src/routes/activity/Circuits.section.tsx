@@ -24,7 +24,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { Card, Empty, LinkButton, Rule } from '@/components/ui';
+import { Card, Empty, LinkButton, Rule, Skeleton } from '@/components/ui';
 import { activityApi } from '@/features/activity/api';
 import { keys } from '@/lib/query';
 
@@ -55,7 +55,7 @@ export function CircuitsSection() {
             {error instanceof Error ? error.message : 'Séances illisibles.'}
           </p>
         ) : isPending ? (
-          <p className={styles.empty}>chargement…</p>
+          <Skeleton />
         ) : circuits.length === 0 ? (
           <Empty title="Aucune séance">
             Une séance construite une fois s’ouvre ensuite d’un appui, et se consigne au journal

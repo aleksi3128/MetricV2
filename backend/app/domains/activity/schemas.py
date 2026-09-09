@@ -1154,6 +1154,18 @@ class LoadList(BaseModel):
     """
 
     loads: list[Load]
+    #: Les charges déclarées pour un exercice qui n'est **plus dans aucun circuit**.
+    #:
+    #: Elles ne sont pas dans `loads`, qui décrit ce qu'une séance emploie aujourd'hui —
+    #: les mêler donnerait des cartes à renseigner pour des exercices qu'on ne joue plus.
+    #: Mais les taire les rendait **invisibles et indestructibles** : la ligne survivait
+    #: dans `circuit_loads.csv` sans qu'aucun écran ne puisse la montrer, et elle
+    #: ressuscitait le jour où le nom revenait dans un circuit, avec une charge d'il y a
+    #: deux ans.
+    #:
+    #: `circuits` y vaut toujours `0`. C'est la seule liste du domaine dont les cartes
+    #: n'ont qu'un geste : les retirer.
+    orphans: list[Load] = Field(default_factory=list)
     #: Le pas des boutons plus et moins. Servi plutôt que codé dans l'écran, pour la raison
     #: habituelle : deux valeurs pour un même réglage divergeraient sans que rien ne le dise.
     step_kg: float = LOAD_STEP_KG

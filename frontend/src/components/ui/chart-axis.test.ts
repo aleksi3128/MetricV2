@@ -6,15 +6,17 @@
  * lisait des rectangles corrects. Ce qui était faux, c'était le **choix des index** — et
  * ça ne se voyait qu'en regardant la page.
  *
- * On l'éprouve sur la géométrie réelle du composant, `LEFT = 78` et `RIGHT = 706` : des
- * bornes inventées vérifieraient une autre application que celle qu'on livre.
+ * On l'éprouve sur la géométrie réelle du composant, `LEFT = 6` et `RIGHT = 706` : des
+ * bornes inventées vérifieraient une autre application que celle qu'on livre. Les
+ * graduations verticales étant passées **dans** le tracé, la gouttière de gauche a
+ * disparu — et les deux fichiers se changent ensemble.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { axisLabels, axisWidth } from './chart-axis';
 
-const LEFT = 78;
+const LEFT = 6;
 const RIGHT = 706;
 
 /** L'abscisse d'un point, comme `Chart` la calcule. */
@@ -127,9 +129,10 @@ describe('axisLabels', () => {
     // pas toutes les deux. C'est la seconde qui saute, jamais l'origine de la plage — sans
     // quoi le graphique commencerait à une date qu'on ne voit pas.
     //
-    // 628 unités entre les deux bornes : au-delà de ~18 caractères, il n'y a plus la place
-    // pour deux.
-    const larges = ['lundi 1 juillet 2026', 'mardi 2 juillet 2026'];
+    // 700 unités entre les deux bornes. La police d'axe étant passée de 26 à 20 unités,
+    // une étiquette coûte 13,6 unités par caractère : au-delà de ~25, il n'y a plus la
+    // place pour deux.
+    const larges = ['lundi 1er juillet 2026 après-midi', 'mardi 2 juillet 2026 après-midi'];
     const choisies = axisLabels(larges, 2, scale(2));
 
     expect(choisies).toHaveLength(1);

@@ -59,6 +59,8 @@ CIRCUIT_SESSION_SETS = "activity/circuit_session_sets.csv"
 
 MEALS = "nutrition/meals.csv"
 MEAL_FAVORITES = "nutrition/favorites.csv"
+#: Catalogue d'ingrédients et leurs valeurs pour 100 g (`NUT-12`).
+MEAL_INGREDIENTS = "nutrition/ingredients.csv"
 MEAL_PHOTOS = "nutrition/photos"
 
 HYDRATION_LOG = "hydration/intake_log.csv"

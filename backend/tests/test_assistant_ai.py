@@ -252,22 +252,35 @@ def test_the_coach_pushes_for_performance_and_says_so() -> None:
     """Le ton est un réglage choisi, pas une couleur de fond.
 
     Un assistant neutre qui récite des chiffres est un tableau de bord qui parle. La
-    consigne demande explicitement le palier suivant et l'encouragement, sans quoi le
-    modèle retombe sur le registre plat de l'extraction dont il vient.
+    consigne demande explicitement le palier suivant et le soutien, sans quoi le modèle
+    retombe sur le registre plat de l'extraction dont il vient.
     """
     assert "coach" in INSTRUCTION
     assert "performance" in INSTRUCTION
     assert "prochain palier" in INSTRUCTION
-    assert "encourageant" in INSTRUCTION
+    assert "de son côté" in INSTRUCTION
+
+
+def test_the_voice_is_free_where_the_facts_are_not() -> None:
+    """La liberté de ton est **écrite**, sinon elle n'existe pas.
+
+    « Félicite pour un progrès réel et cite-le, ou tais-toi » bornait le fait, mais se lit
+    comme une interdiction d'être chaleureux sans chiffre sous la main — et rend un bulletin
+    poli. La consigne autorise donc la chaleur d'abord, et borne l'affirmation ensuite.
+    """
+    assert "Ta chaleur est libre" in INSTRUCTION
+    assert "sans attendre qu'un chiffre t'y autorise" in INSTRUCTION
+    assert "Change de tournures" in INSTRUCTION
 
 
 def test_the_encouragement_has_to_be_earned_by_a_real_number() -> None:
     """« Belle progression » sur une semaine sans séance est une valeur inventée.
 
     C'est la même faute qu'un zéro affiché pour une mesure absente, et elle coûte plus cher
-    ici : un compliment faux décrédibilise tous les vrais.
+    ici : un compliment faux décrédibilise tous les vrais. Ce qui a bougé est la place de la
+    règle, pas la règle.
     """
-    assert "jamais sur une formule toute faite" in INSTRUCTION
+    assert "un progrès que tu annonces" in INSTRUCTION
     assert "compliment inventé" in INSTRUCTION
 
 

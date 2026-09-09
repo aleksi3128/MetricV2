@@ -183,6 +183,47 @@ class AiUnreadableError(MetricError):
     )
 
 
+# ── Base produits (`NUT-13`) ──────────────────────────
+
+
+class InvalidBarcodeError(MetricError):
+    """Code-barres mal formé, ou clé de contrôle fausse (`NUT-13`).
+
+    Vérifié **avant** de sortir sur le réseau. Open Food Facts limite la lecture à quinze
+    requêtes par minute et par adresse : un chiffre mal tapé ne doit pas en consommer une,
+    d'autant qu'on connaît la réponse sans demander.
+    """
+
+    code = "invalid_barcode"
+    status_code = 422
+    message = "Ce code-barres n'est pas valide. Vérifie les chiffres."
+
+
+class ProductNotFoundError(MetricError):
+    """Open Food Facts ne connaît pas ce code (`NUT-13`).
+
+    Ce n'est pas une panne : la base est collaborative et incomplète par nature. Le
+    message dit donc la suite possible, et non l'échec — la saisie à la main reste
+    entière, comme partout où ce projet s'appuie sur un service extérieur.
+    """
+
+    code = "product_not_found"
+    status_code = 404
+    message = "Open Food Facts ne connaît pas ce produit. Tu peux l'ajouter à la main."
+
+
+class ProductLookupUnavailableError(MetricError):
+    """Open Food Facts injoignable : réseau, délai dépassé, ou 5xx (`NUT-13`).
+
+    Distinct de `product_not_found`, et la distinction porte la conduite à tenir :
+    ici, réessayer a un sens.
+    """
+
+    code = "product_lookup_unavailable"
+    status_code = 503
+    message = "Open Food Facts est injoignable. Réessaie, ou saisis l'aliment à la main."
+
+
 # ── Notifications push (`NOT-01`) ─────────────────────
 
 

@@ -55,6 +55,10 @@ const LARGEURS = [
  * `ouvre` est le **nom accessible** du bouton — son `aria-label` s'il en a un, son texte
  * sinon. Viser le nom accessible et non une classe CSS n'est pas un détail : c'est ce que
  * l'utilisateur de synthèse vocale entend, donc ce qui doit rester stable.
+ *
+ * Un **tableau** de noms ouvre une surface qui se gagne en plusieurs appuis, comme le
+ * scanner d'aliment, au fond du mode « Repas composé ». Chaque appui reste déclaré
+ * nommément : la règle qui protège les données ne change pas, la profondeur oui.
  */
 const SURFACES = [
   // Les deux premières appartiennent à la barre d'onglets, présente sur **tous** les
@@ -73,6 +77,14 @@ const SURFACES = [
   // La feuille d'ajout d'un repas et ses quatre modes (C05). Elle s'ajoute ici le jour
   // où elle est écrite, pas le jour où un défaut s'y découvre.
   ['/nutrition', 'Ajouter un repas', 'modes de saisie d’un repas'],
+  // Le formulaire du repas composé, et la surface de scan qui vit au fond (`NUT-13`).
+  // Trois appuis, tous nommés, et aucun ne remplit ni ne valide quoi que ce soit.
+  ['/nutrition', ['Ajouter un repas', 'Repas composé'], 'repas composé'],
+  [
+    '/nutrition',
+    ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment'],
+    'scanner un aliment',
+  ],
   // Le détail d'une charge — courbe et ligne de trente points. Le nom du bouton est celui
   // de l'exercice, donc il dépend des données : `Butterfly` est celui de la base réelle.
   // Sur une base où il n'existe pas, la ligne rend « bouton introuvable », ce qui est un
@@ -177,9 +189,18 @@ async function main() {
       await goto(cdp, `${base}${route}`);
       await new Promise((r) => setTimeout(r, 1600));
 
-      const trouve = await ouvrir(cdp, bouton);
-      if (trouve === null) {
-        lignes.push({ appareil, nom, absent: bouton });
+      // Une surface peut demander plusieurs appuis. On s'arrête au premier bouton
+      // introuvable : le rapport doit dire **lequel** a disparu, pas « la surface ».
+      let manquant = null;
+      for (const etape of Array.isArray(bouton) ? bouton : [bouton]) {
+        if ((await ouvrir(cdp, etape)) === null) {
+          manquant = etape;
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      if (manquant !== null) {
+        lignes.push({ appareil, nom, absent: manquant });
         continue;
       }
       await new Promise((r) => setTimeout(r, 700));

@@ -22,6 +22,7 @@ import {
   PageHead,
   Ring,
   Rule,
+  Skeleton,
   Stat,
 } from '@/components/ui';
 import { useAiStatus } from '@/features/ai/useAiStatus';
@@ -40,6 +41,7 @@ import { useToast } from '@/lib/toast';
 
 import styles from './Nutrition.module.css';
 import { estimateSentence } from './nutrition/estimate';
+import { History } from './nutrition/History';
 import { MealSheet } from './nutrition/MealSheet';
 
 function useInvalidateNutrition() {
@@ -407,7 +409,7 @@ export function Nutrition() {
   const { notify } = useToast();
   const [adding, setAdding] = useState(false);
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: keys.nutrition.all(),
     queryFn: () => nutritionApi.day(),
   });
@@ -451,63 +453,110 @@ export function Nutrition() {
 
       {/* Les trois totaux d'une même journée disaient zéro de trois façons : « 0 % » dans
           l'anneau, « 0 g » pour les sucres, « — » pour les calories. Sans repas, il n'y a
-          pas trois états — il n'y en a qu'un, et c'est le tiret. */}
-      <Rule>Totaux</Rule>
-      <Card>
-        {totals && (
-          <Ring
-            ratio={totals.meals > 0 ? totals.protein_ratio : null}
-            label="Protéines"
-            detail={
-              totals.meals > 0
-                ? `${num(totals.protein_g, 0)} g sur ${num(totals.protein_target_g, 0)} g`
-                : `objectif ${num(totals.protein_target_g, 0)} g`
-            }
-            tone={totals.protein_ratio >= 1 ? 'effort' : 'signal'}
-          />
-        )}
-      </Card>
+          pas trois états — il n'y en a qu'un, et c'est le tiret.
 
-      {/* Deux tuiles : un libellé, un chiffre, une ligne. Elles tiennent de front. */}
-      <div className="grid tiles">
-        <Card>
-          <Stat
-            compact
-            label="Sucres ajoutés"
-            value={totals && totals.meals > 0 ? num(totals.added_sugar_g, 0) : '—'}
-            unit={totals && totals.meals > 0 ? 'g' : undefined}
-            detail={
-              totals
-                ? totals.over_sugar
-                  ? `plafond dépassé (${num(totals.added_sugar_max_g, 0)} g)`
-                  : `plafond ${num(totals.added_sugar_max_g, 0)} g`
-                : undefined
-            }
-            direction={totals?.over_sugar === true ? 'down' : undefined}
-          />
-        </Card>
-        <Card>
-          <Stat
-            compact
-            label="Calories"
-            value={totals && totals.calories > 0 ? integer(totals.calories) : '—'}
-            unit={totals && totals.calories > 0 ? 'kcal' : undefined}
-            detail={
-              totals
-                ? totals.calories_known < totals.meals
-                  ? `sur ${totals.calories_known} repas ${plural(totals.calories_known, 'renseigné')} / ${totals.meals}`
-                  : `${integer(totals.meals)} repas`
-                : undefined
-            }
-          />
-        </Card>
-      </div>
+          Les calories sont passées de la tuile à l'anneau le jour où elles ont eu un
+          objectif. Un chiffre nu ne disait rien : « 2 340 kcal » ne se lit que contre une
+          référence, et c'est la même que celle qui colore la grille plus bas. */}
+      {/* **Rien plutôt qu'un cadre vide.** Sur panne, `totals` reste indéfini : les deux
+          anneaux ne rendaient rien et laissaient deux rectangles muets, et les deux tuiles
+          affichaient « — » avec « une photo suffit à en ouvrir un » — une invitation qui
+          suppose une journée sans repas, alors que l'écran n'a rien pu lire. La section
+          entière se tait ; la carte du journal, plus bas, nomme la panne. */}
+      {error === null && (
+        <>
+          <Rule>Totaux</Rule>
+          <div className="grid g2">
+            <Card>
+              {totals === undefined ? (
+                <Skeleton lines={2} />
+              ) : (
+                <Ring
+                  ratio={totals.meals > 0 ? totals.protein_ratio : null}
+                  label="Protéines"
+                  detail={
+                    totals.meals > 0
+                      ? `${num(totals.protein_g, 0)} g sur ${num(totals.protein_target_g, 0)} g`
+                      : `objectif ${num(totals.protein_target_g, 0)} g`
+                  }
+                  tone={totals.protein_ratio >= 1 ? 'effort' : 'signal'}
+                />
+              )}
+            </Card>
+            <Card>
+              {totals === undefined ? (
+                <Skeleton lines={2} />
+              ) : (
+                <Ring
+                  // Chiffré, pas noté : une journée de repas photographiés sans calories n'a
+                  // pas d'anneau à 0 %, elle a un tiret.
+                  ratio={totals.calories_known > 0 ? totals.calories_ratio : null}
+                  label="Calories"
+                  detail={
+                    totals.calories_known > 0
+                      ? `${integer(totals.calories)} sur ${integer(totals.calories_target)} kcal`
+                      : `objectif ${integer(totals.calories_target)} kcal`
+                  }
+                  tone={totals.calories_ratio >= 1 ? 'load' : 'signal'}
+                />
+              )}
+            </Card>
+          </div>
+
+          {/* Deux tuiles : un libellé, un chiffre, une ligne. Elles tiennent de front. */}
+          <div className="grid tiles">
+            <Card>
+              <Stat
+                compact
+                label="Sucres ajoutés"
+                value={totals && totals.meals > 0 ? num(totals.added_sugar_g, 0) : '—'}
+                unit={totals && totals.meals > 0 ? 'g' : undefined}
+                detail={
+                  totals
+                    ? totals.over_sugar
+                      ? `plafond dépassé (${num(totals.added_sugar_max_g, 0)} g)`
+                      : `plafond ${num(totals.added_sugar_max_g, 0)} g`
+                    : undefined
+                }
+                direction={totals?.over_sugar === true ? 'down' : undefined}
+              />
+            </Card>
+            <Card>
+              <Stat
+                compact
+                label="Repas notés"
+                value={totals && totals.meals > 0 ? integer(totals.meals) : '—'}
+                unit={
+                  totals && totals.meals > 0 ? plural(totals.meals, 'repas', 'repas') : undefined
+                }
+                detail={
+                  totals && totals.meals > 0
+                    ? totals.calories_known < totals.meals
+                      ? `${totals.calories_known} ${plural(totals.calories_known, 'chiffré')} sur ${totals.meals}`
+                      : 'tous chiffrés'
+                    : 'une photo suffit à en ouvrir un'
+                }
+              />
+            </Card>
+          </div>
+        </>
+      )}
+      <History />
 
       <Rule>Journal</Rule>
       <div className={styles.split}>
         <Card>
+          {/* Quatre états, et non trois. Cette pile s'arrêtait à « chargement / repas /
+              aucun repas » : sur `storage_unavailable` — la panne que ce projet voit le
+              plus souvent — `isPending` retombait à faux, `data` restait indéfini, et
+              l'écran affirmait « Aucun repas aujourd'hui ». Une panne de stockage se
+              lisait comme un jeûne, ce qui est crédible et faux. */}
           {isPending ? (
-            <p className={styles.empty}>chargement…</p>
+            <Skeleton />
+          ) : error ? (
+            <Empty title="Journal indisponible">
+              {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+            </Empty>
           ) : data && data.meals.length > 0 ? (
             data.meals.map((meal) => (
               <MealCard
@@ -534,6 +583,7 @@ export function Nutrition() {
           open={adding}
           suggested={data.suggested_type}
           types={data.types}
+          ingredients={data.ingredients}
           onClose={() => {
             setAdding(false);
           }}

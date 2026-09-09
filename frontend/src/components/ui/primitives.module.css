@@ -95,54 +95,6 @@
 /* Saisie rapide : la cible du projet, un relevé en un geste. C'est une action qui
    **termine** un geste — elle prend la grande taille, celle qu'on touche entre deux
    séries sans regarder l'écran. */
-.log {
-  background: var(--surface-2);
-  color: var(--ink);
-  border-color: var(--line);
-  font-family: var(--mono);
-  font-size: var(--t-sub);
-  padding: 14px 16px;
-  min-height: var(--tap-lg);
-  width: 100%;
-  justify-content: space-between;
-  border-radius: var(--r-sm);
-}
-
-.log:active:not(:disabled) {
-  background: var(--bg);
-  transform: scale(0.985);
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .log:hover:not(:disabled) {
-    border-color: var(--effort);
-    background: var(--log-hover);
-  }
-}
-
-/*
- * **Un libellé qui passe à la ligne doit rester aligné à gauche.**
- *
- * Un `<button>` centre son texte par défaut — c'est la feuille de style du navigateur, et
- * `.btn` ne l'écrasait pas. Tant qu'un libellé tenait sur une ligne, la disposition en
- * `flex` le plaçait et le centrage ne se voyait pas ; « Développé couché incliné » ou
- * « Photo et description », eux, arrivaient centrés sur deux lignes au milieu d'une liste
- * de libellés alignés. C'est la moitié du défaut noté dans `CLAUDE.md` §7.
- */
-.logLabel {
-  text-align: left;
-  min-width: 0;
-}
-
-.logHint {
-  font-style: normal;
-  color: var(--ink-low);
-  /* Le rappel de la dernière valeur ne se coupe pas pour laisser de la place au libellé :
-     c'est un nombre, et un nombre coupé est illisible. */
-  flex: none;
-  text-align: right;
-}
-
 .btnBusy {
   /* Le libellé garde sa place pendant l'attente : pas de saut de mise en page. */
   opacity: 0.7;
@@ -236,6 +188,29 @@
   font-size: var(--t-body);
   transition: var(--t);
   width: 100%;
+}
+
+/* L'unité dans la case. Le champ lui réserve sa place à droite ; sans ce dégagement, un
+   nombre à quatre chiffres passerait dessous. */
+.unitWrap {
+  position: relative;
+  display: block;
+}
+
+.inputUnit {
+  padding-right: 30px;
+}
+
+.unit {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  /* Le doigt doit tomber dans le champ, pas sur son unité. */
+  pointer-events: none;
 }
 
 .input:focus {
@@ -894,4 +869,58 @@
   font-family: var(--mono);
   font-size: var(--t-meta);
   pointer-events: none;
+}
+
+/* ── Attente ──────────────────────────────────────── */
+
+/*
+ * Le squelette de `Skeleton`. Il occupe la place de ce qui arrive, ce que
+ * « chargement… » ne faisait pas : la page ne saute plus quand la donnée se pose.
+ *
+ * Le balayage est lent — 1,4 s — et de faible amplitude. Une attente qui clignote se
+ * regarde au lieu de se laisser oublier, et c'est l'inverse du but. La règle générale de
+ * `base.css` l'annule sous `prefers-reduced-motion` ; il reste alors trois barres
+ * immobiles, qui disent la même chose.
+ */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.skeletonLine {
+  height: 12px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--surface-2) 0%, var(--line) 50%, var(--surface-2) 100%);
+  background-size: 300% 100%;
+  animation: metric-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Des largeurs fixes et décroissantes : elles suggèrent un paragraphe sans imiter une
+   valeur. Tirées au hasard, elles feraient bouger la page à chaque rendu.
+   Le premier enfant est le libellé caché — les barres commencent au deuxième. */
+.skeletonLine:nth-child(2) {
+  width: 100%;
+}
+
+.skeletonLine:nth-child(3) {
+  width: 82%;
+}
+
+.skeletonLine:nth-child(4) {
+  width: 64%;
+}
+
+.skeletonLine:nth-child(n + 5) {
+  width: 74%;
+}
+
+@keyframes metric-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+
+  to {
+    background-position: -150% 0;
+  }
 }

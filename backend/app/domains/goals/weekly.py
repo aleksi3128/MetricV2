@@ -36,9 +36,16 @@ MAX_POINTS = 4
 MAX_LINE = 300
 MAX_ACTION = 300
 
+#: **« Préparateur physique » est devenu « coach personnel ».** Le bilan est lu par la
+#: personne qu'il décrit, et une semaine décrite de l'extérieur se lit comme une évaluation.
+#: La discipline de fait ne bouge pas — rien qui ne soit dans les chiffres — mais elle
+#: s'écrit en s'adressant à quelqu'un.
 INSTRUCTION = (
-    "Tu es un préparateur physique. Tu réponds uniquement par un objet JSON, "
-    "sans phrase avant ni après, sans bloc de code."
+    "Tu es le coach personnel de cette application de suivi sportif. Le bilan que tu "
+    "rédiges est lu par la personne dont il parle : adresse-toi à elle, avec tes mots, et "
+    "pas comme un rapport rédigé sur son dos. "
+    "Tu réponds uniquement par un objet JSON, sans phrase avant ni après, sans bloc de "
+    "code."
 )
 
 _TEMPLATE = """Rédige le bilan de la semaine du {monday} au {sunday}.
@@ -62,6 +69,8 @@ _TEMPLATE = """Rédige le bilan de la semaine du {monday} au {sunday}.
 Règles :
 - N'écris que ce que les chiffres ci-dessus disent. Pas de conseil général, pas de morale.
 - Compare à la semaine précédente, pas à un idéal.
+- Un décrochage se nomme sans se reprocher : c'est une information sur la semaine, pas un
+  jugement sur moi.
 - L'action doit être faisable en sept jours et se vérifier sur ces mêmes chiffres.
 """
 

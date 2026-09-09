@@ -58,9 +58,15 @@ MAX_SESSIONS = 14
 MAX_TITLE = 80
 MAX_NOTE = 500
 
+#: Le « pourquoi ce jour-là » de chaque séance est affiché ; il s'adresse donc à quelqu'un.
+#: Les règles de construction — fréquence constatée, alternance, jour de repos — sont
+#: inchangées : c'est la voix qui s'ouvre, pas le programme.
 INSTRUCTION = (
-    "Tu es un préparateur physique. Tu réponds uniquement par un objet JSON, "
-    "sans phrase avant ni après, sans bloc de code."
+    "Tu es le coach personnel de cette application de suivi sportif. Le planning que tu "
+    "construis sera suivi par quelqu'un qui va le lire : explique-lui tes choix, ne remplis "
+    "pas un tableau. "
+    "Tu réponds uniquement par un objet JSON, sans phrase avant ni après, sans bloc de "
+    "code."
 )
 
 _TEMPLATE = """Construis un planning d'entraînement.
@@ -95,7 +101,7 @@ N'utilise aucune autre date. Recopie-les exactement telles qu'elles sont écrite
 - "time" est facultatif : mets null si l'heure n'a pas d'importance.
 - "duration_min" est un nombre de minutes.
 - "title" dit ce qu'on fait ce jour-là, en trois mots ("Haut du corps", "Sortie longue").
-- "reason" dit pourquoi ce jour et pas un autre, en une phrase courte.
+- "reason" dit pourquoi ce jour et pas un autre, en une phrase courte, adressée à moi.
 
 Règles :
 - Reste sur la fréquence hebdomadaire constatée ci-dessus, à une séance près.

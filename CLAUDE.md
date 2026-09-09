@@ -30,6 +30,9 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Les charges d'une séance Cadence, et la spec v2 du lien | [`docs/charges.md`](docs/charges.md) |
 | Les 1324 noms d'exercices de Cadence, par groupe — à donner à un modèle | [`docs/catalogue-cadence.md`](docs/catalogue-cadence.md) |
 | La refonte de l'activité — tout par Cadence, la course à part | [`docs/refonte-activite.md`](docs/refonte-activite.md) |
+| L'historique de `/nutrition` — grille, courbe, objectif de calories | [`docs/nutrition-historique.md`](docs/nutrition-historique.md) |
+| Le cinquième mode de saisie — un plat par ses ingrédients | [`docs/repas-compose.md`](docs/repas-compose.md) |
+| Ajouter un aliment en le scannant — code-barres et Open Food Facts | [`docs/scan-aliment.md`](docs/scan-aliment.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -141,6 +144,14 @@ Un écran importe **toujours** depuis `@/components/ui`, jamais depuis
 
 **Quatre états par écran, jamais trois** : chargement, vide, erreur, données. L'état vide
 dit ce que coûte le prochain geste et n'affiche aucune valeur inventée.
+
+Celui qu'on oublie est l'**erreur**, et il se paie cher : sans lui, une requête en échec
+laisse `data` indéfini, `isPending` retombe à faux, et l'écran tombe dans l'état vide — il
+affirme « aucun repas aujourd'hui » ou « aucune activité » alors qu'il n'a rien pu lire.
+`/nutrition` et `/activite` étaient dans ce cas, et c'est la façon la plus crédible de
+mentir. Déstructurer `error` avec `data` et `isPending` est le réflexe qui l'évite.
+`Skeleton` porte l'attente — dessinée, jamais écrite : elle occupe la place de ce qui
+arrive, ce que « chargement… » ne faisait pas.
 
 **Le conteneur de page** est `cx('wrap', styles.screen)`. En oublier un désaligne le
 contenu de l'en-tête — le défaut a été trouvé deux fois, jamais par un test.
@@ -277,17 +288,23 @@ ce qui a été mesuré, ce qui a été écarté et pourquoi, et finit par ce qui
 
 | Sujet | État |
 |---|---|
-| `LogButton` casse les noms longs sur trois lignes, hauteurs inégales dans la grille | la grille de `/activite` est partie avec le journal ; le défaut reste dans `primitives.tsx`, et donc sur la saisie rapide et `/activite/charges` |
-| **Onze** écrans encore sur `className="wrap"` au lieu de `cx('wrap', styles.screen)` | `.wrap .wrap` neutralise la conséquence visible en attendant |
+| Un écran encore sur `className="wrap"` : `NotFound.tsx` | il n'a qu'un enfant — lui créer un module CSS pour une seule classe coûterait plus que le défaut |
 | Trois styles en ligne dans `routes/settings/Tracks.tsx` | `marginTop: 14`, qui contournent l'échelle `--s1`…`--s8` |
 | `Tracks.tsx` (856 l.) et `Planning.tsx` (919 l.) | à découper par section |
 | Les phases 4 et 6 de [`refonte-activite.md`](docs/refonte-activite.md) | la copie de sauvegarde, puis la suppression de `workouts.csv`, `exercises.csv` et `exercise_log.csv`. **À la main, par l'utilisateur** — ce sont de vraies données de santé et le projet n'a aucune annulation |
-| Aucune route ne supprime une charge (`circuit_loads.csv`) | on peut en créer et en corriger, jamais en retirer : une ligne dont l'exercice quitte tous les circuits devient invisible et survit dans le fichier |
 | La démonstration d'un exercice ne s'affiche que sur un nom **exact** du catalogue | `exercise_media.py` ; un rapprochement approximatif reproduirait celui de Cadence, ce que le dépôt refuse en toutes lettres |
 | Aucun écran n'a jamais été touché sur un **vrai téléphone** | l'émulation ne reproduit ni le pouce, ni le clavier système, ni la latence |
 
 Deux lignes sont sorties de ce tableau avec la phase 5 : les calculs métier de `/activite`
 (la tuile « Tonnage » et ses deux `Bars`) ont disparu avec l'écran qui les portait.
+
+Trois autres en sont sorties depuis. **`LogButton`** a été retiré : la saisie rapide était
+passée à `SheetRow` et `/activite/charges` avait écrit sa propre carte — il ne servait plus
+qu'à la vitrine, et son défaut de grille avec lui. Les **onze écrans** sur `className="wrap"`
+n'étaient plus que six, et sont passés à la convention ; il n'en reste qu'un, ci-dessus.
+Une charge **se supprime** enfin : `DELETE /api/activity/loads/{id}` sous `If-Match`, et
+`LoadList.orphans` montre les lignes dont l'exercice a quitté tous les circuits — sans quoi
+la route n'aurait visé que ce qu'aucun écran ne pouvait atteindre.
 
 **Un point d'environnement** : une instance d'API tourne parfois depuis plusieurs jours sur
 le port 8000 avec un stockage Nextcloud devenu injoignable. Symptôme : `storage_unavailable`

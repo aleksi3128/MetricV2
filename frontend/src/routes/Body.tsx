@@ -11,6 +11,7 @@ import {
   Field,
   PageHead,
   Rule,
+  Skeleton,
   Stat,
   Table,
 } from '@/components/ui';
@@ -23,7 +24,7 @@ import {
 } from '@/features/body/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { delta, isoDay, kg, num, plural, shortDate } from '@/lib/format';
+import { delta, kg, num, plural, shortDate } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
@@ -43,11 +44,31 @@ function useInvalidateBody() {
 
 // ── Saisie d'une pesée ────────────────────────────────
 
-function WeightForm({ editing, onDone }: { editing: WeightEntry | null; onDone: () => void }) {
+/**
+ * **Le jour vient du serveur, jamais de `new Date()`.**
+ *
+ * Cette date-là n'est pas un choix d'affichage : elle est écrite dans le CSV et devient
+ * la date de la pesée. La prendre de l'horloge du téléphone la faisait dépendre d'un
+ * fuseau et d'un réglage que le serveur ne partage pas — une pesée du matin enregistrée
+ * la veille, sans que rien à l'écran ne le dise. `today` arrive dans `WeightView`.
+ *
+ * `day` reste `null` tant que l'utilisateur n'a rien changé : le champ affiche alors le
+ * jour du serveur. Un état initialisé au montage aurait figé la valeur d'avant la
+ * réponse, ce qui ramène le problème par une autre porte.
+ */
+function WeightForm({
+  editing,
+  today,
+  onDone,
+}: {
+  editing: WeightEntry | null;
+  today: string;
+  onDone: () => void;
+}) {
   const invalidate = useInvalidateBody();
   const { notify } = useToast();
 
-  const [day, setDay] = useState(() => editing?.date ?? isoDay(new Date()));
+  const [day, setDay] = useState<string | null>(editing?.date ?? null);
   const [weight, setWeight] = useState(() => editing?.weight_kg.toString() ?? '');
   const [note, setNote] = useState(() => editing?.note ?? '');
   const [error, setError] = useState<ApiError | null>(null);
@@ -82,7 +103,7 @@ function WeightForm({ editing, onDone }: { editing: WeightEntry | null; onDone: 
       setError(null);
       return;
     }
-    save.mutate({ date: day, weight_kg: value, note: note.trim() || null });
+    save.mutate({ date: day ?? today, weight_kg: value, note: note.trim() || null });
   }
 
   return (
@@ -97,8 +118,8 @@ function WeightForm({ editing, onDone }: { editing: WeightEntry | null; onDone: 
         <Field
           label="Date"
           type="date"
-          value={day}
-          max={isoDay(new Date())}
+          value={day ?? today}
+          max={today}
           error={error?.messageFor('date')}
           onChange={(event) => {
             setDay(event.target.value);
@@ -176,7 +197,9 @@ function MeasurementPanel() {
   const invalidate = useInvalidateBody();
   const { notify } = useToast();
   const [values, setValues] = useState<Record<string, string>>({});
-  const [day, setDay] = useState(() => isoDay(new Date()));
+  // Même règle que pour la pesée : `null` signifie « le jour du serveur », qui arrive
+  // dans `MeasurementView`. Voir `WeightForm`.
+  const [day, setDay] = useState<string | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
 
   const { data } = useQuery({
@@ -185,13 +208,15 @@ function MeasurementPanel() {
   });
 
   const save = useMutation({
-    mutationFn: () => {
+    // Le jour du serveur est passé en argument plutôt que lu dans la portée : c'est ce
+    // qui rend impossible d'enregistrer avant qu'il soit connu.
+    mutationFn: (serverDay: string) => {
       const numeric = Object.fromEntries(
         Object.entries(values)
           .filter(([, raw]) => raw.trim() !== '')
           .map(([field, raw]) => [field, Number.parseFloat(raw.replace(',', '.'))]),
       );
-      return bodyApi.createMeasurement({ date: day, ...numeric });
+      return bodyApi.createMeasurement({ date: day ?? serverDay, ...numeric });
     },
     onSuccess: () => {
       invalidate();
@@ -205,6 +230,7 @@ function MeasurementPanel() {
   });
 
   const indicators = data?.indicators ?? [];
+  const today = data?.today;
   const nothingFilled = Object.values(values).every((raw) => raw.trim() === '');
 
   return (
@@ -225,7 +251,8 @@ function MeasurementPanel() {
         className={styles.form}
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate();
+          if (today === undefined) return;
+          save.mutate(today);
         }}
         noValidate
       >
@@ -238,8 +265,8 @@ function MeasurementPanel() {
         <Field
           label="Date"
           type="date"
-          value={day}
-          max={isoDay(new Date())}
+          value={day ?? today ?? ''}
+          max={today}
           onChange={(event) => {
             setDay(event.target.value);
           }}
@@ -260,7 +287,14 @@ function MeasurementPanel() {
           ))}
         </div>
 
-        <Button type="submit" variant="ghost" busy={save.isPending} disabled={nothingFilled}>
+        <Button
+          type="submit"
+          variant="ghost"
+          busy={save.isPending}
+          // Rien ne part avant que le serveur ait dit quel jour on est : le relevé
+          // n'aurait pas de date à porter.
+          disabled={nothingFilled || today === undefined}
+        >
           Enregistrer les mensurations
         </Button>
       </form>
@@ -352,7 +386,7 @@ export function Body() {
   const waiting = stats === undefined;
 
   return (
-    <div className="wrap">
+    <div className={cx('wrap', styles.screen)}>
       <PageHead eyebrow="Domaine Corps" title={<>Poids &amp; mensurations</>} />
 
       <Rule>Indicateurs</Rule>
@@ -463,8 +497,17 @@ export function Body() {
           <h3 className={styles.flushTitle}>
             Historique {data !== undefined && <span className={styles.empty}>· {data.total}</span>}
           </h3>
+          {/* Quatre états. « Aucune pesée » s'affichait aussi quand la requête avait
+              échoué : le bandeau d'erreur au-dessus le disait, la carte le contredisait
+              juste en dessous. */}
           {isPending ? (
-            <p className={cx(styles.empty, styles.flushPad)}>chargement…</p>
+            <Skeleton className={styles.flushPad} />
+          ) : error ? (
+            <div className={styles.flushPad}>
+              <Empty title="Historique indisponible">
+                {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+              </Empty>
+            </div>
           ) : data && data.entries.length > 0 ? (
             <Table
               columns={columns}
@@ -482,13 +525,22 @@ export function Body() {
         <div className="stack">
           <Card>
             <h3>{editing ? 'Corriger la pesée' : 'Nouvelle pesée'}</h3>
-            <WeightForm
-              key={editing?.token ?? 'new'}
-              editing={editing}
-              onDone={() => {
-                setEditing(null);
-              }}
-            />
+            {/* Le formulaire n'existe qu'une fois `today` connu : sans lui, il n'a pas
+                de jour à proposer, et en inventer un est exactement ce qu'on vient de
+                retirer. Une seconde de « chargement… » vaut mieux qu'un champ qui
+                affiche l'horloge du téléphone. */}
+            {data === undefined ? (
+              <Skeleton />
+            ) : (
+              <WeightForm
+                key={editing?.token ?? 'new'}
+                editing={editing}
+                today={data.today}
+                onDone={() => {
+                  setEditing(null);
+                }}
+              />
+            )}
           </Card>
 
           <MeasurementPanel />
