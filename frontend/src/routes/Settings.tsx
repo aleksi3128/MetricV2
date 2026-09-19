@@ -21,7 +21,7 @@ import {
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { num } from '@/lib/format';
+import { num, pace } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
@@ -97,6 +97,11 @@ function toDraft(values: SettingsValues): Draft {
     hydration_presets_ml: values.hydration_presets_ml.join(', '),
     heatmap_metric: values.heatmap_metric,
     cadence_base_url: values.cadence_base_url,
+    // Vides quand rien n'est saisi : c'est la déduction, et le champ le montre tel quel
+    // plutôt que d'y écrire une valeur que personne n'a choisie.
+    max_hr: values.max_hr == null ? '' : String(values.max_hr),
+    threshold_pace_min_km:
+      values.threshold_pace_min_km == null ? '' : pace(values.threshold_pace_min_km),
   };
 }
 
@@ -142,6 +147,13 @@ function changes(draft: Draft, current: SettingsValues): SettingsPayload {
    */
   if (draft.cadence_base_url.trim() !== before.cadence_base_url) {
     payload.cadence_base_url = draft.cadence_base_url.trim();
+  }
+
+  // Les deux références de course suivent la même règle que l'adresse : vides, elles
+  // **effacent**, et la page Course revient à la déduction. Elles partent en texte — `5:15`
+  // se lit côté serveur comme une allure saisie au clavier.
+  for (const key of ['max_hr', 'threshold_pace_min_km'] as const) {
+    if (draft[key].trim() !== before[key]) payload[key] = draft[key].trim();
   }
 
   return payload;
@@ -260,6 +272,68 @@ function CadenceCard({
   );
 }
 
+/**
+ * Les références des zones de course (`docs/analyse-course.md`, **A9**).
+ *
+ * **Vides, elles ne sont pas « non réglées » : elles sont déduites.** La page Course dit
+ * alors d'où vient la valeur qu'elle utilise — la plus haute FC relevée, l'allure estimée
+ * depuis un meilleur effort. Le badge lit donc la valeur et non `stored`, pour la raison de
+ * l'adresse de Cadence : effacer écrit une cellule vide, et `stored` dirait « réglé ».
+ */
+function RunningCard({
+  maxHr,
+  threshold,
+  errors,
+  onMaxHr,
+  onThreshold,
+}: {
+  maxHr: string;
+  threshold: string;
+  errors: { maxHr: string | undefined; threshold: string | undefined };
+  onMaxHr: (event: { target: { value: string } }) => void;
+  onThreshold: (event: { target: { value: string } }) => void;
+}) {
+  const chosen = maxHr.trim() !== '' || threshold.trim() !== '';
+  return (
+    <>
+      <Rule>Course</Rule>
+      <Card>
+        <div className="spread">
+          <span className={styles.name}>Zones d’intensité</span>
+          <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'saisies' : 'déduites'}</Badge>
+        </div>
+        <p className={cx(styles.note, styles.noteSpaced)}>
+          Vides, elles se déduisent de tes sorties : la plus haute fréquence cardiaque relevée,
+          l’allure tenable une heure estimée depuis ton meilleur 3 km. Une saisie l’emporte.
+        </p>
+        <div className={styles.row}>
+          <Field
+            label="FC max (bpm)"
+            inputMode="numeric"
+            value={maxHr}
+            error={errors.maxHr}
+            hint="Zones cardio, quand le fichier en porte · vide pour déduire"
+            onChange={onMaxHr}
+          />
+        </div>
+        <div className={styles.row}>
+          <Field
+            label="Allure seuil (min/km)"
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={threshold}
+            error={errors.threshold}
+            hint="Zones d’allure · 5:15 ou 5,25 · vide pour déduire"
+            onChange={onThreshold}
+          />
+        </div>
+      </Card>
+    </>
+  );
+}
+
 function Origin({ view, field }: { view: SettingsView; field: keyof SettingsValues }) {
   const chosen = view.stored.includes(field);
   return <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'réglé' : 'valeur par défaut'}</Badge>;
@@ -290,6 +364,9 @@ export function Settings() {
       void client.invalidateQueries({ queryKey: keys.hydration.all() });
       void client.invalidateQueries({ queryKey: keys.nutrition.all() });
       void client.invalidateQueries({ queryKey: keys.body.all() });
+      // Les références de course changent les zones de chaque sortie : l'analyse d'une
+      // course déjà ouverte se relirait sinon contre l'ancienne allure seuil.
+      void client.invalidateQueries({ queryKey: keys.activity.all() });
       // Les rappels vivent dans le **même fichier** (`NOT-03`) : cette écriture change le
       // jeton que la section « Rappels » détient. Sans cette ligne, son prochain
       // enregistrement partirait en `409` sans que rien ne l'explique — les deux sections
@@ -425,6 +502,17 @@ export function Settings() {
           value={fields.cadence_base_url}
           error={refusal?.messageFor('cadence_base_url')}
           onChange={set('cadence_base_url')}
+        />
+
+        <RunningCard
+          maxHr={fields.max_hr}
+          threshold={fields.threshold_pace_min_km}
+          errors={{
+            maxHr: refusal?.messageFor('max_hr'),
+            threshold: refusal?.messageFor('threshold_pace_min_km'),
+          }}
+          onMaxHr={set('max_hr')}
+          onThreshold={set('threshold_pace_min_km')}
         />
 
         <div className={styles.actions}>

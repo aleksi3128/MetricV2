@@ -16,8 +16,9 @@ Trois raisons, et aucune n'est de principe :
 
 ## Ce qui est relevé, et ce qui ne l'est pas
 
-`energy-kcal_100g`, `proteins_100g`, `sugars_100g`. Trois précisions, chacune vérifiée
-sur une réponse réelle :
+`energy-kcal_100g`, `proteins_100g`, `sugars_100g`, et depuis `NUT-16`
+`saturated-fat_100g` et `fiber_100g`. Trois précisions, chacune vérifiée sur une réponse
+réelle :
 
 * **jamais `energy_100g`**, qui est en kilojoules. Quand seul celui-là existe, il est
   converti — une conversion d'unité n'invente rien, contrairement à un zéro ;
@@ -63,7 +64,7 @@ USER_AGENT = f"Metric/{__version__} (auto-heberge)"
 _LENGTHS = (8, 12, 13, 14)
 
 #: Bornes de vraisemblance pour 100 g. Au-delà, la valeur est tenue pour inconnue.
-_MAX = {"calories": 900.0, "protein": 100.0, "sugar": 100.0}
+_MAX = {"calories": 900.0, "grams": 100.0}
 
 #: Un appel réseau qui dépasse ce délai est un écran qui attend sans rien dire.
 TIMEOUT = 8.0
@@ -164,8 +165,13 @@ def to_product(barcode: str, product: dict[str, Any]) -> Product:
             detail=f"produit sans nom : {barcode}",
         )
 
-    protein = _number(nutriments.get("proteins_100g"), _MAX["protein"])
-    sugar = _number(nutriments.get("sugars_100g"), _MAX["sugar"])
+    protein = _number(nutriments.get("proteins_100g"), _MAX["grams"])
+    sugar = _number(nutriments.get("sugars_100g"), _MAX["grams"])
+    # Les fibres manquent souvent — la mention n'est pas obligatoire sur un emballage
+    # européen. Absentes, elles restent `null` comme le reste : un produit sans fibres
+    # déclarées n'est pas un produit sans fibres.
+    saturated = _number(nutriments.get("saturated-fat_100g"), _MAX["grams"])
+    fiber = _number(nutriments.get("fiber_100g"), _MAX["grams"])
 
     return Product(
         barcode=barcode,
@@ -174,7 +180,9 @@ def to_product(barcode: str, product: dict[str, Any]) -> Product:
         calories_100g=calories,
         protein_100g=protein,
         added_sugar_100g=sugar,
-        partial=calories is None and protein is None and sugar is None,
+        saturated_fat_100g=saturated,
+        fiber_100g=fiber,
+        partial=all(value is None for value in (calories, protein, sugar, saturated, fiber)),
     )
 
 

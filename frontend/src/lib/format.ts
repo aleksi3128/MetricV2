@@ -99,7 +99,14 @@ function asDate(value: Date | string): Date {
   return value instanceof Date ? value : new Date(value);
 }
 
-/** `26/07`, pour les colonnes de tableau. */
+/**
+ * `26/07`, pour les colonnes de tableau et les étiquettes d'axe.
+ *
+ * L'année est du bruit sur une plage qui n'en couvre qu'une : trois `14/08/2026` de dix
+ * caractères se partageaient les 330 px d'une carte de téléphone, là où `14/08` en demande
+ * quatre de moins chacun. Le titre de la carte et l'infobulle portent la plage complète —
+ * l'axe, lui, n'a qu'à situer.
+ */
 export function dayMonth(value: Date | string): string {
   return asDate(value).toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit' });
 }
@@ -132,6 +139,21 @@ export function longDate(value: Date | string): string {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+  });
+}
+
+/**
+ * `13 septembre 2026` — la date entière, année comprise.
+ *
+ * L'année est du bruit dans l'application, où tout se lit dans son contexte : c'est ce que
+ * disent `dayMonth` et `longDate`. Elle est indispensable sur une **image qui sort** de
+ * l'application — une story se regarde sans page autour, et souvent des mois après.
+ */
+export function dayMonthYear(value: Date | string): string {
+  return asDate(value).toLocaleDateString(LOCALE, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
   });
 }
 

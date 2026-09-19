@@ -1,0 +1,98 @@
+/*
+ * La feuille de partage d'une course (`docs/story-course.md`).
+ *
+ * Écrite **mobile d'abord**, pour 390 px. Aucune couleur en dur — tout passe par
+ * `tokens.css`, qui porte les deux thèmes.
+ */
+
+/* Le panneau de `Sheet` plafonne déjà à 86 dvh et défile : rien à surcharger ici. C'est
+   l'aperçu qui se plie à la place disponible, plus bas. */
+
+.stage {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--s2) var(--s4);
+}
+
+/*
+ * L'aperçu — le **même** canvas de 1080 × 1920 que celui qu'on exporte, réduit.
+ *
+ * Le damier est le fond CSS de l'élément : il se voit à travers les pixels transparents
+ * du dessin et n'entre jamais dans le PNG. Une couche peinte, elle, y serait — et la
+ * story arriverait sur Instagram avec un damier derrière.
+ *
+ * `max-height` plutôt qu'une largeur pleine : en 9:16, 350 px de large font 622 px de
+ * haut, et les trois réglages tombaient sous la ligne de flottaison.
+ */
+.preview {
+  display: block;
+  max-height: 46vh;
+  width: auto;
+  max-width: 100%;
+  border-radius: var(--r-sm);
+  background-color: var(--surface-2);
+  background-image:
+    linear-gradient(
+      45deg,
+      rgb(var(--ink-rgb) / 0.06) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgb(var(--ink-rgb) / 0.06) 75%
+    ),
+    linear-gradient(
+      45deg,
+      rgb(var(--ink-rgb) / 0.06) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgb(var(--ink-rgb) / 0.06) 75%
+    );
+  background-size:
+    22px 22px,
+    22px 22px;
+  background-position:
+    0 0,
+    11px 11px;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.note {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+/* L'action qui **termine** le geste : `--tap-lg`, et pleine largeur. */
+.share {
+  min-height: var(--tap-lg);
+  width: 100%;
+  margin-top: var(--s5);
+}
+
+/* ── Le choix de la couleur du tracé ───────────────── */
+
+/* La pastille de couleur dans sa puce. `box-shadow` plutôt qu'une bordure : sur un blanc
+   posé sur une puce claire, seul un liseré détache la rondelle du fond. */
+.swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.35);
+}
+
+/* « Par allure » : les trois couleurs dans une seule rondelle, en tiers. C'est ce que la
+   puce fait — elle ne peint pas d'une couleur, elle en peint trois. */
+.paceDots {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: inset 0 0 0 1px rgb(var(--ink-rgb) / 0.35);
+  background: conic-gradient(var(--effort) 0 33%, var(--ink-mid) 0 66%, var(--load) 0);
+}

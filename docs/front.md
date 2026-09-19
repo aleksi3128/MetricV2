@@ -282,6 +282,16 @@ la phase B :
   `TABS` est **plein à trois destinations** et le restera ; toute page nouvelle va dans
   `MORE`, qui n'a pas de limite parce qu'une feuille défile.
 
+**Chaque écran s'ouvre par son haut.** `Shell` appelle
+[`useScrollTop`](../frontend/src/lib/scroll.ts) sur le chemin : sans lui, le navigateur
+garde la position du document et ouvrir `/nutrition` depuis le bas de `/activite` déposait
+au milieu de l'écran suivant. Le défaut se voit surtout au pouce, où les cibles de
+`TabBar` sont en bas — donc précisément là où l'on se trouve après avoir fait défiler une
+page. Trois détails y sont payés : `useLayoutEffect` (un effet ordinaire peint une fois à
+l'ancienne position, puis saute), `behavior: 'instant'` (`base.css` pose `smooth`, dont on
+veut pour une ancre et pas pour une navigation), et **une ancre reste maîtresse de sa
+position** — `#section` demande explicitement autre chose que le haut.
+
 ---
 
 ## 2. Les cinq couches, et qui décide quoi
@@ -306,6 +316,9 @@ locales n'ont rien à faire dans un écran.
 | [primitives.tsx](../frontend/src/components/ui/primitives.tsx) | Les 16 composants de la charte | un appel réseau, un calcul métier |
 | [data.tsx](../frontend/src/components/ui/data.tsx) | Les 8 affichages de données | une dérivation — les chiffres arrivent calculés |
 | [Chart.tsx](../frontend/src/components/ui/Chart.tsx) · [Heatmap.tsx](../frontend/src/components/ui/Heatmap.tsx) | Les deux gros composants graphiques | idem |
+| [Track.tsx](../frontend/src/components/ui/Track.tsx) | Le tracé d'une course importée | une projection — les points arrivent normalisés |
+| [DistanceProfile.tsx](../frontend/src/components/ui/DistanceProfile.tsx) | Une grandeur au fil des kilomètres, curseur contrôlé | une borne, une graduation, une couleur — tout arrive servi |
+| [chart-axis.ts](../frontend/src/components/ui/chart-axis.ts) · [chart-band.ts](../frontend/src/components/ui/chart-band.ts) | La géométrie pure de `Chart` — le pas des étiquettes, la largeur et le centre des barres | React, un style, un rendu |
 | [index.ts](../frontend/src/components/ui/index.ts) | **Le seul point d'import** des composants | — |
 
 Un écran importe **toujours** depuis `@/components/ui`, jamais depuis
@@ -331,6 +344,25 @@ sans toucher aux douze écrans.
 
 **Gros composants** — `Chart` (séries, superpositions, bande, contexte) · `Heatmap`
 (grille annuelle, cadences hebdomadaires, infobulle) · `Toaster`
+
+**Tracé** — `Track` ([Track.tsx](../frontend/src/components/ui/Track.tsx)), le parcours
+d'une course importée d'un `.fit` ([import-fit.md](import-fit.md)). Une `<polyline>` et
+deux marques, sans fond de carte : les tuiles auraient demandé une dépendance
+cartographique et **envoyé les coordonnées du domicile** à un tiers à chaque affichage.
+
+**Courbe au fil des kilomètres** — `DistanceProfile`
+([DistanceProfile.tsx](../frontend/src/components/ui/DistanceProfile.tsx)), l'allure d'une
+sortie sur un axe **en distance** ([analyse-course.md](analyse-course.md)). `Chart` n'y
+suffisait pas : son abscisse est un rang. Le curseur est **contrôlé** — `active`, `onActive`
+— pour que `Track`, qui reçoit le même index, montre sous le doigt l'endroit du parcours ; et
+la lecture du point s'écrit au-dessus du dessin, pas dans une infobulle que le pouce
+couvrirait. `touch-action: pan-y` : un doigt qui descend fait défiler la page.
+
+> Il ne projette rien. Le serveur rend des paires déjà cadrées et normalisées entre 0 et 1,
+> cosinus de la latitude moyenne compris — sans lui, une boucle carrée s'afficherait en
+> rectangle. Le composant pose les points et le `viewBox`, rien d'autre. C'est
+> l'invariant « aucun calcul métier côté client » appliqué à un cas où la tentation était
+> forte, et c'est aussi ce qui fait qu'une capture d'écran partagée ne porte aucune adresse.
 
 **Ajoutés en phase B** — `Sheet` · `SheetRow` · `SheetGroup`
 ([Sheet.tsx](../frontend/src/components/ui/Sheet.tsx)), et les treize pictogrammes de

@@ -43,6 +43,10 @@ const VIEW = {
     calories_target: 2200,
     calories_ratio: 0,
     calories_known: 0,
+    saturated_fat_g: 0,
+    saturated_fat_known: 0,
+    fiber_g: 0,
+    fiber_known: 0,
     meals: 1,
   },
   meals: [
@@ -56,6 +60,8 @@ const VIEW = {
       protein_g: null,
       added_sugar_g: null,
       calories: null,
+      saturated_fat_g: null,
+      fiber_g: null,
       source: 'manual',
     },
   ],
@@ -71,6 +77,8 @@ const VIEW = {
       calories_100g: 356,
       protein_100g: 8.1,
       added_sugar_100g: 0.2,
+      saturated_fat_100g: 0.1,
+      fiber_100g: null,
     },
   ],
 };
@@ -80,6 +88,8 @@ const ESTIMATE = {
   protein_g: 38,
   added_sugar_g: 2,
   calories: 520,
+  saturated_fat_g: null,
+  fiber_g: 4,
   readable: true,
   empty: false,
 };
@@ -410,6 +420,8 @@ describe('estimation d’une assiette', () => {
             protein_g: null,
             added_sugar_g: null,
             calories: null,
+            saturated_fat_g: null,
+            fiber_g: null,
             readable: true,
             empty: true,
           })

@@ -6,11 +6,11 @@
  * assiette ou taper trois nombres. Il vit maintenant dans une feuille qui demande d'abord
  * **comment** on veut noter — [MealSheet](./nutrition/MealSheet.tsx).
  *
- * Ce qui reste ici se lit : les totaux, le journal, et les repas récurrents.
+ * Ce qui reste ici se lit : les totaux, le journal, et les favoris.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import {
   AiBlock,
@@ -25,6 +25,7 @@ import {
   Skeleton,
   Stat,
 } from '@/components/ui';
+import { IconStar } from '@/components/ui/icons';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import {
   nutritionApi,
@@ -42,6 +43,7 @@ import { useToast } from '@/lib/toast';
 import styles from './Nutrition.module.css';
 import { estimateSentence } from './nutrition/estimate';
 import { History } from './nutrition/History';
+import { MealDetail } from './nutrition/MealDetail';
 import { MealSheet } from './nutrition/MealSheet';
 
 function useInvalidateNutrition() {
@@ -57,9 +59,13 @@ function useInvalidateNutrition() {
 function Thumbnail({ meal }: { meal: Meal }) {
   const url = usePhoto(meal.photo);
 
-  if (meal.photo === null) return <div className={styles.thumbEmpty} aria-hidden="true" />;
-  if (url === null) return <div className={styles.thumbEmpty} aria-hidden="true" />;
-  return <img className={styles.thumb} src={url} alt={meal.comment ?? 'Photo du repas'} />;
+  // Des `span` et non des `div` : la vignette vit dans la cible qui ouvre la fiche, et un
+  // bouton n'admet que du contenu de phrase.
+  if (meal.photo === null) return <span className={styles.thumbEmpty} aria-hidden="true" />;
+  if (url === null) return <span className={styles.thumbEmpty} aria-hidden="true" />;
+  // `alt` vide : le nom de la cible dit déjà de quel repas il s'agit, et la description
+  // est lue avec lui.
+  return <img className={styles.thumb} src={url} alt="" />;
 }
 
 // ── Une ligne du journal ──────────────────────────────
@@ -71,16 +77,30 @@ function Thumbnail({ meal }: { meal: Meal }) {
  * n'existerait que pour les repas dont on a encore le fichier d'origine sous la main.
  * L'estimation ne modifie rien par elle-même — elle propose, et c'est un second appui qui
  * écrit, sous garde de jeton comme toute correction (`STO-05`).
+ *
+ * **Le corps de la ligne ouvre la fiche du repas** (`NUT-15`) — ce qu'il apporte, et sa
+ * correction. La ligne, elle, garde ses trois valeurs : les cinq y feraient deux lignes par
+ * repas dans 390 px.
+ *
+ * **« supprimer » demande deux appuis.** Il partait au premier, seule destruction de
+ * l'écran à ne pas suivre la règle — les favoris, plus bas, l'appliquaient déjà.
+ * Le motif est le leur, repris tel quel.
  */
 function MealCard({
   meal,
+  onOpen,
   onRemove,
+  armed,
   removing,
 }: {
   meal: Meal;
+  onOpen: () => void;
+  /** Premier appui : arme. Second : supprime. L'écran tient l'état, la ligne le montre. */
   onRemove: () => void;
+  armed: boolean;
   removing: boolean;
 }) {
+  const bodyId = useId();
   const invalidate = useInvalidateNutrition();
   const { notify } = useToast();
   const ai = useAiStatus();
@@ -102,6 +122,10 @@ function MealCard({
         protein_g: result.protein_g,
         added_sugar_g: result.added_sugar_g,
         calories: result.calories,
+        // Seulement si le modèle les a chiffrées : absentes, le serveur garde celles qui
+        // étaient rangées — des fibres notées à la main ne s'effacent pas faute d'estimation.
+        ...(result.saturated_fat_g !== null && { saturated_fat_g: result.saturated_fat_g }),
+        ...(result.fiber_g !== null && { fiber_g: result.fiber_g }),
         // La provenance change réellement : ces macros n'ont pas été relevées.
         source: 'ai',
       }),
@@ -121,73 +145,38 @@ function MealCard({
 
   return (
     <div className={styles.meal}>
-      <Thumbnail meal={meal} />
-      <div className={styles.mealBody}>
-        <div className={styles.mealHead}>
-          <span className={styles.mealTime}>{time(meal.datetime)}</span>
-          <Badge tone="signal">{meal.meal_type}</Badge>
-          {meal.source !== 'manual' && <Badge tone="load">{meal.source}</Badge>}
-        </div>
-        {meal.comment !== null && <div>{meal.comment}</div>}
-        <div className={styles.mealMacros}>
-          {meal.protein_g !== null ? `${num(meal.protein_g, 0)} g prot.` : 'macros non renseignées'}
-          {meal.added_sugar_g !== null && ` · ${num(meal.added_sugar_g, 0)} g sucres`}
-          {meal.calories !== null && ` · ${integer(meal.calories)} kcal`}
-        </div>
+      {/* Le nom accessible annonce l'action, comme « Fiche de Nutella » dans un plat ; le
+          contenu de la ligne est lu en description, pour ne rien perdre de ce qu'on voit. */}
+      <button
+        type="button"
+        className={styles.mealOpen}
+        aria-label={`Fiche du repas de ${time(meal.datetime)}`}
+        aria-describedby={bodyId}
+        onClick={onOpen}
+      >
+        <Thumbnail meal={meal} />
+        <span className={styles.mealBody} id={bodyId}>
+          <span className={styles.mealHead}>
+            <span className={styles.mealTime}>{time(meal.datetime)}</span>
+            <Badge tone="signal">{meal.meal_type}</Badge>
+            {meal.source !== 'manual' && <Badge tone="load">{meal.source}</Badge>}
+          </span>
+          {meal.comment !== null && <span className={styles.mealComment}>{meal.comment}</span>}
+          <span className={styles.mealMacros}>
+            {meal.protein_g !== null
+              ? `${num(meal.protein_g, 0)} g prot.`
+              : 'macros non renseignées'}
+            {meal.added_sugar_g !== null && ` · ${num(meal.added_sugar_g, 0)} g sucres`}
+            {meal.calories !== null && ` · ${integer(meal.calories)} kcal`}
+          </span>
+        </span>
+        <span className={styles.foodChevron} aria-hidden="true" />
+      </button>
 
-        {estimate !== null && (
-          <div className={styles.mealEstimate}>
-            <AiBlock
-              tag="Estimation"
-              actions={
-                estimate.empty || !estimate.readable ? (
-                  <Button
-                    variant="quiet"
-                    onClick={() => {
-                      setEstimate(null);
-                    }}
-                  >
-                    Fermer
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      variant="primary"
-                      busy={apply.isPending}
-                      onClick={() => {
-                        apply.mutate(estimate);
-                      }}
-                    >
-                      Enregistrer ces valeurs
-                    </Button>
-                    <Button
-                      variant="quiet"
-                      onClick={() => {
-                        setEstimate(null);
-                      }}
-                    >
-                      Pas d&apos;accord
-                    </Button>
-                  </>
-                )
-              }
-            >
-              {estimate.empty || !estimate.readable ? (
-                <p>
-                  Rien n&apos;a pu être estimé sur cette photo. Le repas reste tel quel — les macros
-                  se saisissent à la main.
-                </p>
-              ) : (
-                <p>
-                  Ce repas contiendrait <strong>{estimateSentence(estimate)}</strong>. Rien
-                  n&apos;est enregistré tant que tu n&apos;as pas validé.
-                </p>
-              )}
-            </AiBlock>
-          </div>
-        )}
-      </div>
-
+      {/* **Sous le texte, et non à côté.** La colonne « supprimer » prenait 85 px sur la
+          largeur du repas : la flèche flottait au milieu de la carte, détachée du bord, et
+          la description passait sur deux ou trois lignes. Sur sa propre ligne, l'action
+          rend la largeur au texte, et la carte y gagne en hauteur plus qu'elle n'en perd. */}
       <div className={styles.mealActions}>
         {estimable && estimate === null && (
           <button
@@ -204,19 +193,75 @@ function MealCard({
         )}
         <button
           type="button"
-          className={cx(styles.iconButton, styles.danger)}
-          aria-label={`Supprimer le repas de ${time(meal.datetime)}`}
+          className={cx(styles.iconButton, styles.danger, armed && styles.armed)}
+          aria-label={
+            armed
+              ? `Supprimer le repas de ${time(meal.datetime)} — confirmer`
+              : `Supprimer le repas de ${time(meal.datetime)}`
+          }
           disabled={removing}
           onClick={onRemove}
         >
-          supprimer
+          {armed ? 'confirmer ?' : 'supprimer'}
         </button>
       </div>
+
+      {estimate !== null && (
+        <div className={styles.mealEstimate}>
+          <AiBlock
+            tag="Estimation"
+            actions={
+              estimate.empty || !estimate.readable ? (
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    setEstimate(null);
+                  }}
+                >
+                  Fermer
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="primary"
+                    busy={apply.isPending}
+                    onClick={() => {
+                      apply.mutate(estimate);
+                    }}
+                  >
+                    Enregistrer ces valeurs
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    onClick={() => {
+                      setEstimate(null);
+                    }}
+                  >
+                    Pas d&apos;accord
+                  </Button>
+                </>
+              )
+            }
+          >
+            {estimate.empty || !estimate.readable ? (
+              <p>
+                Rien n&apos;a pu être estimé sur cette photo. Le repas reste tel quel — les macros
+                se saisissent à la main.
+              </p>
+            ) : (
+              <p>
+                Ce repas contiendrait <strong>{estimateSentence(estimate)}</strong>. Rien n&apos;est
+                enregistré tant que tu n&apos;as pas validé.
+              </p>
+            )}
+          </AiBlock>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Repas récurrents ──────────────────────────────────
+// ── Favoris ───────────────────────────────────────────
 
 /**
  * Ce qui revient chaque jour, rejoué en une action.
@@ -234,6 +279,8 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
   const [protein, setProtein] = useState('');
   const [sugar, setSugar] = useState('');
   const [calories, setCalories] = useState('');
+  const [saturatedFat, setSaturatedFat] = useState('');
+  const [fiber, setFiber] = useState('');
   const [armed, setArmed] = useState<number | null>(null);
 
   /** Un champ de texte vers le nombre que l'API attend, ou `null` s'il est vide. */
@@ -251,6 +298,8 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
         protein_g: decimal(protein),
         added_sugar_g: decimal(sugar),
         calories: decimal(calories) === null ? null : Math.round(decimal(calories) ?? 0),
+        saturated_fat_g: decimal(saturatedFat),
+        fiber_g: decimal(fiber),
       }),
     onSuccess: () => {
       invalidate();
@@ -259,6 +308,8 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
       setProtein('');
       setSugar('');
       setCalories('');
+      setSaturatedFat('');
+      setFiber('');
     },
     onError: (caught: unknown) => {
       notify(caught instanceof ApiError ? caught.message : 'Ajout impossible.', 'recover');
@@ -290,10 +341,13 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
 
   return (
     <Card>
-      <h3>Repas récurrents</h3>
-      <p className={styles.note}>
-        Ce qui revient chaque jour se rejoue en une action, sans photo ni estimation.
-      </p>
+      {/* « Favoris » et une étoile, là où la carte disait « Repas récurrents » et
+          l'expliquait en deux lignes : l'étoile se lit sans légende, et c'est la même que
+          celle de la fiche d'un repas. */}
+      <h3 className={styles.favoritesTitle}>
+        <IconStar size={18} filled />
+        Favoris
+      </h3>
 
       {favorites.length > 0 && (
         <div className={styles.favorites}>
@@ -393,13 +447,44 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
               setCalories(event.target.value);
             }}
           />
+          {/* `NUT-16` : sans elles, un repas rejoué arriverait au journal sans ses fibres —
+              le défaut des sucres, une seconde fois. */}
+          <Field
+            label="AG saturés"
+            inputMode="decimal"
+            value={saturatedFat}
+            onChange={(event) => {
+              setSaturatedFat(event.target.value);
+            }}
+          />
+          <Field
+            label="Fibres"
+            inputMode="decimal"
+            value={fiber}
+            onChange={(event) => {
+              setFiber(event.target.value);
+            }}
+          />
         </div>
         <Button type="submit" variant="ghost" busy={add.isPending} disabled={name.trim() === ''}>
-          Enregistrer comme récurrent
+          Enregistrer en favori
         </Button>
       </form>
     </Card>
   );
+}
+
+/**
+ * Sur combien de repas du jour une somme porte (`NUT-16`).
+ *
+ * Du vocabulaire et non un calcul : les deux nombres viennent du serveur, cette fonction
+ * choisit la phrase. Même tournure que la tuile « Repas notés ».
+ */
+function coverage(known: number, meals: number): string {
+  if (known === 0) return 'aucun repas chiffré';
+  return known < meals
+    ? `${String(known)} ${plural(known, 'chiffré')} sur ${String(meals)}`
+    : 'tous chiffrés';
 }
 
 // ── Écran ─────────────────────────────────────────────
@@ -408,6 +493,12 @@ export function Nutrition() {
   const invalidate = useInvalidateNutrition();
   const { notify } = useToast();
   const [adding, setAdding] = useState(false);
+  // Le repas dont la fiche est ouverte, tel que le serveur l'a rendu en dernier — au
+  // journal, puis à la correction (`NUT-15`).
+  const [inspected, setInspected] = useState<Meal | null>(null);
+  // Le repas dont la suppression est armée. Un seul à la fois : armer une autre ligne
+  // désarme la précédente, et une confirmation ne reste pas en attente ailleurs.
+  const [armed, setArmed] = useState<number | null>(null);
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.nutrition.all(),
@@ -417,10 +508,12 @@ export function Nutrition() {
   const remove = useMutation({
     mutationFn: (meal: Meal) => nutritionApi.remove(meal.id, meal.token),
     onSuccess: () => {
+      setArmed(null);
       invalidate();
       notify('Repas supprimé. La photo reste sur Nextcloud.', 'signal');
     },
     onError: (caught: unknown) => {
+      setArmed(null);
       notify(caught instanceof ApiError ? caught.message : 'Suppression impossible.', 'recover');
       invalidate();
     },
@@ -538,6 +631,30 @@ export function Nutrition() {
                 }
               />
             </Card>
+            {/* `NUT-16`. Le chiffre ne s'affiche que s'il porte sur au moins un repas :
+                les repas d'avant n'ont ni l'une ni l'autre valeur, et « 0 g de fibres »
+                un jour de lentilles serait une mesure inventée. La ligne dit sur combien de
+                repas la somme porte. Pas d'objectif : voir `docs/fiche-repas.md` §4. */}
+            <Card>
+              <Stat
+                compact
+                label="AG saturés"
+                value={
+                  totals && totals.saturated_fat_known > 0 ? num(totals.saturated_fat_g, 1) : '—'
+                }
+                unit={totals && totals.saturated_fat_known > 0 ? 'g' : undefined}
+                detail={totals ? coverage(totals.saturated_fat_known, totals.meals) : undefined}
+              />
+            </Card>
+            <Card>
+              <Stat
+                compact
+                label="Fibres"
+                value={totals && totals.fiber_known > 0 ? num(totals.fiber_g, 1) : '—'}
+                unit={totals && totals.fiber_known > 0 ? 'g' : undefined}
+                detail={totals ? coverage(totals.fiber_known, totals.meals) : undefined}
+              />
+            </Card>
           </div>
         </>
       )}
@@ -562,7 +679,16 @@ export function Nutrition() {
               <MealCard
                 key={`${meal.id}-${meal.token}`}
                 meal={meal}
+                onOpen={() => {
+                  setArmed(null);
+                  setInspected(meal);
+                }}
+                armed={armed === meal.id}
                 onRemove={() => {
+                  if (armed !== meal.id) {
+                    setArmed(meal.id);
+                    return;
+                  }
                   remove.mutate(meal);
                 }}
                 removing={remove.isPending}
@@ -577,6 +703,26 @@ export function Nutrition() {
 
         <Favorites favorites={data?.favorites ?? []} />
       </div>
+
+      {data !== undefined && (
+        <MealDetail
+          // Une fiche par repas ouvert : rouvrir la fiche repart de la lecture, pas de la
+          // correction laissée en plan sur une autre ligne.
+          key={inspected?.id ?? 'fermee'}
+          meal={inspected}
+          types={data.types}
+          favorites={data.favorites}
+          onFavorited={invalidate}
+          onClose={() => {
+            setInspected(null);
+          }}
+          onSaved={(updated) => {
+            setInspected(updated);
+            invalidate();
+          }}
+          onConflict={invalidate}
+        />
+      )}
 
       {data !== undefined && (
         <MealSheet

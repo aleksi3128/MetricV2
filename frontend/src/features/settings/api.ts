@@ -25,6 +25,14 @@ export interface SettingsValues {
    * valeur, et lui seul qui décide qu'une adresse abîmée n'en est pas une.
    */
   cadence_base_url: string;
+  /**
+   * Les deux références des zones de course (`docs/analyse-course.md`, **A9**).
+   *
+   * `null` **est un état** : la référence est alors déduite des sorties, et la page Course
+   * dit d'où. L'écran n'en devine aucune.
+   */
+  max_hr: number | null;
+  threshold_pace_min_km: number | null;
 }
 
 export interface SettingsView {
@@ -37,8 +45,18 @@ export interface SettingsView {
   token: string;
 }
 
-/** Modification partielle : un champ omis reste à sa valeur. */
-export type SettingsPayload = Partial<SettingsValues>;
+/**
+ * Modification partielle : un champ omis reste à sa valeur.
+ *
+ * Les deux références de course partent en **texte** — `5:15` se lit côté serveur comme
+ * une allure saisie au clavier —, et la chaîne vide les efface pour revenir à la déduction.
+ */
+export type SettingsPayload = Partial<
+  Omit<SettingsValues, 'max_hr' | 'threshold_pace_min_km'> & {
+    max_hr: string;
+    threshold_pace_min_km: string;
+  }
+>;
 
 export const settingsApi = {
   read: () => request<SettingsView>('/api/settings'),

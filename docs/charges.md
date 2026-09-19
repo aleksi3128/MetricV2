@@ -35,7 +35,7 @@ de route.
 | **C5** | Le catalogue des 1324 est **figé dans le dépôt**, dérivé du jeu de données MIT | Zéro dépendance réseau vers Cadence. Un script le régénère, la donnée seule — pas les médias, §4 |
 | **C6** | Le pas des boutons + / − est **1 kg** | Le réglage réel d'un tabata se fait au kilo. Le champ reste saisissable pour 7,5 kg |
 | **C7** | La note du lien est **fabriquée par le serveur**, jamais saisie | `12 kg`, ou rien. Le client ne compose aucune URL — l'invariant du §2 de `CLAUDE.md`, mot pour mot |
-| **C8** | À l'import d'un lien collé, la note est **ignorée** | Relire « haltères 12 kg » en `12.0` serait la correspondance approximative que ce dépôt s'interdit. §9 |
+| **C8** | À l'import d'un lien collé, la **charge** est retirée de la note ; le reste est gardé | Relire « haltères 12 kg » en `12.0` serait la correspondance approximative que ce dépôt s'interdit. Jeter « Gauche » et « Tour 1/3 » avec elle était une perte sèche — révisé le 11 septembre, §9 |
 
 ### Le point où la décision est inconfortable — C4
 
@@ -543,8 +543,16 @@ Nommé plutôt qu'oublié.
 - **Les tabatas n'ajoutent toujours aucun tonnage.** C4, et son prix est écrit au §1 : le
   journal dira « poids du corps » pour un exercice chargé.
 - **Aucune charge n'est relue depuis un lien importé.** C8. Un lien collé qui porte
-  « haltères 12 kg » crée le circuit sans la charge ; il faudra la saisir. Deviner `12.0`
-  dans un texte libre est la faute silencieuse que le dépôt refuse partout ailleurs.
+  « 12 kg · dos plat » crée le circuit avec « dos plat » et sans la charge ; il faudra la
+  saisir. Deviner `12.0` dans un texte libre est la faute silencieuse que le dépôt refuse
+  partout ailleurs.
+
+  **C8 disait d'abord « la note est ignorée », et c'était trop large.** Un lien de
+  trente-neuf exercices dont trente-huit notés — « Tour 1/3 · Gauche · bassin
+  horizontal » — arrivait en trente-neuf lignes dont douze paires indiscernables, et le
+  lien régénéré ne portait plus rien. `CircuitService.typed_note` retire l'en-tête que
+  `note_of` compose, et rien d'autre : l'inverse exact d'une fonction écrite dix lignes
+  plus haut, pas une lecture de texte libre.
 - **Aucune suppression de charge.** On corrige une valeur, on bascule en poids du corps,
   on ne revient pas à « jamais renseigné ». Le geste manquant est réel ; il vaut mieux
   qu'un second vocabulaire de destruction sur une surface neuve.

@@ -164,6 +164,9 @@ const DEFAULT_VALUES = {
   heatmap_metric: 'activity',
   // Vide, comme le sert le serveur tant que le pont n'est pas branché (**D1**).
   cadence_base_url: '',
+  // Vides : les zones se déduisent des sorties tant que rien n'est saisi.
+  max_hr: null,
+  threshold_pace_min_km: null,
 };
 
 export const SETTINGS: SettingsView = {
@@ -514,7 +517,11 @@ export const NUTRITION_HISTORY: NutritionHistory = {
   today: '2026-07-27',
   granularity: 'day',
   target_calories: 2200,
+  protein_target_g: 150,
   added_sugar_max_g: 30,
+  // Les trois quartiles des dix-sept jours chiffrés : c'est ce qui découpe les quatre
+  // teintes, et non des parts de l'objectif.
+  level_bounds: [1900, 2150, 2400],
   days: historyDays(),
   series: [
     {
@@ -522,6 +529,7 @@ export const NUTRITION_HISTORY: NutritionHistory = {
       calories: 2100,
       trend_calories: 2050,
       protein_g: 120,
+      trend_protein_g: 120,
       added_sugar_g: 14,
       days: 1,
     },
@@ -530,6 +538,7 @@ export const NUTRITION_HISTORY: NutritionHistory = {
       calories: 1850,
       trend_calories: 1975,
       protein_g: 108,
+      trend_protein_g: 108,
       added_sugar_g: 34,
       days: 1,
     },
@@ -538,6 +547,7 @@ export const NUTRITION_HISTORY: NutritionHistory = {
       calories: 2400,
       trend_calories: 2117,
       protein_g: 132,
+      trend_protein_g: 132,
       added_sugar_g: 9,
       days: 1,
     },
@@ -546,6 +556,7 @@ export const NUTRITION_HISTORY: NutritionHistory = {
       calories: 2260,
       trend_calories: 2153,
       protein_g: 126,
+      trend_protein_g: 126,
       added_sugar_g: 21,
       days: 1,
     },
@@ -559,6 +570,7 @@ export const NUTRITION_HISTORY: NutritionHistory = {
     avg_protein_g: 121.5,
     avg_added_sugar_g: 19.4,
     on_target_days: 9,
+    gap_to_target: -47,
     over_sugar_days: 3,
   },
   weekdays: [

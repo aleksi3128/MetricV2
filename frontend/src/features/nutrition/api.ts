@@ -19,6 +19,9 @@ export interface Meal {
   protein_g: number | null;
   added_sugar_g: number | null;
   calories: number | null;
+  /** `null` sur tout repas d'avant `NUT-16` : non relevé, et surtout pas zéro. */
+  saturated_fat_g: number | null;
+  fiber_g: number | null;
   source: string;
 }
 
@@ -35,6 +38,16 @@ export interface DayTotals {
   /** Rapport à l'objectif, **déjà plafonné à 1** par le serveur. */
   calories_ratio: number;
   calories_known: number;
+  /**
+   * Sommes des graisses saturées et des fibres, **avec leur couverture** (`NUT-16`).
+   *
+   * La somme seule mentirait : tous les repas d'avant n'en portent pas, et « 0 g de
+   * fibres » se lirait comme une mesure. Sans repas qui les porte, l'écran met un tiret.
+   */
+  saturated_fat_g: number;
+  saturated_fat_known: number;
+  fiber_g: number;
+  fiber_known: number;
   meals: number;
 }
 
@@ -61,6 +74,7 @@ export interface HistoryDay {
    */
   calories_known: number;
   state: 'done' | 'off';
+  /** 1 à 4 sur un jour chiffré, 0 sinon : le quart de la plage où il tombe. */
   level: number;
   reason: 'before_track' | 'future' | 'unmeasured' | null;
 }
@@ -71,6 +85,8 @@ export interface HistoryPoint {
   /** `null` sur une série hebdomadaire, qui est déjà une moyenne. */
   trend_calories: number | null;
   protein_g: number;
+  /** Moyenne glissante des protéines, même fenêtre que celle des calories. */
+  trend_protein_g: number | null;
   added_sugar_g: number;
   days: number;
 }
@@ -85,6 +101,8 @@ export interface HistoryStats {
   avg_protein_g: number | null;
   avg_added_sugar_g: number | null;
   on_target_days: number;
+  /** Écart de la moyenne à l'objectif, en kcal par jour — négatif en dessous. */
+  gap_to_target: number | null;
   over_sugar_days: number;
 }
 
@@ -93,7 +111,7 @@ export interface WeekdayProfile {
   weekday: number;
   avg_calories: number | null;
   days: number;
-  /** Part de la barre, rapportée au jour le plus copieux. Calculée par le serveur. */
+  /** Part de la barre, rapportée à l'objectif et plafonnée à 1. Calculée par le serveur. */
   ratio: number;
   over_target: boolean;
 }
@@ -114,7 +132,16 @@ export interface NutritionHistory {
   today: string;
   granularity: 'day' | 'week';
   target_calories: number;
+  /** L'objectif du jour, servi pour la plage : la courbe s'y compare. */
+  protein_target_g: number;
   added_sugar_max_g: number;
+  /**
+   * Les trois seuils de calories qui séparent les quatre teintes de la grille.
+   *
+   * Vide sous deux jours chiffrés — il n'y a alors pas de distribution à découper. Sans
+   * eux, « moins → plus » ne nomme aucune quantité.
+   */
+  level_bounds: number[];
   days: HistoryDay[];
   series: HistoryPoint[];
   stats: HistoryStats;
@@ -130,6 +157,8 @@ export interface Favorite {
   protein_g: number | null;
   added_sugar_g: number | null;
   calories: number | null;
+  saturated_fat_g: number | null;
+  fiber_g: number | null;
 }
 
 /** Une entrée du catalogue d'ingrédients (`NUT-12`). */
@@ -141,6 +170,8 @@ export interface Ingredient {
   calories_100g: number | null;
   protein_100g: number | null;
   added_sugar_100g: number | null;
+  saturated_fat_100g: number | null;
+  fiber_100g: number | null;
 }
 
 /** Un ingrédient pesé, tel qu'il part au calcul. */
@@ -150,6 +181,8 @@ export interface IngredientLine {
   calories_100g?: number | null;
   protein_100g?: number | null;
   added_sugar_100g?: number | null;
+  saturated_fat_100g?: number | null;
+  fiber_100g?: number | null;
 }
 
 export interface ComposedLine {
@@ -158,6 +191,8 @@ export interface ComposedLine {
   calories: number;
   protein_g: number;
   added_sugar_g: number;
+  saturated_fat_g: number;
+  fiber_g: number;
 }
 
 /**
@@ -172,6 +207,8 @@ export interface Composition {
   calories: number;
   protein_g: number;
   added_sugar_g: number;
+  saturated_fat_g: number;
+  fiber_g: number;
   /** Vrai quand aucune ligne ne porte de valeur : il n'y a rien à totaliser. */
   empty: boolean;
 }
@@ -201,7 +238,9 @@ export interface Product {
   calories_100g: number | null;
   protein_100g: number | null;
   added_sugar_100g: number | null;
-  /** Vrai quand **aucune** des trois valeurs n'est connue : il n'y aura rien à totaliser. */
+  saturated_fat_100g: number | null;
+  fiber_100g: number | null;
+  /** Vrai quand **aucune** des cinq valeurs n'est connue : il n'y aura rien à totaliser. */
   partial: boolean;
 }
 
@@ -211,6 +250,8 @@ export interface MealFormValues {
   protein_g: string;
   added_sugar_g: string;
   calories: string;
+  saturated_fat_g: string;
+  fiber_g: string;
   photo: File | null;
   /** `ai` quand les macros viennent d'une estimation acceptée (`NUT-04`). */
   source: 'manual' | 'ai';
@@ -228,10 +269,31 @@ export interface MealEstimate {
   protein_g: number | null;
   added_sugar_g: number | null;
   calories: number | null;
+  saturated_fat_g: number | null;
+  fiber_g: number | null;
   /** Faux quand le modèle annonce lui-même ne pas voir de nourriture. */
   readable: boolean;
   /** Vrai quand la réponse ne porte aucun chiffre. */
   empty: boolean;
+}
+
+/** Correction d'un repas (`NUT-09`, `NUT-15`). Photo et provenance restent au serveur. */
+export interface MealUpdate {
+  meal_type: string;
+  comment?: string | null;
+  protein_g?: number | null;
+  added_sugar_g?: number | null;
+  calories?: number | null;
+  /**
+   * **Absents, préservés ; présents — même à `null` —, appliqués** (`NUT-16`).
+   *
+   * Les trois valeurs d'origine remplacent : absentes, elles s'effacent. Ces deux-là sont
+   * venues après, et un appelant qui les ignore ne doit pas les effacer.
+   */
+  saturated_fat_g?: number | null;
+  fiber_g?: number | null;
+  /** À ne passer que si la provenance change réellement (`NUT-04`, `NUT-09`). */
+  source?: 'manual' | 'ai';
 }
 
 export function photoPath(relative: string): string {
@@ -242,7 +304,13 @@ function multipart(values: MealFormValues): FormData {
   const form = new FormData();
   form.set('meal_type', values.meal_type);
   if (values.comment.trim()) form.set('comment', values.comment.trim());
-  for (const field of ['protein_g', 'added_sugar_g', 'calories'] as const) {
+  for (const field of [
+    'protein_g',
+    'added_sugar_g',
+    'calories',
+    'saturated_fat_g',
+    'fiber_g',
+  ] as const) {
     const raw = values[field].replace(',', '.').trim();
     if (raw) form.set(field, raw);
   }
@@ -303,19 +371,7 @@ export const nutritionApi = {
   analyzeMeal: (id: number) =>
     request<MealEstimate>(`/api/nutrition/${id}/analyze`, { method: 'POST' }),
 
-  update: (
-    id: number,
-    token: string,
-    payload: {
-      meal_type: string;
-      comment?: string | null;
-      protein_g?: number | null;
-      added_sugar_g?: number | null;
-      calories?: number | null;
-      /** À ne passer que si la provenance change réellement (`NUT-04`, `NUT-09`). */
-      source?: 'manual' | 'ai';
-    },
-  ) =>
+  update: (id: number, token: string, payload: MealUpdate) =>
     request<Meal>(`/api/nutrition/${id}`, {
       method: 'PATCH',
       body: payload,
@@ -333,6 +389,8 @@ export const nutritionApi = {
     protein_g?: number | null;
     added_sugar_g?: number | null;
     calories?: number | null;
+    saturated_fat_g?: number | null;
+    fiber_g?: number | null;
   }) => request<Favorite>('/api/nutrition/favorites', { method: 'POST', body: payload }),
 
   replayFavorite: (favoriteId: string) =>

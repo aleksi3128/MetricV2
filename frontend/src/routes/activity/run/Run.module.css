@@ -1,0 +1,378 @@
+/*
+ * Les deux pages Course — une sortie, et toutes (`docs/analyse-course.md`).
+ *
+ * Écrit **mobile d'abord**, pour 390 px : les règles de base décrivent le téléphone, les
+ * `min-width` ajoutent ce que la place permet. Aucune couleur en dur — tout passe par
+ * `tokens.css`, qui porte les deux thèmes.
+ */
+
+/* Le conteneur de page : `wrap` plafonne la largeur et pose les marges, `screen` empile. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.note {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  margin-top: 2px;
+  text-wrap: pretty;
+}
+
+/* ── Ce qu'il faut retenir ─────────────────────────── */
+
+.insights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+/* Un trait de couleur à gauche plutôt qu'un badge : le titre est ce qu'on lit, et un badge
+   devant lui le repousserait d'un mot sur un écran qui n'en a pas à perdre. */
+.insight {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--s3);
+  border-left: 3px solid var(--ink-low);
+}
+
+.good {
+  border-left-color: var(--effort);
+}
+
+.bad {
+  border-left-color: var(--load);
+}
+
+.neutral {
+  border-left-color: var(--signal);
+}
+
+.insightTitle {
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.insightText {
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+  text-wrap: pretty;
+}
+
+/* ── Allure et parcours ────────────────────────────── */
+
+/* La lecture du point sous le doigt. Hauteur réservée : sans elle, la carte grandissait
+   d'une ligne au premier appui et le tracé sautait sous le pouce. */
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--s3);
+  row-gap: 2px;
+  min-height: calc(2 * 1.5em);
+  align-content: flex-start;
+  margin: 0 0 var(--s3);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+  letter-spacing: 0.02em;
+}
+
+.readout b {
+  font-size: var(--t-num);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.course {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.map,
+.profile {
+  min-width: 0;
+}
+
+.legend {
+  list-style: none;
+  margin: var(--s4) 0 0;
+  padding: var(--s3) 0 0;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: block;
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.swatchFaster {
+  background: var(--effort);
+}
+
+.swatchEven {
+  background: var(--ink-mid);
+}
+
+.swatchSlower {
+  background: var(--load);
+}
+
+.swatchDashed {
+  background: repeating-linear-gradient(90deg, var(--ink-mid) 0 4px, transparent 4px 7px);
+}
+
+.swatchHeart {
+  background: repeating-linear-gradient(90deg, var(--recover) 0 4px, transparent 4px 7px);
+}
+
+.swatchCadence {
+  background: repeating-linear-gradient(90deg, var(--signal) 0 4px, transparent 4px 7px);
+}
+
+.swatchStop {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-low);
+}
+
+/* ── Intensité ─────────────────────────────────────── */
+
+.meterSummary {
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+
+.meters {
+  list-style: none;
+  margin: var(--s4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* Deux lignes par jauge — une zone, une semaine : le nom et sa valeur sur la première, la
+   barre pleine largeur dessous. Les barres s'alignent alors d'une ligne à l'autre, ce que
+   `Bars` ne fait pas quand ses valeurs n'ont pas la même longueur — « 0 km » à côté de
+   « 19,2 km · 4× » décalait chaque rail, vu en capture. Une première version posait nom, barre et part côte à côte — à 390 px,
+   le nom passait sur trois lignes et la barre ne gardait qu'un tiers de la carte. */
+.meter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: baseline;
+  column-gap: var(--s3);
+  row-gap: 5px;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink);
+}
+
+.meterEmpty {
+  color: var(--ink-low);
+}
+
+.meterName {
+  min-width: 0;
+}
+
+.meterName small {
+  color: var(--ink-low);
+  font-size: var(--t-meta);
+  white-space: nowrap;
+}
+
+.meterTrack {
+  grid-column: 1 / -1;
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.weekFill {
+  background: var(--effort);
+}
+
+/* Une seule teinte, de plus en plus franche : les zones sont un ordre, pas cinq catégories.
+   Cinq couleurs auraient demandé une légende ; une intensité se lit sans. */
+.z1 {
+  background: rgb(var(--signal-rgb) / 0.3);
+}
+
+.z2 {
+  background: rgb(var(--signal-rgb) / 0.5);
+}
+
+.z3 {
+  background: rgb(var(--signal-rgb) / 0.7);
+}
+
+.z4 {
+  background: rgb(var(--signal-rgb) / 0.85);
+}
+
+.z5 {
+  background: var(--signal);
+}
+
+.meterValue {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.meterValue small {
+  color: var(--ink-low);
+  font-size: var(--t-meta);
+}
+
+.meters + .note {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Le lien des réglages dans la phrase qui dit d'où vient la référence : une cible au
+   doigt, sans devenir un bouton qui la couperait en deux. */
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--signal);
+}
+
+.settingsLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  margin-top: var(--s2);
+  color: var(--signal);
+}
+
+/* ── Meilleurs efforts et fichier ──────────────────── */
+
+.effortCell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  white-space: nowrap;
+}
+
+.fileButton {
+  align-self: flex-start;
+  min-height: 48px;
+}
+
+/* Le bouton de story (`docs/story-course.md`). Pleine largeur et `--tap-lg` : il ouvre la
+   feuille d'où l'on ressort avec une image, c'est-à-dire une action qui **termine** un
+   geste — même si elle ne détruit rien. */
+.storyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  width: 100%;
+  min-height: var(--tap-lg);
+}
+
+/* ── Toutes les courses ────────────────────────────── */
+
+.rebuild {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.rebuild strong {
+  font-size: var(--t-body);
+  color: var(--ink);
+}
+
+.recordCell {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--tap);
+  margin-block: calc(var(--s2) * -1);
+  color: var(--ink);
+  text-decoration: none;
+  line-height: 1.3;
+}
+
+.recordCell:active {
+  color: var(--signal);
+}
+
+.recordCell small {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.runLink {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  margin-block: calc(var(--s2) * -1);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.runLink:active {
+  color: var(--signal);
+}
+
+.empty {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.segmented {
+  margin-top: var(--s3);
+}
+
+/* ── À partir de l'ordinateur ──────────────────────── */
+
+@media (min-width: 960px) {
+  /* Le tracé et la courbe de front : la place le permet, et le doigt — la souris — n'a plus
+     à les chercher l'un sous l'autre. */
+  .course {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    align-items: center;
+    gap: var(--s6);
+  }
+}

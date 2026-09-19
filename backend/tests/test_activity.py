@@ -306,12 +306,17 @@ def test_the_run_file_stays_readable_in_a_spreadsheet(
         # Les colonnes des lots C08 et C09 s'ajoutent **en fin d'en-tête**, ce qui est la
         # condition pour que `STO-04` remappe les lignes d'avant sans migration.
         "note,source,run_id,total_calories,active_calories,start_time,end_time,"
-        "split_length_km"
+        # `fit_path` ferme l'en-tête à son tour (`docs/import-fit.md`) : même règle, même
+        # raison, et les lignes d'avant lui présentent une cellule vide.
+        "split_length_km,fit_path,"
+        # `max_hr` après lui (`docs/analyse-course.md`), pour la même raison encore.
+        "max_hr"
     )
     assert lines[1].startswith("2026-07-20,8.4,44.2,5.262")
     # Une saisie au clavier ne porte ni identifiant stable, ni paliers, ni bornes
-    # horaires : cinq cellules vides, qui sont une valeur légitime et non un trou.
-    assert lines[1].endswith("jambes lourdes,manual,,,,,,")
+    # horaires, ni fichier, ni FC max : des cellules vides, qui sont une valeur légitime et
+    # non un trou.
+    assert lines[1].endswith("jambes lourdes,manual,,,,,,,,")
 
 
 # ── Allure, distance et cadence (C06) ─────────────────

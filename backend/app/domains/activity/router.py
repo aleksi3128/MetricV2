@@ -9,7 +9,8 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Path, Query, status
+from fastapi import APIRouter, File, Header, Path, Query, UploadFile, status
+from fastapi.responses import Response
 
 from app.core.deps import StoreDep
 from app.core.validation import today_local
@@ -25,11 +26,13 @@ from app.domains.activity.schemas import (
     CircuitSession,
     CircuitSuggestion,
     ComposeRequest,
+    EffortRebuild,
     Load,
     LoadDetail,
     LoadList,
     LoadPayload,
     Run,
+    RunAnalysis,
     RunDetail,
     RunPayload,
     RunProgress,
@@ -92,6 +95,46 @@ async def create_run(payload: RunPayload, store: StoreDep) -> Run:
     return await RunService(store).create(payload)
 
 
+@router.post(
+    "/runs/fit",
+    response_model=Run,
+    status_code=status.HTTP_201_CREATED,
+    summary="Importer une sortie depuis un fichier .fit",
+)
+async def import_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> Run:
+    """Décode un `.fit` et **écrit la course**, paliers compris (`docs/import-fit.md`).
+
+    **Déclarée avant `/runs/{row_id}`** comme `latest` et `progress` : FastAPI essaie les
+    routes dans l'ordre, et le motif d'identifiant n'accepte qu'un entier.
+
+    Une seule route là où l'import de captures en a deux : il n'y a pas de brouillon à
+    faire relire parce qu'il n'y a rien à deviner (**F5**). Le fichier lui-même est rangé
+    sur Nextcloud et reste récupérable (**F1**).
+
+    Un fichier illisible, d'un autre sport, ou déjà importé rend `validation_error` avec un
+    message français affichable tel quel — jamais un formulaire vide présenté comme un
+    import réussi.
+    """
+    data = await file.read()
+    await file.close()
+    return await RunService(store).create_from_fit(data)
+
+
+@router.post(
+    "/runs/efforts/rebuild",
+    response_model=EffortRebuild,
+    summary="Réanalyser les sorties importées d'un fichier .fit",
+)
+async def rebuild_run_efforts(store: StoreDep) -> EffortRebuild:
+    """Recalcule les meilleurs efforts **et les paliers** de chaque `.fit` rangé (**A5**).
+
+    Sans `If-Match`, et ce n'est pas une entorse à `STO-05` : la route ne corrige aucune
+    ligne qu'un écran a affichée, elle **remplace des données dérivées** par ce que le
+    fichier source dit aujourd'hui. La rejouer deux fois donne le même fichier.
+    """
+    return await RunService(store).rebuild_efforts()
+
+
 @router.get(
     "/runs/latest",
     response_model=RunDetail,
@@ -146,6 +189,53 @@ async def read_run_splits(row_id: RowId, store: StoreDep) -> RunDetail:
     erreur : ne pas avoir de détail n'est pas un défaut de la course.
     """
     return await RunService(store).detail(row_id)
+
+
+@router.get(
+    "/runs/{row_id}/analysis",
+    response_model=RunAnalysis,
+    summary="Ce que le fichier .fit d'une course dit de sa gestion",
+)
+async def read_run_analysis(row_id: RowId, store: StoreDep) -> RunAnalysis:
+    """La courbe d'allure, le tracé coloré, les arrêts, les phrases, les efforts et les
+    zones (`docs/analyse-course.md`).
+
+    Une route à part et non un champ de `/runs/{id}/splits` : l'analyse se relit depuis le
+    `.fit` rangé sur Nextcloud, et la page Course doit s'afficher sans attendre cette
+    lecture-là. Elle remplace `/runs/{id}/track`, dont elle porte le tracé — rééchantillonné
+    sur la grille de la courbe, pour que les deux se répondent point pour point.
+
+    Une course sans fichier rend `404`. L'écran ne pose la question que lorsque `fit_path`
+    n'est pas vide, si bien que ce `404` signale un fichier disparu — pas une course
+    saisie au clavier.
+    """
+    return await RunService(store).read_analysis(row_id)
+
+
+@router.get(
+    "/runs/{row_id}/fit",
+    summary="Récupérer le fichier .fit d'une course",
+    response_class=Response,
+)
+async def read_run_fit(row_id: RowId, store: StoreDep) -> Response:
+    """Rend le fichier tel qu'il est arrivé (**F1**).
+
+    Derrière l'authentification comme toute route de données, et le chemin de stockage
+    n'est **jamais** construit depuis la requête : on désigne la course, le serveur relit
+    le chemin sur sa ligne et le revalide avant d'ouvrir quoi que ce soit.
+
+    `attachment` et non `inline` : un `.fit` ne s'affiche pas, il se range — et le
+    navigateur ne doit pas tenter de l'interpréter.
+    """
+    data, filename = await RunService(store).fit_file(row_id)
+    return Response(
+        content=data,
+        media_type="application/vnd.ant.fit",
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
 
 
 @router.patch("/runs/{row_id}", response_model=Run, summary="Corriger une course")

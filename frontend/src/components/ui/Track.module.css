@@ -1,0 +1,62 @@
+/* Tracé d'une course. Aucune couleur en dur : tout passe par `tokens.css`, qui porte les
+   deux thèmes (§3 de `CLAUDE.md`). */
+
+.track {
+  display: block;
+  width: 100%;
+  /* Le rapport du cadre vient des données, posé en style en ligne par le composant. Ce
+     plafond l'empêche de manger l'écran sur un aller-retour très étiré : un parcours quatre
+     fois plus haut que large tiendrait sinon sur deux hauteurs de téléphone.
+
+     260 et non plus 320 : le tracé partage maintenant sa carte avec la courbe d'allure, et
+     les deux doivent tenir ensemble sous le pouce — c'est tout l'intérêt du curseur lié. */
+  max-height: 260px;
+  margin-inline: auto;
+  overflow: visible;
+}
+
+.line {
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Les tronçons « dans ta moyenne » : la majorité du parcours, en retrait, pour que les
+   écarts — plus vite, plus lent — soient ce que l'œil trouve en premier. */
+.neutral {
+  stroke: var(--ink-mid);
+}
+
+.signal {
+  stroke: var(--signal);
+}
+
+.effort {
+  stroke: var(--effort);
+}
+
+.load {
+  stroke: var(--load);
+}
+
+.recover {
+  stroke: var(--recover);
+}
+
+.start {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.end {
+  fill: var(--ink);
+}
+
+/* Où l'on était, sous le doigt posé sur la courbe. Le halo de la couleur de la carte le
+   détache d'un tracé qui peut passer dessous dans n'importe quelle teinte. */
+.here {
+  fill: var(--signal);
+  stroke: var(--surface);
+  stroke-width: 3;
+}

@@ -72,14 +72,36 @@
   --recover-rgb: 251 113 133;
   --ink-rgb: 227 232 238;
 
-  /* Le fond d'un média venu d'ailleurs. **Le seul jeton de couleur que le thème ne
-     retourne pas**, et c'est la raison qui le justifie : les GIF de démonstration des
-     exercices ont un fond blanc cuit dans l'image. Un panneau sombre derrière eux
-     dessinerait un carré blanc au milieu de la feuille, et un panneau gris clair un
-     liseré gris autour — dans les deux cas on verrait le cadre au lieu du mouvement.
-     Le panneau s'accorde donc au média, pas au thème. Il n'est jamais surchargé plus
-     bas : le bloc clair le laisse tel quel exprès. */
+  /* ── Les couleurs que le thème ne retourne pas ─────
+     Une seule raison pour toutes : elles ne s'affichent pas **sur** le fond de
+     l'application. Aucune n'est surchargée dans le bloc clair — celui-ci les laisse telles
+     quelles, exprès, et `tokens.test.ts` en tient la liste avec son motif. */
+
+  /* Le fond d'un média venu d'ailleurs : les GIF de démonstration des exercices ont un
+     fond blanc cuit dans l'image. Un panneau sombre derrière eux dessinerait un carré
+     blanc au milieu de la feuille, et un panneau gris clair un liseré gris autour — dans
+     les deux cas on verrait le cadre au lieu du mouvement. Le panneau s'accorde donc au
+     média, pas au thème. */
   --media-bg: #ffffff;
+
+  /* L'encre d'une image de story (`docs/story-course.md`). Elle se pose sur la photo de
+     l'utilisateur, pas sur l'application : une encre qui suivrait le thème donnerait une
+     story blanche le jour et noire la nuit sans que rien ne l'ait demandé. C'est
+     l'utilisateur qui choisit, dans la feuille de partage.
+
+     Les composantes RVB vont **par paires** avec la couleur, comme partout ailleurs : le
+     dessin en tire l'ombre portée, qui est l'encre opposée à une opacité. */
+  --story-light: #ffffff;
+  --story-light-rgb: 255 255 255;
+  --story-dark: #0b0f16;
+  --story-dark-rgb: 11 15 22;
+
+  /* La cinquième teinte de l'encre de story. Les quatre autres sont les signaux de la
+     charte ; celle-ci vient de `--confetti`, la seule liste du dépôt qui assume de ne
+     rien vouloir dire — et sur une story, c'est exactement ce qu'on demande à une
+     couleur. Sans elle il n'y en aurait que quatre à choisir. */
+  --story-violet: #a78bfa;
+  --story-violet-rgb: 167 139 250;
 
   /* Accent courant : ce que lisent les composants génériques. Une piste le
      surcharge localement, la valeur par défaut reste le signal primaire. */

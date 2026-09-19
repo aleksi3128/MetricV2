@@ -76,6 +76,8 @@ async def create(
     protein_g: Annotated[float | None, Form(ge=0, le=500)] = None,
     added_sugar_g: Annotated[float | None, Form(ge=0, le=1000)] = None,
     calories: Annotated[int | None, Form(ge=0, le=10000)] = None,
+    saturated_fat_g: Annotated[float | None, Form(ge=0, le=300)] = None,
+    fiber_g: Annotated[float | None, Form(ge=0, le=150)] = None,
     source: Annotated[str, Form(pattern="^(manual|ai)$")] = "manual",
 ) -> Meal:
     """Photo et/ou description, au moins l'un des deux (`NUT-01`).
@@ -103,6 +105,8 @@ async def create(
         protein_g=protein_g,
         added_sugar_g=added_sugar_g,
         calories=calories,
+        saturated_fat_g=saturated_fat_g,
+        fiber_g=fiber_g,
         source=source,
     )
 
@@ -127,7 +131,7 @@ async def analyze(
     photo: Annotated[UploadFile | None, File()] = None,
     comment: Annotated[str | None, Form(max_length=500)] = None,
 ) -> MealEstimate:
-    """Propose protéines, sucres ajoutés et calories (`NUT-04`).
+    """Propose protéines, sucres ajoutés, calories, graisses saturées et fibres (`NUT-04`).
 
     **Photo, description, ou les deux** — c'est ce qui porte les trois premiers modes de
     saisie de l'écran. Le mode choisi ne remonte pas jusqu'ici : seule compte la matière
@@ -168,7 +172,8 @@ async def update(
     row_id: RowId, payload: MealPayload, store: StoreDep, if_match: IfMatch = None
 ) -> Meal:
     """Corrige l'heure, le type, le commentaire ou les macros. Photo et provenance
-    d'origine sont préservées (`NUT-09`)."""
+    d'origine sont préservées (`NUT-09`), comme les graisses saturées et les fibres quand
+    la requête ne les porte pas (`NUT-16`)."""
     return await NutritionService(store).update(row_id, _token(if_match), payload)
 
 

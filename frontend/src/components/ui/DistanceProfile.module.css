@@ -1,0 +1,34 @@
+/* Une grandeur au fil des kilomètres. La graduation et le cadre viennent de
+   `Chart.module.css` : deux graphiques d'une même page doivent parler la même taille de
+   texte, et ses trois calibrations d'`.axis` ne se recopient pas.
+
+   Le `<svg>`, lui, a sa propre règle et n'emprunte pas `.svg` à `Chart` : les deux feuilles
+   posent `touch-action`, et laquelle gagne dépendrait de l'ordre dans lequel l'outil de
+   construction les concatène. */
+
+/* `pan-y` et non `none`, contrairement à `Chart` : ce graphique est lu **en glissant**, et
+   il occupe la moitié d'un écran de téléphone. Un doigt qui descend la page doit la faire
+   défiler ; un doigt qui glisse de côté déplace le curseur. C'est la garde du §3 de
+   `CLAUDE.md` — un geste plus vertical qu'horizontal appartient à la page. */
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+/* Des épaisseurs en pixels d'écran et non en unités de `viewBox` : même raison que
+   `Chart.module.css`, où elle est écrite en entier. */
+.svg line,
+.svg polyline,
+.svg polygon,
+.svg circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.relief {
+  fill: var(--ink-low);
+  fill-opacity: 0.35;
+}

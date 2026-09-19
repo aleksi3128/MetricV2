@@ -19,6 +19,9 @@ export function estimateSentence(estimate: MealEstimate): string {
   if (estimate.added_sugar_g !== null)
     parts.push(`${num(estimate.added_sugar_g, 0)} g de sucres ajoutés`);
   if (estimate.calories !== null) parts.push(`${integer(estimate.calories)} kcal`);
+  if (estimate.saturated_fat_g !== null)
+    parts.push(`${num(estimate.saturated_fat_g, 1)} g d’acides gras saturés`);
+  if (estimate.fiber_g !== null) parts.push(`${num(estimate.fiber_g, 1)} g de fibres`);
 
   if (parts.length === 0) return '';
   if (parts.length === 1) return parts[0] ?? '';

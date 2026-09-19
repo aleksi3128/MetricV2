@@ -21,6 +21,8 @@ from app.core.parsing import (
     parse_duration_minutes,
 )
 from app.core.validation import (
+    BASE_URL_MAX,
+    LABEL_MAX,
     CadenceSpm,
     Calories,
     DistanceKm,
@@ -254,6 +256,137 @@ class Run(BaseModel):
     #: Ce que la page Course peut montrer sans redemander. Zéro veut dire « aucun palier
     #: relevé », qui est le cas de toutes les courses saisies au clavier — pas une erreur.
     splits: int = 0
+    #: Chemin du `.fit` importé (`docs/import-fit.md`). Vide sur une course saisie au
+    #: clavier ou venue d'une capture. L'écran ne s'en sert que comme d'un **drapeau** :
+    #: non vide, il propose le fichier et va chercher le tracé ; il ne le construit jamais
+    #: en adresse — les deux routes se désignent par la course, pas par le chemin.
+    fit_path: str = ""
+    #: La plus haute FC tenue, lue dans le `.fit`. Vide sans cardio.
+    max_hr: int | None = None
+
+
+# ── Analyse d'une sortie importée (`docs/analyse-course.md`) ──
+
+
+class RunPoint(BaseModel):
+    """Un point de la grille en distance : la courbe le dessine, le tracé le colore.
+
+    `x` et `y` sont **déjà normalisés** entre 0 et 1 : aucune latitude ni longitude ne
+    traverse l'API. C'est l'invariant « aucun calcul métier côté client » appliqué à un
+    cas où le client aurait eu à connaître le cosinus de la latitude moyenne ; c'est aussi
+    ce qui fait qu'une capture d'écran partagée ne porte aucune adresse.
+    """
+
+    distance_km: float
+    #: Temps de **chrono** auquel le point a été atteint, pauses retirées.
+    timer_s: float
+    #: Allure de la fenêtre de 200 m centrée sur le point.
+    pace_min_km: float | None = None
+    #: La couleur du tracé, décidée ici par tronçon de 250 m contre l'allure en
+    #: mouvement : `faster` et `slower` à dix secondes par kilomètre ou plus.
+    pace_class: Literal["faster", "even", "slower"] | None = None
+    heart_rate: int | None = None
+    cadence_spm: int | None = None
+    #: Vide sauf **relief** (**A10**) : sur du plat, le profil ne dessinerait que le bruit.
+    altitude_m: float | None = None
+    x: float | None = None
+    y: float | None = None
+
+
+class RunStop(BaseModel):
+    """`pause` : chrono arrêté, sans effet sur l'allure. `stop` : chrono en marche."""
+
+    kind: Literal["pause", "stop"]
+    distance_km: float
+    duration_s: float
+
+
+class RunInsight(BaseModel):
+    """Un constat **rédigé par le serveur**, en français (**A4**).
+
+    L'écran affiche `title` et `text` tels quels et teinte selon `tone`. Il ne décide sur
+    rien d'autre : `code` sert aux tests. Ce n'est pas une proposition au sens du §2 de
+    `CLAUDE.md` — aucun modèle ne l'écrit, une règle fixe la produit.
+    """
+
+    code: str
+    tone: Literal["good", "bad", "neutral"]
+    title: str
+    text: str
+
+
+class RunEffort(BaseModel):
+    """Le meilleur effort d'une sortie sur une distance, où qu'il commence."""
+
+    distance_m: int
+    label: str
+    duration_s: float
+    pace_min_km: float
+    start_km: float
+    #: Bat tous les efforts des **autres** sorties à cette distance. Une première fois
+    #: n'en est pas un : rien ne se compare à elle.
+    record: bool = False
+
+
+class RunZoneBin(BaseModel):
+    zone: int
+    name: str
+    #: Les bornes, écrites : « 5:59–6:47 /km », « < 115 bpm ».
+    range: str
+    seconds: float
+    share: float
+
+
+class RunZones(BaseModel):
+    """Le temps passé dans chaque zone, et **contre quoi** il se lit (**A8**, **A9**)."""
+
+    kind: Literal["heart_rate", "pace"]
+    #: FC max en bpm, ou allure seuil en min/km.
+    reference_value: float
+    source: Literal["settings", "deduced"]
+    #: D'où vient la référence, en une phrase **ponctuée** : une estimation le dit toujours,
+    #: et l'écran l'affiche sans rien y ajouter.
+    detail: str
+    bins: list[RunZoneBin] = Field(default_factory=list)
+    summary: str = ""
+
+
+class RunAnalysis(BaseModel):
+    """Ce que le `.fit` d'une sortie dit de sa gestion, relu à la demande.
+
+    Une route à part et non un champ de `/runs/{id}/splits` : l'analyse se relit depuis le
+    `.fit` rangé sur Nextcloud, et la page doit s'afficher sans l'attendre.
+    """
+
+    points: list[RunPoint] = Field(default_factory=list)
+    #: Faux quand le fichier ne portait pas de position — tapis, montre sans GPS. Le tracé
+    #: n'est alors **pas dessiné**, plutôt qu'un cadre vide.
+    located: bool = False
+    #: Le `viewBox` du tracé. L'un des deux vaut 1, l'autre le rapport du cadre.
+    width: float = 1.0
+    height: float = 1.0
+    distance_ticks_km: list[float] = Field(default_factory=list)
+    #: **Le plus lent d'abord**, comme toutes les bornes d'allure du domaine.
+    pace_domain_min_km: tuple[float, float] | None = None
+    pace_ticks_min_km: list[float] = Field(default_factory=list)
+    heart_rate_domain: tuple[int, int] | None = None
+    cadence_domain: tuple[int, int] | None = None
+    altitude_domain_m: tuple[float, float] | None = None
+    average_pace_min_km: float | None = None
+    #: Servie seulement quand des arrêts chrono en marche l'écartent de la moyenne (**A6**).
+    moving_pace_min_km: float | None = None
+    paused_s: float = 0.0
+    stopped_s: float = 0.0
+    stops: list[RunStop] = Field(default_factory=list)
+    #: Écart, en s/km, à partir duquel un tronçon passe en `faster` ou `slower`. Servi :
+    #: la légende du tracé le cite, et un nombre écrit en dur dans une phrase serait une
+    #: valeur inventée le jour où il changerait ici.
+    class_threshold_s: float = 10.0
+    insights: list[RunInsight] = Field(default_factory=list)
+    efforts: list[RunEffort] = Field(default_factory=list)
+    zones: RunZones | None = None
+    #: Ce que coûte le prochain geste quand les zones manquent.
+    zones_missing: str | None = None
 
 
 # ── Paliers rendus au client (`ACT-19`) ───────────────
@@ -433,6 +566,55 @@ class RunWindow(BaseModel):
     distance_delta_km: float | None = None
 
 
+class EffortRecord(BaseModel):
+    """Le meilleur temps de tout l'historique sur une distance (**A5**)."""
+
+    distance_m: int
+    label: str
+    duration_s: float
+    pace_min_km: float
+    day: date
+    #: La position de la course, pour y mener sans chercher.
+    run: int
+    #: Combien de sorties couvrent cette distance — un record parmi une n'en est pas un.
+    runs: int = 0
+
+
+class EffortMark(BaseModel):
+    """Le meilleur effort d'**une** sortie sur une distance : un point de progression."""
+
+    day: date
+    run: int
+    duration_s: float
+    pace_min_km: float
+    #: Vrai quand il battait, ce jour-là, tout ce qui précédait.
+    record: bool = False
+
+
+class EffortSeries(BaseModel):
+    """La progression sur une distance, sortie après sortie.
+
+    **C'est la courbe qui manquait à cette page.** Un meilleur kilomètre se compare d'une
+    sortie à l'autre quelle que soit leur longueur, ce que ni l'allure moyenne ni les
+    bandes de distance ne savaient faire.
+    """
+
+    distance_m: int
+    label: str
+    marks: list[EffortMark] = Field(default_factory=list)
+    #: Le plus lent d'abord.
+    pace_domain_min_km: tuple[float, float] | None = None
+
+
+class RunWeek(BaseModel):
+    """Une semaine de course, du lundi au dimanche."""
+
+    week: date
+    runs: int = 0
+    distance_km: float = 0.0
+    minutes: float = 0.0
+
+
 class RunProgress(BaseModel):
     """La page « Toutes tes courses » (`ACT-20`) : la liste et ce qu'elle raconte.
 
@@ -471,6 +653,26 @@ class RunProgress(BaseModel):
     volume_domain_km: tuple[float, float] | None = None
     #: Bornes de distance, le plus court d'abord — l'abscisse du nuage de points.
     distance_domain_km: tuple[float, float] | None = None
+
+    # ── Les meilleurs efforts (`docs/analyse-course.md`) ──
+    records: list[EffortRecord] = Field(default_factory=list)
+    #: Les distances qui ont au moins deux points, la plus courte d'abord.
+    effort_series: list[EffortSeries] = Field(default_factory=list)
+    #: Sorties importées d'un `.fit` dont les efforts ne sont pas encore calculés — celles
+    #: d'avant ce lot. Tant qu'il en reste, l'écran propose de les réanalyser.
+    efforts_pending: int = 0
+    #: Les douze dernières semaines, **semaines vides comprises** et la plus ancienne
+    #: d'abord. Voir `progress.weeks` pour la raison des zéros.
+    weeks: list[RunWeek] = Field(default_factory=list)
+    week_domain_km: tuple[float, float] | None = None
+
+
+class EffortRebuild(BaseModel):
+    """Ce que la réanalyse a relu et réécrit."""
+
+    runs: int = 0
+    efforts: int = 0
+    splits: int = 0
 
 
 class RunDetail(BaseModel):
@@ -846,7 +1048,19 @@ CircuitRestS = Annotated[int, Field(ge=_link.REST_S[0], le=_link.REST_S[1])]
 #: sont courtes : elles s'affichent sur une ligne, sous le nom ». Une note qui déborde ne
 #: se tronque pas dans Cadence, elle pousse le reste hors de l'écran de quelqu'un qui est
 #: en train de forcer. La borne est ici parce que c'est ici qu'on peut encore la refuser.
-CircuitNote = Annotated[str, Field(max_length=60)]
+CIRCUIT_NOTE_MAX = 60
+CircuitNote = Annotated[str, Field(max_length=CIRCUIT_NOTE_MAX)]
+
+#: Longueur de la note **composée** — celle que le lien porte réellement, saisie et
+#: charge jointes par `CircuitService.note_of`. Elle vit ici et non là-bas parce que le
+#: calcul de `CIRCUIT_URL_MAX` en a besoin, et qu'un service importé depuis ce module
+#: poserait un cycle. C'est le seul endroit où une note dépasse les 60 de la saisie.
+CIRCUIT_LINK_NOTE_MAX = 72
+
+#: Le nombre d'exercices d'un circuit, comme celui d'une séance. Nommé parce qu'il
+#: entre dans deux décisions : ce que la saisie accepte, et ce qu'un lien relu peut
+#: contenir sans être refusé par un message qui ne dirait pas lequel des deux a cédé.
+CIRCUIT_EXERCISES_MAX = 40
 
 
 class CircuitExercisePayload(BaseModel):
@@ -903,8 +1117,28 @@ class CircuitPayload(BaseModel):
     round_rest_s: CircuitRoundRestS = 0
     #: Au moins un : un circuit sans exercice n'ouvre que l'écran d'accueil de Cadence,
     #: ce qui n'est pas ce qu'on a demandé. Quarante au plus, comme les séances.
-    exercises: list[CircuitExercisePayload] = Field(min_length=1, max_length=40)
+    exercises: list[CircuitExercisePayload] = Field(min_length=1, max_length=CIRCUIT_EXERCISES_MAX)
     note: Note | None = None
+
+
+#: Ce qu'un lien collé peut peser, au caractère près.
+#:
+#: **Le `2000` d'avant était un nombre sans origine, et il refusait de vraies séances** :
+#: quarante exercices notés donnent plus de quatre mille caractères, si bien que Metric
+#: fabriquait des liens qu'il ne savait plus relire. Le calcul est dans `circuit_link` —
+#: c'est le générateur lui-même qui répond, sur le circuit le plus lourd que les bornes
+#: ci-dessus laissent passer.
+#:
+#: Le nombre paraît énorme parce que le pire cas l'est : quatre-vingts emoji dans un nom
+#: coûtent douze caractères pièce une fois échappés. Le borner plus bas reviendrait à
+#: refuser des liens que Metric a lui-même produits, ce qui est exactement le défaut qu'on
+#: corrige ; le corps de la requête, lui, reste plafonné par `core/limits.py`.
+CIRCUIT_URL_MAX = _link.longest_url(
+    base=BASE_URL_MAX,
+    exercises=CIRCUIT_EXERCISES_MAX,
+    name=LABEL_MAX,
+    note=CIRCUIT_LINK_NOTE_MAX,
+)
 
 
 class CircuitImportPayload(BaseModel):
@@ -916,7 +1150,7 @@ class CircuitImportPayload(BaseModel):
     les ressaisir une à une.
     """
 
-    url: str = Field(min_length=1, max_length=2000)
+    url: str = Field(min_length=1, max_length=CIRCUIT_URL_MAX)
 
 
 class CircuitExercise(BaseModel):

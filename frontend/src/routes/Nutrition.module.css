@@ -33,7 +33,9 @@
 
 /* Trois pas-à-pas de front demandent 3 × 210 px pour que leurs touches soient à
    `--tap-lg` et leurs champs lisibles. Dans 304 px ils recevaient 94 px chacun, et le
-   champ tombait sous 20 px de large — la mesure l'a vu, l'œil l'aurait vu aussi. */
+   champ tombait sous 20 px de large — la mesure l'a vu, l'œil l'aurait vu aussi.
+   Cinq depuis `NUT-16` : la grille passe à la ligne après le troisième, sans rien changer
+   à la largeur de chacun. */
 .triple {
   display: grid;
   grid-template-columns: 1fr;
@@ -141,7 +143,10 @@
   background: var(--surface-2);
 }
 
+/* Un `span` depuis qu'elle vit dans la cible qui ouvre la fiche : un bouton n'admet que du
+   contenu de phrase. `display: block` lui rend la taille qu'un `div` avait d'office. */
 .thumbEmpty {
+  display: block;
   width: 56px;
   height: 56px;
   border-radius: var(--r-sm);
@@ -152,11 +157,10 @@
 
 /* ── Repas ────────────────────────────────────────── */
 
+/* 4 px en bas seulement : la ligne des actions porte déjà le vide de sa touche de 44 px,
+   et avec 12 px de plus « supprimer » flottait plus près du repas suivant que du sien. */
 .meal {
-  display: flex;
-  gap: var(--s4);
-  align-items: flex-start;
-  padding: 12px 0;
+  padding: 12px 0 4px;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -164,9 +168,51 @@
   border-bottom: none;
 }
 
+/* Le corps de la ligne ouvre la fiche du repas (`NUT-15`) : vignette, heure, type,
+   description et valeurs, une seule cible. Même remise à zéro que le nom d'un aliment,
+   pour que le bouton ne se voie pas comme tel — c'est une ligne qu'on touche. */
+.mealOpen {
+  width: 100%;
+  min-height: var(--tap);
+  display: flex;
+  gap: var(--s3);
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: var(--t);
+}
+
+/* **Au bord droit de la carte**, centré sur le repas : c'est là que le parcours mobile
+   dit « ça s'ouvre ». Il flottait au milieu de la carte tant que la colonne « supprimer »
+   occupait le bord. `margin-right` compense la rotation, qui pousse la pointe hors de sa
+   boîte. */
+.mealOpen > .foodChevron {
+  flex: none;
+  align-self: center;
+  margin: 0 2px 0 0;
+}
+
+.mealOpen:active {
+  background: var(--surface-2);
+}
+
 .mealBody {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mealComment {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .mealHead {
@@ -196,12 +242,29 @@
   margin-top: var(--s3);
 }
 
+/* La photo en tête de fiche. `aspect-ratio` et non une hauteur : la place est tenue avant
+   que l'image n'arrive, et les valeurs ne sautent pas sous le doigt.
+   **16/9 et 200 px au plus**, comme l'aperçu de la feuille d'ajout. En 4/3 elle faisait
+   254 px à 402 de large, et « Corriger » tombait sous la ligne de flottaison : l'action de
+   la fiche demandait de faire défiler une image. */
+.mealPhoto {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+/* Les actions d'un repas, sur leur ligne, à droite sous le texte. La destruction reste à
+   deux appuis — la rapprocher du pouce ne la rend pas plus facile à déclencher par erreur.
+   **Sans marge négative**, bien qu'elle aurait aligné le mot sur la flèche : l'état armé
+   dessine une bordure, et elle dépassait alors de 8 px le filet de séparation. */
 .mealActions {
   display: flex;
-  gap: 4px;
-  flex: none;
-  flex-direction: column;
-  align-items: stretch;
+  justify-content: flex-end;
+  gap: var(--s1);
 }
 
 .iconButton {
@@ -247,6 +310,37 @@
 }
 
 /* ── Favoris ──────────────────────────────────────── */
+
+/* Le titre de la carte et son étoile. L'étoile est **pleine** ici : la carte est l'endroit
+   où les favoris sont, pas celui où l'on en ajoute. L'ambre de la charte plutôt que la
+   couleur du texte — une étoile grise se lit comme désactivée. */
+.favoritesTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.favoritesTitle svg,
+.favorited svg,
+.favoriteAdd svg {
+  flex: none;
+  color: var(--load);
+}
+
+/* « Dans les favoris » : l'étoile pleine devant la phrase, sur la même ligne. */
+.favorited {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* L'étoile creuse dans « Ajouter aux favoris ». Un `span` dans le bouton et non le bouton
+   lui-même : sa mise en page appartient à `Button`, que cet écran n'a pas à redéfinir. */
+.favoriteAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+}
 
 .favorites {
   display: flex;
@@ -333,6 +427,89 @@
    Les trois tailles sont posées ici et non dans le composant : c'est l'écran qui sait
    combien de colonnes il a demandées. La feuille de style de la grille, elle, ne connaît
    que la variable. */
+/* **La ligne de tête de l'historique : la grille, puis ses chiffres.**
+
+   Cinq colonnes de 30 px et la colonne des initiales font 191 px de grille dans une carte
+   qui en offre 875 sur un Mac. Une grille de sept lignes ne s'élargit pas sans s'allonger
+   d'autant — une cellule à 130 px pour remplir la carte donnerait un mois haut de 950 px.
+   Ce qui remplit la place est donc ce qu'on met à côté, et les tuiles mesurent exactement
+   la même plage que la grille.
+
+   `align-items: start` : sans lui, la carte de la grille s'étirerait à la hauteur des
+   tuiles et le vide reviendrait, en bas cette fois. */
+.historyTop {
+  display: grid;
+  gap: var(--s4);
+}
+
+/* `min(…, 55%)` et non la largeur seule : sur la plage annuelle, 34 rem posés dans une
+   fenêtre de 600 px ne laisseraient que 56 px à la colonne de droite. Le plafond en
+   pourcentage garantit que les deux colonnes restent des colonnes — la grille annuelle,
+   elle, déborde par construction et se tire au doigt, à 34 rem comme à 20. */
+@media (min-width: 600px) {
+  .historyTop {
+    grid-template-columns: min(var(--top-col, 21rem), 55%) 1fr;
+    align-items: start;
+  }
+}
+
+/* La carte se règle sur sa grille : cinq colonnes de 30 px et la colonne des initiales
+   font 191 px, treize en font 321, cinquante-trois débordent quoi qu'on fasse. */
+/* Sept colonnes et non cinq depuis que le mois se lit en calendrier : la colonne s'élargit
+   d'autant, et les cellules retrouvent la taille de la charte. */
+.topMonth {
+  --top-col: 18rem;
+}
+
+.topQuarter {
+  --top-col: 23rem;
+}
+
+.topYear {
+  --top-col: 34rem;
+}
+
+/* Le filet de section et le sélecteur sur une même ligne. Le filet s'étire, le sélecteur
+   prend ce qu'il lui faut — et passe dessous quand la ligne ne les tient plus tous deux. */
+.historyHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  flex-wrap: wrap;
+}
+
+.headRule {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+/* La colonne de côté : les quatre tuiles, puis la répartition par type.
+
+   Les tuiles seules faisaient 226 px contre 484 à la carte de la grille — le trou avait
+   changé de place, pas disparu. La répartition, qui mesure la même plage, comble
+   exactement la différence. */
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+/* Deux tuiles de front dès 390 px, comme `.tiles` de `base.css` — mais **jamais quatre**,
+   même à 960 px : elles vivent maintenant dans une colonne de côté, où quatre de front
+   couperaient « 1 334 » en deux. */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s3);
+}
+
+@media (min-width: 600px) {
+  .tiles {
+    gap: var(--s4);
+  }
+}
+
 .heat {
   --heat-cell: 20px;
   --heat-gap: 4px;
@@ -346,18 +523,39 @@
    Un premier essai mettait le mois à 34 px de cellule : la grille remplissait sa carte,
    et c'était précisément le défaut — un mois de calories occupait autant de place que le
    journal du jour, pour beaucoup moins à dire. */
+/* **50 px sur téléphone, 30 en colonne : l'inverse de ce que cette feuille faisait.**
+
+   Elle grossissait les cellules « dès qu'il y a la largeur ». C'était le bon réflexe tant
+   que la carte occupait toute la page — mais elle ne l'occupe plus : sur un écran large,
+   la grille vit dans une colonne de 15 rem taillée pour elle, et c'est la carte qui s'est
+   réglée sur la grille. Sur téléphone, au contraire, la carte fait toute la largeur et
+   c'est la grille qui doit la remplir : cinq colonnes à 18 px y laissaient 190 px de vide
+   à droite, et une cible de 18 px se vise mal au pouce pour ouvrir son infobulle — le
+   plancher tactile du projet est à 44.
+
+   **La taille ne se pose plus ici** : en disposition calendrier, les sept colonnes se
+   partagent la largeur de la carte et les cellules sont carrées par leur rapport. Elles
+   font donc ~44 px sur l'iPhone visé, ~38 sur un Android de 360, ~31 dans la colonne d'un
+   écran large — toujours la largeur disponible, jamais un chiffre qui déborde ailleurs.
+   `--heat-cell` ne sert plus qu'à la rangée d'en-tête et à la légende.
+
+   Ce qui reste réglé ici, c'est l'écart et le rayon. Le rayon a compté : à 8 px sur une
+   cellule de 50, les cases devenaient des pastilles et la grille un jeu de dominos. */
 .gridMonth {
+  --heat-legend: flex-start;
+  --heat-cell: 44px;
+  --heat-gap: 5px;
+  --heat-radius: 6px;
+}
+
+/* Treize colonnes à 18 px font 270 px : la plage trimestrielle tient toujours entière
+   dans une carte de téléphone, sans avoir à la tirer — 296 px sur un Android de 360 —, et
+   n'y laisse plus le tiers de la carte vide comme à 14 px. */
+.gridQuarter {
+  --heat-legend: flex-start;
   --heat-cell: 18px;
   --heat-gap: 3px;
   --heat-radius: 4px;
-}
-
-/* Treize colonnes à 14 px font 218 px : la plage trimestrielle tient entière dans une
-   carte de téléphone, sans avoir à la tirer. */
-.gridQuarter {
-  --heat-cell: 14px;
-  --heat-gap: 3px;
-  --heat-radius: 3px;
 }
 
 /* La taille de la charte. 53 colonnes débordent par construction, et se tirent au doigt
@@ -368,12 +566,10 @@
   --heat-radius: 3px;
 }
 
-/* Dès qu'il y a la largeur, les cellules la prennent.
-
-   Sur un Mac, la carte de l'historique fait 730 px : cinq colonnes de 18 px y occupaient
-   100 px, un timbre-poste au bord d'une carte vide. Les trois plages grandissent
-   ensemble, en gardant leur écart — sans quoi passer de « 1 mois » à « 1 an » ne
-   changerait plus seulement la profondeur, mais l'échelle de lecture. */
+/* En colonne, les cellules reviennent à la taille de la charte : c'est la colonne qui est
+   taillée sur elles, et non l'inverse. Les trois plages gardent leur écart — sans quoi
+   passer de « 1 mois » à « 1 an » ne changerait plus seulement la profondeur, mais
+   l'échelle de lecture. */
 @media (min-width: 600px) {
   .gridMonth {
     --heat-cell: 30px;
@@ -409,8 +605,12 @@
   white-space: nowrap;
 }
 
+/* `Bars` réserve 4,5 rem au libellé, taillé pour une carte de 390 px. Ces deux lectures
+   n'apparaissent qu'à partir de 600 px, où « petit-déjeuner » se faisait couper en
+   « petit-dé… » pour rien : la place était là, la valeur par défaut ne le savait pas. */
 .habit {
   margin-top: var(--s4);
+  --bar-label: 7.5rem;
 }
 
 /* ── Repas composé (`NUT-12`) ─────────────────────── */
@@ -689,8 +889,9 @@
   color: var(--ink-low);
 }
 
-/* Trois de front : ce sont trois nombres courts, et les mettre en colonne ferait descendre
-   « Retour » sous la ligne de flottaison pour rien. */
+/* Trois de front : ce sont des nombres courts, et les mettre en colonne ferait descendre
+   « Retour » sous la ligne de flottaison pour rien. Cinq depuis `NUT-16` — la grille passe
+   à la ligne après la troisième, ce qui garde des cases lisibles dans 330 px. */
 .detailGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

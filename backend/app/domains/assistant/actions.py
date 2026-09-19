@@ -338,6 +338,8 @@ async def _add_meal(store: FileStore, payload: MealPayload) -> Outcome:
         protein_g=payload.protein_g,
         added_sugar_g=payload.added_sugar_g,
         calories=payload.calories,
+        saturated_fat_g=payload.saturated_fat_g,
+        fiber_g=payload.fiber_g,
         source=SOURCE,
     )
     return Outcome(

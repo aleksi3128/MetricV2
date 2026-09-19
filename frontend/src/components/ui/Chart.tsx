@@ -31,6 +31,7 @@ import { cx } from '@/lib/cx';
 
 import type { Tone } from './primitives';
 import { axisLabels } from './chart-axis';
+import { bandGeometry } from './chart-band';
 import styles from './Chart.module.css';
 
 const TONE_VAR: Record<Tone, string> = {
@@ -81,33 +82,6 @@ const VIEW_H_PLAIN = 212;
  */
 const LEFT = 6;
 
-/**
- * Largeur maximale d'une barre de bande, en unités de viewBox.
- *
- * Sans plafond, quatre sorties donnaient des barres de 143 unités — un quart de la largeur
- * du tracé chacune. Ce ne sont plus des barres mais des dalles, et c'est ce qui rendait le
- * débordement spectaculaire au lieu d'imperceptible.
- */
-const MAX_BAND_BAR = 56;
-
-/**
- * Centre d'une barre de bande, ramené dans le tracé.
- *
- * **Les points sont posés sur les bords** : `x(0)` vaut `LEFT` et `x(count - 1)` vaut
- * `RIGHT`. Une barre centrée sur eux déborde donc de la moitié de sa largeur, par-dessus
- * la gouttière des graduations à gauche, et hors du `<svg>` à droite — où `overflow:
- * visible`, voulu pour l'infobulle, la laisse se peindre sur la page.
- *
- * Les barres des extrémités sont **décalées vers l'intérieur** plutôt que rognées. Rogner
- * les aurait laissées à demi-largeur, et une bande sert à comparer des valeurs entre
- * elles : deux barres deux fois plus étroites que les autres se lisent comme deux valeurs
- * plus faibles, alors que c'est la hauteur qui porte la mesure. Le décalage vaut au plus
- * une demi-barre, soit 28 unités sur 588.
- */
-function bandCentre(centre: number, width: number): number {
-  const half = width / 2;
-  return Math.min(Math.max(centre, LEFT + half), RIGHT - half);
-}
 const RIGHT = 706;
 const TOP = 22;
 const BOTTOM = 172;
@@ -219,13 +193,10 @@ export function Chart({
   const formatContext = context?.format ?? identity;
   const formatBand = band?.format ?? identity;
 
-  // Largeur d'une barre de bande. **`count - 1` et non `count`** : les points sont posés
-  // *sur* les bords du tracé, il y a donc un intervalle de moins que de points. L'ancienne
-  // division par `count` donnait des barres plus larges que l'écart réel, ce qui ne se
-  // voyait pas à quatorze points et sautait aux yeux à quatre.
   const viewH = band ? VIEW_H_BAND : VIEW_H_PLAIN;
-  const bandStep = (RIGHT - LEFT) / Math.max(1, count - 1);
-  const bandWidth = Math.max(2, Math.min(bandStep - 4, MAX_BAND_BAR));
+  // La géométrie des barres vit dans `chart-band.ts` : un placement dans un SVG ne se voit
+  // qu'en regardant la page, et ce qui échappe à une sonde du DOM s'éprouve en pur.
+  const bars = bandGeometry(count, LEFT, RIGHT);
 
   const primaryPoints = primary.values
     .map((value, index) => `${x(index)},${yPrimary(value)}`)
@@ -313,24 +284,18 @@ export function Chart({
             </linearGradient>
           </defs>
 
-          {/* Grille de fond et graduations — recessives, elles ne doivent jamais
-              concurrencer la donnée. */}
+          {/* Grille de fond — recessive, elle ne doit jamais concurrencer la donnée.
+              Ses **chiffres**, eux, sont peints tout à la fin : voir plus bas. */}
           {ticks.map((tick) => (
-            <g key={tick}>
-              <line
-                x1={LEFT}
-                x2={RIGHT}
-                y1={yPrimary(tick)}
-                y2={yPrimary(tick)}
-                stroke="var(--line)"
-                strokeWidth="1"
-              />
-              {/* Au-dessus de sa ligne et non à côté : c'est ce qui rend au tracé la
-                  colonne que la gouttière lui prenait. */}
-              <text x={LEFT} y={yPrimary(tick) - 5} textAnchor="start" className={styles.axis}>
-                {formatPrimary(tick)}
-              </text>
-            </g>
+            <line
+              key={tick}
+              x1={LEFT}
+              x2={RIGHT}
+              y1={yPrimary(tick)}
+              y2={yPrimary(tick)}
+              stroke="var(--line)"
+              strokeWidth="1"
+            />
           ))}
 
           {/* Quelles étiquettes, et par quel bord : `axisLabels` décide, parce qu'il est
@@ -415,9 +380,9 @@ export function Chart({
                 return (
                   <rect
                     key={index}
-                    x={bandCentre(x(index), bandWidth) - bandWidth / 2}
+                    x={bars.centre(index) - bars.width / 2}
                     y={BAND_BOTTOM - height}
-                    width={bandWidth}
+                    width={bars.width}
                     height={height}
                     rx="2"
                     fill={alerting ? TONE_VAR.recover : TONE_VAR[band.tone]}
@@ -439,6 +404,28 @@ export function Chart({
               />
             </>
           )}
+
+          {/* **Les graduations passent après la donnée, jamais avant.**
+
+              Le tracé est cadré sur les extrêmes de sa série : le point le plus bas touche
+              exactement la ligne du minimum, et la courbe passait donc, à chaque
+              graphique, par-dessus le chiffre qui la nomme. Peintes ici, avec le halo de
+              `.axis`, elles restent lisibles sans rien coûter au tracé — une gouttière
+              rendue au texte a déjà coûté 152 px de blanc une fois.
+
+              Au-dessus de leur ligne et non à côté : c'est ce qui rend au tracé la colonne
+              que cette gouttière lui prenait. */}
+          {ticks.map((tick) => (
+            <text
+              key={tick}
+              x={LEFT}
+              y={yPrimary(tick) - 5}
+              textAnchor="start"
+              className={styles.axis}
+            >
+              {formatPrimary(tick)}
+            </text>
+          ))}
 
           {active !== null && (
             <>

@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { Button } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { cx } from '@/lib/cx';
+import { useScrollTop } from '@/lib/scroll';
 
 import styles from './Shell.module.css';
 import { TabBar } from './TabBar';
@@ -51,7 +52,12 @@ const NAV = [
 
 export function Shell() {
   const { state, logout } = useAuth();
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
+
+  // Chaque écran s'ouvre par son haut, et non à la hauteur où l'on avait laissé le
+  // précédent — voir [`useScrollTop`](../lib/scroll.ts) pour ce que ça a coûté de ne pas
+  // le faire.
+  useScrollTop(pathname, hash);
 
   return (
     <div className={styles.shell}>

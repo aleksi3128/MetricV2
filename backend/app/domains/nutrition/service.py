@@ -76,6 +76,8 @@ class NutritionService:
             protein_g=model.protein_g,
             added_sugar_g=model.added_sugar_g,
             calories=model.calories,
+            saturated_fat_g=model.saturated_fat_g,
+            fiber_g=model.fiber_g,
             source=model.source,
         )
 
@@ -98,6 +100,11 @@ class NutritionService:
         calories = sum(row.model.calories or 0 for row in today)
         calorie_target = values.target_calories
 
+        # Sommées sur les seuls repas qui les portent, et comptées à part : la couverture
+        # est ce qui empêche l'écran d'afficher « 0 g » sur des cellules vides (`NUT-16`).
+        saturated = [row.model.saturated_fat_g for row in today]
+        fiber = [row.model.fiber_g for row in today]
+
         return DayTotals(
             protein_g=round(protein, 1),
             protein_target_g=protein_target,
@@ -114,6 +121,10 @@ class NutritionService:
             # dépassement, et c'est le détail sous le chiffre qui le dit.
             calories_ratio=min(1.0, calories / calorie_target) if calorie_target else 0.0,
             calories_known=sum(1 for row in today if row.model.calories is not None),
+            saturated_fat_g=round(sum(value for value in saturated if value is not None), 1),
+            saturated_fat_known=sum(1 for value in saturated if value is not None),
+            fiber_g=round(sum(value for value in fiber if value is not None), 1),
+            fiber_known=sum(1 for value in fiber if value is not None),
             meals=len(today),
         )
 
@@ -153,6 +164,7 @@ class NutritionService:
             today=today,
             range_key=range_key,
             target=values.target_calories,
+            protein_target=values.target_protein_g,
             sugar_max=values.max_added_sugar_g,
         )
 
@@ -202,6 +214,8 @@ class NutritionService:
         protein_g: float | None,
         added_sugar_g: float | None,
         calories: int | None,
+        saturated_fat_g: float | None = None,
+        fiber_g: float | None = None,
         source: str = "manual",
     ) -> Meal:
         moment = now_local()
@@ -222,6 +236,8 @@ class NutritionService:
                 protein_g=protein_g,
                 added_sugar_g=added_sugar_g,
                 calories=calories,
+                saturated_fat_g=saturated_fat_g,
+                fiber_g=fiber_g,
                 source=source,
             )
         )
@@ -232,6 +248,8 @@ class NutritionService:
         if not 0 <= index < len(rows):
             raise StorageNotFoundError("Ce repas n'existe pas.")
         existing = rows[index].model
+        # Absents, préservés ; présents — même à `null` —, appliqués. Voir `MealPayload`.
+        given = payload.model_fields_set
 
         row = await self._meals.replace_by_token(
             index,
@@ -246,6 +264,12 @@ class NutritionService:
                 protein_g=payload.protein_g,
                 added_sugar_g=payload.added_sugar_g,
                 calories=payload.calories,
+                saturated_fat_g=(
+                    payload.saturated_fat_g
+                    if "saturated_fat_g" in given
+                    else existing.saturated_fat_g
+                ),
+                fiber_g=payload.fiber_g if "fiber_g" in given else existing.fiber_g,
                 # Provenance préservée par défaut : corriger une macro estimée ne la
                 # réécrit pas en saisie manuelle. Elle ne change que si la requête le
                 # demande — accepter une estimation sur un repas déjà relevé.
@@ -300,7 +324,7 @@ class NutritionService:
                 instruction=INSTRUCTION,
                 prompt=photo_prompt(said),
                 images=[prepare_data_url(photo)],
-                # Une estimation tient en cinq nombres : au-delà, on paie le monologue d'un
+                # Une estimation tient en sept champs : au-delà, on paie le monologue d'un
                 # modèle à raisonnement visible, que l'extraction jettera de toute façon.
                 max_tokens=500,
             )
@@ -367,6 +391,8 @@ class NutritionService:
             protein_g=total.protein_g if not total.empty else None,
             added_sugar_g=total.added_sugar_g if not total.empty else None,
             calories=total.calories if not total.empty else None,
+            saturated_fat_g=total.saturated_fat_g if not total.empty else None,
+            fiber_g=total.fiber_g if not total.empty else None,
         )
         await self.remember(payload.lines)
         return meal
@@ -383,6 +409,8 @@ class NutritionService:
                 calories_100g=row.model.calories_100g,
                 protein_100g=row.model.protein_100g,
                 added_sugar_100g=row.model.added_sugar_100g,
+                saturated_fat_100g=row.model.saturated_fat_100g,
+                fiber_100g=row.model.fiber_100g,
             )
             for row in rows
             if row.model.id and row.model.name
@@ -406,6 +434,8 @@ class NutritionService:
             if line.calories_100g is not None
             or line.protein_100g is not None
             or line.added_sugar_100g is not None
+            or line.saturated_fat_100g is not None
+            or line.fiber_100g is not None
         ]
         if not useful:
             return
@@ -421,6 +451,8 @@ class NutritionService:
                 calories_100g=line.calories_100g,
                 protein_100g=line.protein_100g,
                 added_sugar_100g=line.added_sugar_100g,
+                saturated_fat_100g=line.saturated_fat_100g,
+                fiber_100g=line.fiber_100g,
             )
             if existing is None:
                 await self._ingredients.append(model)
@@ -443,6 +475,8 @@ class NutritionService:
             protein_g=row.model.protein_g,
             added_sugar_g=row.model.added_sugar_g,
             calories=row.model.calories,
+            saturated_fat_g=row.model.saturated_fat_g,
+            fiber_g=row.model.fiber_g,
         )
 
     async def favorites(self) -> list[Favorite]:
@@ -459,6 +493,8 @@ class NutritionService:
                 protein_g=payload.protein_g,
                 added_sugar_g=payload.added_sugar_g,
                 calories=payload.calories,
+                saturated_fat_g=payload.saturated_fat_g,
+                fiber_g=payload.fiber_g,
             )
         )
         return self._favorite_to_schema(row)
@@ -481,4 +517,6 @@ class NutritionService:
             protein_g=favorite.protein_g,
             added_sugar_g=favorite.added_sugar_g,
             calories=favorite.calories,
+            saturated_fat_g=favorite.saturated_fat_g,
+            fiber_g=favorite.fiber_g,
         )

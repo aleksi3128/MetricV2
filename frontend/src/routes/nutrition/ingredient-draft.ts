@@ -15,7 +15,7 @@ export interface IngredientDraft {
   name: string;
   quantity_g: string;
   /**
-   * Les trois valeurs pour 100 g. **Elles ne sont plus à l'écran** (`NUT-14`) : elles
+   * Les cinq valeurs pour 100 g. **Elles ne sont plus à l'écran** (`NUT-14`) : elles
    * viennent d'un code-barres ou du catalogue, et elles repartent au serveur qui
    * totalise. Les laisser modifiables demandait de lire un emballage à chaque repas —
    * c'est précisément le geste que le scan a supprimé.
@@ -23,6 +23,8 @@ export interface IngredientDraft {
   calories_100g: string;
   protein_100g: string;
   added_sugar_100g: string;
+  saturated_fat_100g: string;
+  fiber_100g: string;
   /**
    * Vrai quand la ligne a été ajoutée à la main, et que son nom reste donc à saisir.
    *
@@ -53,6 +55,8 @@ export function emptyIngredient(): IngredientDraft {
     calories_100g: '',
     protein_100g: '',
     added_sugar_100g: '',
+    saturated_fat_100g: '',
+    fiber_100g: '',
     manual: true,
     brand: '',
     barcode: '',
@@ -80,25 +84,30 @@ export function ingredientFromProduct(product: Product): IngredientDraft {
     calories_100g: fieldText(product.calories_100g),
     protein_100g: fieldText(product.protein_100g),
     added_sugar_100g: fieldText(product.added_sugar_100g),
+    saturated_fat_100g: fieldText(product.saturated_fat_100g),
+    fiber_100g: fieldText(product.fiber_100g),
   };
 }
 
 /** Cette ligne porte-t-elle des valeurs ? Sinon elle compte pour zéro dans le total. */
 export function hasValues(row: IngredientDraft): boolean {
-  return [row.calories_100g, row.protein_100g, row.added_sugar_100g].some(
-    (field) => field.trim() !== '',
-  );
+  return per100(row).some((field) => field.trim() !== '');
+}
+
+/** Les cinq valeurs pour 100 g d'une ligne — une seule liste, pour qu'aucune ne s'oublie. */
+function per100(row: IngredientDraft): string[] {
+  return [
+    row.calories_100g,
+    row.protein_100g,
+    row.added_sugar_100g,
+    row.saturated_fat_100g,
+    row.fiber_100g,
+  ];
 }
 
 /** Une ligne à laquelle on n'a rien touché — celle qu'un scan remplace plutôt que suivre. */
 export function isBlank(row: IngredientDraft): boolean {
-  return [
-    row.name,
-    row.quantity_g,
-    row.calories_100g,
-    row.protein_100g,
-    row.added_sugar_100g,
-  ].every((field) => field.trim() === '');
+  return [row.name, row.quantity_g, ...per100(row)].every((field) => field.trim() === '');
 }
 
 /** Un champ de texte vers le nombre que l'API attend, ou `null` s'il est vide. */
@@ -128,6 +137,8 @@ export function toLines(rows: readonly IngredientDraft[]): IngredientLine[] {
         calories_100g: decimal(row.calories_100g),
         protein_100g: decimal(row.protein_100g),
         added_sugar_100g: decimal(row.added_sugar_100g),
+        saturated_fat_100g: decimal(row.saturated_fat_100g),
+        fiber_100g: decimal(row.fiber_100g),
       },
     ];
   });

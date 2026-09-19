@@ -1,20 +1,22 @@
 /**
- * La page « Toutes tes courses » (`ACT-20`).
+ * La page « Toutes tes courses » (`ACT-20`, `docs/analyse-course.md`).
  *
- * Les chiffres sont servis **tels que le serveur les rend** — records par bande, volumes
- * mensuels, fenêtre glissante. Un test qui les recalculerait côté écran validerait
- * exactement ce que l'invariant interdit.
+ * Les chiffres sont servis **tels que le serveur les rend** — records, progressions,
+ * semaines. Un test qui les recalculerait côté écran validerait exactement ce que
+ * l'invariant interdit.
  *
- * Ce que ces tests gardent surtout, ce sont les **réserves** : la page compare des sorties
- * entre elles, où deux allures ne veulent plus dire la même chose, et la moitié de son
- * travail consiste à le dire plutôt qu'à le taire.
+ * Ce que ces tests gardent surtout, c'est ce que la page **ne dit pas** : un record sur les
+ * seules sorties `.fit` qui passerait pour un record de tout l'historique, une semaine vide
+ * qui disparaîtrait de la courbe, un bouton de réanalyse qui reviendrait sans raison.
  */
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
 
 import { Runs } from './activity/Runs';
@@ -44,6 +46,8 @@ function run(id: number, date: string, distance: number, minutes: number, splits
     end_time: null,
     split_length_km: null,
     splits,
+    fit_path: splits > 0 ? `2026/08/21/20260821-194000-${String(id).padStart(8, '0')}.fit` : '',
+    max_hr: null,
   };
 }
 
@@ -114,6 +118,53 @@ const PROGRESS = {
   pace_domain_min_km: [5.5, 5.035],
   volume_domain_km: [12.0, 18.6],
   distance_domain_km: [3.2, 12.0],
+  records: [
+    {
+      distance_m: 1000,
+      label: '1 km',
+      duration_s: 281,
+      pace_min_km: 4.683,
+      day: '2026-08-21',
+      run: 5,
+      runs: 2,
+    },
+    {
+      distance_m: 5000,
+      label: '5 km',
+      duration_s: 1510,
+      pace_min_km: 5.033,
+      day: '2026-08-21',
+      run: 5,
+      runs: 1,
+    },
+  ],
+  effort_series: [
+    {
+      distance_m: 400,
+      label: '400 m',
+      marks: [
+        { day: '2026-08-02', run: 4, duration_s: 124, pace_min_km: 5.167, record: false },
+        { day: '2026-08-21', run: 5, duration_s: 105, pace_min_km: 4.375, record: true },
+      ],
+      pace_domain_min_km: [5.167, 4.375],
+    },
+    {
+      distance_m: 1000,
+      label: '1 km',
+      marks: [
+        { day: '2026-08-02', run: 4, duration_s: 336, pace_min_km: 5.6, record: false },
+        { day: '2026-08-21', run: 5, duration_s: 281, pace_min_km: 4.683, record: true },
+      ],
+      pace_domain_min_km: [5.6, 4.683],
+    },
+  ],
+  efforts_pending: 0,
+  weeks: [
+    { week: '2026-08-03', runs: 1, distance_km: 8.0, minutes: 41.6 },
+    { week: '2026-08-10', runs: 0, distance_km: 0, minutes: 0 },
+    { week: '2026-08-17', runs: 1, distance_km: 8.14, minutes: 40.983 },
+  ],
+  week_domain_km: [0, 8.14],
 };
 
 /** Une première sortie : rien à comparer, et la page ne doit rien inventer. */
@@ -147,12 +198,25 @@ const EMPTY = {
   bands: [],
   months: [],
   window: ALONE.window,
+  records: [],
+  effort_series: [],
+  weeks: [],
+  week_domain_km: null,
 };
+
+const calls: { url: string; method: string }[] = [];
 
 function stub(body: unknown, status = 200) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => Promise.resolve(json(status, body))),
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input as string;
+      calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.includes('/efforts/rebuild')) {
+        return Promise.resolve(json(200, { runs: 3, efforts: 10, splits: 16 }));
+      }
+      return Promise.resolve(json(status, body));
+    }),
   );
 }
 
@@ -160,15 +224,18 @@ function renderRuns() {
   render(
     <QueryClientProvider client={createQueryClient()}>
       <MemoryRouter initialEntries={['/activite/courses']}>
-        <Routes>
-          <Route path="/activite/courses" element={<Runs />} />
-        </Routes>
+        <Toaster>
+          <Routes>
+            <Route path="/activite/courses" element={<Runs />} />
+          </Routes>
+        </Toaster>
       </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
+  calls.length = 0;
   localStorage.setItem('metric.token', 'jeton');
 });
 
@@ -187,127 +254,111 @@ describe('page Toutes tes courses', () => {
     expect(screen.queryByText('Allure totale')).not.toBeInTheDocument();
   });
 
-  it('nomme la progression en toutes lettres plutôt que de montrer un signe', async () => {
+  it('dit que les records ne portent que sur les sorties importées d’un fichier', async () => {
     stub(PROGRESS);
     renderRuns();
 
-    // -21,4 s/km est une accélération : le signe seul se lit à l'envers.
-    expect(await screen.findByText('Tu accélères')).toBeInTheDocument();
-    expect(screen.getByText('21,4 s/km')).toBeInTheDocument();
+    const table = await screen.findByRole('table', {
+      name: 'Le meilleur temps de toutes tes sorties sur chaque distance',
+    });
+    // 4:41 deux fois : le temps et l'allure d'un kilomètre sont le même nombre.
+    expect(within(table).getAllByText('4:41')).toHaveLength(2);
+    // Sans la phrase, une sortie saisie plus rapide que « 5 km en 25:10 » ferait mentir
+    // le record.
+    expect(screen.getByText(/Sur tes sorties importées d’un fichier \.fit/)).toBeInTheDocument();
   });
 
-  it('accompagne la fenêtre de sa réserve : les distances y restent mélangées', async () => {
+  it('mène de chaque record à la sortie qui le détient', async () => {
     stub(PROGRESS);
     renderRuns();
 
-    await screen.findByText('Tu accélères');
-    expect(screen.getByText(/Les distances y restent mélangées/)).toBeInTheDocument();
-    // Et elle dit combien de sorties elle compare, jamais « les dernières » en vague.
+    const table = await screen.findByRole('table', {
+      name: 'Le meilleur temps de toutes tes sorties sur chaque distance',
+    });
+    expect(within(table).getByRole('link', { name: /^1 km/ })).toHaveAttribute(
+      'href',
+      '/activite/course/5',
+    );
+    // Le nombre de sorties qui couvrent la distance : un record parmi une n'en est pas un.
+    expect(within(table).getByRole('link', { name: /^5 km/ })).toHaveTextContent('1 sortie');
+  });
+
+  it('trace la progression du kilomètre d’abord, et laisse choisir une autre distance', async () => {
+    stub(PROGRESS);
+    renderRuns();
+
     expect(
-      screen.getByText(/sur tes 3 dernières sorties contre les 3 d’avant/),
+      await screen.findByRole('heading', { name: 'Ton meilleur 1 km de chaque sortie' }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '400 m' }));
+    expect(
+      screen.getByRole('heading', { name: 'Ton meilleur 400 m de chaque sortie' }),
     ).toBeInTheDocument();
   });
 
-  it('tait la section « ce qui a changé » quand une seule course existe', async () => {
-    stub(ALONE);
-    renderRuns();
-
-    await screen.findByText('Sorties');
-    // Une sortie ne se compare à rien, et une fenêtre de zéro n'est pas une tendance.
-    expect(screen.queryByText('Tu accélères')).not.toBeInTheDocument();
-    expect(screen.queryByText('Allure stable')).not.toBeInTheDocument();
-  });
-
-  it('compare les records par bande, la seule façon honnête de le faire', async () => {
+  it('garde les semaines vides dans le volume', async () => {
     stub(PROGRESS);
     renderRuns();
 
-    expect(await screen.findByText('5 à 10 km')).toBeInTheDocument();
-    expect(screen.getByText('Moins de 5 km')).toBeInTheDocument();
-    expect(screen.getByText('10 km et plus')).toBeInTheDocument();
-    // La phrase qui porte la réserve, sans quoi les trois tuiles se compareraient entre elles.
-    expect(screen.getByText(/est une meilleure course que/)).toBeInTheDocument();
+    // Une semaine sans course au milieu d'un entraînement **est** l'information.
+    expect(await screen.findByText('10/08')).toBeInTheDocument();
+    expect(screen.getByText('0 km')).toBeInTheDocument();
   });
 
-  it('garde une bande jamais courue plutôt que de la faire disparaître', async () => {
-    stub({
-      ...PROGRESS,
-      bands: [
-        PROGRESS.bands[0],
-        PROGRESS.bands[1],
-        {
-          label: '10 km et plus',
-          runs: 0,
-          best_pace_min_km: null,
-          best_index: null,
-          best_day: null,
-          average_pace_min_km: null,
-          total_distance_km: 0,
-        },
-      ],
-    });
+  it('ne propose de réanalyser que tant qu’il reste des sorties à rattraper', async () => {
+    stub(PROGRESS);
     renderRuns();
 
-    // Ne l'avoir jamais courue **est** une information, et un tiret la dit sans mentir.
-    expect(await screen.findByText('jamais couru')).toBeInTheDocument();
+    await screen.findByText('Sorties');
+    expect(screen.queryByText(/à réanalyser/)).not.toBeInTheDocument();
+  });
+
+  it('réanalyse les sorties d’avant les efforts, d’un appui', async () => {
+    stub({ ...PROGRESS, efforts_pending: 3 });
+    renderRuns();
+
+    expect(await screen.findByText('3 sorties à réanalyser')).toBeInTheDocument();
+    // Une addition rejouable, pas une destruction : un seul appui.
+    await userEvent.click(screen.getByRole('button', { name: 'Réanalyser les sorties' }));
+
+    await waitFor(() => {
+      expect(
+        calls.some((call) => call.url.includes('/efforts/rebuild') && call.method === 'POST'),
+      ).toBe(true);
+    });
+    expect(await screen.findByText('3 sorties réanalysées.')).toBeInTheDocument();
   });
 
   it('mène de chaque ligne au détail de sa course', async () => {
     stub(PROGRESS);
     renderRuns();
 
-    const row = await screen.findByRole('link', { name: /21\/08/ });
+    const list = await screen.findByRole('table', {
+      name: 'Toutes les courses, la plus récente d’abord',
+    });
+    const row = within(list).getByRole('link', { name: /21\/08/ });
     expect(row).toHaveAttribute('href', '/activite/course/5');
   });
 
-  it('marque la meilleure allure et les courses qui portent des paliers', async () => {
+  it('marque la meilleure allure et les courses importées d’un fichier', async () => {
     stub(PROGRESS);
     renderRuns();
 
-    const best = await screen.findByRole('link', { name: /21\/08/ });
+    const list = await screen.findByRole('table', {
+      name: 'Toutes les courses, la plus récente d’abord',
+    });
+    const best = within(list).getByRole('link', { name: /21\/08/ });
     // L'étoile vient du serveur (`best_pace_index`), pas d'une comparaison faite ici.
     expect(best).toHaveTextContent('★');
-    expect(best).toHaveTextContent('9');
+    expect(best).toHaveTextContent('.fit');
 
-    // Une course saisie au clavier n'a pas de badge : aucun « 0 » qui se lirait comme
-    // une mesure.
-    const plain = screen.getByRole('link', { name: /02\/08/ });
-    expect(plain).not.toHaveTextContent('9');
-  });
-
-  it('présente le volume mensuel comme la seule série sans précaution', async () => {
-    stub(PROGRESS);
-    renderRuns();
-
-    expect(await screen.findByRole('heading', { name: 'Kilomètres par mois' })).toBeInTheDocument();
-    expect(screen.getByText(/des kilomètres sont des kilomètres/)).toBeInTheDocument();
-  });
-
-  it('porte la distance en abscisse au lieu de la reléguer en avertissement', async () => {
-    stub(PROGRESS);
-    renderRuns();
-
-    // La courbe d'allure au fil du temps a été remplacée : elle mélangeait les distances
-    // et le disait en trois lignes de mise en garde. Le nuage met la distance sur un axe,
-    // donc la réserve **est** le graphique et il n'y a plus rien à avertir.
-    expect(
-      await screen.findByRole('heading', { name: 'Chaque sortie, à sa distance' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Cette courbe mélange les distances/)).not.toBeInTheDocument();
-    expect(screen.getByText(/celui du haut est le meilleur/)).toBeInTheDocument();
-  });
-
-  it('marque la dernière sortie, qu’un nuage ne laisse pas retrouver seul', async () => {
-    stub(PROGRESS);
-    renderRuns();
-
-    expect(await screen.findByText('L’anneau marque ta dernière sortie.')).toBeInTheDocument();
+    const plain = within(list).getByRole('link', { name: /02\/08/ });
+    expect(plain).not.toHaveTextContent('.fit');
   });
 
   it('dit la panne au lieu de laisser la page vide', async () => {
     // Une erreur **non transitoire** : `storage_unavailable` et tout `5xx` sont rejoués
     // deux fois par `shouldRetry`, et la temporisation dépasse l'attente d'un `findBy`.
-    // Ce que ce test garde est le rendu de l'erreur, pas la politique de reprise.
     stub({ code: 'validation_failed', message: 'Requête invalide.' }, 422);
     renderRuns();
 

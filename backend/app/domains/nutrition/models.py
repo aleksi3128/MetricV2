@@ -1,9 +1,16 @@
 """Modèles CSV de la nutrition.
 
 `nutrition/meals.csv` : datetime, meal_type, comment, photo, protein_g, added_sugar_g,
-calories, source
-`nutrition/favorites.csv` : id, name, protein_g, added_sugar_g, calories
-`nutrition/ingredients.csv` : id, name, calories_100g, protein_100g, added_sugar_100g
+calories, source, saturated_fat_g, fiber_g
+`nutrition/favorites.csv` : id, name, protein_g, added_sugar_g, calories, saturated_fat_g,
+fiber_g
+`nutrition/ingredients.csv` : id, name, calories_100g, protein_100g, added_sugar_100g,
+saturated_fat_100g, fiber_100g
+
+Les deux dernières colonnes de chaque fichier sont venues avec `NUT-16`, **en fin de
+ligne** et non à côté des autres valeurs : ces fichiers s'ouvrent dans un tableur, et une
+formule qui visait les calories doit continuer de les viser. Une ligne d'avant les porte
+vides — « non relevé », jamais zéro (`STO-04`).
 """
 
 from __future__ import annotations
@@ -39,6 +46,8 @@ class MealRow(CsvModel):
     calories: int | None = None
     #: `manual` ou `ai` — l'origine d'une estimation reste lisible dans le fichier.
     source: str = "manual"
+    saturated_fat_g: float | None = None
+    fiber_g: float | None = None
 
     @classmethod
     def csv_columns(cls) -> tuple[str, ...]:
@@ -51,6 +60,8 @@ class MealRow(CsvModel):
             "added_sugar_g",
             "calories",
             "source",
+            "saturated_fat_g",
+            "fiber_g",
         )
 
     def to_csv(self) -> dict[str, str]:
@@ -77,6 +88,8 @@ class FavoriteRow(CsvModel):
     protein_g: float | None = None
     added_sugar_g: float | None = None
     calories: int | None = None
+    saturated_fat_g: float | None = None
+    fiber_g: float | None = None
 
 
 class IngredientRow(CsvModel):
@@ -93,6 +106,8 @@ class IngredientRow(CsvModel):
     calories_100g: float | None = None
     protein_100g: float | None = None
     added_sugar_100g: float | None = None
+    saturated_fat_100g: float | None = None
+    fiber_100g: float | None = None
 
 
 #: Bornes horaires du type suggéré (`NUT-03`). Le type reste modifiable : ce n'est

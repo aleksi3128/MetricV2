@@ -15,8 +15,11 @@ un champ absent de la requête reste à sa valeur, il n'est pas remis à son dé
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Annotated, Literal
 
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.parsing import ParseError, parse_decimal, parse_duration_minutes
 from app.core.validation import (
     BaseUrl,
     Calories,
@@ -27,6 +30,11 @@ from app.core.validation import (
     VolumeMl,
     WeightKg,
 )
+
+#: Au-delà, ce n'est plus une FC max mais une faute de frappe — 1 850 pour 185.
+MaxHeartRate = Annotated[int, Field(ge=120, le=230, description="FC max en bpm")]
+#: De 2:30 à 12:00 au kilomètre : de l'élite à la marche rapide.
+ThresholdPace = Annotated[float, Field(ge=2.5, le=12, description="Allure seuil en min/km")]
 
 
 class SettingsValues(BaseModel):
@@ -49,6 +57,16 @@ class SettingsValues(BaseModel):
     #: d'assiduité, et avec `RunRow.cadence_spm`, qui compte des pas. Ici, « Cadence » est
     #: le nom d'une application tierce ; les trois ne se croisent dans aucun fichier.
     cadence_base_url: str = Field(description="Adresse de base de Cadence Tabata")
+    #: Les deux références des zones de course (`docs/analyse-course.md`, **A9**).
+    #:
+    #: **Vides par défaut, et c'est un état qui a un sens** : la référence est alors
+    #: *déduite* des sorties — la plus haute FC relevée, l'allure seuil estimée depuis les
+    #: meilleurs efforts. Un défaut chiffré ici serait une FC max de manuel, fausse pour
+    #: presque tout le monde, et elle se ferait passer pour un choix.
+    max_hr: int | None = Field(default=None, description="FC max saisie, en bpm")
+    threshold_pace_min_km: float | None = Field(
+        default=None, description="Allure seuil saisie, en min/km"
+    )
 
 
 class SettingsPayload(BaseModel):
@@ -71,6 +89,31 @@ class SettingsPayload(BaseModel):
     #: réglage est le seul de cette liste qu'on doit pouvoir **effacer**, puisqu'il n'a
     #: pas de valeur de repli sur laquelle retomber.
     cadence_base_url: BaseUrl | None = None
+    #: Les deux références de course **s'effacent** comme l'adresse de Cadence : la chaîne
+    #: vide est écrite, et veut dire « déduis-la ». Un nombre les fixe.
+    max_hr: MaxHeartRate | Literal[""] | None = None
+    #: `5:15` ou `5,25` : la même lecture qu'une allure de course saisie au clavier.
+    threshold_pace_min_km: ThresholdPace | Literal[""] | None = None
+
+    @field_validator("max_hr", mode="before")
+    @classmethod
+    def read_max_hr(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip():
+            try:
+                return round(parse_decimal(value))
+            except ParseError as exc:
+                raise ValueError(f"« {value} » n'est pas une fréquence cardiaque") from exc
+        return "" if isinstance(value, str) else value
+
+    @field_validator("threshold_pace_min_km", mode="before")
+    @classmethod
+    def read_threshold_pace(cls, value: object) -> object:
+        if isinstance(value, str) and value.strip():
+            try:
+                return round(parse_duration_minutes(value), 4)
+            except ParseError as exc:
+                raise ValueError(f"« {value} » n'est pas une allure") from exc
+        return "" if isinstance(value, str) else value
 
 
 class SettingsView(BaseModel):

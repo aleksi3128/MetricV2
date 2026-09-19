@@ -11,13 +11,20 @@ from __future__ import annotations
 
 import pytest
 
+from app.core.validation import BASE_URL_MAX, LABEL_MAX
 from app.domains.activity.circuit_link import (
     TIMED,
     LinkCircuit,
     LinkExercise,
     build_url,
     estimate,
+    longest_url,
     parse_url,
+)
+from app.domains.activity.schemas import (
+    CIRCUIT_EXERCISES_MAX,
+    CIRCUIT_LINK_NOTE_MAX,
+    CIRCUIT_URL_MAX,
 )
 
 BASE = "https://cadence.exemple.fr"
@@ -348,3 +355,43 @@ def test_an_unescaped_colon_in_a_note_is_cut_where_cadence_cuts_it() -> None:
 
     assert parsed is not None
     assert parsed.exercises[0].note == "tempo 3"
+
+
+# ── Ce qu'un lien peut peser ──────────────────────────
+
+
+def test_the_import_bound_is_never_below_what_the_generator_produces() -> None:
+    """**Le défaut que ce lot corrige.** `CircuitImportPayload.url` portait un `2000` écrit
+    à la main, quand une séance de quarante exercices notés en fait plus de quatre mille :
+    Metric refusait à la relecture des liens qu'il venait lui-même de fabriquer, et le
+    message était le « données envoyées invalides » générique du 422.
+
+    Ce test ne vérifie pas un nombre, il vérifie une **inégalité** : la borne du schéma
+    reste au-dessus du plus long lien que `build_url` puisse produire. Elle tient donc
+    toute seule le jour où un circuit gagne des exercices ou une note s'allonge."""
+    worst = longest_url(
+        base=BASE_URL_MAX,
+        exercises=CIRCUIT_EXERCISES_MAX,
+        name=LABEL_MAX,
+        note=CIRCUIT_LINK_NOTE_MAX,
+    )
+
+    assert worst <= CIRCUIT_URL_MAX
+
+
+def test_a_full_circuit_of_noted_exercises_is_longer_than_the_old_bound() -> None:
+    """Le chiffre qui rend le défaut concret : sans emoji ni cas tordu, quarante exercices
+    du catalogue avec leur note dépassent les 2000 caractères d'avant."""
+    exercise = LinkExercise(
+        name="standing calf raise (on a staircase)",
+        duration_s=20,
+        reps=10,
+        rest_s=20,
+        note="Monte à 2 pieds, descends sur la gauche en 3 s",
+    )
+    circuit = LinkCircuit("Jambes", 1, 0, (exercise,) * CIRCUIT_EXERCISES_MAX)
+
+    url = build_url(BASE, circuit)
+
+    assert url is not None
+    assert len(url) > 2000

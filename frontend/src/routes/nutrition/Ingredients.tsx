@@ -84,6 +84,8 @@ function IngredientRow({
       calories_100g: fieldText(known.calories_100g),
       protein_100g: fieldText(known.protein_100g),
       added_sugar_100g: fieldText(known.added_sugar_100g),
+      saturated_fat_100g: fieldText(known.saturated_fat_100g),
+      fiber_100g: fieldText(known.fiber_100g),
     });
   }
 
@@ -239,12 +241,16 @@ export function CompositionTotal({
   calories,
   proteinG,
   addedSugarG,
+  saturatedFatG,
+  fiberG,
   empty,
 }: {
   lines: readonly ComposedLine[];
   calories: number;
   proteinG: number;
   addedSugarG: number;
+  saturatedFatG: number;
+  fiberG: number;
   empty: boolean;
 }) {
   if (empty) {
@@ -260,8 +266,11 @@ export function CompositionTotal({
     <div className={styles.total}>
       <div className={styles.totalHead}>
         <strong>{integer(calories)} kcal</strong>
+        {/* Une décimale pour les deux dernières : leurs quantités tiennent souvent sous
+            10 g, et « 1 g » de graisses saturées pour 0,6 g arrondirait du simple au double. */}
         <span>
-          {num(proteinG, 0)} g prot. · {num(addedSugarG, 0)} g sucres
+          {num(proteinG, 0)} g prot. · {num(addedSugarG, 0)} g sucres · {num(saturatedFatG, 1)} g AG
+          saturés · {num(fiberG, 1)} g fibres
         </span>
       </div>
       <ul className={styles.totalLines}>

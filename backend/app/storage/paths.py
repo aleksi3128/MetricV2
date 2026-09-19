@@ -23,6 +23,25 @@ RUNS = "activity/runs.csv"
 #: `exercise_log.csv`, pour la même raison.
 RUN_SPLITS = "activity/run_splits.csv"
 
+#: Les fichiers `.fit` importés, rangés par date de course (`docs/import-fit.md`, **F1**).
+#:
+#: Un dossier de binaires et non des colonnes : le fichier fait 130 Ko et n'a rien à faire
+#: dans un CSV qu'on rouvre dans un tableur (`STO-02`). C'est le même rangement que les
+#: photos de repas, pour la même raison, et `dated_directory` en donne l'arborescence.
+#:
+#: Il est conservé plutôt que jeté après lecture parce qu'il est la **source** : le tracé
+#: affiché sur la page Course s'en relit à la demande, ce qui évite un second fichier de
+#: trois cents lignes par sortie qui dirait la même chose et pourrait en diverger.
+RUN_FITS = "activity/fit"
+
+#: Les meilleurs efforts de chaque sortie importée — 400 m, 1 km, 3 km… (`docs/analyse-course.md`).
+#:
+#: Dérivés du `.fit`, et rangés pour une seule raison : la page des courses les compare
+#: **tous**, et les relire depuis chaque fichier coûterait une lecture Nextcloud par sortie à
+#: chaque ouverture. Un fichier à part, comme les paliers, parce que leur nombre varie avec
+#: la longueur de la sortie.
+RUN_EFFORTS = "activity/run_efforts.csv"
+
 
 #: Les séances **modèles** ouvertes dans Cadence Tabata (**D2**), et leurs exercices.
 #:

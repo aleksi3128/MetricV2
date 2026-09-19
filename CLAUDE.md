@@ -33,6 +33,10 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | L'historique de `/nutrition` — grille, courbe, objectif de calories | [`docs/nutrition-historique.md`](docs/nutrition-historique.md) |
 | Le cinquième mode de saisie — un plat par ses ingrédients | [`docs/repas-compose.md`](docs/repas-compose.md) |
 | Ajouter un aliment en le scannant — code-barres et Open Food Facts | [`docs/scan-aliment.md`](docs/scan-aliment.md) |
+| Ajouter une sortie par le fichier `.fit` de la montre — et son tracé | [`docs/import-fit.md`](docs/import-fit.md) |
+| Les pages Course — constats, courbe et tracé liés, zones, meilleurs efforts | [`docs/analyse-course.md`](docs/analyse-course.md) |
+| La fiche d'un repas — correction, favori, graisses saturées et fibres | [`docs/fiche-repas.md`](docs/fiche-repas.md) |
+| Une course en image de story — fond transparent, tracé et chiffres | [`docs/story-course.md`](docs/story-course.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -251,6 +255,30 @@ Une doublure d'API en `http.server` de la bibliothèque standard, sur un port li
 `METRIC_API_PORT=<port> npm run dev`. C'est ce qui permet de regarder les écrans sans
 toucher aux vraies données. Filtrer `.sr-only` dans toute mesure de cibles, comme le fait
 `audit-mobile.mjs` — deux filtres différents donneraient deux comptes pour la même page.
+
+**Mieux qu'une doublure : la vraie API sur un stockage en mémoire.** `tests/fake_webdav.py`
+est une application ASGI ; branchée sur un `WebDavClient` par `httpx2.ASGITransport`, elle
+donne un `FileStore` complet sans Nextcloud. On obtient alors les **vraies** formes de
+réponse, les vraies validations, les vrais codes d'erreur — une doublure écrite à la main
+dérive de l'API au premier champ ajouté, et on ne regarde plus l'application mais sa
+maquette.
+
+Un piège, et il est silencieux : `create_app` passe par un `lifespan`, ce qui fait
+**ignorer** tout `@app.on_event("startup")` ajouté après coup — le stockage n'est jamais
+injecté et chaque route rend `storage_not_configured`. Il faut envelopper le contexte
+existant :
+
+```python
+original = app.router.lifespan_context
+
+@asynccontextmanager
+async def seeded(a):
+    async with original(a):
+        a.state.storage.use(store)   # après le lifespan, comme le fait `app_client`
+        yield
+
+app.router.lifespan_context = seeded
+```
 
 ### Nettoyer
 

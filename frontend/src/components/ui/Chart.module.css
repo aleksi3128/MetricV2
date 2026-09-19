@@ -103,11 +103,29 @@
  * `chart-axis.ts` recopie la première valeur** : les deux se changent ensemble, sinon le
  * calcul d'espacement des dates raisonne sur une police qui n'existe plus.
  */
+/* **La graduation basse est posée sur la courbe, par construction.**
+   Le tracé est cadré sur les extrêmes de sa série : le point le plus bas touche donc
+   exactement la ligne du minimum, et son étiquette — « 165 » — se peignait par-dessus la
+   courbe qui y passe. Ce n'est pas un cas limite, c'est tous les graphiques.
+
+   Un halo de la couleur de la carte plutôt qu'une gouttière rendue au texte : la
+   gouttière a coûté 152 px de blanc la dernière fois qu'elle a existé, et le halo ne
+   coûte rien tant que rien ne passe derrière. `paint-order` peint le contour **avant**
+   la lettre, sans quoi le trait mangerait ses propres jambages.
+
+   `non-scaling-stroke` comme les traits du même fichier : sans lui, 3 unités de viewBox
+   donnent 1,4 px de halo sur téléphone et 3,9 px sur un Mac — le même chiffre entouré de
+   deux épaisseurs différentes. */
 .axis {
   font-family: 'JetBrains Mono', monospace;
   font-size: 20px;
   fill: var(--ink-low);
   letter-spacing: 0.08em;
+  paint-order: stroke fill;
+  stroke: var(--surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 @media (min-width: 600px) {

@@ -31,8 +31,10 @@ jour ne se voit pas et fausse la lecture.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from statistics import quantiles
 from typing import Literal
 
 from app.core.dates import days_between, local_day_of, week_start
@@ -73,12 +75,15 @@ TREND_DAYS = 7
 #: Tolérance autour de l'objectif pour qu'une journée compte comme « dans la cible ».
 ON_TARGET = 0.10
 
-#: Plafonds des trois premiers niveaux d'intensité, en part de l'objectif — au-delà du
-#: dernier, c'est le quatrième (`HEAT-15` pour la forme).
+#: Nombre de teintes de la grille (`HEAT-15` pour la forme).
 #:
 #: Plus foncé veut dire **plus mangé**, jamais « mieux » : une grille de nutrition n'a pas
 #: à féliciter une journée ni à en accuser une autre.
-LEVELS: tuple[float, ...] = (0.5, 0.8, 1.05)
+LEVELS = 4
+
+#: Niveau d'une journée chiffrée quand la plage n'en porte pas assez pour avoir une
+#: distribution — voir `level_of`.
+LONE_LEVEL = 2
 
 
 @dataclass(slots=True)
@@ -131,20 +136,48 @@ def window(today: date, range_key: str) -> tuple[date, date]:
     return week_start(today) - timedelta(weeks=weeks - 1), end
 
 
-def level_of(calories: int, target: float) -> int:
-    """Niveau 1 à 4 selon la part de l'objectif atteinte.
+def level_bounds(values: Sequence[int]) -> list[float]:
+    """Les trois seuils qui coupent les jours chiffrés de la plage en quatre quarts.
 
-    Un objectif à zéro — que les bornes de `Calories` autorisent — ne définit aucune
-    échelle : tout ce qui est chiffré se retrouve alors au dernier niveau, plutôt que de
-    faire diviser par zéro un écran qui n'y peut rien.
+    **L'échelle se lit contre les propres jours de l'utilisateur, plus contre l'objectif.**
+    Elle l'a fait, avec des plafonds à 50, 80 et 105 % de l'objectif. Sur un journal dont
+    la moyenne vaut la moitié de l'objectif — le cas réel qui a motivé ce changement —
+    dix-huit jours chiffrés sur vingt-sept tombaient dans la teinte la plus pâle, et la
+    grille ne distinguait plus 165 kcal de 1 350. Une grille dont deux tiers des cellules
+    ont la même couleur n'apprend rien, quelle que soit la justesse de son barème.
+
+    Les quartiles répondent à la question que la section pose — « est-ce que je mange comme
+    d'habitude ? » — et non à celle de l'objectif, à laquelle l'écart de la plage, l'anneau
+    du jour et l'infobulle de chaque cellule répondent déjà, chiffres à l'appui.
+
+    Les seuils sont servis au client : sans eux, « moins → plus » ne dit ni moins que quoi
+    ni plus que quoi, et la légende était déjà la partie muette de la grille.
     """
-    if target <= 0:
-        return len(LEVELS) + 1
-    ratio = calories / target
-    for index, bound in enumerate(LEVELS):
-        if ratio <= bound:
+    ordered = sorted(values)
+    # `quantiles` exige au moins deux points, et deux points ne définissent d'ailleurs
+    # rien de plus qu'un plus bas et un plus haut — ce que les seuils rendront tels quels.
+    if len(ordered) < 2:
+        return []
+    return [round(bound, 1) for bound in quantiles(ordered, n=4, method="inclusive")]
+
+
+def level_of(calories: int, bounds: Sequence[float]) -> int:
+    """Niveau 1 à 4 : le quart de la plage où tombe la journée.
+
+    Les seuils sont des **plafonds inclus**, comme ceux qu'ils remplacent — deux journées
+    à la même valeur reçoivent donc toujours la même teinte, ce qu'un découpage par rang
+    n'aurait pas garanti.
+
+    Sans seuils — un seul jour chiffré sur la plage, donc aucune distribution où le
+    placer — la journée prend le deuxième niveau sur quatre. Le premier la dirait légère
+    et le dernier copieuse, alors qu'il n'y a rien à quoi la comparer.
+    """
+    if not bounds:
+        return LONE_LEVEL
+    for index, bound in enumerate(bounds):
+        if calories <= bound:
             return index + 1
-    return len(LEVELS) + 1
+    return len(bounds) + 1
 
 
 def _cell(
@@ -153,7 +186,7 @@ def _cell(
     *,
     today: date,
     first: date | None,
-    target: float,
+    bounds: Sequence[float],
 ) -> HistoryDay:
     """Une cellule de la grille, et la raison de son état quand elle est vide."""
     counted = tally or DayTally()
@@ -175,9 +208,24 @@ def _cell(
         meals=counted.meals,
         calories_known=counted.calories_known,
         state="done" if measured else "off",
-        level=level_of(counted.calories, target) if measured else 0,
+        level=level_of(counted.calories, bounds) if measured else 0,
         reason=reason,
     )
+
+
+def _scale_days(days: list[date], per_day: dict[date, DayTally], *, today: date) -> list[int]:
+    """Calories des jours qui définissent l'échelle de la grille.
+
+    Exactement les jours que `_cell` marquera `done` : ni les jours à venir, ni ceux
+    qu'on n'a pas chiffrés. Faire entrer un jour non chiffré dans les quartiles y
+    entrerait un zéro, c'est-à-dire une valeur inventée, et tirerait le premier seuil
+    vers le bas pour toute la grille.
+    """
+    return [
+        tally.calories
+        for day in days
+        if day <= today and (tally := per_day.get(day)) is not None and tally.calories_known > 0
+    ]
 
 
 def _daily_series(
@@ -198,15 +246,24 @@ def _daily_series(
     points: list[HistoryPoint] = []
     for position, (day, tally) in enumerate(measured):
         horizon = day - timedelta(days=TREND_DAYS - 1)
-        recent = [
-            other.calories for other_day, other in measured[: position + 1] if other_day >= horizon
-        ]
+        window_ = [other for other_day, other in measured[: position + 1] if other_day >= horizon]
         points.append(
             HistoryPoint(
                 date=day,
                 calories=tally.calories,
-                trend_calories=round(sum(recent) / len(recent), 1) if recent else None,
+                trend_calories=(
+                    round(sum(item.calories for item in window_) / len(window_), 1)
+                    if window_
+                    else None
+                ),
                 protein_g=round(tally.protein_g, 1),
+                # La même fenêtre calendaire que les calories, et sur les mêmes jours :
+                # deux fenêtres différentes sur un même graphique se compareraient mal.
+                trend_protein_g=(
+                    round(sum(item.protein_g for item in window_) / len(window_), 1)
+                    if window_
+                    else None
+                ),
                 added_sugar_g=round(tally.added_sugar_g, 1),
                 days=1,
             )
@@ -236,6 +293,7 @@ def _weekly_series(
             calories=round(sum(item.calories for item in tallies) / len(tallies)),
             trend_calories=None,
             protein_g=round(sum(item.protein_g for item in tallies) / len(tallies), 1),
+            trend_protein_g=None,
             added_sugar_g=round(sum(item.added_sugar_g for item in tallies) / len(tallies), 1),
             days=len(tallies),
         )
@@ -251,16 +309,16 @@ def _stats(
     measured = [cell for cell in past if cell.calories_known > 0]
     protein_days = [cell for cell in past if cell.meals > 0]
 
+    # `None` et non zéro : sans jour chiffré il n'y a pas de moyenne, et un zéro se
+    # lirait comme une journée à jeun (`L02` — aucune valeur inventée).
+    average = round(sum(cell.calories for cell in measured) / len(measured)) if measured else None
+
     return HistoryStats(
         target_calories=target,
         days=len(past),
         logged_days=len(protein_days),
         measured_days=len(measured),
-        # `None` et non zéro : sans jour chiffré il n'y a pas de moyenne, et un zéro se
-        # lirait comme une journée à jeun (`L02` — aucune valeur inventée).
-        avg_calories=(
-            round(sum(cell.calories for cell in measured) / len(measured)) if measured else None
-        ),
+        avg_calories=average,
         avg_protein_g=(
             round(sum(cell.protein_g for cell in protein_days) / len(protein_days), 1)
             if protein_days
@@ -276,6 +334,15 @@ def _stats(
             for cell in measured
             if target > 0 and abs(cell.calories - target) <= target * ON_TARGET
         ),
+        # **L'écart, parce que le compte des jours dans la cible ne bougeait pas.** Sur un
+        # objectif de 2 700 kcal tenu par un journal à 1 334 de moyenne, « 0 jour sur 27 »
+        # est la seule valeur que cette tuile affichera jamais : un chiffre qui ne varie
+        # pas n'est plus une mesure, c'est un décor. L'écart, lui, dit de combien et de
+        # quel côté — et il explique du même coup pourquoi le compte reste à zéro.
+        #
+        # Servi, et non déduit à l'écran d'une moyenne et d'un objectif tous deux déjà
+        # servis : une soustraction faite au client est une règle de moins ici (`L01`).
+        gap_to_target=round(average - target) if average is not None and target > 0 else None,
         over_sugar_days=sum(1 for cell in protein_days if cell.added_sugar_g > sugar_max),
     )
 
@@ -296,14 +363,24 @@ def _weekdays(cells: list[HistoryDay], *, today: date, target: float) -> list[We
         index: round(sum(values) / len(values)) if values else None
         for index, values in buckets.items()
     }
-    highest = max((value for value in averages.values() if value is not None), default=0)
 
     return [
         WeekdayProfile(
             weekday=index,
             avg_calories=average,
             days=len(buckets[index]),
-            ratio=round(average / highest, 4) if average is not None and highest else 0.0,
+            # **L'objectif, et non le jour le plus copieux.** La barre se rapportait au
+            # plus haut des sept : un mercredi à 1 899 kcal remplissait la sienne alors
+            # que l'objectif est à 2 700, et une barre pleine se lit comme un objectif
+            # atteint. La longueur disait « le plus de la semaine » pendant que la
+            # couleur, elle, disait déjà « au-dessus de l'objectif » — deux références
+            # dans une même barre, dont aucune n'était écrite nulle part.
+            #
+            # Plafonné à 1 comme `DayTotals.calories_ratio` : un dépassement se dit par
+            # le ton et par le chiffre à côté, pas par une barre qui sort de sa piste.
+            ratio=round(min(average / target, 1.0), 4)
+            if average is not None and target > 0
+            else 0.0,
             over_target=average is not None and target > 0 and average > target,
         )
         for index, average in sorted(averages.items())
@@ -339,7 +416,11 @@ def _types(days: list[date], per_day: dict[date, DayTally], *, today: date) -> l
                 share=round(calories / overall, 4),
                 meals=meals,
             )
+            # Un type dont rien n'a été chiffré n'a pas de part dans les calories de la
+            # plage : il rendait une barre vide à « 0 % », qui occupe une ligne de la
+            # répartition pour n'y rien mesurer. Le repas, lui, reste dans le journal.
             for meal_type, (calories, meals) in totals.items()
+            if calories > 0
         ),
         key=lambda share: share.calories,
         reverse=True,
@@ -352,6 +433,7 @@ def build(
     today: date,
     range_key: str,
     target: float,
+    protein_target: float,
     sugar_max: float,
 ) -> NutritionHistory:
     """Assemble la réponse complète de la section historique.
@@ -368,7 +450,11 @@ def build(
     # ce qui suit est une journée sans repas notés, et les deux ne se peignent pas pareil.
     first = min(per_day) if per_day else None
 
-    cells = [_cell(day, per_day.get(day), today=today, first=first, target=target) for day in days]
+    # Les seuils avant les cellules : l'échelle se lit sur la plage entière, et une
+    # cellule ne peut pas connaître son quart avant que les autres soient comptées.
+    bounds = level_bounds(_scale_days(days, per_day, today=today))
+
+    cells = [_cell(day, per_day.get(day), today=today, first=first, bounds=bounds) for day in days]
     weekly = RANGE_WEEKS.get(range_key, RANGE_WEEKS["month"]) > WEEKLY_ABOVE_WEEKS
 
     return NutritionHistory(
@@ -378,7 +464,9 @@ def build(
         today=today,
         granularity="week" if weekly else "day",
         target_calories=target,
+        protein_target_g=protein_target,
         added_sugar_max_g=sugar_max,
+        level_bounds=bounds,
         days=cells,
         series=(
             _weekly_series(days, per_day, today=today)

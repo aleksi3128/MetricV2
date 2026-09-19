@@ -230,3 +230,37 @@ export function IconWeight(props: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * Favori — l'étoile, creuse pour « ajouter », pleine pour « c'est fait » (`NUT-17`).
+ *
+ * `filled` et non deux icônes : c'est le même objet dans deux états, et deux tracés
+ * distincts finiraient par ne plus se superposer au pixel près.
+ */
+export function IconStar({ filled = false, ...props }: IconProps & { filled?: boolean }) {
+  return (
+    <Svg {...props}>
+      <path
+        d="M12 3.6l2.6 5.2 5.8.9-4.2 4.1 1 5.7L12 16.8l-5.2 2.7 1-5.7-4.2-4.1 5.8-.9z"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+    </Svg>
+  );
+}
+
+/**
+ * Partage — la flèche qui sort de la boîte, celle d'iOS.
+ *
+ * C'est le geste que le bouton déclenche : sur un téléphone, `navigator.share` ouvre
+ * exactement cette feuille. Une icône d'image aurait annoncé un fichier, là où ce qui
+ * s'ouvre est un choix de destination.
+ */
+export function IconShare(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3.5v11" />
+      <path d="M8.2 7.3 12 3.5l3.8 3.8" />
+      <path d="M6.5 11.5H5A1.5 1.5 0 0 0 3.5 13v6A1.5 1.5 0 0 0 5 20.5h14a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5h-1.5" />
+    </Svg>
+  );
+}

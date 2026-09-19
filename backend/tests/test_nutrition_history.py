@@ -201,21 +201,77 @@ def test_an_empty_journal_leaves_every_cell_a_hole(app_client: TestClient, auth:
 
 @pytest.mark.parametrize(
     ("calories", "level"),
-    [(0, 1), (1000, 1), (1100, 1), (1160, 2), (1760, 2), (1800, 3), (2310, 3), (2400, 4)],
+    [(100, 1), (550, 1), (551, 2), (900, 2), (901, 3), (1250, 3), (1251, 4), (9000, 4)],
 )
-def test_levels_read_as_a_share_of_the_target(calories: int, level: int) -> None:
-    """Plus foncé veut dire plus mangé.
+def test_levels_split_the_measured_days_into_quarters(calories: int, level: int) -> None:
+    """Plus foncé veut dire plus mangé **que d'habitude**.
 
-    Les bornes sont des **plafonds inclus** : jusqu'à 50 % de l'objectif, jusqu'à 80 %,
-    jusqu'à 105 %, au-delà. Sur 2 200 kcal cela fait 1 100, 1 760 et 2 310.
+    Sur huit jours de 200 à 1 600 kcal, les quartiles tombent à 550, 900 et 1 250 — deux
+    jours par teinte. Les seuils sont des plafonds inclus, comme les parts d'objectif
+    qu'ils remplacent.
     """
-    assert history.level_of(calories, 2200) == level
+    bounds = history.level_bounds([200, 400, 600, 800, 1000, 1200, 1400, 1600])
+
+    assert bounds == [550.0, 900.0, 1250.0]
+    assert history.level_of(calories, bounds) == level
 
 
-def test_a_target_at_zero_does_not_divide_by_zero() -> None:
-    """Les bornes de `Calories` autorisent zéro. L'écran n'y peut rien, il ne doit pas
-    tomber pour autant."""
-    assert history.level_of(1800, 0) == 4
+def test_two_days_at_the_same_value_take_the_same_shade() -> None:
+    """Un découpage par rang aurait mis la moitié d'un plateau d'un côté du seuil et
+    l'autre moitié de l'autre : deux journées identiques, deux couleurs."""
+    bounds = history.level_bounds([900, 900, 900, 900, 100, 2000])
+
+    assert history.level_of(900, bounds) == history.level_of(900, bounds)
+
+
+def test_a_lone_measured_day_has_no_distribution_to_sit_in() -> None:
+    """Un seul jour chiffré ne définit aucun quartile. Le peindre au premier niveau le
+    dirait léger, au dernier copieux — alors qu'il n'y a rien à quoi le comparer."""
+    assert history.level_bounds([1800]) == []
+    assert history.level_of(1800, []) == history.LONE_LEVEL
+
+
+def test_an_unmeasured_day_does_not_pull_the_scale_down() -> None:
+    """Un jour relevé sans ses calories vaut zéro dans la ligne, et zéro dans les
+    quartiles tirerait le premier seuil vers le bas pour toute la grille."""
+    payload = history.build(
+        [
+            row(date(2026, 9, 1), calories=1000),
+            row(date(2026, 9, 2), calories=2000),
+            row(date(2026, 9, 3), protein_g=25),
+        ],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    assert payload.level_bounds == history.level_bounds([1000, 2000])
+
+
+def test_the_bounds_travel_with_the_grid() -> None:
+    """Sans eux, « moins → plus » ne nomme aucune quantité : la légende ne peut pas dire
+    moins que quoi."""
+    payload = history.build(
+        [row(date(2026, 9, day), calories=500 * day) for day in range(1, 6)],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    assert len(payload.level_bounds) == 3
+    assert payload.level_bounds == sorted(payload.level_bounds)
+
+
+def test_a_target_at_zero_no_longer_touches_the_grid() -> None:
+    """Les bornes de `Calories` autorisent zéro, et l'échelle ne divise plus par
+    l'objectif : il n'y a plus de division à protéger."""
+    bounds = history.level_bounds([500, 1500])
+
+    assert history.level_of(1800, bounds) == 4
 
 
 def test_the_grid_never_accuses(app_client: TestClient, auth: Any, dav: FakeWebDav) -> None:
@@ -246,7 +302,9 @@ def test_only_measured_days_enter_the_curve() -> None:
         row(date(2026, 9, 3), calories=1800),
     ]
 
-    payload = history.build(rows, today=today, range_key="month", target=2200, sugar_max=30)
+    payload = history.build(
+        rows, today=today, range_key="month", target=2200, protein_target=150, sugar_max=30
+    )
 
     assert [point.date for point in payload.series] == [date(2026, 9, 1), date(2026, 9, 3)]
     assert payload.stats.measured_days == 2
@@ -263,7 +321,9 @@ def test_the_trend_window_is_calendar_days_not_points() -> None:
         row(date(2026, 9, 6), calories=3000),
     ]
 
-    series = history.build(rows, today=today, range_key="month", target=2200, sugar_max=30).series
+    series = history.build(
+        rows, today=today, range_key="month", target=2200, protein_target=150, sugar_max=30
+    ).series
 
     # Le point du 6 ne voit que le 5 et lui-même : le 10 août est hors des sept jours.
     assert series[-1].trend_calories == 2500
@@ -275,7 +335,9 @@ def test_the_yearly_range_switches_the_curve_to_weeks() -> None:
     today = date(2026, 9, 6)
     rows = [row(date(2026, 9, 1), calories=2000), row(date(2026, 9, 3), calories=1000)]
 
-    payload = history.build(rows, today=today, range_key="year", target=2200, sugar_max=30)
+    payload = history.build(
+        rows, today=today, range_key="year", target=2200, protein_target=150, sugar_max=30
+    )
 
     assert payload.granularity == "week"
     assert len(payload.series) == 1
@@ -289,7 +351,7 @@ def test_the_yearly_range_switches_the_curve_to_weeks() -> None:
 
 def test_the_monthly_range_stays_on_days() -> None:
     payload = history.build(
-        [], today=date(2026, 9, 6), range_key="month", target=2200, sugar_max=30
+        [], today=date(2026, 9, 6), range_key="month", target=2200, protein_target=150, sugar_max=30
     )
 
     assert payload.granularity == "day"
@@ -305,7 +367,9 @@ def test_averages_ignore_days_that_were_never_measured() -> None:
         row(date(2026, 9, 2), calories=2400, protein_g=140),
     ]
 
-    stats = history.build(rows, today=today, range_key="month", target=2200, sugar_max=30).stats
+    stats = history.build(
+        rows, today=today, range_key="month", target=2200, protein_target=150, sugar_max=30
+    ).stats
 
     assert stats.avg_calories == 2200
     assert stats.avg_protein_g == 120
@@ -321,7 +385,9 @@ def test_on_target_days_allow_ten_percent_either_way() -> None:
         row(date(2026, 9, 4), calories=2410),  # +9,5 %
     ]
 
-    stats = history.build(rows, today=today, range_key="month", target=2200, sugar_max=30).stats
+    stats = history.build(
+        rows, today=today, range_key="month", target=2200, protein_target=150, sugar_max=30
+    ).stats
 
     assert stats.on_target_days == 3
 
@@ -334,6 +400,7 @@ def test_seven_weekdays_are_always_served() -> None:
         today=date(2026, 9, 6),
         range_key="month",
         target=2200,
+        protein_target=150,
         sugar_max=30,
     )
 
@@ -341,6 +408,66 @@ def test_seven_weekdays_are_always_served() -> None:
     tuesday = payload.weekdays[1]
     assert tuesday.avg_calories == 2000 and tuesday.days == 1
     assert payload.weekdays[0].avg_calories is None
+
+
+def test_the_weekday_bar_is_a_share_of_the_target() -> None:
+    """Une barre pleine vaut l'objectif, jamais « le plus haut des sept ».
+
+    Rapportée au jour le plus copieux, la barre du meilleur jour était toujours pleine —
+    y compris à 1 899 kcal sur un objectif de 2 700, où elle se lisait comme un objectif
+    atteint. Et la couleur, elle, se référait déjà à l'objectif.
+    """
+    payload = history.build(
+        [
+            row(date(2026, 9, 1), calories=1100),
+            row(date(2026, 9, 2), calories=2200),
+        ],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    tuesday, wednesday = payload.weekdays[1], payload.weekdays[2]
+    assert tuesday.ratio == 0.5 and not tuesday.over_target
+    assert wednesday.ratio == 1.0 and not wednesday.over_target
+
+
+def test_a_weekday_over_the_target_fills_its_bar_without_leaving_it() -> None:
+    """`Bars` dessine une part de 0 à 1 : un rapport de 1,4 se ferait rogner sans le
+    dire. Le dépassement se dit par le ton et par le chiffre à côté."""
+    payload = history.build(
+        [row(date(2026, 9, 1), calories=3300)],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    tuesday = payload.weekdays[1]
+    assert tuesday.ratio == 1.0 and tuesday.over_target
+
+
+def test_a_meal_type_without_a_single_calorie_takes_no_row() -> None:
+    """Une barre vide à « 0 % » occupe une ligne de la répartition pour n'y rien
+    mesurer. Le repas, lui, reste dans le journal."""
+    rows = [
+        row(date(2026, 9, 1), kind="déjeuner", calories=900),
+        row(date(2026, 9, 2), kind="snack", protein_g=4),
+    ]
+
+    shares = history.build(
+        rows,
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    ).types
+
+    assert [share.meal_type for share in shares] == ["déjeuner"]
 
 
 def test_meal_types_share_the_calories_of_the_range() -> None:
@@ -351,7 +478,9 @@ def test_meal_types_share_the_calories_of_the_range() -> None:
         row(date(2026, 9, 2), kind="dîner", calories=500),
     ]
 
-    shares = history.build(rows, today=today, range_key="month", target=2200, sugar_max=30).types
+    shares = history.build(
+        rows, today=today, range_key="month", target=2200, protein_target=150, sugar_max=30
+    ).types
 
     assert [share.meal_type for share in shares] == ["déjeuner", "dîner"]
     assert shares[0].calories == 1500
@@ -366,6 +495,7 @@ def test_no_share_is_drawn_without_a_single_calorie() -> None:
         today=date(2026, 9, 6),
         range_key="month",
         target=2200,
+        protein_target=150,
         sugar_max=30,
     )
 
@@ -384,7 +514,43 @@ def test_the_target_comes_from_the_settings(
     payload = read(app_client, auth)
 
     assert payload["target_calories"] == 1800
-    assert cell_for(payload, TODAY - timedelta(days=1))["level"] == 3
+    # L'objectif ne colore plus la grille : il chiffre l'écart de la plage, et c'est là
+    # qu'un réglage se voit changer.
+    assert payload["stats"]["gap_to_target"] == 0
+
+
+def test_the_gap_to_the_target_is_served_signed() -> None:
+    """« Dans la cible » restait à zéro sur un objectif qu'on n'approche jamais : un
+    chiffre qui ne varie pas n'est plus une mesure. L'écart dit de combien, et de quel
+    côté."""
+    payload = history.build(
+        [
+            row(date(2026, 9, 1), calories=1000),
+            row(date(2026, 9, 2), calories=1400),
+        ],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    assert payload.stats.avg_calories == 1200
+    assert payload.stats.gap_to_target == -1000
+
+
+def test_the_gap_stays_empty_without_a_measured_day() -> None:
+    """Un écart de zéro se lirait comme un objectif tenu."""
+    payload = history.build(
+        [row(date(2026, 9, 1), protein_g=25)],
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    assert payload.stats.gap_to_target is None
 
 
 def test_the_day_totals_carry_the_calorie_target(
@@ -432,3 +598,53 @@ def test_a_day_logged_without_calories_stays_out_of_the_metric(
     series = app_client.get("/api/aggregates/series?metric=daily_calories", headers=auth).json()
 
     assert series["points"] == []
+
+
+# ── La courbe des protéines (`NUT-11b`) ───────────────
+
+
+def test_the_protein_trend_uses_the_same_window_as_the_calorie_one() -> None:
+    """Deux fenêtres différentes sur un même écran se compareraient mal : la tendance des
+    protéines glisse sur les mêmes sept jours calendaires, et sur les mêmes jours."""
+    rows = [
+        row(date(2026, 9, 1), calories=1000, protein_g=60),
+        row(date(2026, 9, 2), calories=2000, protein_g=100),
+    ]
+
+    series = history.build(
+        rows,
+        today=date(2026, 9, 6),
+        range_key="month",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    ).series
+
+    assert [point.protein_g for point in series] == [60.0, 100.0]
+    assert [point.trend_protein_g for point in series] == [60.0, 80.0]
+
+
+def test_a_weekly_point_carries_no_protein_trend() -> None:
+    """Lisser une moyenne hebdomadaire une seconde fois lui ferait dire autre chose —
+    la règle de `trend_calories`, et pour la même raison."""
+    payload = history.build(
+        [row(date(2026, 9, 1), calories=1000, protein_g=60)],
+        today=date(2026, 9, 6),
+        range_key="year",
+        target=2200,
+        protein_target=150,
+        sugar_max=30,
+    )
+
+    assert payload.granularity == "week"
+    assert all(point.trend_protein_g is None for point in payload.series)
+
+
+def test_the_protein_target_travels_with_the_range(
+    app_client: TestClient, auth: Any, dav: FakeWebDav
+) -> None:
+    """La courbe des protéines se lit contre la même référence que l'anneau du jour ;
+    la recalculer à l'écran serait une deuxième définition de l'objectif."""
+    dav.seed(SETTINGS_FILE, "key,value\ntarget_protein_g,180\n")
+
+    assert read(app_client, auth)["protein_target_g"] == 180

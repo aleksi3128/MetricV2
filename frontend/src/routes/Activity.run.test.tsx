@@ -1,9 +1,10 @@
 /**
- * La page Course et ses paliers (`ACT-19`).
+ * La page d'une sortie (`ACT-19`, `docs/analyse-course.md`).
  *
- * La donnée de tous ces tests est celle des captures du lot C08 : 8,14 km en 40:59, neuf
- * paliers dont le dernier fait `00:44`. Elle est servie **telle que le serveur la rend**,
- * dérive et parts de barres comprises — un test qui recalculerait ces chiffres côté écran
+ * Deux données. La première est celle des captures du lot C08 : 8,14 km en 40:59, neuf
+ * paliers dont le dernier fait `00:44`, **sans fichier** — ce que la page garde d'une
+ * sortie saisie. La seconde est une sortie `.fit` et son analyse, telle que le serveur la
+ * rend : constats rédigés, zones, efforts. Un test qui recalculerait ces chiffres côté écran
  * validerait exactement ce que l'invariant interdit.
  *
  * Les deux adresses sont montées ensemble : `/activite/course` ouvre la dernière course,
@@ -151,6 +152,8 @@ const DETAIL = {
     end_time: '20:21:00',
     split_length_km: 1,
     splits: 9,
+    fit_path: '',
+    max_hr: null,
   },
   splits: {
     splits: SPLITS,
@@ -235,14 +238,113 @@ const BARE = {
 
 const EMPTY = { run: null, splits: BARE.splits, context: DETAIL.context };
 
-function stub(body: unknown, status = 200) {
+/** La même sortie, importée d'un fichier : l'analyse se demande à part. */
+const FITTED = {
+  ...DETAIL,
+  run: {
+    ...DETAIL.run,
+    source: 'fit',
+    fit_path: '2026/08/21/20260821-194000-deadbeef.fit',
+    active_calories: null,
+    total_calories: null,
+  },
+};
+
+function point(index: number, pace: number, pace_class: 'faster' | 'even' | 'slower' | null) {
+  return {
+    distance_km: index / 10,
+    timer_s: index * 30,
+    pace_min_km: pace,
+    pace_class,
+    heart_rate: null,
+    cadence_spm: null,
+    altitude_m: null,
+    x: index / 10,
+    y: 0.5,
+  };
+}
+
+/** L'analyse, **telle que le serveur la rend** : les phrases arrivent rédigées. */
+const ANALYSIS = {
+  points: [point(0, 4.8, 'faster'), point(1, 5.0, 'even'), point(2, 5.4, 'slower')],
+  located: true,
+  width: 1,
+  height: 0.6,
+  distance_ticks_km: [0, 0.1, 0.2],
+  pace_domain_min_km: [5.6, 4.6],
+  pace_ticks_min_km: [4.75, 5.0, 5.25, 5.5],
+  heart_rate_domain: null,
+  cadence_domain: null,
+  altitude_domain_m: null,
+  average_pace_min_km: 5.035,
+  moving_pace_min_km: null,
+  paused_s: 81,
+  stopped_s: 0,
+  stops: [{ kind: 'pause', distance_km: 0.15, duration_s: 81 }],
+  class_threshold_s: 10,
+  insights: [
+    {
+      code: 'fast_start',
+      tone: 'bad',
+      title: 'Départ trop rapide',
+      text: 'Premier kilomètre en 4:48, 14 s/km plus vite que la suite (5:02).',
+    },
+    {
+      code: 'split',
+      tone: 'good',
+      title: 'Seconde moitié plus rapide',
+      text: '5:04 puis 5:00 au kilomètre : 4 s/km de gagnées.',
+    },
+  ],
+  efforts: [
+    {
+      distance_m: 1000,
+      label: '1 km',
+      duration_s: 293,
+      pace_min_km: 4.883,
+      start_km: 6,
+      record: true,
+    },
+    {
+      distance_m: 5000,
+      label: '5 km',
+      duration_s: 1510,
+      pace_min_km: 5.033,
+      start_km: 3,
+      record: false,
+    },
+  ],
+  zones: {
+    kind: 'pace',
+    reference_value: 4.9,
+    source: 'deduced',
+    detail: 'Allure seuil estimée depuis ton 5 km du 21 août.',
+    bins: [1, 2, 3, 4, 5].map((zone) => ({
+      zone,
+      name: ['Récupération', 'Endurance', 'Tempo', 'Seuil', 'VO2 max'][zone - 1],
+      range: `zone ${String(zone)}`,
+      seconds: zone === 4 ? 2400 : zone === 5 ? 0 : 20,
+      share: zone === 4 ? 0.9752 : zone === 5 ? 0 : 0.0083,
+    })),
+    summary: '98 % du temps en zone 4, Seuil.',
+  },
+  zones_missing: null,
+};
+
+function stub(route: (url: string) => [number, unknown]) {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL) => {
-      calls.push(input as string);
+      const url = input as string;
+      calls.push(url);
+      const [status, body] = route(url);
       return Promise.resolve(json(status, body));
     }),
   );
+}
+
+function serve(detail: unknown, analysis: [number, unknown] = [200, ANALYSIS]) {
+  stub((url) => (url.includes('/analysis') ? analysis : [200, detail]));
 }
 
 function renderRun(at = '/activite/course') {
@@ -271,7 +373,7 @@ afterEach(() => {
 
 describe('page Course', () => {
   it('lit la dernière course sans identifiant dans l’adresse', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun();
 
     expect(await screen.findByText('8,14')).toBeInTheDocument();
@@ -279,48 +381,47 @@ describe('page Course', () => {
   });
 
   it('lit la course désignée par l’adresse', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun('/activite/course/3');
 
     expect(await screen.findByText('8,14')).toBeInTheDocument();
     expect(calls.some((url) => url.includes('/api/activity/runs/3/splits'))).toBe(true);
   });
 
-  it('affiche distance, durée et allure moyenne en tête', async () => {
-    stub(DETAIL);
+  it('affiche distance, temps, allure et cadence en tête', async () => {
+    serve(DETAIL);
     renderRun();
 
     expect(await screen.findByText('8,14')).toBeInTheDocument();
     expect(screen.getByText('40:59')).toBeInTheDocument();
-    expect(screen.getByText('5:02')).toBeInTheDocument();
-  });
-
-  it('dit la dérive en toutes lettres, parce que le signe se lit à l’envers', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    // `-4,2` seul laisserait conclure l'inverse : une allure qui **baisse** est une
-    // course qui va plus vite.
-    expect(await screen.findByText('Accélération')).toBeInTheDocument();
-    expect(screen.getByText('4,2 s/km')).toBeInTheDocument();
-    // Le chiffre n'est **pas** répété dans le détail : la tuile le porte déjà, et les
-    // deux collés se lisaient « 4,2 s/km · 4,2 s/km plus vite… ».
-    expect(screen.getByText('gagnées sur la seconde moitié de la course')).toBeInTheDocument();
+    expect(screen.getAllByText('5:02').length).toBeGreaterThan(0);
+    // Les pas par minute, toujours en tête : c'est la seule mesure de foulée d'un export
+    // Strava de téléphone.
+    expect(screen.getByText('168')).toBeInTheDocument();
+    expect(screen.getByText('spm')).toBeInTheDocument();
   });
 
   it('marque le reliquat au lieu de le compter pour un neuvième kilomètre', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun();
 
     expect(await screen.findAllByText('reliquat')).not.toHaveLength(0);
-    // Huit lignes numérotées, et une neuvième qui porte ce qu'elle est.
-    const table = screen.getByRole('table');
-    expect(within(table).getByText('8')).toBeInTheDocument();
-    expect(within(table).queryByText('9')).not.toBeInTheDocument();
+    expect(screen.getAllByText('km 8').length).toBeGreaterThan(0);
+    expect(screen.queryByText('km 9')).not.toBeInTheDocument();
+  });
+
+  it('mesure les écarts contre la moyenne des kilomètres pleins', async () => {
+    serve(DETAIL);
+    renderRun();
+
+    // 5,031 min/km — les huit pleins, et non la course entière qui inclut le reliquat.
+    expect(await screen.findByText(/Écart à ta moyenne des kilomètres pleins/)).toHaveTextContent(
+      '5:02 /km',
+    );
   });
 
   it('nomme les calories totales plutôt que d’afficher un chiffre seul', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun();
 
     expect(await screen.findByText('Calories totales')).toBeInTheDocument();
@@ -329,164 +430,173 @@ describe('page Course', () => {
   });
 
   it('dit ce que coûte le prochain geste quand aucune course n’existe', async () => {
-    stub(EMPTY);
+    serve(EMPTY);
     renderRun();
 
     expect(await screen.findByText('Aucune course enregistrée')).toBeInTheDocument();
     // Aucun zéro qui passerait pour une mesure.
     expect(screen.queryByText('0,00')).not.toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('ne présente pas une course sans paliers comme un défaut', async () => {
-    stub(BARE);
+    serve(BARE);
     renderRun();
 
     expect(await screen.findByText('Pas de paliers pour cette course')).toBeInTheDocument();
     // Les chiffres de la course, eux, restent là : elle est entière.
     expect(screen.getByText('8,14')).toBeInTheDocument();
-    expect(screen.queryByText('Accélération')).not.toBeInTheDocument();
   });
 
   it('affiche l’erreur du serveur plutôt qu’un écran vide', async () => {
-    stub({ code: 'storage_unavailable', message: 'Stockage injoignable.' }, 503);
+    stub(() => [503, { code: 'storage_unavailable', message: 'Stockage injoignable.' }]);
     renderRun();
 
     expect(await screen.findByText('Course indisponible')).toBeInTheDocument();
   });
 
   it('annonce la page avant même que la donnée arrive', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun();
 
     // L'en-tête est rendu d'emblée : un « chargement… » seul ne dit pas où l'on est.
     expect(screen.getByRole('heading', { name: 'Course' })).toBeInTheDocument();
     expect(await screen.findByText('8,14')).toBeInTheDocument();
   });
-});
-
-describe('page Course — ce que les paliers disent de plus', () => {
-  it('nomme la régularité plutôt que de laisser lire un écart-type nu', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    expect(await screen.findByText('Écart-type')).toBeInTheDocument();
-    // 5,8 s/km sur huit kilomètres : le mot fait le travail que le nombre ne fait pas.
-    expect(screen.getByText('course très régulière')).toBeInTheDocument();
-    expect(screen.getByText('Amplitude')).toBeInTheDocument();
-  });
-
-  it('désigne le kilomètre le plus rapide et le plus lent par leur numéro', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    expect(await screen.findByText('Kilomètre le plus rapide')).toBeInTheDocument();
-    // `getAllBy` : les barres d'écart nomment les mêmes kilomètres juste en dessous, et
-    // c'est voulu — la tuile dit lequel, la barre dit de combien.
-    expect(screen.getAllByText('km 7').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('km 5').length).toBeGreaterThan(0);
-  });
-
-  it('lit les deux dérives dans leur sens propre, qui sont opposés', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    // L'allure baisse et la cadence monte : même constat, signes contraires. Les deux
-    // phrases sont la seule chose qui empêche d'en conclure l'inverse.
-    expect(await screen.findByText('Accélération')).toBeInTheDocument();
-    expect(screen.getByText('Foulée plus fréquente')).toBeInTheDocument();
-  });
-
-  it('mesure les écarts contre la moyenne des paliers pleins, et non contre la course', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    // Le repère est l'allure des huit paliers pleins (5,031 min/km), et non celle de la
-    // course entière (5,035) qui inclut le reliquat. Les deux tombent sur 5:02 à
-    // l'affichage — la distinction se joue dans le calcul, pas dans ce que l'œil lit.
-    const note = await screen.findByText(/Chaque barre part de l’allure moyenne/);
-    expect(note).toHaveTextContent('5:02 au kilomètre');
-  });
-
-  it('ne donne aucun écart au reliquat, dont l’allure est extrapolée', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    await screen.findByText(/Chaque barre part de l’allure moyenne/);
-    // Huit barres portent un écart signé ; la neuvième dit ce qu'elle est.
-    expect(screen.getByText('extrapolé')).toBeInTheDocument();
-    expect(screen.getByText('+9,1 s')).toBeInTheDocument();
-    expect(screen.getByText('-8,9 s')).toBeInTheDocument();
-  });
-
-  it('affiche la foulée, que la capture ne portait nulle part', async () => {
-    stub(DETAIL);
-    renderRun();
-
-    expect(await screen.findByText('Foulée moyenne')).toBeInTheDocument();
-    // La tuile et la colonne du tableau portent la même valeur : c'est la moyenne d'un
-    // côté, le septième palier de l'autre, et leur coïncidence à deux décimales est un
-    // hasard de cette course-ci.
-    expect(screen.getAllByText('1,18').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Longueur de foulée' })).toBeInTheDocument();
-  });
 
   it('tait toute la section « parmi tes courses » quand il n’y en a qu’une', async () => {
-    stub(DETAIL);
+    serve(DETAIL);
     renderRun();
 
-    await screen.findByText('Écart-type');
+    await screen.findByText('8,14');
     // Un « 1ᵉʳ sur 1 » serait exact et se lirait comme un record.
     expect(screen.queryByText(/Parmi tes/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Rang d’allure')).not.toBeInTheDocument();
   });
 
   it('accompagne toujours le rang du nombre de courses qui le qualifie', async () => {
-    stub({
+    serve({
       ...DETAIL,
       context: {
+        ...DETAIL.context,
         runs_compared: 3,
         pace_rank: 2,
         distance_rank: 2,
-        best_pace_min_km: 4.8,
-        longest_distance_km: 10,
-        average_pace_min_km: 5.28,
-        average_distance_km: 7.71,
         pace_delta_s_per_km: -14.7,
         distance_delta_km: 0.43,
-        recent: [
-          { id: 1, date: '2026-08-10', distance_km: 5, pace_min_km: 6, current: false },
-          { id: 2, date: '2026-08-15', distance_km: 10, pace_min_km: 4.8, current: false },
-          { id: 0, date: '2026-08-21', distance_km: 8.14, pace_min_km: 5.035, current: true },
-        ],
-        pace_domain_min_km: [6, 4.8],
       },
     });
     renderRun();
 
     expect(await screen.findByText('Parmi tes 3 courses')).toBeInTheDocument();
-    // Comparer un 8 km à un 3 km est bancal : le compte laisse l'utilisateur en juger.
     expect(screen.getAllByText('sur 3').length).toBe(2);
     expect(screen.getByText('15 s/km plus vite que ta moyenne')).toBeInTheDocument();
   });
+});
 
-  it('ne trace la tendance qu’avec les bornes servies par le serveur', async () => {
-    stub({
-      ...DETAIL,
-      context: {
-        ...DETAIL.context,
-        runs_compared: 2,
-        recent: [
-          { id: 1, date: '2026-08-10', distance_km: 5, pace_min_km: 6, current: false },
-          { id: 0, date: '2026-08-21', distance_km: 8.14, pace_min_km: 5.035, current: true },
-        ],
-        pace_domain_min_km: [6, 5.035],
-      },
-    });
+describe('page Course — une sortie sans fichier', () => {
+  it('ne demande aucune analyse, et dit pourquoi il n’y en a pas', async () => {
+    serve(DETAIL);
+    renderRun();
+
+    expect(await screen.findByText('Sortie sans fichier .fit')).toBeInTheDocument();
+    expect(calls.some((url) => url.includes('/analysis'))).toBe(false);
+    expect(screen.queryByRole('img', { name: /Parcours/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Récupérer le fichier .fit' }),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('page Course — ce que le fichier dit de la gestion', () => {
+  it('affiche les constats tels que le serveur les rédige', async () => {
+    serve(FITTED);
+    renderRun();
+
+    expect(await screen.findByText('Départ trop rapide')).toBeInTheDocument();
+    expect(
+      screen.getByText('Premier kilomètre en 4:48, 14 s/km plus vite que la suite (5:02).'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Seconde moitié plus rapide')).toBeInTheDocument();
+  });
+
+  it('lie la courbe d’allure et le tracé du parcours', async () => {
+    serve(FITTED);
     renderRun();
 
     expect(
-      await screen.findByRole('heading', { name: 'Allure des dernières sorties' }),
+      await screen.findByRole('img', { name: /Allure au fil de la course/ }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /Parcours de la course/ })).toBeInTheDocument();
+    // La lecture au repos dit la moyenne ; la légende cite le seuil **servi**.
+    expect(screen.getByText(/moyenne/, { selector: 'span' })).toHaveTextContent('5:02');
+    expect(screen.getByText(/±10/)).toBeInTheDocument();
+  });
+
+  it('dit la pause dans la tuile du temps, sans l’ajouter à l’allure', async () => {
+    serve(FITTED);
+    renderRun();
+
+    expect(await screen.findByText('+ 1:21 de pause')).toBeInTheDocument();
+  });
+
+  it('montre les zones et d’où vient leur référence', async () => {
+    serve(FITTED);
+    renderRun();
+
+    expect(await screen.findByText('98 % du temps en zone 4, Seuil.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Allure seuil estimée depuis ton 5 km du 21 août\./),
+    ).toBeInTheDocument();
+    // Une référence déduite se corrige ; le lien le dit.
+    expect(screen.getByRole('link', { name: 'Corriger dans les réglages' })).toHaveAttribute(
+      'href',
+      '/reglages',
+    );
+  });
+
+  it('dit ce qu’il manque plutôt que d’afficher cinq zones à zéro', async () => {
+    serve(FITTED, [
+      200,
+      {
+        ...ANALYSIS,
+        zones: null,
+        zones_missing: 'Pas de zones sans allure seuil : cours 3 km d’une traite.',
+      },
+    ]);
+    renderRun();
+
+    expect(await screen.findByText('Pas encore de zones')).toBeInTheDocument();
+    expect(screen.getByText(/cours 3 km d’une traite/)).toBeInTheDocument();
+    expect(screen.queryByText('Seuil')).not.toBeInTheDocument();
+  });
+
+  it('marque un record parmi les meilleurs efforts de la sortie', async () => {
+    serve(FITTED);
+    renderRun();
+
+    const table = await screen.findByRole('table', {
+      name: 'Le temps le plus court de la sortie sur chaque distance',
+    });
+    expect(within(table).getByText('record')).toBeInTheDocument();
+    expect(within(table).getByText('25:10')).toBeInTheDocument();
+  });
+
+  it('propose le fichier rangé', async () => {
+    serve(FITTED);
+    renderRun();
+
+    expect(
+      await screen.findByRole('button', { name: 'Récupérer le fichier .fit' }),
+    ).toBeInTheDocument();
+  });
+
+  it('garde la page entière quand le fichier ne se relit pas', async () => {
+    serve(FITTED, [404, { code: 'not_found', message: 'Ce fichier n’existe pas.' }]);
+    renderRun();
+
+    expect(await screen.findByText('Analyse indisponible')).toBeInTheDocument();
+    expect(screen.getByText('Ce fichier n’existe pas.')).toBeInTheDocument();
+    // Les chiffres et les paliers, eux, viennent d'une autre réponse.
+    expect(screen.getByText('8,14')).toBeInTheDocument();
+    expect(screen.getAllByText('km 8').length).toBeGreaterThan(0);
   });
 });

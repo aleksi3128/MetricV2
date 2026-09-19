@@ -36,6 +36,10 @@ export const keys = {
     latestRun: () => ['activity', 'runs', 'latest'] as const,
     runProgress: () => ['activity', 'runs', 'progress'] as const,
     runSplits: (id: number) => ['activity', 'runs', id, 'splits'] as const,
+    /** L'analyse d'une course importée — courbe, tracé, constats, zones. Une requête à
+     *  part, parce qu'elle se relit depuis le `.fit` rangé et que la page doit s'afficher
+     *  sans l'attendre. */
+    runAnalysis: (id: number) => ['activity', 'runs', id, 'analysis'] as const,
     workouts: () => ['activity', 'workouts'] as const,
     workout: (id: number) => ['activity', 'workouts', id] as const,
     exercises: () => ['activity', 'exercises'] as const,

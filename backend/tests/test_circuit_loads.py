@@ -642,20 +642,46 @@ def test_a_note_too_long_for_one_line_is_refused(
     assert response.status_code == 422
 
 
-def test_a_pasted_link_still_ignores_the_note(
+def test_a_pasted_link_still_ignores_the_charge(
     app_client: TestClient, auth: dict[str, str], linked: None
 ) -> None:
     """**C8 tient.** Une note relue peut être celle que le serveur a composée — « 12 kg » —
     et la réimporter comme note saisie l'écrirait en dur, puis la doublerait au prochain
-    lien. Elle est ignorée, comme avant ce lot."""
+    lien. La charge reste donc retirée, et surtout jamais convertie en `12.0`."""
     response = app_client.post(
         f"{ACTIVITY}/circuits/import",
-        json={"url": f"{BASE}?w=Test~3~45~Rowing:12x:30:12+kg"},
+        json={"url": f"{BASE}?w=Test~3~45~Rowing:12x:30:12+kg~Squat:12x:30:78,5+kg"},
         headers=auth,
     )
 
     assert response.status_code == 201, response.text
-    assert response.json()["exercises"][0]["note"] == ""
+    assert [item["note"] for item in response.json()["exercises"]] == ["", ""]
+    # Aucune charge n'est née du texte : les deux lignes restent « non renseignée ».
+    assert {item["state"] for item in loads(app_client, auth)["loads"]} == {"unset"}
+
+
+def test_a_pasted_link_keeps_what_was_written_next_to_the_charge(
+    app_client: TestClient, auth: dict[str, str], linked: None
+) -> None:
+    """**C8 se précise avec ce lot.** Tout jeter jetait aussi « Gauche », « Tour 1/3 »,
+    « genoux au sol » — ce qu'aucune autre colonne ne peut reconstituer, et sans quoi une
+    séance de trente-neuf lignes arrive avec douze paires indiscernables.
+
+    Seul l'en-tête que `note_of` compose est retiré ; la suite est rendue telle quelle."""
+    response = app_client.post(
+        f"{ACTIVITY}/circuits/import",
+        json={
+            "url": f"{BASE}?w=Test~3~45~Rowing:12x:30:12+kg+%C2%B7+dos+plat"
+            f"~Fente:12x:30:Gauche+%C2%B7+genou+align%C3%A9"
+        },
+        headers=auth,
+    )
+
+    assert response.status_code == 201, response.text
+    assert [item["note"] for item in response.json()["exercises"]] == [
+        "dos plat",
+        "Gauche · genou aligné",
+    ]
 
 
 # ── La suppression, et les charges devenues orphelines ─

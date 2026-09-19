@@ -34,6 +34,116 @@ export interface Run {
   split_length_km: number | null;
   /** Nombre de paliers relevés. Zéro sur une course saisie au clavier, pas une erreur. */
   splits: number;
+  /**
+   * Chemin du `.fit` importé (`docs/import-fit.md`). Vide sur une saisie ou une capture.
+   *
+   * L'écran ne s'en sert que comme d'un **drapeau** : non vide, il propose le fichier et
+   * va chercher le tracé. Il ne le construit jamais en adresse — les deux routes se
+   * désignent par la course, et le chemin ne quitte pas le serveur autrement que comme
+   * ce booléen déguisé.
+   */
+  fit_path: string;
+  /** La plus haute FC tenue, lue dans le `.fit`. `null` sans cardio. */
+  max_hr: number | null;
+}
+
+// ── Analyse d'une sortie importée (`docs/analyse-course.md`) ──
+
+/** La couleur d'un tronçon contre l'allure en mouvement — décidée par le serveur. */
+export type PaceClass = 'faster' | 'even' | 'slower';
+
+/**
+ * Un point de la grille en distance. La courbe le dessine, le tracé le colore, et les
+ * deux se répondent parce qu'ils partagent ce même point.
+ *
+ * `x` et `y` sont **déjà normalisés** entre 0 et 1 : aucune latitude ni longitude.
+ */
+export interface RunPoint {
+  distance_km: number;
+  /** Temps de chrono auquel le point a été atteint, pauses retirées. */
+  timer_s: number;
+  pace_min_km: number | null;
+  pace_class: PaceClass | null;
+  heart_rate: number | null;
+  cadence_spm: number | null;
+  /** `null` sauf relief : sur du plat, le profil ne dessinerait que le bruit. */
+  altitude_m: number | null;
+  x: number | null;
+  y: number | null;
+}
+
+export interface RunStop {
+  /** `pause` : chrono arrêté, sans effet sur l'allure. `stop` : chrono en marche. */
+  kind: 'pause' | 'stop';
+  distance_km: number;
+  duration_s: number;
+}
+
+/**
+ * Un constat **rédigé par le serveur**. L'écran affiche `title` et `text` tels quels et
+ * teinte selon `tone` ; il ne décide sur rien d'autre.
+ */
+export interface RunInsight {
+  code: string;
+  tone: 'good' | 'bad' | 'neutral';
+  title: string;
+  text: string;
+}
+
+export interface RunEffort {
+  distance_m: number;
+  label: string;
+  duration_s: number;
+  pace_min_km: number;
+  start_km: number;
+  /** Bat tous les efforts des autres sorties à cette distance. */
+  record: boolean;
+}
+
+export interface RunZoneBin {
+  zone: number;
+  name: string;
+  /** Les bornes, déjà écrites : « 5:59–6:47 /km ». */
+  range: string;
+  seconds: number;
+  share: number;
+}
+
+export interface RunZones {
+  kind: 'heart_rate' | 'pace';
+  reference_value: number;
+  source: 'settings' | 'deduced';
+  /** D'où vient la référence, en toutes lettres. Une estimation le dit toujours. */
+  detail: string;
+  bins: RunZoneBin[];
+  summary: string;
+}
+
+export interface RunAnalysis {
+  points: RunPoint[];
+  located: boolean;
+  width: number;
+  height: number;
+  distance_ticks_km: number[];
+  /** **Le plus lent d'abord** : l'axe arrive retourné. */
+  pace_domain_min_km: [number, number] | null;
+  pace_ticks_min_km: number[];
+  heart_rate_domain: [number, number] | null;
+  cadence_domain: [number, number] | null;
+  altitude_domain_m: [number, number] | null;
+  average_pace_min_km: number | null;
+  /** Présente seulement quand des arrêts chrono en marche l'écartent de la moyenne. */
+  moving_pace_min_km: number | null;
+  paused_s: number;
+  stopped_s: number;
+  stops: RunStop[];
+  /** Le seuil des couleurs du tracé, en s/km — cité par la légende. */
+  class_threshold_s: number;
+  insights: RunInsight[];
+  efforts: RunEffort[];
+  zones: RunZones | null;
+  /** Ce que coûte le prochain geste quand les zones manquent. */
+  zones_missing: string | null;
 }
 
 /**
@@ -219,6 +329,58 @@ export interface RunProgress {
   volume_domain_km: [number, number] | null;
   /** Bornes de distance, le plus court d'abord — l'abscisse du nuage de points. */
   distance_domain_km: [number, number] | null;
+  /** Le meilleur temps de l'historique sur chaque distance, la plus courte d'abord. */
+  records: EffortRecord[];
+  /** Les distances courues au moins deux fois, et leur progression. */
+  effort_series: EffortSeries[];
+  /** Sorties `.fit` d'avant les efforts : tant qu'il en reste, l'écran propose de réanalyser. */
+  efforts_pending: number;
+  /** Les dernières semaines, **vides comprises**, la plus ancienne d'abord. */
+  weeks: RunWeek[];
+  week_domain_km: [number, number] | null;
+}
+
+export interface EffortRecord {
+  distance_m: number;
+  label: string;
+  duration_s: number;
+  pace_min_km: number;
+  day: string;
+  /** La position de la course, pour y mener. */
+  run: number;
+  /** Combien de sorties couvrent cette distance. */
+  runs: number;
+}
+
+export interface EffortMark {
+  day: string;
+  run: number;
+  duration_s: number;
+  pace_min_km: number;
+  /** Battait, ce jour-là, tout ce qui précédait. */
+  record: boolean;
+}
+
+export interface EffortSeries {
+  distance_m: number;
+  label: string;
+  marks: EffortMark[];
+  /** Le plus lent d'abord. */
+  pace_domain_min_km: [number, number] | null;
+}
+
+export interface RunWeek {
+  /** Le lundi, tel que le serveur le date. */
+  week: string;
+  runs: number;
+  distance_km: number;
+  minutes: number;
+}
+
+export interface EffortRebuild {
+  runs: number;
+  efforts: number;
+  splits: number;
 }
 
 /** Une course et ses paliers. `run` à `null` = aucune course, ce qui n'est pas une panne. */
@@ -575,6 +737,24 @@ export const activityApi = {
     }),
   deleteRun: (id: number, token: string) =>
     request<undefined>(`/api/activity/runs/${id}`, { method: 'DELETE', headers: guard(token) }),
+
+  /**
+   * Importe une sortie depuis un `.fit`. **Écrit directement** (`docs/import-fit.md`,
+   * **F5**) : il n'y a pas de brouillon à faire relire parce qu'il n'y a rien à deviner.
+   */
+  importFit: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<Run>('/api/activity/runs/fit', { method: 'POST', form });
+  },
+  /** L'analyse, relue depuis le `.fit` rangé : la page s'affiche sans l'attendre. */
+  runAnalysis: (id: number) => request<RunAnalysis>(`/api/activity/runs/${id}/analysis`),
+  /** Recalcule efforts et paliers de chaque `.fit` rangé. Rejouable sans rien doubler. */
+  rebuildEfforts: () =>
+    request<EffortRebuild>('/api/activity/runs/efforts/rebuild', { method: 'POST' }),
+  /** L'adresse du fichier rangé. Authentifiée comme toute route de données : un `<a href>`
+   *  nu n'y suffit pas, le jeton ne s'attache pas à une navigation. */
+  runFitPath: (id: number) => `/api/activity/runs/${id}/fit`,
 
   circuits: () => request<CircuitList>('/api/activity/circuits'),
   circuitExercises: (query = '') =>

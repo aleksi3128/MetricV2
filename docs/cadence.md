@@ -260,6 +260,20 @@ faudrait ressaisir sinon.
 Un lien illisible rend une erreur portant un code (`invalid_workout_link`), avec son message
 français depuis le serveur.
 
+**Trois refus corrigés le 11 septembre**, tous trouvés sur un vrai lien de trente-neuf
+exercices que Cadence exécutait sans broncher :
+
+- Le champ `url` était borné à **2000 caractères**, un nombre sans origine. Quarante
+  exercices notés en font plus de quatre mille : Metric refusait des liens qu'il avait
+  lui-même fabriqués. La borne se **calcule** désormais — `circuit_link.longest_url`
+  mesure le pire cas sur le générateur, donc elle suit le format au lieu de le suivre mal.
+- Un lien de plus de quarante exercices, ou portant un nom au-delà de `Label`, faisait
+  lever une `ValidationError` de pydantic **à l'intérieur** du service : elle ne passe par
+  aucun gestionnaire de `MetricError` et ressortait en `500`. Deux refus explicites la
+  précèdent, et leur message nomme la borne qui a cédé.
+- La note était jetée à l'import. Seule la charge l'est maintenant — voir C8 dans
+  [`charges.md`](charges.md), révisée le même jour.
+
 ---
 
 ## 7. Le planning

@@ -12,9 +12,14 @@
  * Séance    1. date, durée, effort perçu          → Suivant
  *           2. les exercices, par la recherche    → Enregistrer
  *
- * Course    1. la capture, ou rien                → Suivant
+ * Course    1. un .fit, une capture, ou rien      → Suivant
  *           2. temps, allure, distance, cadence   → Enregistrer
  * ```
+ *
+ * **Le `.fit` ne passe pas par l'étape 2.** Il écrit la course et ferme la feuille
+ * (`docs/import-fit.md`, **F5**) : il n'y a rien à pré-remplir parce qu'il n'y a rien à
+ * deviner. `IMP-01` — « rien n'est écrit sans validation » — protégeait d'un modèle qui
+ * lit une capture, pas d'une distance mesurée au décimètre.
  *
  * ## Trois décisions
  *
@@ -38,10 +43,11 @@ import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { Button, Field, Sheet, Stepper } from '@/components/ui';
-import { activityApi } from '@/features/activity/api';
+import { activityApi, type Run } from '@/features/activity/api';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
+import { num } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
 import { useToast } from '@/lib/toast';
 
@@ -166,6 +172,13 @@ function RunWizard({
           onStep(2);
         }}
         onBack={onBack}
+        onImported={(run) => {
+          invalidate();
+          // `num` et non `toFixed` : la virgule décimale française vient de là, et
+          // l'historique juste derrière écrit « 5,08 km ».
+          notify(`Sortie importée : ${num(run.distance_km, 2)} km.`, 'effort');
+          onDone();
+        }}
         onRead={(draft) => {
           setFields((current) => ({
             ...current,
@@ -324,26 +337,44 @@ function RunWizard({
   );
 }
 
-// ── L'étape 1 d'une course : la capture ───────────────
+// ── L'étape 1 d'une course : le fichier, la capture, ou rien ──
 
+/**
+ * Trois portes, et elles ne coûtent pas la même chose.
+ *
+ * Le **`.fit`** est le chemin court : le fichier porte la mesure, on l'envoie, la course
+ * est écrite et la feuille se ferme. Il ne dépend d'aucune clé — c'est du décodage, pas
+ * un modèle — et reste donc proposé quand la lecture de capture ne l'est pas.
+ *
+ * La **capture** pré-remplit l'étape 2, qu'on relit et corrige avant d'enregistrer.
+ *
+ * La **saisie** n'ouvre rien du tout.
+ */
 function AppleStep({
   today,
   enabled,
   onRead,
   onSkip,
   onBack,
+  onImported,
 }: {
   today: string;
   enabled: boolean;
   onRead: (draft: AppleDraft) => void;
   onSkip: () => void;
   onBack: () => void;
+  onImported: (run: Run) => void;
 }) {
   const { notify } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [weight, setWeight] = useState<number | null>(null);
+  /** Le refus du serveur, affiché **dans la feuille** et non en toast.
+   *
+   * « Cette sortie est déjà enregistrée » se lit et se relit : un toast qui s'efface au
+   * bout de quelques secondes obligerait à refaire l'import pour savoir ce qui a cloché. */
+  const [refused, setRefused] = useState<string | null>(null);
 
   useEffect(() => {
     if (preview === null) return;
@@ -377,12 +408,50 @@ function AppleStep({
     },
   });
 
+  const importFit = useMutation({
+    mutationFn: (chosen: File) => activityApi.importFit(chosen),
+    onSuccess: onImported,
+    onError: (caught: unknown) => {
+      setRefused(
+        caught instanceof ApiError ? caught.message : 'Ce fichier .fit n’a pas pu être lu.',
+      );
+    },
+  });
+
   return (
     <div className={styles.form}>
+      {refused !== null && (
+        <p className={styles.error} role="alert">
+          {refused}
+        </p>
+      )}
+
+      <input
+        id="run-fit"
+        type="file"
+        accept=".fit,application/vnd.ant.fit"
+        className="sr-only"
+        onChange={(event) => {
+          const chosen = event.target.files?.[0];
+          setRefused(null);
+          if (chosen) importFit.mutate(chosen);
+          // Le champ est remis à zéro : sans cela, réessayer le **même** fichier après un
+          // refus ne déclencherait aucun `change`, et l'écran paraîtrait figé.
+          event.target.value = '';
+        }}
+      />
+      <label htmlFor="run-fit" className={styles.drop}>
+        {importFit.isPending ? 'lecture du fichier…' : 'importer un fichier .fit'}
+      </label>
+      <p className={styles.note}>
+        Le fichier de ta montre ou de Strava. Distance, temps, paliers et parcours sont lus dedans,
+        la sortie est enregistrée et le fichier conservé.
+      </p>
+
       <p className={styles.note}>
         {enabled
-          ? 'Une capture d’Apple Fitness ou de la montre suffit : elle est lue, jamais enregistrée telle quelle. Tout reste modifiable ensuite.'
-          : 'La lecture de capture demande une clé OpenRouter. La saisie à la main reste entière.'}
+          ? 'Sinon, une capture d’Apple Fitness ou de la montre : elle est lue, jamais enregistrée telle quelle. Tout reste modifiable ensuite.'
+          : 'La lecture de capture demande une clé OpenRouter. L’import .fit et la saisie à la main restent entiers.'}
       </p>
 
       {enabled && (

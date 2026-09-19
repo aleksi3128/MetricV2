@@ -35,13 +35,18 @@
 
 import type { MealEstimate, MealFormValues } from '@/features/nutrition/api';
 
-import { emptyIngredient, type IngredientDraft } from './ingredient-draft';
+import { emptyIngredient, isBlank, type IngredientDraft } from './ingredient-draft';
 
 /** Les cinq modes de saisie de la feuille, dans l'ordre où elle les propose. */
 export type MealMode = 'photo' | 'photo-texte' | 'texte' | 'manuel' | 'compose';
 
-/** Les trois macros qu'une estimation peut proposer, et que l'écran marque comme telles. */
-export type Macro = 'protein_g' | 'added_sugar_g' | 'calories';
+/**
+ * Les cinq valeurs qu'une estimation peut proposer, et que l'écran marque comme telles.
+ *
+ * Trois jusqu'à `NUT-16`. Un brouillon rangé avant ne porte pas les deux dernières : ses
+ * champs se relisent vides, ce qui est ce qu'ils étaient.
+ */
+export type Macro = 'protein_g' | 'added_sugar_g' | 'calories' | 'saturated_fat_g' | 'fiber_g';
 
 /**
  * Une saisie en cours.
@@ -82,7 +87,13 @@ const MODES: Record<MealMode, true> = {
   compose: true,
 };
 
-const MACROS: Record<Macro, true> = { protein_g: true, added_sugar_g: true, calories: true };
+const MACROS: Record<Macro, true> = {
+  protein_g: true,
+  added_sugar_g: true,
+  calories: true,
+  saturated_fat_g: true,
+  fiber_g: true,
+};
 
 // ── Lecture défensive ─────────────────────────────────
 //
@@ -114,6 +125,8 @@ function parseValues(raw: unknown): MealDraft['values'] {
     protein_g: text(fields.protein_g),
     added_sugar_g: text(fields.added_sugar_g),
     calories: text(fields.calories),
+    saturated_fat_g: text(fields.saturated_fat_g),
+    fiber_g: text(fields.fiber_g),
     // La provenance ne se devine pas : hors du `ai` explicite, c'est une saisie.
     source: fields.source === 'ai' ? 'ai' : 'manual',
   };
@@ -139,6 +152,8 @@ function parseRows(raw: unknown): IngredientDraft[] {
     calories_100g: text(row.calories_100g),
     protein_100g: text(row.protein_100g),
     added_sugar_100g: text(row.added_sugar_100g),
+    saturated_fat_100g: text(row.saturated_fat_100g),
+    fiber_100g: text(row.fiber_100g),
     // Une ligne d'un brouillon antérieur à `NUT-14` n'a pas ce champ. La tenir pour
     // manuelle rend son nom saisissable : c'est le repli qui ne bloque rien.
     manual: row.manual !== false,
@@ -168,6 +183,8 @@ function parseEstimate(raw: unknown): MealEstimate | null {
     protein_g: nullableNumber(raw.protein_g),
     added_sugar_g: nullableNumber(raw.added_sugar_g),
     calories: nullableNumber(raw.calories),
+    saturated_fat_g: nullableNumber(raw.saturated_fat_g),
+    fiber_g: nullableNumber(raw.fiber_g),
     readable: raw.readable !== false,
     empty: raw.empty === true,
   };
@@ -182,15 +199,15 @@ function parseEstimate(raw: unknown): MealEstimate | null {
  */
 export function worthKeeping(draft: MealDraft): boolean {
   if (draft.photo || draft.estimate !== null) return true;
-  const { comment, protein_g, added_sugar_g, calories } = draft.values;
-  if ([comment, protein_g, added_sugar_g, calories].some((field) => field.trim() !== '')) {
+  const { comment, protein_g, added_sugar_g, calories, saturated_fat_g, fiber_g } = draft.values;
+  if (
+    [comment, protein_g, added_sugar_g, calories, saturated_fat_g, fiber_g].some(
+      (field) => field.trim() !== '',
+    )
+  ) {
     return true;
   }
-  return draft.rows.some((row) =>
-    [row.name, row.quantity_g, row.calories_100g, row.protein_100g, row.added_sugar_100g].some(
-      (field) => field.trim() !== '',
-    ),
-  );
+  return draft.rows.some((row) => !isBlank(row));
 }
 
 /** Le texte rangé, ou rien — un stockage verrouillé se lit comme un stockage vide. */

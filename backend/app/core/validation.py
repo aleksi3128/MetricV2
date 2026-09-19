@@ -101,6 +101,11 @@ Calories = Annotated[int, Field(ge=0, le=10000, description="Calories")]
 
 ProteinG = Annotated[float, Field(ge=0, le=500, description="Protéines en grammes")]
 SugarG = Annotated[float, Field(ge=0, le=1000, description="Sucres ajoutés en grammes")]
+#: Garde-fous de frappe (`NUT-16`) : 300 g de graisses saturées font 2 700 kcal à eux
+#: seuls, 150 g de fibres plus d'un kilo de légumineuses sèches. Au-delà, c'est un zéro de
+#: trop, pas une assiette.
+SaturatedFatG = Annotated[float, Field(ge=0, le=300, description="Acides gras saturés en grammes")]
+FiberG = Annotated[float, Field(ge=0, le=150, description="Fibres en grammes")]
 
 #: Valeurs **pour 100 g** d'un ingrédient (`NUT-12`).
 #:
@@ -124,7 +129,11 @@ HydrationTargetMl = Annotated[
 # ── Texte libre ───────────────────────────────────────
 
 Note = Annotated[str, Field(max_length=500, description="Note libre")]
-Label = Annotated[str, Field(min_length=1, max_length=80, description="Libellé court")]
+#: Nommée parce qu'elle se **calcule** ailleurs : la longueur du plus long lien Cadence
+#: s'en déduit (`activity/schemas.py`), et un 80 recopié là-bas se serait décollé de
+#: celui-ci au premier ajustement.
+LABEL_MAX = 80
+Label = Annotated[str, Field(min_length=1, max_length=LABEL_MAX, description="Libellé court")]
 
 # ── Adresses d'applications externes ──────────────────
 
@@ -174,11 +183,14 @@ def reject_workout_param(value: str) -> str:
     return value
 
 
+#: Même raison que `LABEL_MAX` : la base entre dans le calcul de la borne d'import.
+BASE_URL_MAX = 200
+
 #: Adresse **de base** d'une application tierce, à laquelle on ajoutera un paramètre.
 BaseUrl = Annotated[
     str,
     Field(
-        max_length=200,
+        max_length=BASE_URL_MAX,
         pattern=BASE_URL_PATTERN,
         description="Adresse de base d'une application externe, ou vide",
     ),

@@ -35,6 +35,10 @@ const VIEW = {
     calories_target: 2200,
     calories_ratio: 0.509,
     calories_known: 2,
+    saturated_fat_g: 4.5,
+    saturated_fat_known: 1,
+    fiber_g: 9,
+    fiber_known: 2,
     meals: 2,
   },
   meals: [
@@ -48,6 +52,8 @@ const VIEW = {
       protein_g: 40,
       added_sugar_g: 10,
       calories: 600,
+      saturated_fat_g: 4.5,
+      fiber_g: 6,
       source: 'manual',
     },
     {
@@ -60,6 +66,8 @@ const VIEW = {
       protein_g: 35,
       added_sugar_g: 5,
       calories: 520,
+      saturated_fat_g: null,
+      fiber_g: 3,
       source: 'ai',
     },
   ],
@@ -72,6 +80,8 @@ const VIEW = {
       protein_g: 32,
       added_sugar_g: 12,
       calories: 380,
+      saturated_fat_g: null,
+      fiber_g: null,
     },
   ],
   suggested_type: 'déjeuner',
@@ -85,6 +95,8 @@ const VIEW = {
       calories_100g: 356,
       protein_100g: 8.1,
       added_sugar_100g: 0.2,
+      saturated_fat_100g: 0.1,
+      fiber_100g: null,
     },
   ],
 };
@@ -177,8 +189,10 @@ describe('écran Nutrition', () => {
     renderNutrition();
 
     // Le total nu est parti dans l'anneau ; la tuile compte désormais ce qui est
-    // **chiffré** sur ce qui est noté, qui est la nuance qu'on cherchait à dire.
-    expect(await screen.findByText(/1 chiffré sur 3/)).toBeInTheDocument();
+    // **chiffré** sur ce qui est noté, qui est la nuance qu'on cherchait à dire. Cherchée
+    // dans sa tuile : celle des graisses saturées emploie la même tournure (`NUT-16`).
+    const tile = (await screen.findByText('Repas notés')).parentElement as HTMLElement;
+    expect(await within(tile).findByText(/1 chiffré sur 3/)).toBeInTheDocument();
   });
 
   it('signale un dépassement du plafond de sucres', async () => {
@@ -317,7 +331,7 @@ describe('écran Nutrition', () => {
     await userEvent.type(screen.getByLabelText('Protéines'), '32');
     await userEvent.type(screen.getByLabelText('Sucres'), '12');
     await userEvent.type(screen.getByLabelText('Calories'), '480');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer comme récurrent' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer en favori' }));
 
     await waitFor(() => {
       const post = calls.find(
@@ -375,8 +389,12 @@ describe('écran Nutrition', () => {
     stub();
     renderNutrition();
 
+    // Deux appuis : le premier arme, le second supprime (`NUT-15`).
     await userEvent.click(
       await screen.findByRole('button', { name: /Supprimer le repas de 12:30/ }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Supprimer le repas de 12:30 — confirmer' }),
     );
 
     await waitFor(() => {
@@ -425,11 +443,21 @@ describe('écran Nutrition', () => {
 describe('repas composé', () => {
   const COMPOSITION = {
     lines: [
-      { name: 'riz basmati', quantity_g: 180, calories: 641, protein_g: 14.6, added_sugar_g: 0.4 },
+      {
+        name: 'riz basmati',
+        quantity_g: 180,
+        calories: 641,
+        protein_g: 14.6,
+        added_sugar_g: 0.4,
+        saturated_fat_g: 0.2,
+        fiber_g: 0,
+      },
     ],
     calories: 641,
     protein_g: 14.6,
     added_sugar_g: 0.4,
+    saturated_fat_g: 0.2,
+    fiber_g: 0,
     empty: false,
   };
 
@@ -464,7 +492,7 @@ describe('repas composé', () => {
 
     // Ce qui est parti : les valeurs pour 100 g et la quantité, jamais un total.
     const call = calls.find((item) => item.url === '/api/nutrition/compose');
-    // Les trois valeurs partent, bien qu'aucune ne soit à l'écran : c'est le catalogue
+    // Les cinq valeurs partent, bien qu'aucune ne soit à l'écran : c'est le catalogue
     // qui les a rapportées au choix de l'ingrédient.
     expect(JSON.parse(call?.init?.body as string)).toEqual({
       lines: [
@@ -474,6 +502,8 @@ describe('repas composé', () => {
           calories_100g: 356,
           protein_100g: 8.1,
           added_sugar_100g: 0.2,
+          saturated_fat_100g: 0.1,
+          fiber_100g: null,
         },
       ],
     });
@@ -618,6 +648,8 @@ describe('scanner un aliment', () => {
     calories_100g: 539,
     protein_100g: 6.3,
     added_sugar_100g: 56.3,
+    saturated_fat_100g: 10.6,
+    fiber_100g: null,
     partial: false,
   };
 
@@ -732,6 +764,7 @@ describe('scanner un aliment', () => {
         calories_100g: null,
         protein_100g: null,
         added_sugar_100g: null,
+        saturated_fat_100g: null,
         partial: true,
       }),
     );
@@ -867,6 +900,7 @@ describe('scanner un aliment', () => {
         calories_100g: null,
         protein_100g: null,
         added_sugar_100g: null,
+        saturated_fat_100g: null,
         partial: true,
       }),
     );
@@ -946,6 +980,8 @@ describe('scanner un aliment', () => {
         calories_100g: 539,
         protein_100g: 6.3,
         added_sugar_100g: 56.3,
+        saturated_fat_100g: 10.6,
+        fiber_100g: null,
       },
     ]);
     // Les macros ne partent pas : le serveur recalcule.
@@ -1121,5 +1157,119 @@ describe('le journal en panne', () => {
     expect(screen.queryByText('Aucun repas aujourd’hui')).not.toBeInTheDocument();
     // Le message vient du serveur et s'affiche tel quel : le client décide sur le code.
     expect(screen.getByText('Requête invalide.')).toBeInTheDocument();
+  });
+});
+
+describe("l'historique et ce qu'il donne à lire", () => {
+  it('nomme les seuils que la légende ne faisait que dégrader', async () => {
+    // « moins ●●●● plus » pose un ordre et aucune quantité. Les trois seuils viennent du
+    // serveur : c'est lui qui découpe la plage en quarts, et une deuxième définition de
+    // l'échelle divergerait de la sienne au premier cas limite.
+    stub();
+    renderNutrition();
+
+    expect(
+      await screen.findByText(/Une teinte par quart de tes jours chiffrés/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/1 900, 2 150 et 2 400 kcal/)).toBeInTheDocument();
+  });
+
+  it('ne prétend pas répartir des teintes sans distribution', async () => {
+    // Sous deux jours chiffrés, le serveur ne sert aucun seuil : la légende doit dire
+    // qu'elle ne compare rien plutôt que d'afficher trois tirets.
+    stub((url) =>
+      url.includes('/api/nutrition/history')
+        ? json(200, { ...NUTRITION_HISTORY, level_bounds: [] })
+        : undefined,
+    );
+    renderNutrition();
+
+    expect(
+      await screen.findByText(/Deux jours chiffrés suffisent à répartir les teintes/),
+    ).toBeInTheDocument();
+  });
+
+  it("montre l'écart à l'objectif plutôt qu'un compte qui ne bouge jamais", async () => {
+    // « Dans la cible » affichait « 0 jour » et rien d'autre sur un objectif qu'on
+    // n'approche pas. Le compte survit en détail ; c'est l'écart qui porte la tuile.
+    stub();
+    renderNutrition();
+
+    expect(await screen.findByText('Écart')).toBeInTheDocument();
+    expect(screen.getByText('-47')).toBeInTheDocument();
+    expect(screen.getByText(/dans la cible 9 sur 17/)).toBeInTheDocument();
+  });
+
+  it("porte le signe d'un écart au-dessus de l'objectif", async () => {
+    // « 120 » se lirait comme un total. Le formatage vit à l'écran, la soustraction
+    // chez le serveur.
+    stub((url) =>
+      url.includes('/api/nutrition/history')
+        ? json(200, {
+            ...NUTRITION_HISTORY,
+            stats: { ...NUTRITION_HISTORY.stats, gap_to_target: 120 },
+          })
+        : undefined,
+    );
+    renderNutrition();
+
+    expect(await screen.findByText('+120')).toBeInTheDocument();
+  });
+
+  it("laisse un tiret quand aucun jour n'a été chiffré", async () => {
+    // Un écart de zéro se lirait comme un objectif tenu (`L02`), et le détail se tait
+    // plutôt que de répéter mot pour mot celui de la tuile voisine.
+    stub((url) =>
+      url.includes('/api/nutrition/history')
+        ? json(200, {
+            ...NUTRITION_HISTORY,
+            stats: {
+              ...NUTRITION_HISTORY.stats,
+              measured_days: 0,
+              avg_calories: null,
+              gap_to_target: null,
+            },
+          })
+        : undefined,
+    );
+    renderNutrition();
+
+    expect(await screen.findByText('aucun jour chiffré sur la plage')).toBeInTheDocument();
+    expect(screen.getAllByText('—')).toHaveLength(2);
+  });
+
+  it("date l'axe sans son année", async () => {
+    // Trois `14/08/2026` de dix caractères se partageaient 330 px.
+    stub();
+    renderNutrition();
+
+    await screen.findByText(/Une teinte par quart/);
+    expect(document.body.textContent).not.toMatch(/\d{2}\/\d{2}\/2026/);
+  });
+});
+
+describe('la courbe des protéines', () => {
+  it('trace les protéines contre leur objectif, sans attendre un écran large', async () => {
+    // Elles n'existaient qu'en couche de contexte sur la courbe des calories, et
+    // seulement au-delà de 600 px — donc jamais sur l'écran visé, où `matchMedia` rend
+    // faux. La seule macro suivie toute la journée dans un anneau n'avait aucune courbe.
+    stub();
+    renderNutrition();
+
+    expect(await screen.findByText('Protéines par jour (g)')).toBeInTheDocument();
+    expect(screen.getByText('Objectif 150 g')).toBeInTheDocument();
+  });
+
+  it('ne trace rien avec un seul jour noté', async () => {
+    stub((url) =>
+      url.includes('/api/nutrition/history')
+        ? json(200, { ...NUTRITION_HISTORY, series: NUTRITION_HISTORY.series.slice(0, 1) })
+        : undefined,
+    );
+    renderNutrition();
+
+    expect(
+      await screen.findByText(/Deux jours de repas notés suffisent à tracer les protéines/),
+    ).toBeInTheDocument();
   });
 });

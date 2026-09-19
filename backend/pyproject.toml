@@ -28,6 +28,13 @@ dependencies = [
   # Seul `WebPusher.encode` est appelé, qui ne fait aucune I/O ; l'envoi passe par httpx2
   # comme tout le reste, pour ne pas bloquer la boucle d'événements sur `requests`.
   "pywebpush>=2.0",
+  # Décodage des fichiers `.fit` d'une sortie course (`docs/import-fit.md`, **F4**). Le
+  # dépôt évite les dépendances, et l'exception se justifie autrement que pour
+  # `pywebpush` : le format n'est pas dangereux à mal lire, il est **vaste** — un profil
+  # de plusieurs centaines de messages, un fabricant qui écrit deux flux de `record`
+  # entrelacés là où un autre en écrit un. Un décodeur maison lirait Strava et pas
+  # Garmin, et on ne le saurait qu'au premier fichier qui ne s'ouvre pas.
+  "fitdecode>=0.11",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +100,14 @@ disallow_untyped_defs = false
 # interface typée — la surface non vérifiée tient en trois lignes.
 [[tool.mypy.overrides]]
 module = ["pywebpush.*", "py_vapid.*"]
+ignore_missing_imports = true
+
+# `fitdecode` ne publie pas de `py.typed` non plus. Même parade : il n'est appelé que
+# depuis `domains/activity/fit.py`, dont `_values` ramène tout de suite chaque message à un
+# `dict[str, object]` — la surface non vérifiée s'arrête à la boucle de lecture, et les
+# lectures défensives du bas du module sont ce qui la referme.
+[[tool.mypy.overrides]]
+module = ["fitdecode.*"]
 ignore_missing_imports = true
 
 # ── Pytest ──────────────────────────────────────────

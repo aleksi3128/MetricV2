@@ -6,20 +6,25 @@ s'occupe que du cycle de vie des lignes.
 
 from __future__ import annotations
 
+import re
 import secrets
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+
+from pydantic import ValidationError
 
 from app.core.exceptions import AiUnreadableError, ValidationFailedError
 from app.core.parsing import pace_min_per_km
 from app.core.text import fold, fr
-from app.core.validation import today_local
+from app.core.validation import LABEL_MAX, today_local
 from app.domains.activity import (
+    analysis,
     circuit_link,
     composer,
     exercise_catalog,
     exercise_media,
+    fit,
     progress,
     splits,
 )
@@ -31,10 +36,14 @@ from app.domains.activity.models import (
     CircuitSessionRow,
     CircuitSessionSetRow,
     MuscleGroup,
+    RunEffortRow,
     RunRow,
     RunSplitRow,
 )
 from app.domains.activity.schemas import (
+    CIRCUIT_EXERCISES_MAX,
+    CIRCUIT_LINK_NOTE_MAX,
+    CIRCUIT_NOTE_MAX,
     Circuit,
     CircuitDonePayload,
     CircuitExercise,
@@ -47,6 +56,10 @@ from app.domains.activity.schemas import (
     CircuitSuggestion,
     ComposeRequest,
     DistanceBand,
+    EffortMark,
+    EffortRebuild,
+    EffortRecord,
+    EffortSeries,
     Load,
     LoadDay,
     LoadDetail,
@@ -58,13 +71,16 @@ from app.domains.activity.schemas import (
     NeglectedGroup,
     ProposedCircuitExercise,
     Run,
+    RunAnalysis,
     RunContext,
     RunDetail,
     RunMark,
     RunPayload,
     RunProgress,
     RunSplit,
+    RunSplitPayload,
     RunSplits,
+    RunWeek,
     RunWindow,
 )
 from app.domains.ai.service import AiService
@@ -79,6 +95,7 @@ from app.storage.paths import (
     CIRCUIT_SESSION_SETS,
     CIRCUIT_SESSIONS,
     CIRCUITS,
+    RUN_EFFORTS,
     RUN_SPLITS,
     RUNS,
 )
@@ -105,6 +122,10 @@ class RunService:
     def __init__(self, store: FileStore) -> None:
         self._repo: CsvRepository[RunRow] = CsvRepository(store, RUNS, RunRow)
         self._splits: CsvRepository[RunSplitRow] = CsvRepository(store, RUN_SPLITS, RunSplitRow)
+        self._efforts: CsvRepository[RunEffortRow] = CsvRepository(store, RUN_EFFORTS, RunEffortRow)
+        # Le dépôt brut, pour les `.fit` : ils ne passent pas par un `CsvRepository`, qui
+        # ne sait lire que des lignes.
+        self._store = store
 
     @staticmethod
     def to_schema(row: Row[RunRow], *, splits: int = 0) -> Run:
@@ -130,10 +151,18 @@ class RunService:
             end_time=model.end_time,
             split_length_km=model.split_length_km,
             splits=splits,
+            fit_path=model.fit_path,
+            max_hr=model.max_hr,
         )
 
     @staticmethod
-    def _to_row(payload: RunPayload, source: str = "manual", run_id: str = "") -> RunRow:
+    def _to_row(
+        payload: RunPayload,
+        source: str = "manual",
+        run_id: str = "",
+        fit_path: str = "",
+        max_hr: int | None = None,
+    ) -> RunRow:
         """La ligne à écrire.
 
         Distance et allure arrivent **déjà accordées** : le schéma complète l'une depuis
@@ -146,6 +175,13 @@ class RunService:
         `run_id` est **reçu**, jamais tiré ici : une correction doit conserver celui de la
         ligne qu'elle remplace, sinon les paliers déjà écrits se détacheraient de leur
         course sans que rien ne le signale. C'est la règle que `workout_id` porte déjà.
+
+        `fit_path` suit exactement la même règle, et pour un dégât de même nature : perdu
+        à la correction, le fichier resterait sur Nextcloud sans plus rien qui le désigne
+        — ni la page Course pour le proposer, ni la suppression pour l'effacer.
+
+        `max_hr` aussi : le formulaire ne l'affiche pas, et une correction de faute de
+        frappe ne doit pas effacer la FC max qu'on a lue dans le fichier.
         """
         # Le schéma garantit les deux ; l'assertion documente l'invariant pour le
         # vérificateur de types, qui ne peut pas le lire dans un `model_validator`.
@@ -167,6 +203,8 @@ class RunService:
             start_time=payload.start_time,
             end_time=payload.end_time,
             split_length_km=_round(payload.split_length_km, 3),
+            fit_path=fit_path,
+            max_hr=max_hr,
         )
 
     async def all(self) -> list[Row[RunRow]]:
@@ -179,7 +217,14 @@ class RunService:
         row = rows[index]
         return self.to_schema(row, splits=len(await self._splits_of(row.model.run_id)))
 
-    async def create(self, payload: RunPayload, *, source: str = "manual") -> Run:
+    async def create(
+        self,
+        payload: RunPayload,
+        *,
+        source: str = "manual",
+        fit_path: str = "",
+        max_hr: int | None = None,
+    ) -> Run:
         """Enregistre une course, et ses paliers s'il y en a (`ACT-19`, `IMP-05`).
 
         **La course s'écrit d'abord.** Le stockage est un dépôt CSV sur WebDAV et n'a pas
@@ -188,8 +233,11 @@ class RunService:
         orphelins rattachés à un `run_id` qui n'existe nulle part, c'est-à-dire un fichier
         que rien ne vient jamais nettoyer.
         """
-        run_id = new_id() if payload.splits else ""
-        row = await self._repo.append(self._to_row(payload, source, run_id))
+        # Une sortie importée reçoit son identifiant **même sans paliers** — un
+        # enregistrement troué n'en a pas. Ses meilleurs efforts s'y rattachent, et ils
+        # n'auraient sinon rien à quoi se rattacher.
+        run_id = new_id() if payload.splits or fit_path else ""
+        row = await self._repo.append(self._to_row(payload, source, run_id, fit_path, max_hr))
 
         written = 0
         if payload.splits:
@@ -208,8 +256,12 @@ class RunService:
         current = rows[index].model if 0 <= index < len(rows) else None
         source = current.source if current else "manual"
         run_id = current.run_id if current else ""
+        fit_path = current.fit_path if current else ""
+        max_hr = current.max_hr if current else None
 
-        row = await self._repo.replace_by_token(index, token, self._to_row(payload, source, run_id))
+        row = await self._repo.replace_by_token(
+            index, token, self._to_row(payload, source, run_id, fit_path, max_hr)
+        )
         return self.to_schema(row, splits=len(await self._splits_of(run_id)))
 
     async def delete(self, index: int, token: str) -> None:
@@ -222,10 +274,282 @@ class RunService:
         montre pour qu'on pense à les retirer.
         """
         rows = await self._repo.read_all(fresh=True)
-        run_id = rows[index].model.run_id if 0 <= index < len(rows) else ""
+        current = rows[index].model if 0 <= index < len(rows) else None
+        run_id = current.run_id if current else ""
+        fit_path = current.fit_path if current else ""
         if run_id:
             await self._splits.remove_where(lambda row: row.run_id == run_id)
+            await self._efforts.remove_where(lambda row: row.run_id == run_id)
         await self._repo.delete_by_token(index, token)
+
+        # Le `.fit` part **en dernier**, une fois la ligne effacée pour de bon. Le projet
+        # n'a aucune annulation : un fichier supprimé avant une ligne qu'un conflit
+        # `If-Match` empêche finalement de retirer serait une course qui reste à l'écran
+        # en proposant un fichier qui n'existe plus. Dans l'autre sens, le pire est un
+        # binaire orphelin que personne ne voit.
+        if fit_path:
+            await self._delete_fit(fit_path)
+
+    # ── Import d'un `.fit` (`docs/import-fit.md`) ─────
+
+    async def create_from_fit(self, data: bytes) -> Run:
+        """Décode un `.fit`, range le fichier, puis écrit la course et ses paliers.
+
+        **L'écriture est directe** (**F5**), contrairement à l'import de captures qui passe
+        par un brouillon validé à l'écran. La différence n'est pas une facilité : `IMP-01`
+        protège d'un modèle qui **devine**, et `total_distance: 5075.65` est une mesure. Il
+        n'y a pas de doute à lever, donc rien à faire relire.
+
+        Reste le seul vrai risque de l'écriture directe dans un projet sans annulation —
+        importer deux fois le même fichier. `_refuse_duplicate` le couvre, et lui seul :
+        deux sorties réellement distinctes du même jour passent.
+
+        **Le fichier monte avant la ligne.** L'ordre inverse laisserait, sur un
+        téléversement en échec, une course qui propose un fichier absent et un tracé qui
+        rend 404 — visible, et rien pour le réparer sinon supprimer la course. Dans ce
+        sens-ci, le pire est un binaire que rien ne désigne : invisible, et sans effet.
+        """
+        parsed = fit.read(data)
+        await self._refuse_duplicate(parsed)
+
+        when = datetime.combine(parsed.day, parsed.start or time())
+        relative = fit.build_path(when)
+        await self._store.write_binary(
+            fit.storage_path(relative), data, content_type="application/vnd.ant.fit"
+        )
+        created = await self.create(
+            _fit_payload(parsed), source="fit", fit_path=relative, max_hr=parsed.max_hr
+        )
+        # Les efforts **après** la course, pour la raison des paliers : l'inverse laisserait
+        # des lignes rattachées à un `run_id` qui n'existe nulle part. S'ils échouent, la
+        # réanalyse les réécrit — c'est une donnée dérivée, pas une mesure perdue.
+        efforts = analysis.best_efforts(parsed)
+        if efforts:
+            await self._efforts.extend(_effort_rows(created.run_id, efforts))
+        return created
+
+    async def read_analysis(self, index: int) -> RunAnalysis:
+        """Ce que le `.fit` d'une course dit de sa gestion, **relu depuis le fichier**.
+
+        Pas depuis un fichier de points : trois cents lignes par sortie dans un dépôt qui
+        relit ses CSV en entier, et une seconde vérité qui finirait par diverger de la
+        première. Le coût est une lecture de 130 Ko, payée par une route à part pour que la
+        page Course s'affiche sans l'attendre.
+
+        Deux lectures de plus, et ce sont les seules que l'analyse ne peut pas faire seule :
+        les meilleurs efforts **des autres** sorties, pour dire un record, et la référence
+        des zones, qui vit dans les réglages ou se déduit de l'historique.
+        """
+        rows = await self._repo.read_all()
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette course n'existe pas.")
+        current = rows[index]
+        parsed = fit.read(await self._fit_bytes(index))
+
+        stored = await self._efforts.read_all()
+        days = {row.model.run_id: row.model.date for row in rows if row.model.run_id}
+        previous: dict[int, float] = {}
+        for effort in stored:
+            model = effort.model
+            if model.run_id == current.model.run_id or model.run_id not in days:
+                continue
+            best = previous.get(model.distance_m)
+            previous[model.distance_m] = (
+                model.duration_s if best is None else min(best, model.duration_s)
+            )
+
+        # La sortie ouverte compte dans la déduction, efforts rangés ou non : une sortie
+        # d'avant ce lot n'a pas encore les siens, et c'est peut-être elle le meilleur 3 km.
+        own = [
+            (current.model.date, effort.distance_m, effort.duration_s)
+            for effort in analysis.best_efforts(parsed)
+        ]
+        others = [
+            (days[row.model.run_id], row.model.distance_m, row.model.duration_s)
+            for row in stored
+            if row.model.run_id in days and row.model.run_id != current.model.run_id
+        ]
+        reference, missing = await self._zone_reference(parsed, rows, own + others)
+
+        computed = analysis.analyse(
+            parsed, previous_bests=previous, reference=reference, zones_missing=missing
+        )
+        return RunAnalysis.model_validate(computed, from_attributes=True)
+
+    async def _zone_reference(
+        self,
+        parsed: fit.FitRun,
+        rows: list[Row[RunRow]],
+        efforts: list[tuple[date, int, float]],
+    ) -> tuple[analysis.ZoneReference | None, str | None]:
+        """Contre quoi lire les zones : la saisie d'abord, la déduction ensuite (**A9**).
+
+        Une référence déduite **dit d'où elle vient**, à chaque affichage. Sans l'une ni
+        l'autre, pas de zones — et la phrase qui dit ce que coûte le prochain geste.
+        """
+        values = await SettingsService(self._store).values()
+        kind = analysis.zone_kind(parsed)
+
+        if kind == "heart_rate":
+            if values.max_hr is not None:
+                return (
+                    analysis.ZoneReference(
+                        kind=kind,
+                        value=values.max_hr,
+                        source="settings",
+                        detail="FC max saisie dans les réglages.",
+                    ),
+                    None,
+                )
+            seen = [(row.model.max_hr, row.model.date) for row in rows if row.model.max_hr]
+            if parsed.max_hr:
+                seen.append((parsed.max_hr, parsed.day))
+            if seen:
+                highest, day = max(seen, key=lambda item: (item[0] or 0, item[1]))
+                assert highest is not None
+                return (
+                    analysis.ZoneReference(
+                        kind=kind,
+                        value=highest,
+                        source="deduced",
+                        detail=f"FC max la plus haute relevée, le {analysis.day_label(day)} — "
+                        "sans doute sous ta vraie FC max.",
+                    ),
+                    None,
+                )
+            return None, "Pas de zones cardio : aucune FC max relevée ni saisie."
+
+        if values.threshold_pace_min_km is not None:
+            return (
+                analysis.ZoneReference(
+                    kind=kind,
+                    value=values.threshold_pace_min_km,
+                    source="settings",
+                    detail="Allure seuil saisie dans les réglages.",
+                ),
+                None,
+            )
+        deduced = analysis.deduce_threshold(efforts, today_local())
+        if deduced is None:
+            return (
+                None,
+                "Pas de zones sans allure seuil : cours 3 km d'une traite, ou saisis-la "
+                "dans les réglages.",
+            )
+        pace, day, distance = deduced
+        return (
+            analysis.ZoneReference(
+                kind=kind,
+                value=pace,
+                source="deduced",
+                # La phrase se ferme sur l'abréviation du mois : « 13 sept. » porte déjà son
+                # point, et l'écran n'en ajoute aucun — il en écrivait deux.
+                detail=f"Allure seuil estimée depuis ton {analysis.label_of(distance)} du "
+                f"{analysis.day_label(day)}"
+                + ("" if analysis.day_label(day).endswith(".") else "."),
+            ),
+            None,
+        )
+
+    async def rebuild_efforts(self) -> EffortRebuild:
+        """Relit chaque `.fit` rangé et réécrit ses efforts **et ses paliers** (**A5**).
+
+        Les paliers aussi, et c'est ce qui a décidé de la portée : avant ce lot, un palier
+        découpé au kilomètre comptait les pauses du chrono — le dernier du 13/09 affichait
+        7:31 pour un kilomètre couru en 6:08. Réanalyser sans les corriger laisserait la
+        même page montrer une courbe juste et un tableau faux.
+
+        **Idempotent** : les lignes des sorties relues sont remplacées, jamais ajoutées.
+        Une sortie sans `run_id` — importée troué avant ce lot — est laissée : on ne lui
+        fabriquera pas un identifiant qu'aucun palier ne connaît.
+
+        Deux écritures par fichier, sans transaction. Si la seconde échoue, les paliers
+        manquent jusqu'à la prochaine réanalyse — une donnée dérivée, qui se refait.
+        """
+        rows = await self._repo.read_all(fresh=True)
+        efforts: list[RunEffortRow] = []
+        splits_rows: list[RunSplitRow] = []
+        runs = 0
+        for row in rows:
+            model = row.model
+            if not model.fit_path or not model.run_id:
+                continue
+            try:
+                parsed = fit.read(await self._fit_bytes(row.index))
+                payload = _fit_payload(parsed)
+            except (StorageNotFoundError, fit.FitError):
+                # Un fichier disparu ou devenu illisible ne bloque pas les autres sorties.
+                continue
+            runs += 1
+            efforts.extend(_effort_rows(model.run_id, analysis.best_efforts(parsed)))
+            if payload.splits:
+                splits_rows.extend(_split_rows(model.run_id, payload))
+
+        rebuilt = {row.model.run_id for row in rows if row.model.fit_path and row.model.run_id}
+        await self._efforts.remove_where(lambda item: item.run_id in rebuilt)
+        if efforts:
+            await self._efforts.extend(efforts)
+        await self._splits.remove_where(lambda item: item.run_id in rebuilt)
+        if splits_rows:
+            await self._splits.extend(splits_rows)
+        return EffortRebuild(runs=runs, efforts=len(efforts), splits=len(splits_rows))
+
+    async def fit_file(self, index: int) -> tuple[bytes, str]:
+        """Le fichier tel qu'il est arrivé, et le nom sous lequel le proposer."""
+        rows = await self._repo.read_all()
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette course n'existe pas.")
+        model = rows[index].model
+        return await self._fit_bytes(index), f"course-{model.date:%Y-%m-%d}.fit"
+
+    async def _fit_bytes(self, index: int) -> bytes:
+        rows = await self._repo.read_all()
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette course n'existe pas.")
+        relative = rows[index].model.fit_path
+        if not relative:
+            # Une course saisie au clavier n'a pas de fichier, et ce n'est pas une panne :
+            # l'écran ne demande le tracé que lorsque `fit_path` n'est pas vide.
+            raise StorageNotFoundError("Cette course n'a pas de fichier .fit.")
+        return await self._store.read_binary(fit.storage_path(relative))
+
+    async def _delete_fit(self, relative: str) -> None:
+        try:
+            await self._store.delete(fit.storage_path(relative))
+        except StorageNotFoundError:
+            # Un chemin que la ligne portait mais qui ne désigne plus rien : la course est
+            # déjà partie, et il n'y a rien à réparer.
+            return
+
+    async def _refuse_duplicate(self, parsed: fit.FitRun) -> None:
+        """Refuse le **même fichier** réimporté, jamais une course qui lui ressemble.
+
+        Trois égalités et une tolérance de dix mètres : même jour, même heure de départ à
+        la seconde, même distance. C'est l'identité d'un enregistrement, pas une
+        similitude — deux sorties du même matin diffèrent d'au moins une minute de départ.
+
+        La détection de doublon de l'import Apple (`IMP-04`) est plus large, à la minute
+        près sur la durée, et **avertit** au lieu de refuser. Elle le peut : un écran
+        s'interpose. Ici rien ne s'interpose, alors le filet est plus étroit et il bloque.
+        """
+        if parsed.start is None:
+            return
+        for row in await self._repo.read_all(fresh=True):
+            model = row.model
+            if model.date != parsed.day or model.start_time is None:
+                continue
+            if model.start_time.replace(microsecond=0) != parsed.start:
+                continue
+            if abs(model.distance_km - parsed.distance_km) > 0.01:
+                continue
+            # `fr` et non un format Python : ces messages s'affichent tels quels (`API-07`)
+            # et un point décimal anglais au milieu d'une phrase française est une couture
+            # visible. Trouvé à l'écran, pas par un test.
+            raise fit.FitError(
+                f"Cette sortie est déjà enregistrée : le {model.date:%d/%m} à "
+                f"{model.start_time:%H:%M}, {fr(model.distance_km)} km. "
+                "Supprime-la d'abord si tu veux la réimporter."
+            )
 
     # ── Paliers (`ACT-19`) ────────────────────────────
 
@@ -261,25 +585,52 @@ class RunService:
         """
         rows = await self._repo.read_all()
         counts: dict[str, int] = {}
+        stored_efforts: list[Row[RunEffortRow]] = []
         if any(row.model.run_id for row in rows):
             for split in await self._splits.read_all():
                 key = split.model.run_id
                 counts[key] = counts.get(key, 0) + 1
+            stored_efforts = await self._efforts.read_all()
 
-        computed = progress.analyse(
-            [
-                progress.Sortie(
-                    index=row.index,
-                    day=row.model.date,
-                    distance_km=row.model.distance_km,
-                    duration_min=row.model.duration_min,
-                    pace_min_km=row.model.pace_min_km
-                    or pace_min_per_km(row.model.distance_km, row.model.duration_min),
-                    cadence_spm=row.model.cadence_spm,
-                )
-                for row in rows
-            ]
+        sorties = [
+            progress.Sortie(
+                index=row.index,
+                day=row.model.date,
+                distance_km=row.model.distance_km,
+                duration_min=row.model.duration_min,
+                pace_min_km=row.model.pace_min_km
+                or pace_min_per_km(row.model.distance_km, row.model.duration_min),
+                cadence_spm=row.model.cadence_spm,
+            )
+            for row in rows
+        ]
+        computed = progress.analyse(sorties)
+
+        owners = {row.model.run_id: row for row in rows if row.model.run_id}
+        efforts = [
+            progress.EffortInput(
+                index=owners[item.model.run_id].index,
+                day=owners[item.model.run_id].model.date,
+                distance_m=item.model.distance_m,
+                duration_s=item.model.duration_s,
+            )
+            for item in stored_efforts
+            if item.model.run_id in owners
+        ]
+        labels = dict(analysis.EFFORTS)
+        analysed = {item.model.run_id for item in stored_efforts}
+        # « À réanalyser » : importée d'un `.fit`, découpée en paliers, et sans efforts —
+        # c'est exactement une sortie d'avant ce lot. Une sortie trouée n'a ni paliers ni
+        # efforts, et ne doit pas faire revenir le bouton à chaque ouverture.
+        pending = sum(
+            1
+            for row in rows
+            if row.model.fit_path
+            and row.model.run_id
+            and counts.get(row.model.run_id)
+            and row.model.run_id not in analysed
         )
+        found_weeks = progress.weeks(sorties, today_local())
 
         return RunProgress(
             # La plus récente d'abord : c'est celle qu'on vient voir, et la liste se lit
@@ -334,6 +685,25 @@ class RunService:
             pace_domain_min_km=computed.pace_domain_min_km,
             volume_domain_km=computed.volume_domain_km,
             distance_domain_km=computed.distance_domain_km,
+            records=[
+                EffortRecord.model_validate(item, from_attributes=True)
+                for item in progress.records(efforts, labels)
+            ],
+            effort_series=[
+                EffortSeries(
+                    distance_m=series.distance_m,
+                    label=series.label,
+                    marks=[
+                        EffortMark.model_validate(mark, from_attributes=True)
+                        for mark in series.marks
+                    ],
+                    pace_domain_min_km=series.pace_domain_min_km,
+                )
+                for series in progress.effort_series(efforts, labels)
+            ],
+            efforts_pending=pending,
+            weeks=[RunWeek.model_validate(week, from_attributes=True) for week in found_weeks],
+            week_domain_km=progress.week_domain(found_weeks),
         )
 
     async def _detail_of(self, row: Row[RunRow]) -> RunDetail:
@@ -357,6 +727,69 @@ class RunService:
         rows = await self._splits.read_all()
         found = [row.model for row in rows if row.model.run_id == run_id]
         return sorted(found, key=lambda row: row.index)
+
+
+def _fit_payload(parsed: fit.FitRun) -> RunPayload:
+    """Le décodage traduit en saisie, pour repasser par le chemin de tout le monde.
+
+    Rien de ce qui suit n'est particulier à un `.fit` : bornes des champs, allure calculée
+    depuis la distance, reliquat reconnu, longueurs de paliers posées. Construire un
+    `RunRow` directement aurait été plus court et aurait donné au format un deuxième
+    vocabulaire pour dire ce que `RunPayload` dit déjà.
+
+    **L'allure n'est pas transmise.** Le schéma la fait gagner sur la distance quand les
+    deux arrivent, et recalculerait alors une distance depuis un arrondi à la milliseconde
+    — là où le fichier porte la distance mesurée au décimètre. On donne la mesure, le
+    serveur en déduit le reste (`ACT-02`).
+
+    Une `ValidationError` ici est un **fichier** invalide, pas une panne : elle arrive d'un
+    `.fit` daté demain par une montre mal réglée, ou d'une distance hors bornes. Sans cette
+    reprise, elle remonterait en 500 au lieu du message que `FitError` sait rendre.
+    """
+    try:
+        return RunPayload(
+            date=parsed.day,
+            duration_min=parsed.duration_min,
+            distance_km=parsed.distance_km,
+            elevation_m=parsed.elevation_m,
+            cadence_spm=parsed.cadence_spm,
+            avg_hr=parsed.avg_hr,
+            # `total_calories` reste vide : le FIT ne compte que la dépense de la séance,
+            # et la ranger sous « totales » la mélangerait aux valeurs d'une capture Apple,
+            # qui comprennent le métabolisme de base.
+            active_calories=parsed.active_calories,
+            start_time=parsed.start,
+            end_time=parsed.end,
+            split_length_km=parsed.split_length_km,
+            splits=[
+                RunSplitPayload(
+                    index=item.index,
+                    duration_s=item.duration_s,
+                    pace_min_km=item.pace_min_km,
+                    cadence_spm=item.cadence_spm,
+                    avg_hr=item.avg_hr,
+                    elevation_m=item.elevation_m,
+                )
+                for item in parsed.splits
+            ],
+        )
+    except ValidationError as error:
+        raise fit.FitError(
+            "Ce fichier .fit porte des valeurs que l'application ne peut pas enregistrer "
+            "(date à venir, distance ou durée hors bornes)."
+        ) from error
+
+
+def _effort_rows(run_id: str, efforts: Sequence[analysis.Effort]) -> list[RunEffortRow]:
+    return [
+        RunEffortRow(
+            run_id=run_id,
+            distance_m=effort.distance_m,
+            duration_s=effort.duration_s,
+            start_km=effort.start_km,
+        )
+        for effort in efforts
+    ]
 
 
 def _split_rows(run_id: str, payload: RunPayload) -> list[RunSplitRow]:
@@ -677,7 +1110,14 @@ class CircuitService:
     #: saisie est déjà bornée à 60 ; la **composée** peut la dépasser en y ajoutant la
     #: charge, et c'est le seul endroit où ça se produit. Couper ici plutôt que laisser
     #: Cadence pousser le reste hors de l'écran de quelqu'un qui force.
-    NOTE_MAX = 72
+    #:
+    #: Le nombre vit dans les schémas depuis que la borne d'un lien importé s'en déduit —
+    #: il est repris ici pour que `note_of` se lise d'un bloc.
+    NOTE_MAX = CIRCUIT_LINK_NOTE_MAX
+
+    #: La charge telle que `note_of` la compose, et rien d'autre : des chiffres, une
+    #: virgule décimale française, « kg ». Sert à la **retirer** d'une note relue.
+    CHARGE = re.compile(r"^\d+(?:,\d+)? kg(?: · |$)")
 
     @classmethod
     def note_of(cls, load: CircuitLoadRow | None, typed: str = "") -> str:
@@ -711,6 +1151,28 @@ class CircuitService:
         )
         parts = [part for part in (charge, typed.strip()) if part]
         return cls.NOTE_JOIN.join(parts)[: cls.NOTE_MAX]
+
+    @classmethod
+    def typed_note(cls, note: str) -> str:
+        """Ce qu'il reste d'une note **relue** une fois la charge retirée.
+
+        L'inverse exact de `note_of`, et il est ici pour ça : les deux se lisent l'un sous
+        l'autre, donc ils ne peuvent pas se décoller. Le jour où la composition change, la
+        lecture a la ligne suivante sous les yeux.
+
+        **C8 tient, et se précise.** La décision disait « à l'import, la note est ignorée »,
+        pour que « 12 kg » ne redevienne jamais une charge de `12.0` — deviner un nombre
+        dans un texte libre est la faute silencieuse que le dépôt refuse partout. Aucune
+        charge n'est relue, et ce point ne bouge pas. Mais tout jeter avec elle jetait aussi
+        « Gauche », « Tour 1/3 », « genoux au sol » — ce que le lien portait de plus utile,
+        et ce qu'aucune autre colonne ne peut reconstituer. Un lien de trente-neuf
+        exercices arrivait en trente-neuf lignes dont douze paires indiscernables.
+
+        Ce qui ressemble à une charge est donc **retiré**, jamais converti : une note
+        réécrite par le prochain lien ne se doublera pas, et une charge saisie ensuite
+        reprend sa place.
+        """
+        return cls.CHARGE.sub("", note.strip())[:CIRCUIT_NOTE_MAX]
 
     @classmethod
     def _to_link(
@@ -1017,6 +1479,27 @@ class CircuitService:
                 "Ce lien ne contient pas de séance lisible.", detail="lien Cadence illisible"
             )
 
+        # Cadence ne borne ni le nombre d'exercices ni la longueur d'un nom ; Metric, si.
+        # Sans ces deux refus, `CircuitPayload` levait une `ValidationError` de pydantic
+        # **à l'intérieur** du service : elle ne passe par aucun gestionnaire de `MetricError`
+        # et ressortait en `500`, c'est-à-dire en panne, pour une saisie à corriger. Le
+        # message nomme celle des deux bornes qui a cédé — « données invalides » ne dit pas
+        # quoi raccourcir.
+        if len(parsed.exercises) > CIRCUIT_EXERCISES_MAX:
+            raise ValidationFailedError(
+                f"Cette séance a {len(parsed.exercises)} exercices ; un circuit en accepte "
+                f"{CIRCUIT_EXERCISES_MAX} au plus.",
+                detail="lien Cadence trop chargé",
+            )
+
+        names = (parsed.name, *(item.name for item in parsed.exercises))
+        long_name = next((name for name in names if len(name) > LABEL_MAX), "")
+        if long_name:
+            raise ValidationFailedError(
+                f"« {long_name[:40]}… » : ce nom dépasse {LABEL_MAX} caractères.",
+                detail="nom trop long dans un lien Cadence",
+            )
+
         return await self.create(
             CircuitPayload(
                 name=parsed.name,
@@ -1034,6 +1517,9 @@ class CircuitService:
                         duration_s=exercise.duration_s if exercise.timed else None,
                         reps=None if exercise.timed else exercise.reps,
                         rest_s=exercise.rest_s,
+                        # La note survit à l'import, sa charge non — `typed_note` dit
+                        # pourquoi les deux ne se traitent pas pareil.
+                        note=self.typed_note(exercise.note),
                     )
                     for exercise in parsed.exercises
                 ],

@@ -202,6 +202,43 @@ def _with_workout(base: str, workout: str) -> str:
     return f"{base}{'&' if '?' in base else '?'}w={workout}"
 
 
+#: Le caractère le plus cher à encoder : quatre octets, donc douze caractères une fois
+#: échappé. Le pire cas n'est pas théorique — §3 admet explicitement les emoji dans un nom.
+_WIDEST = "\U0001f600"
+
+
+def longest_url(*, base: int, exercises: int, name: int, note: int) -> int:
+    """La longueur du plus long lien que `build_url` puisse produire.
+
+    **Elle se mesure, elle ne s'écrit pas.** Le champ d'import portait un `2000` sans
+    origine, et il était faux de moitié : un circuit de quarante exercices notés donne un
+    lien de plus de quatre mille caractères. Metric fabriquait donc des adresses qu'il
+    refusait ensuite de relire, et l'écran n'affichait que le « données invalides »
+    générique du 422 — un refus qui ne dit pas ce qu'il refuse.
+
+    Passer par `build_url` plutôt que par une formule est délibéré : une formule recopierait
+    les séparateurs, le suffixe et l'échappement, et se décollerait du générateur au premier
+    ajustement. Ici, le jour où le format gagne un champ, la borne le suit toute seule.
+    """
+    worst = LinkCircuit(
+        name=_WIDEST * name,
+        rounds=ROUNDS[1],
+        round_rest_s=ROUND_REST_S[1],
+        exercises=tuple(
+            LinkExercise(
+                name=_WIDEST * name,
+                duration_s=DURATION_S[1],
+                rest_s=REST_S[1],
+                note=_WIDEST * note,
+            )
+            for _ in range(exercises)
+        ),
+    )
+    url = build_url("x" * base, worst)
+    assert url is not None  # `exercises` est toujours >= 1 ici, et le nom n'est pas vide.
+    return len(url)
+
+
 def _whole(raw: str, fallback: int) -> int:
     """Entier d'un segment, avec repli. Un champ illisible ne perd pas la séance (§4)."""
     try:

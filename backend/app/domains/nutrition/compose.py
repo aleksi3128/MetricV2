@@ -45,11 +45,15 @@ def compose(lines: list[IngredientLine]) -> Composition:
     calories = sum(_share(line.calories_100g, line.quantity_g) for line in lines)
     protein = sum(_share(line.protein_100g, line.quantity_g) for line in lines)
     sugar = sum(_share(line.added_sugar_100g, line.quantity_g) for line in lines)
+    saturated = sum(_share(line.saturated_fat_100g, line.quantity_g) for line in lines)
+    fiber = sum(_share(line.fiber_100g, line.quantity_g) for line in lines)
 
     known = any(
         line.calories_100g is not None
         or line.protein_100g is not None
         or line.added_sugar_100g is not None
+        or line.saturated_fat_100g is not None
+        or line.fiber_100g is not None
         for line in lines
     )
 
@@ -61,11 +65,15 @@ def compose(lines: list[IngredientLine]) -> Composition:
                 calories=round(_share(line.calories_100g, line.quantity_g)),
                 protein_g=round(_share(line.protein_100g, line.quantity_g), 1),
                 added_sugar_g=round(_share(line.added_sugar_100g, line.quantity_g), 1),
+                saturated_fat_g=round(_share(line.saturated_fat_100g, line.quantity_g), 1),
+                fiber_g=round(_share(line.fiber_100g, line.quantity_g), 1),
             )
             for line in lines
         ],
         calories=round(calories),
         protein_g=round(protein, 1),
         added_sugar_g=round(sugar, 1),
+        saturated_fat_g=round(saturated, 1),
+        fiber_g=round(fiber, 1),
         empty=not known,
     )

@@ -26,7 +26,7 @@ Trois réponses, et aucune n'est de cacher la courbe :
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 
 #: Bornes des bandes de distance, en kilomètres. Trois seulement : elles doivent contenir
 #: assez de sorties pour qu'un « meilleur temps » veuille dire quelque chose, et un
@@ -294,3 +294,170 @@ def _window(ordered: list[Sortie]) -> Window:
         previous_distance_km=_round(previous_distance),
         distance_delta_km=_round(recent_distance - previous_distance),
     )
+
+
+# ── Meilleurs efforts et semaines (`docs/analyse-course.md`) ──
+
+
+#: Semaines montrées par la courbe de volume. Douze tiennent sur 390 px sans que les barres
+#: se touchent, et couvrent un cycle d'entraînement.
+WEEKS = 12
+
+
+@dataclass(frozen=True, slots=True)
+class EffortInput:
+    """Un meilleur effort rangé, rattaché à sa course par sa position et son jour."""
+
+    index: int
+    day: date
+    distance_m: int
+    duration_s: float
+
+
+@dataclass(frozen=True, slots=True)
+class EffortRecord:
+    distance_m: int
+    label: str
+    duration_s: float
+    pace_min_km: float
+    day: date
+    run: int
+    runs: int
+
+
+@dataclass(frozen=True, slots=True)
+class EffortMark:
+    day: date
+    run: int
+    duration_s: float
+    pace_min_km: float
+    record: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EffortSeries:
+    distance_m: int
+    label: str
+    marks: list[EffortMark]
+    pace_domain_min_km: tuple[float, float] | None
+
+
+@dataclass(frozen=True, slots=True)
+class Week:
+    week: date
+    runs: int
+    distance_km: float
+    minutes: float
+
+
+def _by_distance(efforts: list[EffortInput]) -> dict[int, list[EffortInput]]:
+    grouped: dict[int, list[EffortInput]] = {}
+    for effort in sorted(efforts, key=lambda item: (item.day, item.index)):
+        grouped.setdefault(effort.distance_m, []).append(effort)
+    return dict(sorted(grouped.items()))
+
+
+def _pace(effort: EffortInput) -> float:
+    return round(effort.duration_s / 60 / (effort.distance_m / 1000), 4)
+
+
+def records(efforts: list[EffortInput], labels: dict[int, str]) -> list[EffortRecord]:
+    """Le meilleur temps de l'historique sur chaque distance, la plus courte d'abord.
+
+    **À égalité, le plus ancien garde le record** : le battre demande de faire mieux, pas
+    aussi bien. C'est aussi ce qui empêche un record de changer de jour d'une lecture à
+    l'autre selon l'ordre des lignes.
+    """
+    found: list[EffortRecord] = []
+    for distance, group in _by_distance(efforts).items():
+        best = min(group, key=lambda item: item.duration_s)
+        found.append(
+            EffortRecord(
+                distance_m=distance,
+                label=labels.get(distance, f"{distance} m"),
+                duration_s=best.duration_s,
+                pace_min_km=_pace(best),
+                day=best.day,
+                run=best.index,
+                runs=len({item.index for item in group}),
+            )
+        )
+    return found
+
+
+def effort_series(efforts: list[EffortInput], labels: dict[int, str]) -> list[EffortSeries]:
+    """La progression sur chaque distance courue au moins deux fois.
+
+    `record` marque les efforts qui battaient **tout ce qui précédait** : c'est la
+    lecture d'une progression, là où le record de l'historique ne dit que le sommet.
+    """
+    series: list[EffortSeries] = []
+    for distance, group in _by_distance(efforts).items():
+        if len(group) < 2:
+            continue
+        marks: list[EffortMark] = []
+        best: float | None = None
+        for effort in group:
+            beaten = best is not None and effort.duration_s < best
+            marks.append(
+                EffortMark(
+                    day=effort.day,
+                    run=effort.index,
+                    duration_s=effort.duration_s,
+                    pace_min_km=_pace(effort),
+                    record=beaten,
+                )
+            )
+            best = effort.duration_s if best is None else min(best, effort.duration_s)
+        series.append(
+            EffortSeries(
+                distance_m=distance,
+                label=labels.get(distance, f"{distance} m"),
+                marks=marks,
+                pace_domain_min_km=_domain([mark.pace_min_km for mark in marks], inverted=True),
+            )
+        )
+    return series
+
+
+def weeks(sorties: list[Sortie], today: date, count: int = WEEKS) -> list[Week]:
+    """Le volume des dernières semaines, **semaines vides comprises**.
+
+    C'est l'inverse du choix de `_months`, et la différence tient à l'unité. Un mois vide
+    entre deux mois courus disait surtout que l'application n'enregistrait pas encore ;
+    une semaine vide au milieu d'un entraînement est **l'information** — la coupure qu'on
+    vient chercher sur une courbe de volume. L'omettre dessinerait huit semaines contiguës
+    là où il y en a eu douze, c'est-à-dire une régularité inventée.
+
+    La courbe ne remonte pas avant la première sortie : des semaines vides **avant** qu'on
+    ait commencé à courir ne diraient rien d'autre que la date d'installation.
+    """
+    if not sorties:
+        return []
+    current = today - timedelta(days=today.weekday())
+    first = min(item.day for item in sorties)
+    start = max(current - timedelta(weeks=count - 1), first - timedelta(days=first.weekday()))
+
+    found: list[Week] = []
+    monday = start
+    while monday <= current:
+        inside = [item for item in sorties if monday <= item.day < monday + timedelta(days=7)]
+        found.append(
+            Week(
+                week=monday,
+                runs=len(inside),
+                distance_km=round(sum(item.distance_km for item in inside), 2),
+                minutes=round(sum(item.duration_min for item in inside), 1),
+            )
+        )
+        monday += timedelta(days=7)
+    return found
+
+
+def week_domain(found: list[Week]) -> tuple[float, float] | None:
+    """Zéro en bas, toujours : un volume se lit depuis rien, et une barre de semaine vide
+    doit toucher le sol plutôt que flotter à mi-hauteur."""
+    if len(found) < 2:
+        return None
+    top = max(week.distance_km for week in found)
+    return (0.0, round(top, 2)) if top > 0 else None

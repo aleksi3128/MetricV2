@@ -60,19 +60,27 @@
 
 /* ── Hydratation ──────────────────────────────────── */
 
+/* L'anneau a la ligne pour lui depuis que les volumes sont montés au-dessus : son détail
+   — « moyenne 7 j » — se posait à côté d'un bloc de boutons, dans ce qui restait. */
 .hydration {
   display: flex;
   align-items: center;
   gap: var(--s5);
   flex-wrap: wrap;
-  margin-top: var(--s4);
+  margin-top: var(--s5);
 }
 
+/* Une rangée pleine largeur, autant de colonnes que la place en tient.
+
+   `minmax(72px, 1fr)` : quatre volumes dans une carte de 336 px reçoivent 78 px chacun,
+   de quoi écrire « + 750 ml » en chasse fixe réduite ; un cinquième les ferait passer à
+   deux rangées plutôt que de tronquer le dernier. Le plancher tactile est tenu par la
+   hauteur, qui ne dépend pas du nombre. */
 .presets {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: var(--s2);
-  flex-wrap: wrap;
-  flex: 1;
+  margin-top: var(--s4);
 }
 
 .preset {
@@ -82,10 +90,13 @@
   color: var(--ink);
   cursor: pointer;
   font-family: var(--mono);
-  font-size: var(--t-sub);
-  padding: 14px 18px;
+  font-size: var(--t-meta);
+  /* Le rembourrage horizontal ne fait plus la largeur — la colonne s'en charge — et
+     `min-width` non plus : un bouton qui refuse de descendre sous 84 px force la rangée
+     à se replier là où 78 lui suffisaient. La hauteur, elle, tient le plancher tactile. */
+  padding: 15px 6px;
   transition: var(--t);
-  min-width: 84px;
+  white-space: nowrap;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -106,16 +117,22 @@
   cursor: progress;
 }
 
+/* **Une prise par ligne, pleine largeur.** En pastilles qui s'enroulent, chacune
+   demandait 173 px : deux n'entraient pas dans les 336 d'une carte de téléphone, et la
+   liste s'affichait donc à une par ligne quand même — mais calée à gauche, avec 163 px de
+   vide en face. Autant l'assumer et rendre la ligne entière, l'heure d'un côté et son
+   retrait de l'autre. */
 .intakes {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: var(--s2);
   margin-top: var(--s4);
 }
 
 .intake {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   border: 1px solid var(--line-soft);
   border-radius: var(--r-sm);

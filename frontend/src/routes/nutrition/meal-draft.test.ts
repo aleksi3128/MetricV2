@@ -28,6 +28,8 @@ function draft(fields: Partial<MealDraft> = {}): MealDraft {
       protein_g: '',
       added_sugar_g: '',
       calories: '',
+      saturated_fat_g: '',
+      fiber_g: '',
       source: 'manual',
     },
     rows: [emptyIngredient()],
@@ -141,6 +143,8 @@ describe('la relecture', () => {
           protein_g: 32,
           added_sugar_g: null,
           calories: 640,
+          saturated_fat_g: null,
+          fiber_g: 9,
           readable: true,
           empty: false,
         },
@@ -151,6 +155,29 @@ describe('la relecture', () => {
     expect(back?.proposed).toEqual(['protein_g']);
     expect(back?.values.source).toBe('ai');
     expect(back?.estimate?.calories).toBe(640);
+    expect(back?.estimate?.fiber_g).toBe(9);
+  });
+
+  it('range des fibres tapées seules', () => {
+    // `NUT-16` : une valeur de plus est une raison de plus de garder la saisie. Oubliée
+    // ici, elle serait perdue au premier pouce qui dérape sur le voile.
+    expect(worthKeeping(draft({ values: { ...draft().values, comment: '', fiber_g: '8' } }))).toBe(
+      true,
+    );
+  });
+
+  it('relit un brouillon d’avant les fibres avec deux champs vides', () => {
+    const older = {
+      meal_type: 'déjeuner',
+      comment: 'lentilles',
+      protein_g: '20',
+      source: 'manual',
+    };
+    localStorage.setItem('metric.meal-draft', JSON.stringify({ ...draft(), values: older }));
+
+    const back = readDraft(1_000_000);
+    expect(back?.values.saturated_fat_g).toBe('');
+    expect(back?.values.fiber_g).toBe('');
   });
 
   it('ne rend rien d’un texte abîmé', () => {

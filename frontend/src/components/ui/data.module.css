@@ -73,8 +73,12 @@
   display: grid;
   /* Les colonnes fixes réservaient 166 px des 313 disponibles dans une carte à 390 px :
      la barre elle-même, c'est-à-dire la donnée, en recevait moins de la moitié. Le
-     libellé se contente maintenant de ce qu'il lui faut, et cède le reste. */
-  grid-template-columns: minmax(0, 4.5rem) 1fr max-content;
+     libellé se contente maintenant de ce qu'il lui faut, et cède le reste.
+
+     4,5 rem est le plafond d'une carte de téléphone, pas une loi : un appelant qui a la
+     largeur — les deux lectures d'habitude de `/nutrition` ne s'affichent qu'au-delà de
+     600 px — pose `--bar-label` plutôt que de laisser tronquer « petit-déjeuner ». */
+  grid-template-columns: minmax(0, var(--bar-label, 4.5rem)) 1fr max-content;
   align-items: center;
   gap: 10px;
   font-family: var(--mono);

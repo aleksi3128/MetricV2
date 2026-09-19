@@ -61,6 +61,32 @@
   width: max-content;
 }
 
+/* Les mêmes cellules, dans le même ordre du document, tournées d'un quart : sept colonnes
+   de jours, une rangée par semaine. Un mois y tient en cinq rangées au lieu de sept, et
+   remplit la largeur au lieu d'occuper un cinquième de la carte.
+
+   Rien à transposer côté données : `days` est déjà chronologique et chaque semaine part
+   d'un lundi, donc un remplissage par rangées de sept donne un calendrier. */
+.gridCalendar {
+  grid-auto-flow: row;
+  grid-template-rows: none;
+  /* **Sept parts égales, et non sept fois `--heat-cell`.** Une largeur fixe se règle pour
+     un écran et déborde sur le voisin : sept colonnes de 50 px demandent 380 px là où une
+     carte de 402 en offre 336, et la grille se mettait à défiler — en s'ouvrant sur sa
+     fin, elle escamotait le lundi. Un mois a toujours sept colonnes : elles peuvent donc
+     se partager la largeur au lieu de la demander. */
+  grid-template-columns: repeat(7, 1fr);
+  width: 100%;
+}
+
+/* Carrées par leur rapport, et non par deux longueurs : c'est la colonne qui donne la
+   largeur, et la hauteur suit. */
+.gridCalendar .cell {
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+}
+
 .cell {
   width: var(--heat-cell);
   height: var(--heat-cell);
@@ -198,9 +224,26 @@
   width: max-content;
 }
 
+/* Les sept initiales en tête de calendrier, alignées sur les colonnes de la grille.
+   Elles réemploient la rangée des mois — même hauteur, même retrait, même encre : deux
+   règles pour deux rangées d'en-tête auraient dérivé l'une de l'autre. */
+.dayHead {
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--heat-gap);
+  text-align: center;
+  width: 100%;
+}
+
 .month {
   text-align: left;
   white-space: nowrap;
+}
+
+/* Le dernier mois s'aligne par sa droite. Il n'a souvent qu'une colonne — la semaine en
+   cours — pour un mot qui en demande deux, et le cadre le rognait en « SEP ». Aligné par
+   la fin, il déborde vers l'intérieur de la grille, où rien ne le coupe. */
+.month:last-child {
+  text-align: right;
 }
 
 .legend {
@@ -229,9 +272,16 @@
   width: 10px;
 }
 
+/* Alignée à droite dès qu'il y a la place : une grille annuelle remplit sa carte, et sa
+   légende se lit alors au bout de la dernière semaine.
+
+   La variable, parce qu'une grille de **cinq** colonnes ne remplit rien : la légende de
+   la plage mensuelle de `/nutrition` se retrouvait au bord droit d'une carte dont les
+   cellules s'arrêtaient au tiers. C'est l'appelant qui sait quelle largeur sa grille
+   occupe, comme pour `--heat-cell`. */
 @media (min-width: 600px) {
   .legend {
-    justify-content: flex-end;
+    justify-content: var(--heat-legend, flex-end);
   }
 }
 

@@ -65,6 +65,7 @@ import {
   type MealMode,
 } from './meal-draft';
 import { FoodDetail } from './FoodDetail';
+import { NUTRIENTS } from './nutrients';
 import { ScanStep } from './ScanStep';
 
 /* `Macro` et `MealMode` vivent dans `meal-draft.ts` : c'est lui qui doit les reconnaître
@@ -76,7 +77,7 @@ const MODES: { value: MealMode; label: string; hint: string }[] = [
   { value: 'photo-texte', label: 'Photo et description', hint: 'le plus précis' },
   { value: 'texte', label: 'Description', hint: 'sans photo' },
   { value: 'compose', label: 'Repas composé', hint: 'ingrédients pour 100 g et quantités' },
-  { value: 'manuel', label: 'Valeurs à la main', hint: 'protéines, sucres, calories' },
+  { value: 'manuel', label: 'Valeurs à la main', hint: 'protéines, calories, fibres…' },
 ];
 
 /** Les deux modes qui n'appellent aucun modèle, et restent donc offerts sans clé. */
@@ -111,6 +112,8 @@ const EMPTY: MealFormValues = {
   protein_g: '',
   added_sugar_g: '',
   calories: '',
+  saturated_fat_g: '',
+  fiber_g: '',
   photo: null,
   source: 'manual',
 };
@@ -339,17 +342,11 @@ export function MealSheet({
     const filled: Macro[] = [];
     setValues((current) => {
       const next = { ...current, source: 'ai' as const };
-      if (result.protein_g !== null) {
-        next.protein_g = fieldText(result.protein_g);
-        filled.push('protein_g');
-      }
-      if (result.added_sugar_g !== null) {
-        next.added_sugar_g = fieldText(result.added_sugar_g);
-        filled.push('added_sugar_g');
-      }
-      if (result.calories !== null) {
-        next.calories = fieldText(result.calories);
-        filled.push('calories');
+      for (const { key } of NUTRIENTS) {
+        const value = result[key];
+        if (value === null) continue;
+        next[key] = fieldText(value);
+        filled.push(key);
       }
       // La description ne remplace jamais celle qui a été tapée : ce qu'on écrit soi-même
       // décrit mieux son repas que ce qu'un modèle voit sur une photo.
@@ -666,6 +663,8 @@ export function MealSheet({
                   calories={total.calories}
                   proteinG={total.protein_g}
                   addedSugarG={total.added_sugar_g}
+                  saturatedFatG={total.saturated_fat_g}
+                  fiberG={total.fiber_g}
                   empty={total.empty}
                 />
               )}
@@ -740,34 +739,19 @@ export function MealSheet({
               trois champs modifiables à côté d'un total calculé laisseraient croire qu'on
               peut avoir les deux — alors que l'enregistrement recalcule. */}
           <div className={cx(styles.triple, composing && styles.hidden)} hidden={composing}>
-            <Stepper
-              label="Protéines (g)"
-              value={values.protein_g}
-              onChange={setMacro('protein_g')}
-              step={5}
-              min={0}
-              proposed={proposed.includes('protein_g')}
-              error={error?.messageFor('protein_g')}
-            />
-            <Stepper
-              label="Sucres (g)"
-              value={values.added_sugar_g}
-              onChange={setMacro('added_sugar_g')}
-              step={5}
-              min={0}
-              proposed={proposed.includes('added_sugar_g')}
-              error={error?.messageFor('added_sugar_g')}
-            />
-            <Stepper
-              label="Calories"
-              inputMode="numeric"
-              value={values.calories}
-              onChange={setMacro('calories')}
-              step={50}
-              min={0}
-              proposed={proposed.includes('calories')}
-              error={error?.messageFor('calories')}
-            />
+            {NUTRIENTS.map((nutrient) => (
+              <Stepper
+                key={nutrient.key}
+                label={nutrient.field}
+                inputMode={nutrient.inputMode}
+                value={values[nutrient.key]}
+                onChange={setMacro(nutrient.key)}
+                step={nutrient.step}
+                min={0}
+                proposed={proposed.includes(nutrient.key)}
+                error={error?.messageFor(nutrient.key)}
+              />
+            ))}
           </div>
 
           <div className={styles.sheetCommit}>

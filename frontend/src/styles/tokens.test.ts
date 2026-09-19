@@ -153,8 +153,14 @@ describe('composantes RVB', () => {
  * `--media-bg` est le fond des GIF de démonstration servis par Cadence. Ces images ont un
  * fond blanc cuit dedans : le panneau s'accorde au média, pas à la page. Le teinter
  * dessinerait un liseré autour du mouvement, dans un thème comme dans l'autre.
+ *
+ * `--story-light`, `--story-dark` et `--story-violet` sont des encres d'image de story
+ * (`docs/story-course.md`). Elles ne se posent pas sur le fond de l'application mais sur
+ * la photo de l'utilisateur, et c'est **lui** qui choisit laquelle. Les faire suivre le
+ * thème donnerait une story blanche le jour et noire la nuit sans que rien ne l'ait
+ * demandé.
  */
-const THEME_INDEPENDENT = ['--media-bg'];
+const THEME_INDEPENDENT = ['--media-bg', '--story-light', '--story-dark', '--story-violet'];
 
 describe('thème clair', () => {
   it('redéfinit chaque token de couleur du thème sombre', () => {

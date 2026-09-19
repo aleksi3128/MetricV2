@@ -18,24 +18,10 @@
  */
 
 import { Button } from '@/components/ui';
-import { num } from '@/lib/format';
 
 import styles from '../Nutrition.module.css';
-import { hasValues, type IngredientDraft } from './ingredient-draft';
-
-/** Une valeur pour 100 g, ou un tiret. Jamais un zéro, qui passerait pour une mesure. */
-function Value({ label, value, unit }: { label: string; value: string; unit: string }) {
-  const parsed = value.trim() === '' ? null : Number.parseFloat(value.replace(',', '.'));
-
-  return (
-    <div className={styles.detailValue}>
-      <span className={styles.detailValueHead}>{label}</span>
-      <strong>
-        {parsed === null || !Number.isFinite(parsed) ? '—' : `${num(parsed, 1)} ${unit}`}
-      </strong>
-    </div>
-  );
-}
+import { decimal, hasValues, type IngredientDraft } from './ingredient-draft';
+import { NutrientGrid } from './NutrientGrid';
 
 export function FoodDetail({ row, onBack }: { row: IngredientDraft; onBack: () => void }) {
   return (
@@ -52,11 +38,15 @@ export function FoodDetail({ row, onBack }: { row: IngredientDraft; onBack: () =
       {hasValues(row) ? (
         <div className={styles.detailValues}>
           <span className={styles.detailValuesHead}>pour 100 g</span>
-          <div className={styles.detailGrid}>
-            <Value label="kcal" value={row.calories_100g} unit="" />
-            <Value label="protéines" value={row.protein_100g} unit="g" />
-            <Value label="sucres" value={row.added_sugar_100g} unit="g" />
-          </div>
+          <NutrientGrid
+            values={{
+              protein_g: decimal(row.protein_100g),
+              added_sugar_g: decimal(row.added_sugar_100g),
+              calories: decimal(row.calories_100g),
+              saturated_fat_g: decimal(row.saturated_fat_100g),
+              fiber_g: decimal(row.fiber_100g),
+            }}
+          />
         </div>
       ) : (
         <p className={styles.note}>

@@ -22,6 +22,12 @@ export type {
   WeekStatus,
 } from './Heatmap';
 
+export { Track } from './Track';
+export type { TrackProps } from './Track';
+
+export { DistanceProfile } from './DistanceProfile';
+export type { DistanceProfileProps, ProfileLine } from './DistanceProfile';
+
 export { Toaster } from './Toaster';
 
 export { Sheet, SheetGroup, SheetRow } from './Sheet';

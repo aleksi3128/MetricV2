@@ -337,3 +337,49 @@ def test_the_base_url_can_be_set_then_cleared(app_client: TestClient, auth: dict
 
     assert patch(app_client, auth, cadence_base_url="").status_code == 200
     assert read(app_client, auth)["values"]["cadence_base_url"] == ""
+
+
+def test_the_running_references_are_empty_until_chosen(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Vides, et ce n'est pas un défaut manquant : les zones se **déduisent** alors des
+    sorties (`docs/analyse-course.md`, **A9**). Une FC max de manuel écrite ici se ferait
+    passer pour un choix."""
+    values = read(app_client, auth)["values"]
+    assert values["max_hr"] is None
+    assert values["threshold_pace_min_km"] is None
+
+
+def test_the_threshold_pace_reads_like_a_run_pace(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    assert patch(app_client, auth, threshold_pace_min_km="5:15").status_code == 200
+    assert read(app_client, auth)["values"]["threshold_pace_min_km"] == 5.25
+
+    assert patch(app_client, auth, threshold_pace_min_km="5,5").status_code == 200
+    assert read(app_client, auth)["values"]["threshold_pace_min_km"] == 5.5
+
+
+def test_the_running_references_can_be_cleared(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Effacer, c'est revenir à la déduction — le même geste que l'adresse de Cadence."""
+    assert patch(app_client, auth, max_hr="188", threshold_pace_min_km="5:00").status_code == 200
+    assert read(app_client, auth)["values"]["max_hr"] == 188
+
+    assert patch(app_client, auth, max_hr="", threshold_pace_min_km="").status_code == 200
+    values = read(app_client, auth)["values"]
+    assert values["max_hr"] is None
+    assert values["threshold_pace_min_km"] is None
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("max_hr", "1850"), ("max_hr", "vite"), ("threshold_pace_min_km", "0:40")],
+)
+def test_an_implausible_running_reference_is_refused(
+    app_client: TestClient, auth: dict[str, str], field: str, value: str
+) -> None:
+    response = patch(app_client, auth, **{field: value})
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"

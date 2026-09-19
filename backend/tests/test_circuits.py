@@ -374,6 +374,65 @@ def test_a_pasted_link_becomes_a_circuit(
     assert circuit["url"] == url
 
 
+def test_a_long_link_survives_the_round_trip(
+    app_client: TestClient, auth: dict[str, str], linked: None
+) -> None:
+    """**Le défaut que ce lot corrige.** Un lien de quarante exercices notés dépasse les
+    2000 caractères que le schéma acceptait : une séance construite dans Metric, ouverte
+    dans Cadence puis recollée ici, était refusée par un « données invalides » qui ne
+    disait pas quoi raccourcir.
+
+    L'égalité des deux adresses est ce qui compte : elle vérifie d'un coup la longueur, les
+    notes et l'ordre — tout ce qui se perd en silence quand un aller-retour boite."""
+    exercises = "~".join(
+        f"standing+calf+raise:10x:20:Tour+{index}+%C2%B7+Gauche+%C2%B7+bassin+horizontal"
+        for index in range(40)
+    )
+    url = f"{BASE}?w=Jambes~1~0~{exercises}"
+    assert len(url) > 2000
+
+    response = app_client.post(f"{ACTIVITY}/circuits/import", json={"url": url}, headers=auth)
+
+    assert response.status_code == 201, response.text
+    assert len(response.json()["exercises"]) == 40
+    assert response.json()["url"] == url
+
+
+def test_a_link_with_more_exercises_than_a_circuit_holds_is_refused_with_a_code(
+    app_client: TestClient, auth: dict[str, str], linked: None
+) -> None:
+    """Cadence ne borne pas le nombre d'exercices, Metric à quarante. Le circuit était
+    construit sans garde : `CircuitPayload` levait une `ValidationError` de pydantic au
+    milieu du service, qu'aucun gestionnaire ne rattrape — l'API répondait `500`, donc
+    « panne », pour une séance simplement trop longue."""
+    exercises = "~".join(f"Ex{index}:20s:10" for index in range(41))
+
+    response = app_client.post(
+        f"{ACTIVITY}/circuits/import", json={"url": f"{BASE}?w=Trop~1~0~{exercises}"}, headers=auth
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    # Le message nomme la borne qui a cédé : « invalides » ne dit pas quoi retirer.
+    assert "41" in response.json()["message"]
+
+
+def test_a_link_whose_name_is_too_long_is_refused_with_a_code(
+    app_client: TestClient, auth: dict[str, str], linked: None
+) -> None:
+    """L'autre moitié du même `500` : un nom d'exercice au-delà de `Label`. Tronquer
+    serait pire que refuser — c'est le nom qui décide de la démonstration affichée dans
+    Cadence, et le couper la ferait disparaître sans rien dire."""
+    response = app_client.post(
+        f"{ACTIVITY}/circuits/import",
+        json={"url": f"{BASE}?w=A~1~0~{'x' * 90}:20s:10"},
+        headers=auth,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
 def test_an_unreadable_link_is_refused_with_a_code(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:

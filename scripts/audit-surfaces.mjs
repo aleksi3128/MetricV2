@@ -85,11 +85,22 @@ const SURFACES = [
     ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment'],
     'scanner un aliment',
   ],
+  // La fiche d'un repas, lecture seule (`NUT-15`). Le nom du bouton porte l'heure du repas,
+  // donc il dépend des données du jour : sans repas à cette heure, la ligne rend « bouton
+  // introuvable » — on remplace alors l'heure par celle d'un repas réellement noté.
+  // « Corriger » n'est pas appuyé : l'étape suivante est un formulaire, et ce script ne
+  // saisit rien.
+  ['/nutrition', 'Fiche du repas de 12:30', 'fiche d’un repas'],
   // Le détail d'une charge — courbe et ligne de trente points. Le nom du bouton est celui
   // de l'exercice, donc il dépend des données : `Butterfly` est celui de la base réelle.
   // Sur une base où il n'existe pas, la ligne rend « bouton introuvable », ce qui est un
   // constat exact — on remplace alors le nom par un exercice réellement présent.
   ['/activite/charges', 'Butterfly', 'détail d’une charge'],
+  // La feuille de story d'une course (`docs/story-course.md`). Elle porte un aperçu de
+  // 1080 × 1920 réduit, trois groupes de réglages et l'action de partage : c'est la
+  // feuille la plus haute de l'application, et celle qui a le plus de raisons de déborder
+  // à 360 px. « Partager l'image » n'est pas appuyé — il ouvrirait la feuille du système.
+  ['/activite/course', 'Faire une story', 'story d’une course'],
 ];
 
 /** Le panneau d'une feuille. C'est lui qu'on mesure, pas l'écran resté derrière. */

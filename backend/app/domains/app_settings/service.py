@@ -39,6 +39,11 @@ DEFAULTS: dict[str, str] = {
     # (**D1**). Aucune adresse n'est devinée, aucun lien n'est proposé tant que celle-ci
     # n'est pas renseignée.
     "cadence_base_url": "",
+    # Vides pour la même raison : sans saisie, la référence des zones est déduite des
+    # sorties (`docs/analyse-course.md`, **A9**). Une FC max « de manuel » écrite ici se
+    # ferait passer pour un choix.
+    "max_hr": "",
+    "threshold_pace_min_km": "",
 }
 
 #: Réglages typés par l'API. Le fichier en porte d'autres — les créneaux `reminders_*` de
@@ -57,6 +62,24 @@ def _decimal(raw: str, fallback: float) -> float:
 
 def _whole(raw: str, fallback: int) -> int:
     return round(_decimal(raw, float(fallback)))
+
+
+def _optional_decimal(raw: str, low: float, high: float) -> float | None:
+    """Un réglage **effaçable** : vide, illisible ou hors bornes, il vaut `None`.
+
+    Pas de repli chiffré, contrairement à `_decimal` : pour ces réglages, l'absence est
+    la valeur — celle qui dit au domaine de déduire la référence lui-même.
+    """
+    try:
+        value = float(raw.replace(",", "."))
+    except ValueError:
+        return None
+    return value if low <= value <= high else None
+
+
+def _optional_whole(raw: str, low: int, high: int) -> int | None:
+    value = _optional_decimal(raw, low, high)
+    return round(value) if value is not None else None
 
 
 def _volumes(raw: str, fallback: list[int]) -> list[int]:
@@ -98,6 +121,8 @@ def _typed(raw: dict[str, str]) -> SettingsValues:
         # adresse exploitable vit avec `BaseUrl`, qui la fait respecter à la saisie.
         # Deux écritures finiraient par diverger, et l'écart ne se verrait qu'au clic.
         cadence_base_url=usable_base_url(raw["cadence_base_url"]),
+        max_hr=_optional_whole(raw["max_hr"], 120, 230),
+        threshold_pace_min_km=_optional_decimal(raw["threshold_pace_min_km"], 2.5, 12),
     )
 
 

@@ -1,97 +1,90 @@
 /**
- * Toutes les courses et ce qu'elles racontent — `/activite/courses` (`ACT-20`).
+ * Toutes les courses — `/activite/courses` (`docs/analyse-course.md`).
  *
- * La page Course montre **une** sortie, palier par palier. Celle-ci montre la collection :
- * ce qui a été couru, et ce qui a changé entre les sorties. Les paliers n'existaient que
- * pour la dernière course importée ; sans cette page, ceux de toutes les autres restaient
- * écrits et jamais affichés.
+ * **Une question : est-ce que je progresse ?** La page y répondait avec des précautions :
+ * une courbe d'allure qui mélange les distances, et trois lectures pour la corriger — des
+ * bandes de distance, une fenêtre glissante, un nuage de points. Chacune demandait un
+ * paragraphe pour être lue honnêtement.
  *
- * ## Le piège de cette page, et il n'est pas celui des paliers
- *
- * `/activite/course` compare huit kilomètres d'une **même** sortie — même personne, même
- * jour, mêmes conditions. Ici on compare des sorties entre elles, et deux allures ne
- * veulent plus dire la même chose : 5'30" sur 15 km est une bien meilleure course que
- * 5'10" sur 3 km. Une courbe d'allure au fil des mois montre donc surtout **quelles
- * distances ont été courues**, tout en ayant l'air d'une progression.
- *
- * La page ne cache pas la courbe — elle la dit. Et elle pose à côté les trois lectures qui
- * ne souffrent pas du défaut : le record **par bande de distance**, le **volume mensuel**
- * (des kilomètres sont des kilomètres), et la **fenêtre glissante** qui compare cinq
- * sorties à cinq autres plutôt qu'une à une.
+ * Les **meilleurs efforts** rendent ces précautions inutiles : le meilleur kilomètre d'une
+ * sortie de 8 km et celui d'une sortie de 3 km se comparent sans réserve. La page montre
+ * donc les records, leur progression sortie après sortie, le volume par semaine — et la
+ * liste.
  *
  * ## Aucun calcul métier ici
  *
- * Records, moyennes pondérées, bandes, volumes, bornes d'axes : tout arrive calculé de
- * `progress.py`. Le seul `Math` de ce fichier porte sur une valeur absolue d'affichage.
+ * Records, progressions, semaines, bornes d'axes : tout arrive calculé. La seule division
+ * du fichier pose la largeur d'une barre de semaine contre le plafond que le serveur sert.
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router';
 
 import {
   Badge,
+  Button,
   Card,
   Chart,
   Empty,
   LinkButton,
   PageHead,
   Rule,
-  Scatter,
+  Segmented,
   Skeleton,
   Stat,
   Table,
 } from '@/components/ui';
 import type { Column } from '@/components/ui';
-import { activityApi, type Run, type RunProgress } from '@/features/activity/api';
+import {
+  activityApi,
+  type EffortRecord,
+  type EffortSeries,
+  type Run,
+  type RunProgress,
+} from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { dayMonth, hoursMinutes, num, pace, plural, shortDate } from '@/lib/format';
-import { keys } from '@/lib/query';
+import { dayMonth, duration, hoursMinutes, num, pace, plural } from '@/lib/format';
+import { CROSS_CUTTING, keys } from '@/lib/query';
+import { useToast } from '@/lib/toast';
 
-import styles from '../Activity.module.css';
+import styles from './run/Run.module.css';
 
-/** En deçà, la fenêtre n'a rien bougé — et le dire vaut mieux qu'un signe sur du bruit. */
-const STEADY_S_PER_KM = 2;
-
-/**
- * `2026-08` en `août 26`.
- *
- * Mettre en forme n'est pas calculer : le serveur rend la clé triée, l'écran la rend
- * lisible. Le jour est fixé au 15 — un mois n'a pas de jour, et le 1er tomberait dans le
- * mois précédent sur un fuseau à l'ouest de Greenwich.
- */
-function monthLabel(key: string): string {
-  const [year, month] = key.split('-');
-  const when = new Date(Number(year), Number(month) - 1, 15);
-  return when.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
-}
-
-/**
- * Ce que la fenêtre glissante veut dire, en toutes lettres.
- *
- * Comme partout dans ce domaine, le signe se lit à l'envers : négatif est une **bonne**
- * nouvelle. Le montrer nu serait offrir la meilleure occasion de conclure l'inverse.
- */
-function trend(seconds: number, size: number): { label: string; detail: string } {
-  const window = `sur tes ${String(size)} dernières sorties contre les ${String(size)} d’avant`;
-  if (Math.abs(seconds) < STEADY_S_PER_KM) {
-    return { label: 'Allure stable', detail: window };
-  }
-  return seconds < 0
-    ? { label: 'Tu accélères', detail: `gagnées au kilomètre ${window}` }
-    : { label: 'Tu ralentis', detail: `perdues au kilomètre ${window}` };
-}
+const RECORD_COLUMNS: Column<EffortRecord>[] = [
+  {
+    key: 'distance',
+    header: 'Distance',
+    render: (record) => (
+      // La ligne mène à la sortie du record : c'est là qu'on va voir comment il a été couru.
+      <Link className={styles.recordCell} to={`/activite/course/${String(record.run)}`}>
+        {record.label}
+        <small>
+          {dayMonth(record.day)} · {record.runs} {plural(record.runs, 'sortie')}
+        </small>
+      </Link>
+    ),
+  },
+  {
+    key: 'time',
+    header: 'Temps',
+    numeric: true,
+    render: (record) => duration(record.duration_s / 60),
+  },
+  {
+    key: 'pace',
+    header: 'Allure',
+    numeric: true,
+    render: (record) => pace(record.pace_min_km),
+  },
+];
 
 /**
- * Les colonnes de la liste — **trois**, et le compte de paliers logé dans la première.
+ * Les colonnes de la liste — **trois**, et le badge `.fit` logé dans la première.
  *
- * Il a été une quatrième colonne. À 390 px elle tenait ; à 360 — ce que fait un petit
- * Android — l'en-tête se coupait à « PALIE », et l'on lisait un mot tronqué avant de
- * penser à tirer le tableau. Rien n'était perdu, le conteneur défile, mais c'est
- * exactement le défaut que la page Course a déjà corrigé sur sa colonne de cadence.
- *
- * Le compte rejoint donc la cellule de date, qui portait déjà l'étoile du record et avait
- * la place. Trois colonnes tiennent à 360 px sans que rien ne se coupe.
+ * Une quatrième colonne se coupait à 360 px. Le badge dit ce que la course porte : une
+ * sortie importée a sa courbe et son parcours, une sortie saisie au clavier ne les a pas —
+ * et ce n'est pas un manque, c'est ce qu'elle est.
  */
 function columns(data: RunProgress): Column<Run>[] {
   return [
@@ -99,19 +92,10 @@ function columns(data: RunProgress): Column<Run>[] {
       key: 'date',
       header: 'Date',
       render: (run) => (
-        // La ligne entière mène à la course : c'est la raison d'être de la page, et un
-        // lien sur la seule date offrirait une cible de 60 px de large sur 44 de haut.
         <Link className={styles.runLink} to={`/activite/course/${String(run.id)}`}>
-          {/* `dayMonth` et non `shortDate` : quatre colonnes et une date à dix caractères
-              ne tiennent pas dans 390 px, et la colonne « Paliers » se coupait au premier
-              mot — on lisait « PAL » avant de penser à tirer le tableau. L'année est dans
-              le détail de la course, à un appui d'ici. */}
           {dayMonth(run.date)}
-          {run.id === data.best_pace_index && <span className={styles.mark}>★</span>}
-          {/* Ce que la course porte en plus : une sortie importée a ses paliers, une
-              sortie saisie au clavier n'en a pas — et ce n'est pas un manque, c'est ce
-              qu'elle est. Aucun badge plutôt qu'un « 0 » qui se lirait comme une mesure. */}
-          {run.splits > 0 && <Badge tone="signal">{run.splits}</Badge>}
+          {run.id === data.best_pace_index && <span aria-label="meilleure allure">★</span>}
+          {run.fit_path !== '' && <Badge tone="signal">.fit</Badge>}
         </Link>
       ),
     },
@@ -131,16 +115,76 @@ function columns(data: RunProgress): Column<Run>[] {
   ];
 }
 
+/**
+ * La progression sur une distance. Le kilomètre est choisi d'abord quand il existe : c'est
+ * la distance que presque toutes les sorties couvrent, donc la courbe la plus fournie.
+ */
+function Progression({ series }: { series: readonly EffortSeries[] }) {
+  const [chosen, setChosen] = useState<number | null>(null);
+  const current =
+    series.find((item) => item.distance_m === chosen) ??
+    series.find((item) => item.distance_m === 1000) ??
+    series[0];
+  if (current === undefined) return null;
+
+  return (
+    <Card>
+      <h3>Ton meilleur {current.label} de chaque sortie</h3>
+      {series.length > 1 && (
+        <div className={styles.segmented}>
+          <Segmented
+            label="Distance de la progression"
+            options={series.map((item) => ({ value: String(item.distance_m), label: item.label }))}
+            value={String(current.distance_m)}
+            onChange={(value) => {
+              setChosen(Number(value));
+            }}
+          />
+        </div>
+      )}
+      <Chart
+        labels={current.marks.map((mark) => dayMonth(mark.day))}
+        primary={{
+          label: 'Allure',
+          unit: 'min/km',
+          values: current.marks.map((mark) => mark.pace_min_km),
+          tone: 'effort',
+          format: (value) => pace(value),
+          // Retournées par le serveur : plus haut, plus rapide.
+          ...(current.pace_domain_min_km ? { domain: current.pace_domain_min_km } : {}),
+        }}
+        note="Plus haut, plus rapide. Où qu’il tombe dans la sortie, un même effort se compare d’une course à l’autre."
+      />
+    </Card>
+  );
+}
+
 export function Runs() {
+  const client = useQueryClient();
+  const { notify } = useToast();
   const { data, isPending, error } = useQuery({
     queryKey: keys.activity.runProgress(),
     queryFn: () => activityApi.runProgress(),
   });
 
-  const months = data?.months ?? [];
-  const paced = data?.runs.filter((run) => run.pace_min_km != null) ?? [];
-  // La liste arrive la plus récente d'abord ; une courbe se lit dans le sens du temps.
-  const timeline = [...paced].reverse();
+  const rebuild = useMutation({
+    mutationFn: () => activityApi.rebuildEfforts(),
+    onSuccess: (done) => {
+      // Les paliers réécrits changent la page de chaque sortie, et le volume change le
+      // tableau de bord : tout le domaine et les vues transverses.
+      void client.invalidateQueries({ queryKey: keys.activity.all() });
+      for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
+      notify(
+        `${String(done.runs)} ${plural(done.runs, 'sortie')} réanalysée${done.runs > 1 ? 's' : ''}.`,
+        'effort',
+      );
+    },
+    onError: (caught: unknown) => {
+      notify(caught instanceof ApiError ? caught.message : 'Réanalyse impossible.', 'recover');
+    },
+  });
+
+  const top = data?.week_domain_km?.[1] ?? 0;
 
   return (
     <div className={cx('wrap', styles.screen)}>
@@ -155,7 +199,7 @@ export function Runs() {
       >
         {data && data.total_runs > 0
           ? `${String(data.total_runs)} ${plural(data.total_runs, 'sortie')} · ${num(data.total_distance_km, 1)} km parcourus`
-          : 'Ce qui a été couru, et ce qui a changé entre les sorties.'}
+          : 'Ce qui a été couru, et ce qui progresse.'}
       </PageHead>
 
       {error !== null ? (
@@ -172,8 +216,8 @@ export function Runs() {
         <Card>
           {/* Aucune valeur inventée : un tiret et ce que coûte le prochain geste. */}
           <Empty title="Aucune course enregistrée">
-            Importe une capture Apple depuis l’activité — le résumé et la liste « Splits » — ou
-            saisis une course à la main. La progression apparaîtra dès la deuxième sortie.
+            Importe le fichier .fit de ta montre depuis l’activité. Les records et leur progression
+            apparaîtront dès la deuxième sortie.
           </Empty>
         </Card>
       ) : (
@@ -194,135 +238,106 @@ export function Runs() {
                 label="Allure totale"
                 value={data.overall_pace_min_km == null ? '—' : pace(data.overall_pace_min_km)}
                 unit={data.overall_pace_min_km == null ? undefined : '/km'}
-                detail="temps total ÷ distance totale"
               />
             </Card>
           </div>
 
-          {/* ── Ce que la page existe pour montrer ───── */}
-          {data.window.size > 0 && data.window.pace_delta_s_per_km != null && (
-            <>
-              <Rule>Ce qui a changé</Rule>
-              <Card>
-                <Stat
-                  label={trend(data.window.pace_delta_s_per_km, data.window.size).label}
-                  value={`${num(Math.abs(data.window.pace_delta_s_per_km), 1)} s/km`}
-                  detail={trend(data.window.pace_delta_s_per_km, data.window.size).detail}
-                  direction={data.window.pace_delta_s_per_km < 0 ? 'up' : 'down'}
-                />
+          {/* Les sorties d'avant les efforts. Une addition rejouable, pas une destruction :
+              pas de second appui (§3 de `CLAUDE.md`). */}
+          {data.efforts_pending > 0 && (
+            <Card>
+              <div className={styles.rebuild}>
+                <strong>
+                  {data.efforts_pending} {plural(data.efforts_pending, 'sortie')} à réanalyser
+                </strong>
                 <p className={styles.note}>
-                  {data.window.previous_pace_min_km != null &&
-                    data.window.recent_pace_min_km != null &&
-                    `${pace(data.window.previous_pace_min_km)} puis ${pace(data.window.recent_pace_min_km)} au kilomètre. `}
-                  Une fenêtre de {data.window.size} sorties plutôt qu’une course contre une course :
-                  un fractionné isolé ferait sinon dire à la dernière séance que la forme s’est
-                  effondrée. Les distances y restent mélangées.
-                  {data.window.distance_delta_km != null &&
-                    ` La sortie moyenne a ${data.window.distance_delta_km >= 0 ? 'gagné' : 'perdu'} ${num(Math.abs(data.window.distance_delta_km), 1)} km.`}
+                  Importées avant les meilleurs efforts : leurs records ne comptent pas encore, et
+                  leurs kilomètres incluaient les pauses du chrono.
+                </p>
+                <Button
+                  variant="primary"
+                  busy={rebuild.isPending}
+                  onClick={() => {
+                    rebuild.mutate();
+                  }}
+                >
+                  Réanalyser {data.efforts_pending === 1 ? 'la sortie' : 'les sorties'}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {data.records.length > 0 && (
+            <>
+              <Rule>Tes records</Rule>
+              <Card>
+                {/* Dit **d'emblée** : un record se lit dans le fichier seconde par seconde, et
+                    une sortie saisie au clavier n'en a pas. Sans cette phrase, un 6 km couru à
+                    4:44 le 17/08 laissait croire que « 5 km en 29:24 » était le meilleur. */}
+                <p className={styles.note}>
+                  Sur tes sorties importées d’un fichier .fit, les seules qui se mesurent au mètre.
+                </p>
+                <Table
+                  columns={RECORD_COLUMNS}
+                  rows={data.records}
+                  rowKey={(record) => String(record.distance_m)}
+                  caption="Le meilleur temps de toutes tes sorties sur chaque distance"
+                />
+              </Card>
+            </>
+          )}
+
+          {data.effort_series.length > 0 && (
+            <>
+              <Rule>Progression</Rule>
+              <Progression series={data.effort_series} />
+            </>
+          )}
+
+          {data.weeks.length > 0 && (
+            <>
+              <Rule>Volume par semaine</Rule>
+              <Card>
+                <ul className={styles.meters}>
+                  {[...data.weeks].reverse().map((week) => (
+                    <li
+                      key={week.week}
+                      className={cx(styles.meter, week.runs === 0 && styles.meterEmpty)}
+                    >
+                      <span className={styles.meterName}>{dayMonth(week.week)}</span>
+                      <span className={styles.meterValue}>
+                        {num(week.distance_km, 1)} km
+                        {week.runs > 0 && (
+                          <small>
+                            {' '}
+                            · {week.runs} {plural(week.runs, 'sortie')}
+                          </small>
+                        )}
+                      </span>
+                      <span className={styles.meterTrack}>
+                        <span
+                          className={cx(styles.meterFill, styles.weekFill)}
+                          // Contre le plafond servi : de la géométrie, pas une recherche
+                          // de maximum.
+                          style={{
+                            width: `${String(top > 0 ? Math.round((week.distance_km / top) * 1000) / 10 : 0)}%`,
+                          }}
+                        />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className={styles.note}>
+                  La plus récente en haut, chaque semaine datée de son lundi.
                 </p>
               </Card>
             </>
           )}
 
-          {/* ── Le volume, la seule série sans réserve ── */}
-          {months.length >= 2 && (
-            <Card>
-              <h3>Kilomètres par mois</h3>
-              <p className={styles.note}>
-                La seule courbe de cette page qui se lise sans précaution : des kilomètres sont des
-                kilomètres, et leur somme ne dépend pas des distances choisies. Un mois sans course
-                est absent plutôt qu’à zéro — un trou est plus honnête qu’une mesure inventée.
-              </p>
-              <Chart
-                labels={months.map((month) => monthLabel(month.month))}
-                primary={{
-                  label: 'Distance',
-                  unit: 'km',
-                  values: months.map((month) => month.distance_km),
-                  tone: 'effort',
-                  // Le nombre seul, comme partout : la légende porte l'unité et
-                  // l'infobulle la recolle.
-                  format: (value) => num(value, 1),
-                  ...(data.volume_domain_km ? { domain: data.volume_domain_km } : {}),
-                }}
-                band={{
-                  label: 'Sorties',
-                  // Pas d'`unit` du tout : la légende écrit « label (unité) », et le
-                  // couple donnait « Sorties (sorties) ». Le libellé porte déjà l'unité,
-                  // et l'infobulle se lit très bien avec le nombre seul.
-                  values: months.map((month) => month.runs),
-                  tone: 'load',
-                  format: (value) => String(value),
-                }}
-              />
-            </Card>
-          )}
-
-          {/* ── Les records, là où ils veulent dire quelque chose ── */}
-          <Rule>Tes meilleurs temps</Rule>
-          <Card>
-            <p className={styles.note}>
-              Par bande de distance, et c’est la seule façon honnête de les comparer : 5’30” sur 15
-              km est une meilleure course que 5’10” sur 3 km. Une bande jamais courue reste affichée
-              — ne l’avoir jamais courue est une information.
-            </p>
-            <div className="grid tiles">
-              {data.bands.map((band) => (
-                <Card key={band.label}>
-                  <Stat
-                    compact
-                    label={band.label}
-                    value={band.best_pace_min_km == null ? '—' : pace(band.best_pace_min_km)}
-                    unit={band.best_pace_min_km == null ? undefined : '/km'}
-                    detail={
-                      band.runs === 0
-                        ? 'jamais couru'
-                        : `${String(band.runs)} ${plural(band.runs, 'sortie')}${band.best_day == null ? '' : ` · record le ${shortDate(band.best_day)}`}`
-                    }
-                  />
-                </Card>
-              ))}
-            </div>
-          </Card>
-
-          {/* ── La courbe qui porte la réserve ───────── */}
-          {timeline.length >= 2 && data.pace_domain_min_km && data.distance_domain_km && (
-            <Card>
-              <h3>Chaque sortie, à sa distance</h3>
-              <p className={styles.note}>
-                Un point par course : sa distance en abscisse, son allure en ordonnée. Deux points
-                voisins en abscisse sont deux sorties comparables — et celui du haut est le
-                meilleur. Les points pâlissent avec l’âge : si les francs sont au-dessus des pâles,
-                tu cours plus vite qu’avant sur les mêmes distances.
-              </p>
-              <Scatter
-                points={timeline.map((run) => ({
-                  x: run.distance_km,
-                  y: run.pace_min_km ?? 0,
-                  label: shortDate(run.date),
-                  detail: `${num(run.distance_km, 2)} km · ${pace(run.pace_min_km ?? 0)} /km`,
-                }))}
-                xDomain={data.distance_domain_km}
-                yDomain={data.pace_domain_min_km}
-                xLabel="Distance"
-                yLabel="Allure"
-                formatX={(value) => `${num(value, 1)} km`}
-                formatY={(value) => pace(value)}
-                note="L’anneau marque ta dernière sortie."
-              />
-            </Card>
-          )}
-
-          {/* ── La liste, qui est l'autre raison d'être de la page ── */}
           <Rule>
             {data.total_runs} {plural(data.total_runs, 'course')}
           </Rule>
           <Card>
-            <p className={styles.note}>
-              Chaque ligne mène au détail de sa course. Le badge dit combien de paliers elle porte :
-              une sortie importée a les siens, une sortie saisie au clavier n’en a pas. L’étoile
-              marque ta meilleure allure.
-            </p>
             <Table
               columns={columns(data)}
               rows={data.runs}

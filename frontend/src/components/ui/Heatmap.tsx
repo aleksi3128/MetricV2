@@ -136,17 +136,38 @@ function toColumns(days: readonly HeatDay[]): HeatDay[][] {
   return columns;
 }
 
-/** Étiquettes de mois, posées sur la colonne où le mois commence. */
-function monthLabels(columns: readonly HeatDay[][]): (string | null)[] {
+interface MonthLabel {
+  label: string;
+  /** Colonne où le mois commence, à partir de zéro. */
+  index: number;
+  /** Colonnes couvertes, jusqu'au mois suivant. */
+  span: number;
+}
+
+/**
+ * Étiquettes de mois, chacune **posée sur les colonnes de son mois**.
+ *
+ * Une par colonne, avec des trous, était plus simple — et donnait à « JUIN » une boîte de
+ * 25 px pour un mot qui en demande 40. Le mot débordait, ce qui ne se voyait pas tant que
+ * rien ne le rognait, puis se voyait très bien au bord du cadre. Sur ses quatre semaines,
+ * il a la place qu'il lui faut.
+ */
+function monthLabels(columns: readonly HeatDay[][]): MonthLabel[] {
+  const starts: { label: string; index: number }[] = [];
   let previous = '';
-  return columns.map((column) => {
+  columns.forEach((column, index) => {
     const first = column[0];
-    if (!first) return null;
+    if (!first) return;
     const label = monthAbbrev(first.date);
-    if (label === previous) return null;
+    if (label === previous) return;
     previous = label;
-    return label;
+    starts.push({ label, index });
   });
+
+  return starts.map((start, position) => ({
+    ...start,
+    span: (starts[position + 1]?.index ?? columns.length) - start.index,
+  }));
 }
 
 /** Pastilles disponibles pour une légende. Les classes restent dans ce module. */
@@ -203,8 +224,24 @@ export interface HeatmapProps {
    * À n'activer que si la cellule est assez haute pour porter un mot : à 12 px, sept
    * étiquettes de 12 px se chevaucheraient. C'est l'appelant qui connaît la taille de
    * cellule qu'il a posée.
+   *
+   * En disposition `calendar`, les sept initiales passent **au-dessus** de la grille :
+   * ce sont les colonnes qui portent les jours.
    */
   weekdays?: boolean | undefined;
+  /**
+   * Sens de lecture de la grille.
+   *
+   * `weeks` — le défaut, celui de la grille de contributions : une colonne par semaine,
+   * sept lignes. C'est ce qu'il faut pour une année, où le temps doit tenir en largeur.
+   *
+   * `calendar` — sept colonnes de jours, une ligne par semaine. Pour **un mois**, et pour
+   * une raison de forme : cinq semaines en colonnes font une grille deux fois plus haute
+   * que large, qui laisse les deux tiers d'une carte de téléphone vides et occupe la
+   * moitié d'un écran. Les mêmes cellules tournées d'un quart remplissent la largeur et
+   * tiennent en cinq rangées — c'est aussi la disposition qu'un mois a partout ailleurs.
+   */
+  layout?: 'weeks' | 'calendar' | undefined;
 }
 
 /** Lundi en premier, comme `date.weekday()` et comme la grille. */
@@ -230,7 +267,9 @@ export function Heatmap({
   describeDay,
   legend,
   weekdays = false,
+  layout = 'weeks',
 }: HeatmapProps) {
+  const calendar = layout === 'calendar';
   const [hovered, setHovered] = useState<{ day: HeatDay; x: number; y: number } | null>(null);
   const track = useRef<HTMLDivElement>(null);
 
@@ -248,6 +287,14 @@ export function Heatmap({
    * cet endroit-là. C'est le genre de défaut qu'aucune mesure ne trouve et qu'une
    * capture montre en une seconde.
    *
+   * **La fin de la grille, et non celle du cadre.** `scrollWidth` compte aussi ce qui
+   * déborde des cellules : l'étiquette du dernier mois, posée sur une colonne de 25 px,
+   * sort de sa boîte d'une quinzaine de pixels. Défiler jusque-là décalait donc la grille
+   * d'autant, et rognait l'étiquette du **premier** mois — « JUIN » s'affichait « UIN »
+   * sur la plage trimestrielle, où la grille remplit son cadre à six pixels près. Aligner
+   * le bord droit de la grille sur celui du cadre laisse ce débordement hors champ, et
+   * rend zéro quand la grille tient : rien ne défile alors, ce qui est le bon résultat.
+   *
    * `instant` : `base.css` pose `scroll-behavior: smooth`, et une animation au premier
    * rendu ferait défiler la grille sous les yeux à chaque changement de plage. Le repli
    * sur `scrollLeft` n'est pas de la prudence gratuite : jsdom n'implémente pas
@@ -256,11 +303,13 @@ export function Heatmap({
   useEffect(() => {
     const element = track.current;
     if (!element) return;
+    const grid = element.querySelector(`.${styles.grid}`);
+    const end = Math.max(0, (grid?.scrollWidth ?? element.scrollWidth) - element.clientWidth);
     if (typeof element.scrollTo === 'function') {
-      element.scrollTo({ left: element.scrollWidth, behavior: 'instant' });
+      element.scrollTo({ left: end, behavior: 'instant' });
       return;
     }
-    element.scrollLeft = element.scrollWidth;
+    element.scrollLeft = end;
   }, [days]);
 
   /** Pose l'infobulle au-dessus d'une cellule, en coordonnées relatives au cadre. */
@@ -278,7 +327,7 @@ export function Heatmap({
   return (
     <div className={styles.wrap} style={cssVars({ '--accent-rgb': accentRgb })}>
       <div className={styles.frame}>
-        {weekdays && (
+        {weekdays && !calendar && (
           <div className={styles.weekdays} aria-hidden="true">
             {WEEKDAYS.map((initial, index) => (
               <span key={WEEKDAY_NAMES[index]}>{initial}</span>
@@ -286,21 +335,41 @@ export function Heatmap({
           </div>
         )}
         <div className={styles.scroll} ref={track}>
-          <div
-            className={styles.months}
-            style={{
-              gridTemplateColumns: `repeat(${columns.length}, calc(var(--heat-cell) + var(--heat-gap)))`,
-            }}
-            aria-hidden="true"
-          >
-            {months.map((month, index) => (
-              <span className={styles.month} key={index}>
-                {month}
-              </span>
-            ))}
-          </div>
+          {/* En calendrier, ce sont les colonnes qui portent les jours : les sept
+              initiales passent en tête, et la rangée des mois disparaît — une colonne y
+              vaut « tous les lundis », ce qu'aucun nom de mois ne décrit. La plage
+              complète est nommée par l'écran, au-dessus de la grille. */}
+          {calendar ? (
+            <div className={cx(styles.months, styles.dayHead)} aria-hidden="true">
+              {WEEKDAYS.map((initial, index) => (
+                <span key={WEEKDAY_NAMES[index]}>{initial}</span>
+              ))}
+            </div>
+          ) : (
+            <div
+              className={styles.months}
+              style={{
+                gridTemplateColumns: `repeat(${columns.length}, calc(var(--heat-cell) + var(--heat-gap)))`,
+              }}
+              aria-hidden="true"
+            >
+              {months.map((month) => (
+                <span
+                  className={styles.month}
+                  key={`${month.label}-${month.index}`}
+                  style={{ gridColumn: `${month.index + 1} / span ${month.span}` }}
+                >
+                  {month.label}
+                </span>
+              ))}
+            </div>
+          )}
 
-          <div className={styles.grid} role="grid" aria-label={label}>
+          <div
+            className={cx(styles.grid, calendar && styles.gridCalendar)}
+            role="grid"
+            aria-label={label}
+          >
             {columns.map((column, columnIndex) =>
               column.map((day) => (
                 <button

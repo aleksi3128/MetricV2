@@ -247,7 +247,7 @@ describe('la lecture du jour', () => {
     stub(DASHBOARD, ABSENT, AI_OFF);
     renderDashboard();
 
-    await screen.findByText('Sept derniers jours');
+    await screen.findByText('Huit dernières semaines');
 
     expect(screen.queryByRole('button', { name: 'Demander la lecture' })).toBeNull();
     expect(calls.some((call) => call.url.includes('/api/brief'))).toBe(false);
@@ -505,7 +505,7 @@ describe('tableau de bord', () => {
     stub();
     renderDashboard();
 
-    await screen.findByText('Sept derniers jours');
+    await screen.findByText('Huit dernières semaines');
 
     expect(aggregateCalls()).toHaveLength(1);
     expect(aggregateCalls()[0]?.url).toContain('/api/aggregates/dashboard');
@@ -544,21 +544,6 @@ describe('tableau de bord', () => {
     expect(screen.getByText('Tabata')).toBeInTheDocument();
   });
 
-  it('montre les sept derniers jours, trous compris', async () => {
-    // `AGG-03` : la plage est complète, un jour sans donnée est présent et vide.
-    stub();
-    renderDashboard();
-
-    await screen.findByText('Sept derniers jours');
-
-    // Le quantième seul : sous un titre « Sept derniers jours », le mois est le même six
-    // fois sur sept et n'apprend rien — et `26/07` en chasse fixe demandait 36 px, soit
-    // sept cases de 42 px pour 294 disponibles à 360. L'infobulle garde la date entière.
-    expect(screen.getByText('23')).toBeInTheDocument();
-    expect(screen.getByTitle('23/07 — aucune donnée')).toBeInTheDocument();
-    expect(screen.getByTitle('27/07 — poids, repas, hydratation')).toBeInTheDocument();
-  });
-
   it('signale un dépassement du plafond de sucres', async () => {
     stub();
     renderDashboard();
@@ -572,7 +557,7 @@ describe('tableau de bord', () => {
     stub();
     renderDashboard();
 
-    await screen.findByText('Sept derniers jours');
+    await screen.findByText('Huit dernières semaines');
     await userEvent.click(screen.getByRole('button', { name: '1 mois' }));
 
     await waitFor(() => {

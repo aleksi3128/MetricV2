@@ -9,34 +9,6 @@
   flex-direction: column;
 }
 
-.split {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--s4);
-  align-items: start;
-}
-
-/* La taille minimale automatique d'un élément de grille est son **contenu minimal**, pas
-   zéro. `base.css` pose la règle sur `.grid > *`, mais elle ne peut pas atteindre une
-   `.grid` déclarée dans un module — le fichier le dit lui-même.
-
-   Ça se voyait : `.split` portait jusqu'ici une `.stack`, qui a son `min-width: 0`.
-   Depuis que la carte d'assiduité y est en direct, sa grille de sept jours poussait la
-   colonne et **la page entière défilait horizontalement de 3 px à 360 px**. Mesuré, pas
-   deviné — et invisible à 402, la seule largeur que l'audit regarde. */
-.split > * {
-  min-width: 0;
-}
-
-/* Deux colonnes seulement en paysage — iPad compris. À 820 px de portrait, une colonne
-   latérale de 360 px laisserait au graphique moins que ce qu'il a sur un téléphone à
-   l'horizontale, et les étiquettes d'axe se remettraient à se chevaucher. */
-@media (min-width: 960px) {
-  .split {
-    grid-template-columns: 1fr 360px;
-  }
-}
-
 .note {
   color: var(--ink-mid);
   font-size: var(--t-sub);
@@ -408,53 +380,4 @@
 .seriesStats b {
   color: var(--ink);
   font-weight: 500;
-}
-
-/* ── Sept derniers jours ──────────────────────────── */
-
-/* `minmax(0, 1fr)` et non `1fr` : la taille minimale automatique d'une piste est le
-   **contenu minimal** de sa case, et sept cases larges de leur libellé poussaient la
-   grille au-delà de la carte. La ceinture, en plus du quantième seul qui règle la cause. */
-.week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: var(--s4);
-}
-
-.dayOn,
-.dayOff {
-  border-radius: var(--r-sm);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 2px;
-  text-align: center;
-}
-
-.dayOn {
-  border: 1px solid rgb(var(--effort-rgb) / var(--badge-border-a));
-  background: rgb(var(--effort-rgb) / var(--badge-bg-a));
-}
-
-.dayOff {
-  border: 1px solid var(--line-soft);
-  background: var(--surface-2);
-}
-
-.dayLabel {
-  color: var(--ink-low);
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-}
-
-.daySources {
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: var(--t-sub);
-}
-
-.dayOff .daySources {
-  color: var(--ink-low);
 }

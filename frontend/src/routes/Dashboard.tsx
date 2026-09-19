@@ -15,7 +15,13 @@
  *    avec l'écart qui reste sur chacun ;
  * 3. **où je vais** — l'objectif en cours et sa progression, qui n'étaient sur aucun écran
  *    d'accueil ;
- * 4. la tendance et l'entraînement, inchangés.
+ * 4. la tendance et l'entraînement.
+ *
+ * La carte « Sept derniers jours » a quitté la tendance. Elle redisait en sept cases ce
+ * que la bande du jour donne déjà en un chiffre — `Today` affiche la série courante, son
+ * record et le nombre de jours suivis — et l'écran entier de `/assiduite` porte la même
+ * lecture en plus complet. `Streak.last_seven` reste servi : c'est le contrat `AGG-03`,
+ * et plus rien ici ne s'en sert.
  *
  * ## Les trois défauts corrigés au passage
  *
@@ -38,7 +44,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
-  Badge,
   Bars,
   Card,
   Chart,
@@ -56,19 +61,9 @@ import {
   type DashboardView,
   type RangeKey,
   type SeriesView,
-  type Streak,
 } from '@/features/aggregates/api';
 import { cx } from '@/lib/cx';
-import {
-  dayMonth,
-  dayOfMonth,
-  delta,
-  hoursMinutes,
-  integer,
-  longDate,
-  num,
-  plural,
-} from '@/lib/format';
+import { dayMonth, delta, hoursMinutes, integer, longDate, num, plural } from '@/lib/format';
 import { keys } from '@/lib/query';
 
 import { Aim } from './dashboard/Aim';
@@ -82,17 +77,6 @@ const RANGES = [
   { value: '3m', label: '3 mois' },
   { value: 'all', label: 'Tout' },
 ] as const satisfies readonly { value: RangeKey; label: string }[];
-
-/** Ce qu'un jour de la série d'assiduité doit à chaque domaine. */
-const SOURCE_LABELS: Record<string, string> = {
-  weight: 'poids',
-  measurements: 'mensurations',
-  runs: 'course',
-  workouts: 'séance',
-  meals: 'repas',
-  hydration: 'hydratation',
-  supplements: 'suppléments',
-};
 
 // ── Graphique croisé (`AGG-04`) ───────────────────────
 
@@ -218,43 +202,6 @@ function Graph({ shipped }: { shipped: SeriesView }) {
   );
 }
 
-// ── Assiduité (`AGG-03`) ──────────────────────────────
-
-function Assiduity({ streak }: { streak: Streak }) {
-  return (
-    <Card>
-      <div className="spread">
-        <div>
-          <h3>Sept derniers jours</h3>
-          <p className={styles.note}>Au moins une donnée, toutes sources confondues.</p>
-        </div>
-        <Badge tone={streak.current > 0 ? 'effort' : 'load'} mono>
-          {integer(streak.current)} j
-        </Badge>
-      </div>
-
-      <div className={styles.week}>
-        {streak.last_seven.map((day) => (
-          <div
-            key={day.date}
-            className={day.active ? styles.dayOn : styles.dayOff}
-            title={`${dayMonth(day.date)} — ${
-              day.sources.length > 0
-                ? day.sources.map((source) => SOURCE_LABELS[source] ?? source).join(', ')
-                : 'aucune donnée'
-            }`}
-          >
-            <span className={styles.dayLabel}>{dayOfMonth(day.date)}</span>
-            <span className={styles.daySources}>
-              {day.active ? integer(day.sources.length) : '—'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
 // ── Entraînement ──────────────────────────────────────
 
 function Training({ training }: { training: DashboardView['training'] }) {
@@ -358,10 +305,7 @@ export function Dashboard() {
       <Aim data={data} />
 
       <Rule>Tendance</Rule>
-      <div className={styles.split}>
-        <Graph shipped={data.series} />
-        <Assiduity streak={data.streak} />
-      </div>
+      <Graph shipped={data.series} />
 
       <Rule>Entraînement</Rule>
       <Training training={data.training} />

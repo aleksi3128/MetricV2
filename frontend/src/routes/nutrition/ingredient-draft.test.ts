@@ -34,7 +34,7 @@ describe('decimal', () => {
 describe('toLines', () => {
   it('garde une ligne nommée et pesée', () => {
     const lines = toLines([
-      draft({ name: ' riz basmati ', quantity_g: '180', calories_100g: '356' }),
+      draft({ name: ' riz basmati ', quantity_g: '180', calories_100g: '356', fiber_100g: '1,3' }),
     ]);
 
     expect(lines).toEqual([
@@ -44,6 +44,9 @@ describe('toLines', () => {
         calories_100g: 356,
         protein_100g: null,
         added_sugar_100g: null,
+        saturated_fat_100g: null,
+        // `NUT-16` : la valeur tenue part au calcul, même sans être à l'écran.
+        fiber_100g: 1.3,
       },
     ]);
   });

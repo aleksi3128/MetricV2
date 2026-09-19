@@ -102,8 +102,33 @@ function Hydration() {
         )}
       </div>
 
-      <div className={styles.hydration}>
-        {stats && (
+      {/* **Les volumes en tête, sur une seule ligne.** Ils vivaient à côté de l'anneau,
+          où ils recevaient la moitié d'une carte de 336 px : quatre boutons de 84 px s'y
+          repliaient en un bloc de deux sur deux, calé à gauche, avec le vide à droite.
+          C'est pourtant le seul geste de la carte — l'anneau, lui, se lit.
+
+          Une rangée pleine largeur les met au premier plan, leur donne des cibles de
+          78 px, et rend à l'anneau la ligne entière où poser son détail. `auto-fit` plutôt
+          que quatre colonnes en dur : le serveur sert la liste des volumes, et rien ne
+          promet qu'ils soient quatre. */}
+      <div className={styles.presets}>
+        {(data?.presets_ml ?? []).map((millilitres) => (
+          <button
+            key={millilitres}
+            type="button"
+            className={styles.preset}
+            disabled={drink.isPending}
+            onClick={() => {
+              drink.mutate(millilitres);
+            }}
+          >
+            + {integer(millilitres)} ml
+          </button>
+        ))}
+      </div>
+
+      {stats && (
+        <div className={styles.hydration}>
           <Ring
             // Journée pas encore commencée : l'anneau reste vide plutôt que d'écrire
             // « 0 % ». C'est la même règle que sur `/nutrition` et que le tiret du
@@ -118,24 +143,8 @@ function Hydration() {
             }
             tone={stats.today_ml >= stats.target_ml ? 'effort' : 'signal'}
           />
-        )}
-
-        <div className={styles.presets}>
-          {(data?.presets_ml ?? []).map((millilitres) => (
-            <button
-              key={millilitres}
-              type="button"
-              className={styles.preset}
-              disabled={drink.isPending}
-              onClick={() => {
-                drink.mutate(millilitres);
-              }}
-            >
-              + {integer(millilitres)} ml
-            </button>
-          ))}
         </div>
-      </div>
+      )}
 
       {data && data.today.length > 0 && (
         <div className={styles.intakes}>

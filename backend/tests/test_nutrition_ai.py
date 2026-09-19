@@ -217,7 +217,7 @@ def test_an_accepted_estimate_is_written_with_its_provenance(
 
     assert response.status_code == 201
     assert response.json()["source"] == "ai"
-    assert ",ai\n" in dav.content_of(MEALS_FILE)
+    assert ",520,ai,,\n" in dav.content_of(MEALS_FILE)
 
 
 def test_a_refused_estimate_leaves_the_meal_manual(

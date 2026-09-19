@@ -399,7 +399,12 @@ def test_the_file_stays_readable_in_a_spreadsheet(
 
     lines = dav.content_of(MEALS_FILE).splitlines()
 
-    assert lines[0] == ("datetime,meal_type,comment,photo,protein_g,added_sugar_g,calories,source")
+    # Les deux colonnes de `NUT-16` en fin de ligne : une formule qui visait les calories
+    # dans un tableur doit continuer de les viser.
+    assert lines[0] == (
+        "datetime,meal_type,comment,photo,protein_g,added_sugar_g,calories,source,"
+        "saturated_fat_g,fiber_g"
+    )
     # La virgule du commentaire est protégée par des guillemets.
     assert '"poulet, riz"' in lines[1]
-    assert lines[1].endswith(",42.5,,680,manual")
+    assert lines[1].endswith(",42.5,,680,manual,,")

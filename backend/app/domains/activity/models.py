@@ -89,6 +89,21 @@ class RunRow(CsvModel):
     #: « 1 Mile ». Sans elle, un fichier converti depuis des miles perdrait ce qui permet
     #: de relire ses paliers.
     split_length_km: float | None = None
+    #: Chemin du `.fit` importé, relatif à `RUN_FITS` (`docs/import-fit.md`, **F1**). Vide
+    #: sur toute course saisie au clavier ou venue d'une capture, ce qui est le cas de
+    #: toutes celles d'avant ce lot : colonne en fin d'en-tête, cellule vide légitime
+    #: (`STO-04`).
+    #:
+    #: C'est un identifiant **stable** au même titre que `run_id`, et il porte le même
+    #: piège : une correction de course ne doit jamais le régénérer ni le perdre, sans
+    #: quoi le fichier resterait sur Nextcloud sans plus rien qui le désigne — ni la
+    #: page Course pour le proposer, ni la suppression pour l'effacer.
+    fit_path: str = ""
+    #: La plus haute fréquence cardiaque **tenue** sur cinq relevés, lue dans le `.fit`
+    #: (`docs/analyse-course.md`, **A9**). Elle nourrit la FC max déduite quand aucune
+    #: n'est saisie. Vide sur tout ce qui ne vient pas d'un fichier cardio — une moyenne de
+    #: séance ne dit rien du maximum, et on ne le déduira pas d'elle.
+    max_hr: int | None = None
 
 
 class RunSplitRow(CsvModel):
@@ -121,6 +136,26 @@ class RunSplitRow(CsvModel):
     avg_hr: int | None = None
     elevation_m: int | None = None
     partial: bool = False
+
+
+class RunEffortRow(CsvModel):
+    """Le meilleur effort d'une sortie sur une distance. `activity/run_efforts.csv`.
+
+    **Une donnée dérivée, et rangée quand même** (`docs/analyse-course.md`, **A5**). Elle
+    se recalcule depuis le `.fit`, mais la page des courses les compare toutes : les
+    relire depuis chaque fichier coûterait 130 Ko de Nextcloud par sortie, à chaque
+    ouverture. `POST /runs/efforts/rebuild` la reconstruit entière — c'est ce qui rend
+    sa duplication sans risque.
+    """
+
+    #: Rattachement à `RunRow.run_id`, pour la raison des paliers : la position se décale.
+    run_id: str
+    #: 400, 1000, 3000… — les distances d'`analysis.EFFORTS`, en mètres entiers.
+    distance_m: int
+    #: Temps de **chrono**, pauses retirées.
+    duration_s: float
+    #: Où l'effort commence dans la sortie. Pour le dire, pas pour le recalculer.
+    start_km: float = 0.0
 
 
 class CircuitRow(CsvModel):
