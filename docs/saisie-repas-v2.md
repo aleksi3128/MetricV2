@@ -113,9 +113,15 @@ Un seul bouton, donc, et une étape qui offre les trois chemins :
 
 | Chemin | Ce qu'il remplit | Pour quoi |
 |---|---|---|
-| **Chercher dans mes aliments** | nom + les cinq valeurs + la portion | le cas quotidien |
 | **Scanner un code-barres** | nom + les cinq valeurs | un produit neuf, emballé |
+| **Chercher dans mes aliments** | nom + les cinq valeurs + la portion | le cas quotidien |
 | **Saisir à la main** | rien | le vrac, un reste, un plat cuisiné |
+
+L'ordre a changé après coup : le scan est passé **en tête**, au-dessus même de la
+recherche. C'est le geste qu'on vient faire en connaissance de cause — l'emballage est
+déjà en main — et non celui qu'on prend faute de mieux ; et c'est la place qu'il occupe
+dans `AddFoodSheet`, où l'on ajoute aussi un aliment. Deux surfaces qui font la même chose
+n'ont pas à ranger leurs chemins dans deux ordres différents.
 
 **Une étape, pas une feuille de plus.** Le raisonnement est en tête de `ScanStep.tsx` et
 vaut mot pour mot : deux `Sheet` empilées partagent l'écouteur `Échap`, le verrou de

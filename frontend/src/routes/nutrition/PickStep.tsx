@@ -22,12 +22,22 @@
  * `Sheet` empilées partagent l'écouteur `Échap`, le verrou de défilement et la restitution
  * du focus, et chacun des trois casse.
  *
+ * ## L'ordre des trois
+ *
+ * Le **scan en tête**, au-dessus même de la recherche : c'est le geste qu'on vient faire
+ * en connaissance de cause — on a l'emballage en main — et non celui qu'on prend faute de
+ * mieux. C'est aussi la place qu'il occupe déjà dans `AddFoodSheet`, et deux surfaces qui
+ * ajoutent un aliment n'ont pas à ranger leurs chemins dans deux ordres différents.
+ *
+ * La **saisie à la main** reste sous la liste : elle est ce qui reste quand ni le
+ * catalogue ni un code-barres n'ont répondu.
+ *
  * ## La liste est plafonnée, et le dit
  *
- * Douze lignes au plus. Un catalogue de deux cents aliments repousserait sinon le scan et
- * la saisie à la main à un écran et demi de défilement — les deux chemins qui servent
- * précisément quand la recherche ne trouve rien. Le compte de ce qui n'est pas montré est
- * écrit : une liste tronquée en silence fait croire qu'un aliment a disparu du catalogue.
+ * Douze lignes au plus. Un catalogue de deux cents aliments repousserait sinon la saisie à
+ * la main et le retour à un écran et demi de défilement. Le compte de ce qui n'est pas
+ * montré est écrit : une liste tronquée en silence fait croire qu'un aliment a disparu du
+ * catalogue.
  */
 
 import { useState } from 'react';
@@ -66,6 +76,16 @@ export function PickStep({
 
   return (
     <div className={styles.pick}>
+      {/* **Le scan en tête.** Il était sous la liste, avec les deux autres actions : c'est
+          pourtant le geste qui demande de sortir un emballage et de viser, celui qu'on
+          vient faire en connaissance de cause plutôt qu'après avoir cherché. Le mettre en
+          premier aligne aussi cette étape sur `AddFoodSheet`, où il occupe déjà cette
+          place — deux surfaces qui ajoutent un aliment n'ont pas à ranger leurs chemins
+          dans deux ordres différents. */}
+      <Button variant="ghost" onClick={onScan}>
+        Scanner un code-barres
+      </Button>
+
       <Field
         label="Chercher un aliment"
         placeholder="riz"
@@ -80,8 +100,8 @@ export function PickStep({
           recherche sans résultat ne se réparent pas du même geste. */}
       {catalogue.length === 0 ? (
         <p className={styles.empty}>
-          Ton catalogue est vide. Un aliment scanné y entre tout seul après le repas ; d’ici là, les
-          deux chemins ci-dessous suffisent.
+          Ton catalogue est vide. Un aliment scanné y entre tout seul après le repas ; d’ici là, le
+          code-barres et la saisie à la main suffisent.
         </p>
       ) : shown.length === 0 ? (
         <p className={styles.empty}>
@@ -117,12 +137,9 @@ export function PickStep({
         </div>
       )}
 
-      {/* Les deux chemins qui ne passent pas par le catalogue. En dessous, parce qu'ils
-          servent ce que le catalogue ne connaît pas encore. */}
+      {/* Le dernier chemin, et la sortie. En dessous de la liste : la saisie à la main
+          est ce qui reste quand ni le catalogue ni un code-barres n'ont répondu. */}
       <div className={styles.pickActions}>
-        <Button variant="ghost" onClick={onScan}>
-          Scanner un code-barres
-        </Button>
         <Button variant="quiet" onClick={onManual}>
           Saisir à la main
         </Button>
