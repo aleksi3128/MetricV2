@@ -322,6 +322,26 @@ describe('estimation d’une assiette', () => {
     expect(within(mealForm()).getByLabelText('Calories')).toHaveValue('520');
   });
 
+  it('déplie les deux dernières valeurs quand l’estimation les remplit', async () => {
+    // `NUT-25` : « AG saturés » et « Fibres » attendent derrière « Plus de valeurs », et
+    // le repli s'ouvre **de lui-même** dès qu'il a quelque chose à montrer. Une valeur
+    // remplie et cachée partirait au serveur sans jamais avoir été à l'écran, ce qui est
+    // exactement ce que ce dépôt refuse.
+    stub();
+    renderNutrition();
+
+    await describePlate();
+    // Repliées tant qu'elles sont vides.
+    expect(within(mealForm()).queryByLabelText('Fibres (g)')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
+
+    const fibres = within(mealForm()).getByLabelText('Fibres (g)');
+    expect(fibres).toHaveValue('4');
+    expect(fibres).toHaveAttribute('aria-description', 'valeur proposée, à valider');
+  });
+
   it('laisse corriger une valeur proposée au doigt, ce qui la rend sienne', async () => {
     // Sans cela, une estimation serait adoptée telle quelle faute de pouvoir la retoucher.
     stub();

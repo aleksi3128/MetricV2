@@ -8,7 +8,17 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 40;
+  /* **Au-dessus de `Sheet` (60), et c'est tout le sujet** (`NUT-25`).
+     Cette zone était à 40 : toute notification levée depuis une feuille — c'est-à-dire
+     depuis la moitié des gestes de l'application — était peinte **derrière** elle.
+     Mesuré : après un échec d'estimation, le message est bien dans le document, à 684 px
+     du haut d'un écran de 844, et invisible. Il emportait avec lui « Open Food Facts ne
+     connaît pas les valeurs pour 100 g de ce produit », écrit exprès pour qu'une ligne
+     vide ne se lise pas comme une panne, et que personne n'avait jamais vu.
+     Une notification est le dernier mot d'un geste : rien de ce que l'application dessine
+     n'a de raison de passer devant. D'où 70, au sommet de l'échelle — en-tête 20, barre
+     d'onglets 30, feuille 60. */
+  z-index: 70;
   pointer-events: none;
   width: min(420px, calc(100vw - 2 * var(--gutter)));
 }

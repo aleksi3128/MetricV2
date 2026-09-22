@@ -57,6 +57,22 @@
   font-weight: 600;
 }
 
+/* **Un primaire désactivé perd son fond** (`NUT-25`). L'opacité de `.btn:disabled` ne
+   suffit pas ici : à 38 %, le bleu devient un teal sourd qui garde la **forme** d'un
+   bouton plein, et « Enregistrer le repas » se lit comme actif tant qu'on ne le touche
+   pas. C'est le contraire de ce qu'un état désactivé doit faire — dire d'avance qu'il ne
+   se passera rien. Un contour inerte le dit sans ambiguïté, et la phrase sous le bouton
+   dit déjà ce qui manque pour l'allumer.
+
+   `:not([aria-busy='true'])` : pendant une attente, le bouton est désactivé aussi — le
+   vider alors ferait disparaître l'action à l'instant précis où elle part. */
+.primary:disabled:not([aria-busy='true']) {
+  background: transparent;
+  color: var(--ink-low);
+  border-color: var(--line);
+  font-weight: 500;
+}
+
 .ghost {
   background: transparent;
   color: var(--ink);

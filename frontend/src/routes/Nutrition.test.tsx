@@ -246,6 +246,48 @@ describe('écran Nutrition', () => {
     expect(screen.getByLabelText('Type')).toHaveValue('déjeuner');
   });
 
+  it('replie les deux valeurs qu’on connaît rarement, et les rend d’un appui', async () => {
+    // `NUT-25` : cinq pas-à-pas faisaient ~750 px avant le bouton d'enregistrement, et
+    // ces deux-là ne se connaissent presque jamais sans emballage sous les yeux. Elles ne
+    // sont pas retirées — `NUT-16` a coûté assez cher — elles attendent.
+    stub();
+    renderNutrition();
+    await openSheet('Valeurs à la main');
+
+    const form = screen.getByRole('button', { name: 'Enregistrer le repas' }).closest('form');
+    expect(within(form as HTMLElement).getByLabelText('Protéines (g)')).toBeInTheDocument();
+    expect(within(form as HTMLElement).queryByLabelText('AG saturés (g)')).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Plus de valeurs — AG saturés, fibres' }),
+    );
+
+    expect(within(form as HTMLElement).getByLabelText('AG saturés (g)')).toBeInTheDocument();
+    expect(within(form as HTMLElement).getByLabelText('Fibres (g)')).toBeInTheDocument();
+  });
+
+  it('déplie de lui-même les deux valeurs qu’une saisie reprise porte', async () => {
+    // Une valeur rangée dans le brouillon doit revenir **visible** : cachée, elle
+    // partirait au serveur sans que rien ne l'ait montrée.
+    stub();
+    localStorage.setItem(
+      'metric.meal-draft',
+      JSON.stringify({
+        mode: 'manuel',
+        values: { comment: 'lentilles', fiber_g: '9' },
+        rows: [],
+        proposed: [],
+        estimate: null,
+        saved_at: Date.now(),
+      }),
+    );
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+
+    expect(screen.getByLabelText('Fibres (g)')).toHaveValue('9');
+  });
+
   it('demande le mode avant de demander quoi que ce soit d’autre', async () => {
     // Le formulaire était déplié en permanence : on traversait la photo et la description
     // pour taper trois nombres. La feuille demande d'abord **comment** on veut noter.

@@ -200,6 +200,25 @@
   color: var(--ink-low);
 }
 
+/* L'indice qui **explique le choix** passe sous le libellé (`NUT-25`). À droite, il
+   prenait la moitié de la largeur et renvoyait le libellé à la ligne : « Repas composé »
+   et « Valeurs à la main » tenaient sur deux lignes dans une rangée de 56 px quand les
+   autres entrées en occupaient une. Mesuré à 402, 390 et 360 px, dans les deux thèmes.
+   `align-items` remis à gauche : centré, un bloc de deux lignes flotte au milieu d'une
+   rangée qui a grandi pour lui. */
+.rowStacked {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding-top: var(--s2);
+  padding-bottom: var(--s2);
+}
+
+.rowStacked .rowLabel {
+  flex: none;
+}
+
 /* ── Mouvement ────────────────────────────────────── */
 
 @keyframes rise {

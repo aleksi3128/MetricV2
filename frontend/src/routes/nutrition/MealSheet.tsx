@@ -90,6 +90,20 @@ const MODES: { value: MealMode; label: string; hint: string }[] = [
  */
 const TOTAL_DELAY_MS = 500;
 
+/**
+ * Les deux valeurs qui attendent derrière « Plus de valeurs » (`NUT-25`).
+ *
+ * Cinq pas-à-pas faisaient ~750 px de formulaire avant le bouton d'enregistrement, et ces
+ * deux-là ne se connaissent presque jamais sans emballage sous les yeux. Elles ne sont pas
+ * **retirées** — `NUT-16` a coûté assez cher pour qu'on ne les oublie pas une seconde fois,
+ * et elles partent toujours quand elles sont remplies. Ce qui change est ce qu'on traverse
+ * pour atteindre le bouton.
+ *
+ * Des clés et non une seconde liste : les libellés, les pas et les modes de saisie restent
+ * dans `NUTRIENTS`, qui est la seule énumération du dépôt.
+ */
+const LATER: readonly Macro[] = ['saturated_fat_g', 'fiber_g'];
+
 /** Les deux modes qui n'appellent aucun modèle, et restent donc offerts sans clé. */
 const OFFLINE_MODES: readonly MealMode[] = ['manuel', 'compose'];
 
@@ -149,6 +163,9 @@ export function MealSheet({
   const [mode, setMode] = useState<MealMode | null>(null);
   const [values, setValues] = useState<MealFormValues>(EMPTY);
   const [error, setError] = useState<ApiError | null>(null);
+  // « Plus de valeurs » : demandé du doigt. Ce que la saisie contient l'ouvre aussi, et
+  // c'est calculé au rendu — voir `showLater`.
+  const [laterOpen, setLaterOpen] = useState(false);
 
   // La feuille tient-elle déjà une saisie ? Une référence et non un état : l'effet de
   // reprise ne doit se rejouer qu'à l'ouverture, pas à chaque frappe.
@@ -202,6 +219,7 @@ export function MealSheet({
     setTotal(null);
     setTotalError(null);
     setError(null);
+    setLaterOpen(false);
     setStep({ kind: 'form' });
     setWeighing(null);
     clearDraft();
@@ -226,6 +244,10 @@ export function MealSheet({
     setTotal(null);
     setTotalError(null);
     setError(null);
+    // Le repli n'est pas repris : `showLater` le rouvre de lui-même si la saisie reprise
+    // porte l'une des deux valeurs. Retenir l'état du repli aurait ajouté un champ au
+    // brouillon pour une information qui se déduit de ce qu'il contient déjà.
+    setLaterOpen(false);
     live.current = true;
   }, []);
 
@@ -456,6 +478,15 @@ export function MealSheet({
   // l'inclure ferait clignoter l'action principale à chaque gramme tapé. L'enregistrement
   // ne dépend pas de lui — il recalcule le total de son côté.
   const busy = suggest.isPending || save.isPending || saveComposed.isPending;
+  /*
+   * Le repli des deux dernières valeurs s'ouvre à la demande **ou** dès qu'il a quelque
+   * chose à montrer. La seconde condition n'est pas un confort : une valeur remplie et
+   * cachée partirait au serveur sans jamais avoir été à l'écran.
+   */
+  const showLater =
+    laterOpen ||
+    LATER.some((key) => values[key].trim() !== '' || proposed.includes(key)) ||
+    LATER.some((key) => error?.messageFor(key) !== undefined);
 
   /*
    * Le total, au repos de la frappe (`NUT-24`).
@@ -547,9 +578,10 @@ export function MealSheet({
               key={item.value}
               label={item.label}
               hint={item.hint}
-              // L'indice explique le choix, il ne le décrit pas : l'annoncer rallongerait
-              // chaque entrée d'une phrase qu'on entend quatre fois de suite.
-              aria-label={item.label}
+              // L'indice explique le choix, il ne le décrit pas : il passe donc sous le
+              // libellé — à droite il lui prenait la moitié de la largeur — et quitte le
+              // nom accessible, qu'il rallongeait d'une phrase entendue à chaque entrée.
+              hintExplains
               onClick={() => {
                 setMode(item.value);
                 live.current = true;
@@ -726,7 +758,7 @@ export function MealSheet({
               trois champs modifiables à côté d'un total calculé laisseraient croire qu'on
               peut avoir les deux — alors que l'enregistrement recalcule. */}
           <div className={cx(styles.triple, composing && styles.hidden)} hidden={composing}>
-            {NUTRIENTS.map((nutrient) => (
+            {NUTRIENTS.filter((nutrient) => !LATER.includes(nutrient.key)).map((nutrient) => (
               <Stepper
                 key={nutrient.key}
                 label={nutrient.field}
@@ -740,6 +772,39 @@ export function MealSheet({
               />
             ))}
           </div>
+
+          {/* Les deux dernières, repliées tant qu'elles sont vides. Le repli **s'ouvre de
+              lui-même** dès que l'une porte quelque chose — une estimation acceptée, une
+              saisie reprise, une erreur du serveur : une valeur qui part doit être à
+              l'écran, et une valeur cachée qu'on enregistre serait exactement ce que le
+              dépôt refuse. */}
+          {!composing &&
+            (showLater ? (
+              <div className={styles.triple}>
+                {NUTRIENTS.filter((nutrient) => LATER.includes(nutrient.key)).map((nutrient) => (
+                  <Stepper
+                    key={nutrient.key}
+                    label={nutrient.field}
+                    inputMode={nutrient.inputMode}
+                    value={values[nutrient.key]}
+                    onChange={setMacro(nutrient.key)}
+                    step={nutrient.step}
+                    min={0}
+                    proposed={proposed.includes(nutrient.key)}
+                    error={error?.messageFor(nutrient.key)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  setLaterOpen(true);
+                }}
+              >
+                Plus de valeurs — AG saturés, fibres
+              </Button>
+            ))}
 
           <div className={styles.sheetCommit}>
             <Button

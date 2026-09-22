@@ -1,7 +1,8 @@
 # La saisie d'un repas, deuxième version — plan (`NUT-22` → `NUT-25`)
 
-**État : à faire.** Écrit avant le code, comme le veut le §1 de `CLAUDE.md`. Ce qui suit
-dit ce qui change, pourquoi, et ce que ça coûte.
+**État : livré le 22 septembre 2026**, en quatre lots. Écrit avant le code, comme le veut
+le §1 de `CLAUDE.md` ; les deux endroits où l'écriture a corrigé le plan sont signalés à
+leur place (§4 et §5), plutôt que réécrits en silence.
 
 Deux demandes, et elles ne se ressemblent pas. La première est une **décision d'usage** :
 la photo ne sert plus, la feuille garde trois modes. La seconde est un **constat** : le
@@ -201,6 +202,18 @@ ne règlent rien : c'est l'indice, à droite, qui vole la largeur du libellé.
 **AG saturés et fibres derrière un « plus de valeurs »** en mode manuel. Elles restent
 **envoyées** : `NUT-16` a coûté assez cher pour qu'on ne les oublie pas une seconde fois.
 Ce qui change est ce qu'on traverse avant d'atteindre le bouton, pas ce qui part.
+
+Un point que le plan n'avait pas prévu, et qui décide de l'implémentation : le repli
+**s'ouvre de lui-même** dès qu'il a quelque chose à montrer — une estimation acceptée, une
+saisie reprise, une erreur du serveur sur l'un des deux champs. Une valeur remplie et
+cachée partirait au serveur sans avoir jamais été à l'écran, ce qui est exactement ce que
+le §2 de `CLAUDE.md` refuse.
+
+Et l'indice de `SheetRow` a gagné une **nature** plutôt qu'un réglage d'apparence :
+`hintExplains` dit que l'indice explique le choix au lieu de décrire la ligne. C'est la
+distinction que la documentation du composant faisait déjà pour son nom accessible ; elle
+décide maintenant aussi de la mise en page, et remplace le `aria-label` que la feuille
+passait à la main.
 
 ---
 

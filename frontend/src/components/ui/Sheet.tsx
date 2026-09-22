@@ -170,6 +170,7 @@ export function SheetRow({
   icon,
   label,
   hint,
+  hintExplains,
   onClick,
   href,
   tone,
@@ -179,6 +180,21 @@ export function SheetRow({
   icon?: ReactNode | undefined;
   label?: string | undefined;
   hint?: ReactNode | undefined;
+  /**
+   * L'indice **explique le choix** au lieu de décrire la ligne.
+   *
+   * Deux natures d'indice vivaient ici sans se distinguer. « 8,4 km » est une **mesure**
+   * qui appartient à la ligne : sa place est à droite, et elle se lit avec le nom.
+   * « des aliments et leurs poids » est une **phrase** qui dit à quoi mène la ligne :
+   * posée à droite, elle prend la moitié de la largeur et fait passer le libellé à deux
+   * lignes — « Repas composé » et « Valeurs à la main » l'ont fait aux trois largeurs et
+   * dans les deux thèmes, pendant que les autres entrées tenaient sur une.
+   *
+   * Avec ce drapeau, la phrase passe **sous** le libellé, qui garde sa largeur entière.
+   * Elle quitte aussi le nom accessible — sans quoi on l'entendrait à chaque entrée d'une
+   * liste qu'on parcourt.
+   */
+  hintExplains?: boolean | undefined;
   onClick?: (() => void) | undefined;
   href?: string | undefined;
   tone?: 'recover' | undefined;
@@ -187,9 +203,9 @@ export function SheetRow({
    * Nom accessible, quand l'indice ne fait pas partie de ce qu'il faut annoncer.
    *
    * Par défaut, le nom d'une ligne est son libellé **suivi de son indice** — « Course
-   * 8,4 km », et c'est bien : l'indice est une donnée qui appartient à la ligne. Mais
-   * quand l'indice explique le choix plutôt qu'il ne le décrit — « Photo, l'assiette
-   * suffit » —, l'annoncer rallonge chaque entrée d'une phrase qu'on entend quatre fois.
+   * 8,4 km », et c'est bien : l'indice est une donnée qui appartient à la ligne.
+   * `hintExplains` couvre le cas inverse sans qu'on ait à le redire ici ; ce paramètre
+   * reste pour les lignes dont le nom ne se déduit ni de l'un ni de l'autre.
    */
   'aria-label'?: string | undefined;
 }) {
@@ -201,18 +217,25 @@ export function SheetRow({
     </>
   );
 
-  const classes = cx(styles.row, tone === 'recover' && styles.rowRecover);
+  // Une phrase qui explique le choix n'entre pas dans le nom : c'est le libellé qui le
+  // porte, et lui seul.
+  const name = ariaLabel ?? (hintExplains === true ? label : undefined);
+  const classes = cx(
+    styles.row,
+    hintExplains === true && styles.rowStacked,
+    tone === 'recover' && styles.rowRecover,
+  );
 
   if (href !== undefined) {
     return (
-      <a className={classes} href={href} aria-label={ariaLabel}>
+      <a className={classes} href={href} aria-label={name}>
         {inner}
       </a>
     );
   }
 
   return (
-    <button type="button" className={classes} onClick={onClick} aria-label={ariaLabel}>
+    <button type="button" className={classes} onClick={onClick} aria-label={name}>
       {inner}
     </button>
   );
