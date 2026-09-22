@@ -34,7 +34,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AiBlock, Button, Field, Sheet, SheetRow, Stepper } from '@/components/ui';
+import { AiBlock, Button, Field, Sheet, SheetRow, Skeleton, Stepper } from '@/components/ui';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import {
   nutritionApi,
@@ -79,6 +79,14 @@ const MODES: { value: MealMode; label: string; hint: string }[] = [
   { value: 'compose', label: 'Repas composé', hint: 'des aliments et leurs poids' },
   { value: 'manuel', label: 'Valeurs à la main', hint: 'protéines, calories, fibres…' },
 ];
+
+/**
+ * Le repos de frappe après lequel le total se redemande (`NUT-24`).
+ *
+ * Une demi-seconde : au-dessus, le total traîne derrière le doigt et on croit l'avoir
+ * raté ; en dessous, taper « 180 » lance trois requêtes là où une suffit.
+ */
+const TOTAL_DELAY_MS = 500;
 
 /** Les deux modes qui n'appellent aucun modèle, et restent donc offerts sans clé. */
 const OFFLINE_MODES: readonly MealMode[] = ['manuel', 'compose'];
@@ -152,6 +160,8 @@ export function MealSheet({
   // atteindre le scan.
   const [rows, setRows] = useState<IngredientDraft[]>([]);
   const [total, setTotal] = useState<Composition | null>(null);
+  // L'échec du total, tenu à part de celui du formulaire : voir `computeTotal`.
+  const [totalError, setTotalError] = useState<string | null>(null);
 
   // Les surfaces qui prennent la feuille et la rendent : le scan (`NUT-13`) et la fiche
   // d'un aliment (`NUT-14`). Des étapes et non des `Sheet` imbriquées — le raisonnement
@@ -183,6 +193,7 @@ export function MealSheet({
     setProposed([]);
     setRows([]);
     setTotal(null);
+    setTotalError(null);
     setError(null);
     setStep({ kind: 'form' });
     setWeighing(null);
@@ -206,6 +217,7 @@ export function MealSheet({
     setProposed(draft.proposed);
     setEstimate(draft.estimate);
     setTotal(null);
+    setTotalError(null);
     setError(null);
     live.current = true;
   }, []);
@@ -290,15 +302,32 @@ export function MealSheet({
   /**
    * Le total, demandé au serveur. **N'écrit rien** (`NUT-12`).
    *
-   * Sur demande et non à chaque frappe : cinq champs par ingrédient feraient une requête
-   * par caractère. C'est aussi ce qui rend le total lisible — il apparaît quand on a fini
-   * de saisir, pas pendant.
+   * Il se demandait d'un appui sur « Calculer le total ». L'appui était facultatif —
+   * l'enregistrement recalcule de son côté — et c'était tout le problème : le seul
+   * avertissement de la surface, « aucun ingrédient n'a de valeur pour 100 g », ne
+   * s'affichait que si on avait pensé à le demander. Un plat enregistré sans cet appui
+   * partait sans macros, et le journal écrivait « macros non renseignées » sans qu'aucun
+   * écran n'ait prévenu (`NUT-24`).
+   *
+   * Il se calcule donc **tout seul**, au repos de la frappe. Ce qui motivait le bouton
+   * tient toujours — une requête par caractère n'a aucun sens — et c'est le délai qui s'en
+   * charge maintenant.
+   *
+   * L'échec ne va **pas** dans `error` : celui-là est l'erreur du formulaire, levée par un
+   * geste d'enregistrement. Une requête que personne n'a demandée ne doit pas écrire en
+   * tête du formulaire, sous le type du repas. Elle se dit là où le total s'affiche.
    */
   const computeTotal = useMutation({
     mutationFn: () => nutritionApi.compose(toLines(rows)),
-    onSuccess: setTotal,
+    onSuccess: (result) => {
+      setTotalError(null);
+      setTotal(result);
+    },
     onError: (caught: unknown) => {
-      setError(caught instanceof ApiError ? caught : null);
+      setTotal(null);
+      setTotalError(
+        caught instanceof ApiError ? caught.message : 'Le total n’a pas pu être calculé.',
+      );
     },
   });
 
@@ -396,8 +425,41 @@ export function MealSheet({
     ? values.comment.trim() === '' || lines.length === 0
     : values.comment.trim() === '';
   const nothingToEstimate = values.comment.trim() === '';
-  const busy =
-    suggest.isPending || save.isPending || saveComposed.isPending || computeTotal.isPending;
+  // `computeTotal` n'en fait **pas** partie : il part tout seul au repos de la frappe, et
+  // l'inclure ferait clignoter l'action principale à chaque gramme tapé. L'enregistrement
+  // ne dépend pas de lui — il recalcule le total de son côté.
+  const busy = suggest.isPending || save.isPending || saveComposed.isPending;
+
+  /*
+   * Le total, au repos de la frappe (`NUT-24`).
+   *
+   * La **signature** des lignes en dépendance, et non le tableau : `toLines` en rend un
+   * neuf à chaque rendu, et l'effet repartirait en boucle. Ce qui doit relancer le calcul
+   * est le contenu — un gramme changé, un aliment retiré —, pas l'identité de l'objet.
+   *
+   * `fire` est une référence, comme la boucle de `ScanStep` avec son `onFound` : l'effet
+   * ne se rejoue qu'au changement des lignes, et lirait sinon la mutation du premier
+   * rendu.
+   */
+  const signature = JSON.stringify(lines);
+  const fire = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    fire.current = () => {
+      computeTotal.mutate();
+    };
+  });
+
+  useEffect(() => {
+    // Sans ligne complète, il n'y a rien à totaliser — et rien à dire non plus : c'est
+    // l'état vide du tableau qui parle, pas un total à zéro.
+    if (!composing || signature === '[]') return;
+    const timer = window.setTimeout(() => {
+      fire.current();
+    }, TOTAL_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [composing, signature]);
 
   return (
     <Sheet
@@ -520,21 +582,23 @@ export function MealSheet({
                   setRows(next);
                   // Le total appartient aux lignes qui l'ont produit : changer une
                   // quantité sans le jeter laisserait un chiffre d'un autre plat à
-                  // l'écran, et c'est celui-là qu'on croirait enregistrer.
+                  // l'écran, et c'est celui-là qu'on croirait enregistrer. Le nouveau
+                  // part tout seul, une demi-seconde après la dernière frappe.
                   setTotal(null);
+                  setTotalError(null);
                 }}
               />
 
-              <Button
-                variant="ghost"
-                busy={computeTotal.isPending}
-                disabled={lines.length === 0}
-                onClick={() => {
-                  computeTotal.mutate();
-                }}
-              >
-                Calculer le total
-              </Button>
+              {/* L'attente est **dessinée** et non écrite : elle occupe la place de ce qui
+                  arrive. Seulement quand il y a de quoi totaliser — sinon le tableau vide
+                  serait suivi d'un fantôme de total que rien ne viendrait remplir. */}
+              {total === null && totalError === null && lines.length > 0 && <Skeleton lines={2} />}
+
+              {totalError !== null && (
+                <p className={styles.error} role="alert">
+                  {totalError}
+                </p>
+              )}
 
               {total !== null && (
                 <CompositionTotal

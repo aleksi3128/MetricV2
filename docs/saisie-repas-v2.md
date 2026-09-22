@@ -133,10 +133,16 @@ où un défaut s'y découvrira.
 Trois correctifs, et il faut les trois : chacun boucherait un trou que les deux autres
 laisseraient ouvert.
 
-**Le rappel ne dépend plus d'un appui.** `recall()` est aussi appelé à la sortie du champ,
-quand le nom correspond exactement à une entrée du catalogue. Le rapprochement reste
-**exact** — même casse repliée, mêmes espaces — comme partout dans ce dépôt : un
-rapprochement approximatif finirait par attribuer à un yaourt les calories de l'autre.
+**Le rappel ne dépend plus d'un appui.** `recall()` est appelé à **chaque frappe** et non
+à la sortie du champ comme ce plan l'envisageait : un seul chemin pour la frappe et pour
+l'appui sur une suggestion, là où deux chemins sont exactement ce qui avait produit une
+ligne sans valeurs. Le rapprochement reste **exact** — même casse repliée, mêmes espaces —
+comme partout dans ce dépôt : un rapprochement approximatif finirait par attribuer à un
+yaourt les calories de l'autre.
+
+Un corollaire que le plan n'avait pas vu : un nom qui **cesse** de correspondre efface ce
+qui avait été rappelé. Sans cela, corriger « riz basmati » en « riz complet » — que le
+catalogue ignore — garderait les calories du premier sous le nom du second.
 
 > **Ce que ça ne couvre pas.** L'assistant compose des repas (`IA-05`) sans passer par
 > l'écran : pour lui, une ligne sans valeurs reste une ligne sans valeurs. Le trou est
@@ -150,9 +156,14 @@ ligne **manuelle** sans valeurs. Un nom hors catalogue en restera sans — c'est
 `repas-compose.md` §3 le dit : « 150 g de légumes » était dans l'assiette même s'il
 n'apporte rien de connu. Mais la ligne doit le dire **avant** l'enregistrement, pas après.
 
-**La fiche s'ouvre aussi sur une ligne manuelle** une fois ses valeurs rappelées. Sans
-elle, on ne peut pas vérifier ce qu'on s'apprête à compter, et « invisible » redeviendrait
-« introuvable » — ce que `NUT-14` avait justement refusé.
+**Ce que la ligne vaut est écrit sous son nom** : `356 kcal/100 g` quand le catalogue a
+répondu. Le plan disait « la fiche s'ouvre aussi sur une ligne manuelle » ; l'écriture l'a
+corrigé. Une touche « voir la fiche » par aliment serait passée sous le plancher de 44 px —
+le dépôt n'admet qu'une exemption, et ce n'est pas celle-ci — ou aurait ajouté la hauteur
+d'un doigt à chaque ligne d'un plat qui en compte cinq. Montrer le chiffre répond mieux
+que promettre une porte vers lui : c'est celui qu'on regarde pour savoir qu'on a rappelé
+le bon aliment. La fiche reste sur les lignes **scannées**, où marque et code-barres ont
+quelque chose de plus à dire.
 
 ### Le total ne se demande plus
 

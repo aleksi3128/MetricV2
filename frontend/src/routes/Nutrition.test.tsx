@@ -477,7 +477,10 @@ describe('repas composé', () => {
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
   }
 
-  it('demande le total au serveur et affiche ce qu’il rend', async () => {
+  it('demande le total au serveur, sans qu’on ait à le demander', async () => {
+    // `NUT-24` : il fallait appuyer sur « Calculer le total », et l'appui était
+    // facultatif — l'enregistrement recalcule. Un plat enregistré sans cet appui partait
+    // donc sans macros, et le seul avertissement de la surface ne s'affichait jamais.
     stub((url, init) =>
       init?.method === 'POST' && url === '/api/nutrition/compose'
         ? json(200, COMPOSITION)
@@ -486,9 +489,9 @@ describe('repas composé', () => {
     renderNutrition();
 
     await fillPlate();
-    await userEvent.click(screen.getByRole('button', { name: 'Calculer le total' }));
 
-    expect(await screen.findByText('641 kcal')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Calculer le total' })).toBeNull();
+    expect(await screen.findByText('641 kcal', {}, { timeout: 3000 })).toBeInTheDocument();
 
     // Ce qui est parti : les valeurs pour 100 g et la quantité, jamais un total.
     const call = calls.find((item) => item.url === '/api/nutrition/compose');
@@ -520,8 +523,7 @@ describe('repas composé', () => {
     renderNutrition();
 
     await fillPlate();
-    await userEvent.click(screen.getByRole('button', { name: 'Calculer le total' }));
-    expect(await screen.findByText('641 kcal')).toBeInTheDocument();
+    expect(await screen.findByText('641 kcal', {}, { timeout: 3000 })).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/^Grammes/), '0');
 
@@ -585,13 +587,15 @@ describe('repas composé', () => {
     renderNutrition();
 
     await fillPlate();
-    await userEvent.click(screen.getByRole('button', { name: 'Calculer le total' }));
 
-    const call = await waitFor(() => {
-      const found = calls.find((item) => item.url === '/api/nutrition/compose');
-      expect(found).toBeDefined();
-      return found;
-    });
+    const call = await waitFor(
+      () => {
+        const found = calls.find((item) => item.url === '/api/nutrition/compose');
+        expect(found).toBeDefined();
+        return found;
+      },
+      { timeout: 3000 },
+    );
     const { lines } = JSON.parse(call?.init?.body as string) as {
       lines: Record<string, unknown>[];
     };
@@ -602,6 +606,77 @@ describe('repas composé', () => {
     expect(within(sheet).queryByLabelText('kcal')).toBeNull();
     expect(within(sheet).queryByLabelText('Protéines')).toBeNull();
     expect(within(sheet).queryByLabelText('Sucres')).toBeNull();
+  });
+
+  it('rappelle les valeurs d’un nom tapé en entier, sans suggestion à appuyer', async () => {
+    // **Le défaut le plus cher de cette surface, et il était invisible** (`NUT-24`).
+    // `recall` n'écoutait que l'appui sur la suggestion, or `Combobox` masque celle-ci
+    // dès que le texte tapé l'égale : taper « riz basmati » en entier ne laissait plus
+    // rien à choisir, la ligne partait sans valeurs, et le plat s'enregistrait sans
+    // macros. Plus on tapait juste, plus on était sûr de n'avoir rien.
+    stub((url, init) =>
+      init?.method === 'POST' && url === '/api/nutrition/compose'
+        ? json(200, COMPOSITION)
+        : undefined,
+    );
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.type(screen.getByLabelText('Nom du plat'), 'bowl riz');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    // Tapé en entier, et **aucune** suggestion appuyée.
+    await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz basmati');
+    await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
+
+    const call = await waitFor(
+      () => {
+        const found = calls.find((item) => item.url === '/api/nutrition/compose');
+        expect(found).toBeDefined();
+        return found;
+      },
+      { timeout: 3000 },
+    );
+    const { lines } = JSON.parse(call?.init?.body as string) as {
+      lines: Record<string, unknown>[];
+    };
+    expect(lines[0]).toMatchObject({ name: 'riz basmati', calories_100g: 356 });
+  });
+
+  it('efface les valeurs quand le nom cesse de correspondre', async () => {
+    // Corriger « riz basmati » en « riz complet » — que le catalogue ignore — garderait
+    // sinon les calories du premier sous le nom du second.
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    const champ = screen.getByLabelText('Ingrédient');
+    await userEvent.type(champ, 'riz basmati');
+    expect(screen.getByText('356 kcal/100 g')).toBeInTheDocument();
+
+    await userEvent.type(champ, ' complet');
+
+    expect(screen.queryByText('356 kcal/100 g')).toBeNull();
+    expect(screen.getByText('valeurs inconnues')).toBeInTheDocument();
+  });
+
+  it('dit sur la ligne tapée à la main qu’elle ne compte pas', async () => {
+    // La mention existait, mais dans la branche des lignes **scannées** — celles qui
+    // portent toujours leurs valeurs. Elle était affichée là où le cas ne peut pas
+    // arriver, et absente là où il est la règle.
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+
+    // Rien tant que le champ est vide : une ligne qu'on vient d'ouvrir n'a pas de valeurs
+    // inconnues, elle n'a pas encore de nom.
+    expect(screen.queryByText('valeurs inconnues')).toBeNull();
+
+    await userEvent.type(screen.getByLabelText('Ingrédient'), 'restes de la veille');
+
+    expect(screen.getByText('valeurs inconnues')).toBeInTheDocument();
   });
 
   it('s’ouvre sans aucune ligne, et dit ce que coûte le prochain geste', async () => {

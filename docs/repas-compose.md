@@ -113,8 +113,13 @@ ses fonctions pures dans `ingredient-draft.ts` — même séparation que `estima
 - **Le total n'est pas une proposition.** Ni `AiBlock`, ni pas-à-pas `proposed` : c'est
   une multiplication sur des chiffres saisis. Le vocabulaire de la proposition reste
   réservé à ce qu'un modèle rend (§2 de `CLAUDE.md`).
-- **Le total se demande, il ne se recalcule pas à chaque frappe.** Cinq champs par
-  ingrédient feraient une requête par caractère.
+- ~~**Le total se demande, il ne se recalcule pas à chaque frappe.**~~ Revu par `NUT-24` :
+  il se recalcule **tout seul**, une demi-seconde après la dernière frappe. Ce qui
+  motivait le bouton tient toujours — une requête par caractère n'a aucun sens — et c'est
+  le délai qui s'en charge. Ce qui l'a fait tomber est ailleurs : l'appui était facultatif,
+  et le seul avertissement de la surface — « aucun ingrédient n'a de valeur pour 100 g » —
+  ne s'affichait donc que si on avait pensé à le demander. Voir
+  [`saisie-repas-v2.md`](saisie-repas-v2.md) §4.
 - **Le total est jeté dès qu'une ligne change.** Il appartient aux lignes qui l'ont
   produit ; le laisser à l'écran après une retouche ferait croire qu'on enregistre
   ce chiffre-là.

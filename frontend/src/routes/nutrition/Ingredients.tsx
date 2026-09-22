@@ -65,17 +65,44 @@ function IngredientRow({
   }));
 
   /**
-   * Choisir un ingrédient connu rapporte ses trois valeurs — **sans les montrer**.
+   * Un nom connu du catalogue rapporte ses cinq valeurs — **sans les montrer**.
    *
-   * C'est tout l'intérêt du catalogue, et il compte double depuis que les champs ont
-   * quitté l'écran : sans lui, un aliment tapé à la main ne pèserait rien dans le total.
+   * ## Appelée à **chaque frappe**, et non sur le seul appui d'une suggestion (`NUT-24`)
+   *
+   * C'était le défaut le plus cher de cette surface, et il était invisible. `recall`
+   * n'écoutait que `onSelect`, or `Combobox` **masque** la suggestion dès que le texte
+   * tapé l'égale : taper « riz basmati » en entier — un aliment du catalogue, à
+   * 356 kcal/100 g — ne laissait plus rien à choisir, la ligne partait sans valeurs, et le
+   * plat s'enregistrait sans macros. Plus on tapait juste, plus on était sûr de n'avoir
+   * rien. Mesuré à l'écran, jamais vu par un test.
+   *
+   * ## Un nom qui ne correspond plus **efface** ce qui avait été rappelé
+   *
+   * Sans cela, corriger « riz basmati » en « riz complet » — que le catalogue ignore —
+   * garderait les calories du premier sous le nom du second. Une ligne manuelle ne tient
+   * donc jamais que les valeurs du nom qu'elle porte **en cet instant**, et ce n'est pas
+   * une perte : elles reviennent au caractère près.
+   *
+   * Le rapprochement reste **exact** — repli de casse et d'espaces, rien de plus. Un
+   * rapprochement approximatif finirait par attribuer à un yaourt les calories de l'autre,
+   * et le dépôt le refuse partout ailleurs pour la même raison.
    */
   function recall(name: string): void {
     const known = catalogue.find(
       (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase(),
     );
     if (!known) {
-      onChange({ ...row, name });
+      onChange({
+        ...row,
+        name,
+        calories_100g: '',
+        protein_100g: '',
+        added_sugar_100g: '',
+        saturated_fat_100g: '',
+        fiber_100g: '',
+        portion_g: '',
+        barcode: '',
+      });
       return;
     }
     onChange({
@@ -98,19 +125,37 @@ function IngredientRow({
           inviterait à retoucher un libellé qui vient de la base — et c'est sur le nom que
           le catalogue se rattache au produit. */}
       {row.manual ? (
-        <Combobox
-          className={styles.foodPick}
-          label="Ingrédient"
-          placeholder="riz basmati"
-          value={row.name}
-          options={options}
-          onChange={(value) => {
-            onChange({ ...row, name: value });
-          }}
-          onSelect={(option) => {
-            recall(option.value);
-          }}
-        />
+        <div className={styles.foodPick}>
+          <Combobox
+            label="Ingrédient"
+            placeholder="riz basmati"
+            value={row.name}
+            options={options}
+            // Le même chemin pour la frappe et pour l'appui : deux chemins, c'est
+            // exactement ce qui avait produit une ligne sans valeurs (voir `recall`).
+            onChange={recall}
+            onSelect={(option) => {
+              recall(option.value);
+            }}
+          />
+          {/* **Ce que la ligne vaut, dit sous son nom** (`NUT-24`).
+              La mention existait déjà — mais dans la branche d'en dessous, celle des
+              lignes scannées, qui portent toujours leurs valeurs. Elle était donc affichée
+              là où le cas ne peut pas arriver, et absente là où il est la règle.
+              Rien tant que le champ est vide : une ligne qu'on vient d'ouvrir n'a pas de
+              valeurs inconnues, elle n'a pas encore de nom. */}
+          {row.name.trim() !== '' && (
+            <span className={hasValues(row) ? styles.foodRecalled : styles.foodUnknown}>
+              {/* **La valeur, et non une porte vers elle.** Une touche « voir la fiche »
+                  sous chaque aliment aurait été une cible de moins de 44 px — le dépôt
+                  n'en admet qu'une seule exemption, et ce n'est pas celle-ci — ou aurait
+                  ajouté la hauteur d'un doigt par ligne à un plat qui en compte cinq. Les
+                  calories pour 100 g sont ce qu'on vérifie d'un coup d'œil : c'est le
+                  chiffre qui dit qu'on a rappelé le bon aliment. */}
+              {hasValues(row) ? `${row.calories_100g} kcal/100 g` : 'valeurs inconnues'}
+            </span>
+          )}
+        </div>
       ) : (
         /* Le nom est une cible : il ouvre la fiche de l'aliment. C'est ce qui rend les
            valeurs pour 100 g **invisibles sans être introuvables** — on doit pouvoir

@@ -661,6 +661,26 @@
   min-width: 0;
 }
 
+/* Le nom d'une ligne tapée à la main, et sous lui ce qu'elle vaut (`NUT-24`). Une colonne
+   parce que la mention appartient au nom : posée ailleurs dans la grille, elle se serait
+   lue comme un commentaire sur le poids. */
+.foodPick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Ce qu'une ligne rappelée du catalogue vaut, sous son nom. **Du texte, pas une cible** :
+   une touche par aliment serait passée sous le plancher de 44 px, ou aurait ajouté la
+   hauteur d'un doigt à chaque ligne d'un plat qui en compte cinq. Même famille et même
+   taille que « valeurs inconnues », qui occupe la même place dans l'autre cas — les deux
+   répondent à la même question, et se lisent au même endroit. */
+.foodRecalled {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
 /* La portion habituelle (`NUT-21`) : une **cible**, pas une mention. Elle remplit le champ
    au-dessus d'un appui, d'où `--tap` en plancher comme partout ailleurs. Discrète —
    pointillés plutôt qu'un cadre plein : ce qui la déclenche est un raccourci, pas l'action
