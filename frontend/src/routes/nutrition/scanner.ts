@@ -85,6 +85,82 @@ export async function readBarcode(image: ImageData): Promise<string | null> {
   return null;
 }
 
+/**
+ * La région de l'image qu'on donne à décoder, en pixels **de la source**.
+ *
+ * ## Pourquoi on ne lit plus l'image entière
+ *
+ * La boucle réduisait chaque image à 640 px de large et la passait entière. Mesuré sur un
+ * banc d'EAN-13 synthétiques (`zbar` réel, 18 scènes par ligne — taille dans le cadre ×
+ * angle) : **tout code occupant 18 % ou moins de la largeur du cadre échouait**, même
+ * parfaitement net. La réduction jetait les barres avant que le décodeur les voie. C'est
+ * le cas d'un petit code, ou d'un téléphone tenu à distance normale.
+ *
+ * | ce qu'on décode | net | légèrement flou |
+ * |---|---|---|
+ * | image entière → 640 px (avant) | 9/18 | 9/18 |
+ * | fenêtre → 640 px | 11/18 | 9/18 |
+ * | fenêtre → 1024 px | 14/18 | 12/18 |
+ * | fenêtre → 1024 px, caméra 1920 (livré) | 15/18 | 14/18 |
+ *
+ * Demander 1920 à la caméra **ne sert à rien seul** : `1920 → 640` reste à 9/18. Les deux
+ * vont ensemble, et c'est la largeur d'analyse qui porte le gain.
+ *
+ * ## La marge autour du cadre n'est pas une précaution de principe
+ *
+ * Découper pile sur le rectangle dessiné fait perdre un code qui le remplit à 95 % : ses
+ * zones de silence tombent dehors, et `zbar` refuse un symbole sans elles. Vérifié au
+ * banc — 76 % de la largeur échoue là où 88 % lit. Le cadre dit **où viser** ; l'analyse
+ * prend six points de pourcentage de plus tout autour.
+ *
+ * Cette marge **coûte** : à 76 %, les mêmes scènes donnaient 16/18 et 15/18. Un point de
+ * moins en résolution utile contre un code cadré large qui redevient lisible — l'échec
+ * qu'elle évite est celui qu'on produit en visant bien.
+ *
+ * ## `object-fit: cover`
+ *
+ * La vidéo est affichée dans un cadre 4/3 qui **rogne** ce qui dépasse. Le rectangle
+ * dessiné est posé sur ce qu'on voit, donc sur la partie visible de la source — pas sur la
+ * source entière. Sans ce calcul, viser le bord d'un flux 16/9 décoderait une région que
+ * personne n'a à l'écran.
+ */
+export interface Rect {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+}
+
+/** Le cadre dessiné : `inset: 22% 12%` dans `Nutrition.module.css`. */
+const TARGET_INSET_X = 0.12;
+const TARGET_INSET_Y = 0.22;
+
+/** Ce que l'analyse prend en plus, de chaque côté. Voir l'en-tête : les zones de silence. */
+const MARGIN = 0.06;
+
+export function analysisRect(
+  source: { width: number; height: number },
+  display: { width: number; height: number },
+): Rect {
+  // La part de la source réellement visible, une fois `cover` appliqué.
+  const displayRatio = display.width / display.height;
+  const sourceRatio = source.width / source.height;
+  const visibleWidth = sourceRatio > displayRatio ? source.height * displayRatio : source.width;
+  const visibleHeight = sourceRatio > displayRatio ? source.height : source.width / displayRatio;
+  const visibleX = (source.width - visibleWidth) / 2;
+  const visibleY = (source.height - visibleHeight) / 2;
+
+  const insetX = Math.max(0, TARGET_INSET_X - MARGIN);
+  const insetY = Math.max(0, TARGET_INSET_Y - MARGIN);
+
+  return {
+    sx: visibleX + visibleWidth * insetX,
+    sy: visibleY + visibleHeight * insetY,
+    sw: visibleWidth * (1 - 2 * insetX),
+    sh: visibleHeight * (1 - 2 * insetY),
+  };
+}
+
 /** La caméra est-elle seulement joignable ici ?
  *
  * Faux hors contexte sécurisé — `http://` sur une adresse de réseau local, ce qu'est

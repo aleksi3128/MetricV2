@@ -744,6 +744,56 @@
   gap: var(--s4);
 }
 
+/* Le viseur **réduit** de l'étape de choix (`NUT-27`). Une cible pleine largeur, assez
+   basse pour laisser la liste du catalogue à l'écran — un viseur pleine hauteur ici
+   repousserait la recherche sous la ligne de flottaison, et le scan cesserait d'être un
+   chemin parmi trois pour devenir l'écran entier.
+
+   16/6 : un code-barres est large et bas, et c'est la bande où on le vise. */
+.mini {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 6;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.miniVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* La même fenêtre que dans le viseur plein — `inset: 22% 12%` —, parce que c'est elle
+   qu'`analysisRect` décode. Deux cadres différents diraient deux choses fausses. */
+.miniTarget {
+  position: absolute;
+  inset: 22% 12%;
+  border: 2px solid rgb(var(--accent-rgb) / 0.9);
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.3);
+  pointer-events: none;
+}
+
+.miniHint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  text-align: center;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.8);
+  pointer-events: none;
+}
+
 .pickList {
   display: flex;
   flex-direction: column;
@@ -865,8 +915,10 @@
   display: block;
 }
 
-/* Une fenêtre claire au centre, et le reste assombri. Le cadre ne **découpe** rien —
-   `zbar` lit l'image entière — il dit où viser, ce qui suffit à rendre le geste sûr. */
+/* Une fenêtre claire au centre, et le reste assombri. **Le cadre découpe pour de bon**
+   depuis `NUT-26` : c'est cette fenêtre-là qui part au décodeur, avec six points de marge
+   tout autour — sans eux, un code qui la remplit perd ses zones de silence et devient
+   illisible. Ce qu'on voit et ce qui est lu disent donc la même chose. */
 .target {
   position: absolute;
   inset: 22% 12%;
@@ -874,6 +926,31 @@
   border-radius: var(--r-sm);
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.35);
   pointer-events: none;
+}
+
+/* La lampe. Dans le viseur, en bas à droite — c'est là qu'elle sert, et l'y poser évite
+   d'ajouter une rangée d'actions sous une surface qui en a déjà trois. `--tap` en plancher
+   comme toute cible. Elle n'apparaît que si la piste vidéo a déclaré `torch`. */
+.torch {
+  position: absolute;
+  right: var(--s3);
+  bottom: var(--s3);
+  min-height: var(--tap);
+  padding: 0 var(--s3);
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: var(--r-sm);
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  cursor: pointer;
+  transition: var(--t);
+}
+
+.torch[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
 }
 
 .scanHint {

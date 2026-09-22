@@ -9,7 +9,25 @@ import { tokenStore } from '@/lib/api';
 import { createQueryClient } from '@/lib/query';
 import { NUTRITION_HISTORY } from '@/test/fixtures';
 
+import type * as scannerModule from './nutrition/scanner';
+
 import { Nutrition } from './Nutrition';
+
+/**
+ * Le décodeur n'a rien à faire ici.
+ *
+ * Ces tests regardent la **surface** — un viseur qui s'affiche, une cible qui déplie —, pas
+ * `zbar`. Son WebAssembly de 233 Ko ne se charge pas sous jsdom, et son échec part en rejet
+ * non capté depuis l'intérieur d'Emscripten, hors de toute promesse qu'on puisse attraper.
+ *
+ * Ce qui est à nous est éprouvé ailleurs : la géométrie de la fenêtre de visée dans
+ * `nutrition/scanner.test.ts`, et le décodage lui-même sur un banc d'images synthétiques.
+ */
+vi.mock('./nutrition/scanner', async (importOriginal) => ({
+  ...(await importOriginal<typeof scannerModule>()),
+  warmUp: () => Promise.resolve(),
+  readBarcode: () => Promise.resolve(null),
+}));
 
 interface Call {
   url: string;
@@ -870,6 +888,86 @@ describe('scanner un aliment', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Scanner un code-barres' }));
   }
+
+  /**
+   * Une caméra qui répond, dans un navigateur qui n'en a pas.
+   *
+   * jsdom n'implémente ni `mediaDevices` ni `play()`. Les deux sont posés le temps du
+   * test : sans eux, la surface tomberait dans son repli — le bouton — et on vérifierait
+   * le chemin qu'on ne cherche pas.
+   */
+  function withCamera(): () => void {
+    const track = { stop: () => undefined, applyConstraints: () => Promise.resolve() };
+    const media = { getTracks: () => [track], getVideoTracks: () => [track] };
+    Object.defineProperty(navigator, 'mediaDevices', {
+      value: { getUserMedia: () => Promise.resolve(media) },
+      configurable: true,
+    });
+    // Par descripteur et non par lecture directe : lire `prototype.play` déclenche la
+    // règle sur les méthodes détachées de leur objet, et on ne cherche qu'à le remettre.
+    const played = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'play');
+    Object.defineProperty(HTMLMediaElement.prototype, 'play', {
+      value: () => Promise.resolve(),
+      configurable: true,
+      writable: true,
+    });
+    return () => {
+      Reflect.deleteProperty(navigator, 'mediaDevices');
+      if (played !== undefined) {
+        Object.defineProperty(HTMLMediaElement.prototype, 'play', played);
+      }
+    };
+  }
+
+  it('scanne déjà quand on ouvre « Ajouter un aliment »', async () => {
+    // `NUT-27` : le code-barres n'est plus un bouton qui mène à une caméra, c'est une
+    // caméra. Ouvrir l'étape l'emballage en main suffit à lire — plus d'appui à faire
+    // avant de viser.
+    const restore = withCamera();
+    try {
+      stub();
+      renderNutrition();
+
+      await openSheet('Repas composé');
+      await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+
+      const viseur = await screen.findByRole('button', { name: 'Scanner un code-barres' });
+      expect(viseur.querySelector('video')).not.toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('déplie le viseur plein quand on touche le viseur réduit', async () => {
+    // C'est là qu'on va quand ça ne lit pas : voir grand ce que la caméra voit, et
+    // atteindre la seconde porte — le champ des treize chiffres.
+    const restore = withCamera();
+    try {
+      stub();
+      renderNutrition();
+
+      await openSheet('Repas composé');
+      await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Scanner un code-barres' }));
+
+      expect(await screen.findByLabelText('Code-barres')).toBeInTheDocument();
+    } finally {
+      restore();
+    }
+  });
+
+  it('garde le bouton nommé quand la caméra est injoignable', async () => {
+    // Un cadre noir qui ne montre rien se lit comme une panne. Le bouton, lui, mène à
+    // l'étape qui dit pourquoi la caméra manque.
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+
+    const bouton = await screen.findByRole('button', { name: 'Scanner un code-barres' });
+    expect(bouton.querySelector('video')).toBeNull();
+  });
 
   it('ajoute une ligne remplie par le code-barres', async () => {
     stubProduct(json(200, NUTELLA));

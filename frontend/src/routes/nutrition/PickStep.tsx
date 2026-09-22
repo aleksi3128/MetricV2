@@ -22,12 +22,22 @@
  * `Sheet` empilées partagent l'écouteur `Échap`, le verrou de défilement et la restitution
  * du focus, et chacun des trois casse.
  *
- * ## L'ordre des trois
+ * ## Le scan a déjà commencé (`NUT-27`)
  *
- * Le **scan en tête**, au-dessus même de la recherche : c'est le geste qu'on vient faire
- * en connaissance de cause — on a l'emballage en main — et non celui qu'on prend faute de
- * mieux. C'est aussi la place qu'il occupe déjà dans `AddFoodSheet`, et deux surfaces qui
- * ajoutent un aliment n'ont pas à ranger leurs chemins dans deux ordres différents.
+ * Le code-barres n'est plus un bouton qui mène à une caméra : **la caméra est là**, en
+ * tête de l'étape, dans un viseur réduit qui décode dès l'ouverture. Ouvrir « Ajouter un
+ * aliment » l'emballage en main suffit donc à le lire — un appui de moins, et surtout plus
+ * d'appui à faire *avant* de viser.
+ *
+ * Le viseur réduit est une **cible** : il déplie le viseur plein (`ScanStep`). C'est là
+ * qu'on va quand ça ne lit pas — voir grand ce que la caméra voit, comprendre que le code
+ * est trop loin ou que la mise au point ne se fait pas — et c'est là que vit la seconde
+ * porte, le champ des treize chiffres.
+ *
+ * **Sans caméra joignable, le bouton revient.** Un cadre noir qui ne montre rien se lit
+ * comme une panne ; un bouton nommé mène à l'étape qui, elle, dit pourquoi la caméra
+ * manque. C'est le cas d'un navigateur sans permission, de `make dev-lan` en clair, et de
+ * la batterie d'écrans.
  *
  * La **saisie à la main** reste sous la liste : elle est ce qui reste quand ni le
  * catalogue ni un code-barres n'ont répondu.
@@ -40,14 +50,15 @@
  * catalogue.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button, Field, SheetRow } from '@/components/ui';
-import type { Ingredient } from '@/features/nutrition/api';
+import type { Ingredient, Product } from '@/features/nutrition/api';
 import { integer } from '@/lib/format';
 import { fold } from '@/lib/text';
 
 import styles from '../Nutrition.module.css';
+import { useScanner } from './useScanner';
 
 /** Voir l'en-tête : au-delà, les deux autres chemins sortent de l'écran. */
 const SHOWN = 12;
@@ -55,6 +66,7 @@ const SHOWN = 12;
 export function PickStep({
   catalogue,
   onPick,
+  onProduct,
   onScan,
   onManual,
   onBack,
@@ -62,11 +74,16 @@ export function PickStep({
   catalogue: readonly Ingredient[];
   /** Un aliment du catalogue : sa ligne arrive remplie, il ne reste que le poids. */
   onPick: (ingredient: Ingredient) => void;
+  /** Un produit lu par le viseur réduit — même destination qu'un scan du viseur plein. */
+  onProduct: (product: Product) => void;
+  /** Déplier le viseur plein : c'est ce que le viseur réduit fait quand on le touche. */
   onScan: () => void;
   onManual: () => void;
   onBack: () => void;
 }) {
   const [query, setQuery] = useState('');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const scanner = useScanner({ videoRef, onProduct });
 
   const needle = fold(query.trim());
   const matching =
@@ -76,15 +93,42 @@ export function PickStep({
 
   return (
     <div className={styles.pick}>
-      {/* **Le scan en tête.** Il était sous la liste, avec les deux autres actions : c'est
-          pourtant le geste qui demande de sortir un emballage et de viser, celui qu'on
-          vient faire en connaissance de cause plutôt qu'après avoir cherché. Le mettre en
-          premier aligne aussi cette étape sur `AddFoodSheet`, où il occupe déjà cette
-          place — deux surfaces qui ajoutent un aliment n'ont pas à ranger leurs chemins
-          dans deux ordres différents. */}
-      <Button variant="ghost" onClick={onScan}>
-        Scanner un code-barres
-      </Button>
+      {/* Le viseur réduit, qui décode déjà. Une **cible** : il déplie le viseur plein.
+          Son nom accessible est celui qu'avait le bouton — l'audit des surfaces et les
+          tests visent ce nom-là, et il dit toujours ce que la touche fait. */}
+      {scanner.scanning ? (
+        <button
+          type="button"
+          className={styles.mini}
+          aria-label="Scanner un code-barres"
+          onClick={onScan}
+        >
+          <video ref={videoRef} className={styles.miniVideo} playsInline muted autoPlay />
+          <span className={styles.miniTarget} aria-hidden="true" />
+          <span className={styles.miniHint}>
+            {scanner.pending ? 'recherche du produit…' : 'vise un code-barres · agrandir'}
+          </span>
+        </button>
+      ) : (
+        <Button variant="ghost" onClick={onScan}>
+          Scanner un code-barres
+        </Button>
+      )}
+
+      {/* Un code lu qui ne donne rien se dit **ici**, sous le viseur qui l'a lu : renvoyer
+          au viseur plein pour lire le message obligerait à comprendre d'abord qu'il s'est
+          passé quelque chose. « Réessayer » rallume, puisque la caméra s'est coupée sur le
+          code lu. */}
+      {scanner.error !== null && (
+        <div className={styles.scanError}>
+          <p className={styles.error} role="alert">
+            {scanner.error.message}
+          </p>
+          <Button variant="quiet" onClick={scanner.restart}>
+            Réessayer
+          </Button>
+        </div>
+      )}
 
       <Field
         label="Chercher un aliment"

@@ -223,6 +223,65 @@ passait à la main.
 
 ---
 
+## 5 bis. `NUT-26` et `NUT-27` — le scan, mesuré puis rapproché
+
+Ces deux-là ne sont pas nés de ce plan : ils sont venus d'une question — « on peut
+améliorer la détection de code-barres ? » — à laquelle on a répondu par un banc avant de
+répondre par du code.
+
+### Le banc
+
+Des EAN-13 synthétiques dans des scènes de caméra plausibles (part du cadre × angle ×
+flou), décodés par le `zbar` réel du projet. 18 scènes par ligne.
+
+| ce qu'on décode | net | légèrement flou | coût/image |
+|---|---|---|---|
+| image entière → 640 px (avant) | 9/18 | 9/18 | 11,4 ms |
+| fenêtre de visée → 640 px | 11/18 | 9/18 | ~20 ms |
+| fenêtre de visée → 1024 px | 14/18 | 12/18 | 30 ms |
+| fenêtre → 1024 px, caméra 1920 (`NUT-26`) | **15/18** | **14/18** | 32,7 ms |
+
+**Le goulot n'était pas `zbar`, c'était ce qu'on lui donnait.** Tout code occupant 18 % ou
+moins de la largeur du cadre échouait, *même parfaitement net* : la réduction jetait les
+barres avant le décodeur. Demander 1920 à la caméra ne sert d'ailleurs à rien seul —
+`1920 → 640` reste à 9/18.
+
+Deux choses que le banc a apprises et qu'aucune intuition n'aurait données :
+
+- **la marge autour du cadre n'est pas une précaution de principe.** Découper pile sur le
+  rectangle dessiné fait perdre un code qui le remplit à 95 %, ses zones de silence tombant
+  dehors. La marge coûte un point (16/18 → 15/18) et évite un échec qu'on produit en visant
+  **bien** ;
+- **le flou ne se rattrape pas.** C'est l'autre moitié des échecs, et aucun traitement
+  d'image n'y touche. L'autofocus continu est demandé là où il existe ; sur iPhone, Safari
+  n'expose pas `focusMode` et le comportement y est déjà continu. Rien n'est promis de ce
+  côté.
+
+La lampe s'ajoute pour la même raison qu'elle manquait : un placard sombre et un emballage
+mat suffisent à faire échouer un scan qu'aucune résolution ne sauve. Elle ne s'affiche que
+si la piste vidéo déclare `torch`.
+
+### `NUT-27` — le scan a déjà commencé
+
+Le code-barres était un **bouton menant à une caméra**. C'est maintenant une **caméra** :
+un viseur réduit en tête de l'étape de choix, qui décode dès l'ouverture. Ouvrir
+« Ajouter un aliment » l'emballage en main suffit à lire.
+
+Le viseur réduit est une cible : il déplie le viseur plein, et c'est là qu'on va **quand ça
+ne lit pas** — voir en grand ce que la caméra voit, comprendre que le code est trop loin ou
+que la mise au point ne se fait pas. La seconde porte, le champ des treize chiffres, y vit
+toujours.
+
+Deux surfaces scannent donc, et la mécanique n'est écrite qu'une fois : `useScanner` tient
+la caméra, la boucle, la lampe et la recherche du produit. Deux copies auraient donné deux
+façons de relâcher le flux et, tôt ou tard, une caméra laissée allumée dans l'une des deux.
+
+**Sans caméra joignable, le bouton revient** — un cadre noir qui ne montre rien se lit
+comme une panne, alors qu'un bouton nommé mène à l'étape qui dit *pourquoi* la caméra
+manque.
+
+---
+
 ## 6. Ce que ce plan ne fait pas
 
 - **Le formulaire de favoris reste déplié en bas de `/nutrition`.** Six champs permanents,

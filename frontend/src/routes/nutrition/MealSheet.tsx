@@ -550,6 +550,9 @@ export function MealSheet({
         <PickStep
           catalogue={ingredients}
           onPick={addFromCatalogue}
+          // Un code lu par le viseur réduit arrive exactement là où arrive un code lu par
+          // le viseur plein : c'est le même geste, vu de plus ou moins près.
+          onProduct={addProduct}
           onScan={() => {
             setStep({ kind: 'scan' });
           }}
