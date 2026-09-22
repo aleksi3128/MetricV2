@@ -736,6 +736,29 @@
   }
 }
 
+/* ── Choisir un aliment (`NUT-23`) ────────────────── */
+
+.pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.pickList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* Les deux chemins qui ne passent pas par le catalogue, et le retour. En colonne : à
+   390 px, trois boutons de front tomberaient à 110 px chacun et « Scanner un code-barres »
+   y passerait à la ligne. */
+.pickActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
 /* Le total. Sobre à dessein : ce n'est pas une proposition, et lui donner l'apparence
    d'un `AiBlock` affaiblirait la marque là où elle sert. */
 .total {

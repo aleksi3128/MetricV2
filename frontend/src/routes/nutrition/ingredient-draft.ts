@@ -6,7 +6,7 @@
  * arbre React. La feuille, elle, se regarde.
  */
 
-import type { IngredientLine, Product } from '@/features/nutrition/api';
+import type { Ingredient, IngredientLine, Product } from '@/features/nutrition/api';
 
 /** Une ligne en cours de saisie. Des chaînes : un champ passe par « 17 » avant « 178 ». */
 export interface IngredientDraft {
@@ -98,6 +98,33 @@ export function ingredientFromProduct(product: Product): IngredientDraft {
     added_sugar_100g: fieldText(product.added_sugar_100g),
     saturated_fat_100g: fieldText(product.saturated_fat_100g),
     fiber_100g: fieldText(product.fiber_100g),
+  };
+}
+
+/**
+ * La ligne d'un aliment choisi au catalogue (`NUT-23`).
+ *
+ * **`manual: false`, comme un produit scanné**, et pour la même raison : le nom vient
+ * d'une base, et c'est par lui que le catalogue se rattachera à la ligne. Le rendre en
+ * champ inviterait à le retoucher, ce qui romprait le lien sans le dire. En échange, la
+ * ligne gagne ce qu'une ligne tapée n'a pas : son nom ouvre la fiche, et les cinq valeurs
+ * s'y vérifient.
+ *
+ * La quantité reste vide — c'est la seule chose que le catalogue ne peut pas savoir.
+ */
+export function ingredientFromCatalogue(item: Ingredient): IngredientDraft {
+  return {
+    ...emptyIngredient(),
+    manual: false,
+    name: item.name,
+    calories_100g: fieldText(item.calories_100g),
+    protein_100g: fieldText(item.protein_100g),
+    added_sugar_100g: fieldText(item.added_sugar_100g),
+    saturated_fat_100g: fieldText(item.saturated_fat_100g),
+    fiber_100g: fieldText(item.fiber_100g),
+    // La portion ne remplit rien : elle arme la puce sous le champ (`NUT-21`).
+    portion_g: fieldText(item.portion_g),
+    barcode: item.barcode,
   };
 }
 

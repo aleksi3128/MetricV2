@@ -53,6 +53,7 @@ import { estimateSentence } from './estimate';
 import { CompositionTotal, IngredientTable } from './Ingredients';
 import {
   emptyIngredient,
+  ingredientFromCatalogue,
   ingredientFromProduct,
   isBlank,
   toLines,
@@ -68,6 +69,7 @@ import {
 } from './meal-draft';
 import { FoodDetail } from './FoodDetail';
 import { NUTRIENTS } from './nutrients';
+import { PickStep } from './PickStep';
 import { ScanStep } from './ScanStep';
 
 /* `Macro` et `MealMode` vivent dans `meal-draft.ts` : c'est lui qui doit les reconnaître
@@ -107,7 +109,12 @@ function wantsEstimate(mode: MealMode): boolean {
  * La fiche porte la **clé** de sa ligne et non la ligne : ce qui est à l'écran doit rester
  * la ligne vivante, pas une photographie prise à l'ouverture.
  */
-type Step = { kind: 'form' } | { kind: 'scan' } | { kind: 'food'; key: string };
+type Step =
+  | { kind: 'form' }
+  /** Le choix d'un chemin pour ajouter un aliment : catalogue, code-barres, main (`NUT-23`). */
+  | { kind: 'pick' }
+  | { kind: 'scan' }
+  | { kind: 'food'; key: string };
 
 const EMPTY: MealFormValues = {
   meal_type: '',
@@ -361,27 +368,48 @@ export function MealSheet({
   });
 
   /**
-   * Ce qu'un produit scanné devient : une ligne, et un doigt sur le champ du poids.
+   * Poser une ligne remplie, et le doigt sur le champ du poids.
    *
-   * Deux gestes en plus de l'insertion, et chacun a sa raison :
+   * Trois gestes en plus de l'insertion, et chacun a sa raison :
    *
-   * * **la ligne vierge est remplacée**, pas suivie. Le tableau en garde toujours une à
-   *   remplir ; laisser la première vide au-dessus du produit scanné ferait un plat qui
-   *   commence par du vide ;
-   * * **le nom du plat est repris du premier produit** s'il est encore vide. Un repas
-   *   composé sans nom ne s'enregistre pas — et pour l'immense majorité des scans, un
-   *   produit, c'est le repas. Ce n'est pas une valeur inventée : elle vient de ce qui a
-   *   été scanné, elle est à l'écran, et elle se retape.
+   * * **la ligne vierge est remplacée**, pas suivie. Laisser une ligne vide au-dessus de
+   *   l'aliment qui arrive ferait un plat qui commence par du vide ;
+   * * **le poids prend le focus** : c'est la seule chose qui reste à taper ;
+   * * **le nom du plat est repris du premier aliment** s'il est encore vide. Un repas
+   *   composé sans nom ne s'enregistre pas — et pour l'immense majorité des plats à un
+   *   ingrédient, l'aliment *est* le repas. Ce n'est pas une valeur inventée : elle vient
+   *   de ce qui a été choisi, elle est à l'écran, et elle se retape.
+   *
+   * Commun au scan (`NUT-13`) et au choix au catalogue (`NUT-23`) : deux copies de ces
+   * trois gestes auraient divergé au premier ajustement.
    */
-  function addProduct(product: Product): void {
-    const row = ingredientFromProduct(product);
+  function addRow(row: IngredientDraft, name: string): void {
     setRows((current) => [...current.filter((item) => !isBlank(item)), row]);
     setWeighing(row.key);
     // Le total appartient aux lignes qui l'ont produit.
     setTotal(null);
+    setTotalError(null);
     setValues((current) =>
-      current.comment.trim() === '' ? { ...current, comment: product.name } : current,
+      current.comment.trim() === '' ? { ...current, comment: name } : current,
     );
+    setStep({ kind: 'form' });
+  }
+
+  /** Un aliment repris du catalogue : sa ligne arrive avec ses cinq valeurs (`NUT-23`). */
+  function addFromCatalogue(item: Ingredient): void {
+    addRow(ingredientFromCatalogue(item), item.name);
+  }
+
+  /** Une ligne vierge, à nommer et à peser : le vrac, un reste, un plat cuisiné. */
+  function addManual(): void {
+    const row = emptyIngredient();
+    setRows((current) => [...current, row]);
+    setStep({ kind: 'form' });
+  }
+
+  /** Ce qu'un produit scanné devient (`NUT-13`). */
+  function addProduct(product: Product): void {
+    addRow(ingredientFromProduct(product), product.name);
     // **Des champs vides sans un mot se lisent comme une panne.** Un produit qu'Open Food
     // Facts connaît sans ses macros est fréquent — les produits frais, les marques de
     // distributeur — et la ligne vaut d'être ajoutée quand même : elle dit ce qu'il y
@@ -392,7 +420,6 @@ export function MealSheet({
         'load',
       );
     }
-    setStep({ kind: 'form' });
   }
 
   const setMacro = (name: Macro) => (value: string) => {
@@ -471,23 +498,40 @@ export function MealSheet({
       /* Le titre suit la surface — une feuille qui garde son titre ne dit pas où l'on
          est — et la fiche prend le nom de son aliment. Le répéter en tête de la fiche
          aurait écrit deux fois « Nutella » à deux centimètres d'écart. */
-      title={step.kind === 'scan' ? 'Scanner un aliment' : (inspected?.name ?? 'Ajouter un repas')}
+      title={
+        step.kind === 'pick'
+          ? 'Ajouter un aliment'
+          : step.kind === 'scan'
+            ? 'Scanner un aliment'
+            : (inspected?.name ?? 'Ajouter un repas')
+      }
       lede={
         mode === null
           ? 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
-          : step.kind === 'scan'
-            ? 'Le code-barres suffit. Rien n’est enregistré avant ta validation.'
-            : undefined
+          : step.kind === 'pick'
+            ? 'Dans ton catalogue, par son code-barres, ou à la main.'
+            : step.kind === 'scan'
+              ? 'Le code-barres suffit. Rien n’est enregistré avant ta validation.'
+              : undefined
       }
     >
-      {step.kind === 'scan' ? (
+      {step.kind === 'pick' ? (
+        <PickStep
+          catalogue={ingredients}
+          onPick={addFromCatalogue}
+          onScan={() => {
+            setStep({ kind: 'scan' });
+          }}
+          onManual={addManual}
+          onBack={back}
+        />
+      ) : step.kind === 'scan' ? (
         <ScanStep
           onFound={addProduct}
           onBack={back}
-          onManual={() => {
-            setRows((current) => [...current, emptyIngredient()]);
-            setStep({ kind: 'form' });
-          }}
+          // « Ajouter cet aliment à la main » depuis un code inconnu : la ligne arrive
+          // vierge, comme depuis l'étape de choix.
+          onManual={addManual}
         />
       ) : inspected !== undefined ? (
         <FoodDetail row={inspected} onBack={back} />
@@ -572,8 +616,8 @@ export function MealSheet({
                 rows={rows}
                 catalogue={ingredients}
                 weighing={weighing}
-                onScan={() => {
-                  setStep({ kind: 'scan' });
+                onPick={() => {
+                  setStep({ kind: 'pick' });
                 }}
                 onInspect={(key) => {
                   setStep({ kind: 'food', key });

@@ -77,12 +77,18 @@ const SURFACES = [
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
   // le jour où elle est écrite, pas le jour où un défaut s'y découvre.
   ['/nutrition', 'Ajouter un repas', 'modes de saisie d’un repas'],
-  // Le formulaire du repas composé, et la surface de scan qui vit au fond (`NUT-13`).
-  // Trois appuis, tous nommés, et aucun ne remplit ni ne valide quoi que ce soit.
+  // Le formulaire du repas composé, et les deux surfaces qui vivent au fond : le choix
+  // d'un chemin (`NUT-23`), puis le scan (`NUT-13`). Quatre appuis au plus, tous nommés,
+  // et aucun ne remplit ni ne valide quoi que ce soit.
   ['/nutrition', ['Ajouter un repas', 'Repas composé'], 'repas composé'],
   [
     '/nutrition',
     ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment'],
+    'choisir un aliment',
+  ],
+  [
+    '/nutrition',
+    ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment', 'Scanner un code-barres'],
     'scanner un aliment',
   ],
   // La fiche d'un repas, lecture seule (`NUT-15`). Le nom du bouton porte l'heure du repas,

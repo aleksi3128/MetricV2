@@ -55,24 +55,6 @@ export function kgText(value: number): string {
   return String(Math.round(value * 100) / 100).replace('.', ',');
 }
 
-/**
- * Repli d'une chaîne pour la comparaison : minuscules, sans accents.
- *
- * Chercher « epaules » doit trouver « épaules », et « Développé » se tape rarement avec
- * son accent sur un clavier de téléphone quand on est entre deux séries.
- *
- * **Celui-ci ne décide rien.** Il filtre une liste affichée ; c'est `app/core/text.py`,
- * côté serveur, qui décide si deux noms désignent le même exercice. Les deux se
- * ressemblent et c'est voulu — mais l'un range des pixels, l'autre fusionne un historique,
- * et seul le second a besoin d'être la seule implémentation de sa règle.
- */
-export function fold(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
 /** La durée d'un circuit, avec le `~` que lui impose la présence de répétitions. */
 export function circuitDuration(circuit: Circuit): string {
   const minutes = `${num(circuit.estimated_duration_min, 0)} min`;

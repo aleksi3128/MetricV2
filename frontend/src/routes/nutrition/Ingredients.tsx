@@ -38,7 +38,7 @@ import { Button, Combobox, Field, type Suggestion } from '@/components/ui';
 import type { ComposedLine, Ingredient } from '@/features/nutrition/api';
 import { integer, num } from '@/lib/format';
 
-import { emptyIngredient, fieldText, hasValues, type IngredientDraft } from './ingredient-draft';
+import { fieldText, hasValues, type IngredientDraft } from './ingredient-draft';
 
 import styles from '../Nutrition.module.css';
 
@@ -236,15 +236,15 @@ export function IngredientTable({
   rows,
   catalogue,
   onChange,
-  onScan,
+  onPick,
   onInspect,
   weighing,
 }: {
   rows: readonly IngredientDraft[];
   catalogue: readonly Ingredient[];
   onChange: (rows: IngredientDraft[]) => void;
-  /** Ouvre la surface de scan (`NUT-13`). */
-  onScan: () => void;
+  /** Ouvre l'étape de choix : catalogue, code-barres, ou saisie à la main (`NUT-23`). */
+  onPick: () => void;
   /** Ouvre la fiche d'un aliment, par la clé de sa ligne (`NUT-14`). */
   onInspect: (key: string) => void;
   /** Clé de la ligne arrivée par un scan, qui attend son poids. */
@@ -256,8 +256,8 @@ export function IngredientTable({
           formulaire de cinq champs à traverser avant d'atteindre le geste qui compte. */}
       {rows.length === 0 ? (
         <p className={styles.empty}>
-          Aucun aliment. Scanne un code-barres — le nom et les valeurs pour 100 g viennent avec, il
-          ne reste que le poids.
+          Aucun aliment. Choisis-en un au catalogue ou scanne son code-barres — le nom et les
+          valeurs pour 100 g viennent avec, il ne reste que le poids.
         </p>
       ) : (
         rows.map((row, index) => (
@@ -279,21 +279,14 @@ export function IngredientTable({
         ))
       )}
 
-      {/* **Deux portes, et l'ordre dit laquelle est la principale.** Le scan remplit le
-          nom et les valeurs pour 100 g ; la saisie à la main reste pour ce qui n'a pas de
-          code-barres — un plat cuisiné, des légumes en vrac, un reste. La retirer aurait
-          rendu le repas composé dépendant d'un service tiers et d'un réseau. */}
+      {/* **Une porte, et trois chemins derrière** (`NUT-23`). Il y en avait deux ici, et
+          l'ordre disait laquelle est la principale : le scan d'abord, la saisie à la main
+          ensuite. Le geste quotidien — reprendre un aliment déjà connu — n'en avait aucune,
+          et se faisait par la seconde en espérant que le catalogue réponde. Le choix est
+          maintenant dans `PickStep`, qui les nomme tous les trois. */}
       <div className={styles.ingredientActions}>
-        <Button variant="ghost" onClick={onScan}>
+        <Button variant="ghost" onClick={onPick}>
           Ajouter un aliment
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={() => {
-            onChange([...rows, emptyIngredient()]);
-          }}
-        >
-          Ajouter à la main
         </Button>
       </div>
     </div>

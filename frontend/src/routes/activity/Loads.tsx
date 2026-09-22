@@ -63,10 +63,11 @@ import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { dayMonth, num, plural } from '@/lib/format';
 import { keys } from '@/lib/query';
+import { fold } from '@/lib/text';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Activity.module.css';
-import { fold, kgText, useInvalidateLoads } from './shared';
+import { kgText, useInvalidateLoads } from './shared';
 
 /** La charge d'une carte, telle qu'elle s'écrit. Un tiret quand rien n'est déclaré. */
 function reading(load: Load): string {

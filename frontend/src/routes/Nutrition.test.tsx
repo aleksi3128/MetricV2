@@ -440,6 +440,18 @@ describe('écran Nutrition', () => {
  * Ce qui se vérifie ici tient en une phrase : **l'écran ne multiplie rien**. Il envoie
  * des valeurs pour 100 g et des quantités, et affiche le nombre que le serveur rend.
  */
+/**
+ * Ouvre une ligne vierge : la porte unique, puis « Saisir à la main » (`NUT-23`).
+ *
+ * C'était un seul appui jusqu'ici. Le chemin en demande un de plus depuis que les trois
+ * façons d'ajouter un aliment — le catalogue, le code-barres, la main — sont nommées au
+ * même endroit au lieu d'être deux boutons dont l'ordre décidait pour l'utilisateur.
+ */
+async function addByHand(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Saisir à la main' }));
+}
+
 describe('repas composé', () => {
   const COMPOSITION = {
     lines: [
@@ -471,7 +483,7 @@ describe('repas composé', () => {
   async function fillPlate(): Promise<void> {
     await openSheet('Repas composé');
     await userEvent.type(screen.getByLabelText('Nom du plat'), 'bowl riz');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz');
     await userEvent.click(await screen.findByRole('option', { name: /riz basmati/ }));
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
@@ -558,7 +570,7 @@ describe('repas composé', () => {
     renderNutrition();
 
     await openSheet('Repas composé');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz');
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
 
@@ -623,7 +635,7 @@ describe('repas composé', () => {
 
     await openSheet('Repas composé');
     await userEvent.type(screen.getByLabelText('Nom du plat'), 'bowl riz');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     // Tapé en entier, et **aucune** suggestion appuyée.
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz basmati');
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
@@ -649,7 +661,7 @@ describe('repas composé', () => {
     renderNutrition();
 
     await openSheet('Repas composé');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     const champ = screen.getByLabelText('Ingrédient');
     await userEvent.type(champ, 'riz basmati');
     expect(screen.getByText('356 kcal/100 g')).toBeInTheDocument();
@@ -668,7 +680,7 @@ describe('repas composé', () => {
     renderNutrition();
 
     await openSheet('Repas composé');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
 
     // Rien tant que le champ est vide : une ligne qu'on vient d'ouvrir n'a pas de valeurs
     // inconnues, elle n'a pas encore de nom.
@@ -677,6 +689,74 @@ describe('repas composé', () => {
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'restes de la veille');
 
     expect(screen.getByText('valeurs inconnues')).toBeInTheDocument();
+  });
+
+  it('ajoute un aliment du catalogue en deux appuis, prêt à peser', async () => {
+    // `NUT-23` : c'est le geste quotidien, et il n'avait aucune porte à lui. Il fallait
+    // « Ajouter à la main », taper le nom, et espérer que le catalogue réponde.
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    await userEvent.click(await screen.findByRole('button', { name: /riz basmati/ }));
+
+    // La ligne est posée, nommée, et il ne reste que le poids.
+    expect(screen.getByRole('button', { name: 'Fiche de riz basmati' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Grammes/)).toHaveValue('');
+    // Et le nom du plat est repris de l'aliment : un plat à un ingrédient est le cas le
+    // plus fréquent, et ce nom-là vient de ce qui a été choisi.
+    expect(screen.getByLabelText('Nom du plat')).toHaveValue('riz basmati');
+  });
+
+  it('nomme les trois chemins au même endroit', async () => {
+    // Deux boutons dont l'ordre décidait pour l'utilisateur sont devenus une porte et
+    // trois chemins déclarés.
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+
+    expect(await screen.findByLabelText('Chercher un aliment')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Scanner un code-barres' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Saisir à la main' })).toBeInTheDocument();
+    // Et rien n'a été ajouté au plat tant qu'aucun chemin n'est pris.
+    expect(screen.queryByLabelText(/^Grammes/)).toBeNull();
+  });
+
+  it('filtre le catalogue sans tenir compte des accents', async () => {
+    stub((url) =>
+      url.endsWith('/api/nutrition')
+        ? json(200, {
+            ...VIEW,
+            ingredients: [
+              { ...VIEW.ingredients[0], id: 1, ingredient_id: 'i2', name: 'crème fraîche' },
+              VIEW.ingredients[0],
+            ],
+          })
+        : undefined,
+    );
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    await userEvent.type(await screen.findByLabelText('Chercher un aliment'), 'creme');
+
+    expect(screen.getByRole('button', { name: /crème fraîche/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /riz basmati/ })).toBeNull();
+  });
+
+  it('revient au plat sans rien ajouter', async () => {
+    stub();
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Retour' }));
+
+    expect(screen.getByText(/Aucun aliment/)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Grammes/)).toBeNull();
   });
 
   it('s’ouvre sans aucune ligne, et dit ce que coûte le prochain geste', async () => {
@@ -736,6 +816,9 @@ describe('scanner un aliment', () => {
   /**
    * Ouvre le repas composé et la surface de scan.
    *
+   * Deux appuis depuis `NUT-23` : la porte unique, puis le code-barres parmi les trois
+   * chemins qu'elle nomme.
+   *
    * Aucune caméra en jsdom — `navigator.mediaDevices` n'existe pas — donc la surface
    * s'ouvre directement sur sa seconde porte, le champ des chiffres. C'est exactement le
    * cas d'un ordinateur sans caméra, et c'est ce qui rend cette porte vérifiable.
@@ -743,6 +826,7 @@ describe('scanner un aliment', () => {
   async function openScan(): Promise<void> {
     await openSheet('Repas composé');
     await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Scanner un code-barres' }));
   }
 
   it('ajoute une ligne remplie par le code-barres', async () => {
@@ -820,6 +904,7 @@ describe('scanner un aliment', () => {
     await openSheet('Repas composé');
     await userEvent.type(screen.getByLabelText('Nom du plat'), 'goûter');
     await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Scanner un code-barres' }));
     await userEvent.type(screen.getByLabelText('Code-barres'), '3017620422003');
     await userEvent.click(screen.getByRole('button', { name: 'Chercher ce code' }));
 
@@ -1106,7 +1191,7 @@ describe('le brouillon de la feuille', () => {
 
     await openSheet('Repas composé');
     await userEvent.type(screen.getByLabelText('Nom du plat'), 'bowl riz');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz basmati');
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
     await closeAndReopen();
@@ -1124,11 +1209,11 @@ describe('le brouillon de la feuille', () => {
     renderNutrition();
 
     await openSheet('Repas composé');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz basmati');
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
     await closeAndReopen();
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter à la main' }));
+    await addByHand();
 
     const sheet = screen.getByRole('dialog');
     expect(within(sheet).getAllByLabelText('Ingrédient')[0]).toHaveValue('riz basmati');
