@@ -5,10 +5,11 @@ from __future__ import annotations
 import secrets
 from datetime import date, datetime
 
-from app.core.dates import local_day_of, now_local
+from app.core.dates import local_day_of, now_local, tz
 from app.domains.ai.images import prepare_data_url
 from app.domains.ai.service import AiService
 from app.domains.app_settings.service import SettingsService
+from app.domains.nutrition import catalog as catalog_of
 from app.domains.nutrition.analysis import INSTRUCTION, photo_prompt, read_estimate, text_prompt
 from app.domains.nutrition.compose import compose
 from app.domains.nutrition.history import build as build_history
@@ -16,11 +17,16 @@ from app.domains.nutrition.models import (
     TYPE_BY_HOUR,
     FavoriteRow,
     IngredientRow,
+    IntakeRow,
     MealRow,
     MealType,
 )
 from app.domains.nutrition.photos import PhotoError, build_path, content_type, storage_path
 from app.domains.nutrition.schemas import (
+    CatalogCoverage,
+    CatalogFood,
+    CatalogRange,
+    CatalogView,
     ComposedMealPayload,
     ComposePayload,
     Composition,
@@ -29,6 +35,8 @@ from app.domains.nutrition.schemas import (
     FavoritePayload,
     Ingredient,
     IngredientLine,
+    IngredientPayload,
+    IngredientUpdate,
     Meal,
     MealEstimate,
     MealPayload,
@@ -38,7 +46,13 @@ from app.domains.nutrition.schemas import (
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
 from app.storage.files import FileStore
-from app.storage.paths import MEAL_FAVORITES, MEAL_INGREDIENTS, MEAL_PHOTOS, MEALS
+from app.storage.paths import (
+    MEAL_FAVORITES,
+    MEAL_INGREDIENTS,
+    MEAL_INTAKE,
+    MEAL_PHOTOS,
+    MEALS,
+)
 
 
 def suggested_type(moment: datetime) -> MealType:
@@ -59,6 +73,7 @@ class NutritionService:
         self._ingredients: CsvRepository[IngredientRow] = CsvRepository(
             store, MEAL_INGREDIENTS, IngredientRow
         )
+        self._intake: CsvRepository[IntakeRow] = CsvRepository(store, MEAL_INTAKE, IntakeRow)
         self._settings = SettingsService(store)
 
     # ── Lecture ───────────────────────────────────────
@@ -127,6 +142,18 @@ class NutritionService:
             fiber_known=sum(1 for value in fiber if value is not None),
             meals=len(today),
         )
+
+    async def meal_moments(self) -> list[datetime]:
+        """L'instant de chaque repas, en heure locale **sans fuseau** — pour situer un repas
+        par rapport au départ d'une sortie, que le `.fit` donne en heure locale aussi."""
+        rows = await self._meals.read_all()
+        moments = []
+        for row in rows:
+            moment = row.model.datetime_
+            if moment.tzinfo is not None:
+                moment = moment.astimezone(tz()).replace(tzinfo=None)
+            moments.append(moment)
+        return sorted(moments)
 
     async def meal_days(self) -> set[date]:
         """Jours portant au moins un repas — source de la série d'assiduité (`AGG-03`)."""
@@ -394,40 +421,88 @@ class NutritionService:
             saturated_fat_g=total.saturated_fat_g if not total.empty else None,
             fiber_g=total.fiber_g if not total.empty else None,
         )
-        await self.remember(payload.lines)
+        identifiers = await self.remember(payload.lines)
+        await self.journal(payload.lines, meal.datetime, identifiers)
         return meal
+
+    async def journal(
+        self,
+        lines: list[IngredientLine],
+        moment: datetime,
+        identifiers: dict[str, str],
+    ) -> None:
+        """Écrit ce qui a été pesé dans le journal des aliments (`NUT-18`).
+
+        **Toutes les lignes, y compris celles sans valeurs.** « 150 g de légumes »
+        n'apprend rien au catalogue et n'y entre pas, mais il était dans l'assiette : le
+        journal dit ce qu'on a mangé, pas ce qu'on sait chiffrer.
+
+        En dernier, après le repas et après le catalogue. L'ordre décide de ce qu'un échec
+        laisse derrière lui : ici, un repas juste dont les lignes manquent — une quantité
+        absente, jamais une quantité fausse. Dans l'autre sens, on aurait des grammes au
+        journal pour un repas qui n'existe pas.
+        """
+        await self._intake.extend(
+            [
+                IntakeRow(
+                    datetime_=moment,
+                    ingredient_id=identifiers.get(line.name.strip().casefold(), ""),
+                    name=line.name.strip(),
+                    quantity_g=line.quantity_g,
+                )
+                for line in lines
+            ]
+        )
 
     async def ingredients(self) -> list[Ingredient]:
         """Le catalogue, sans les lignes qu'on ne saurait pas rejouer."""
         rows = await self._ingredients.read_all()
-        return [
-            Ingredient(
-                id=row.index,
-                token=row.token,
-                ingredient_id=row.model.id,
-                name=row.model.name,
-                calories_100g=row.model.calories_100g,
-                protein_100g=row.model.protein_100g,
-                added_sugar_100g=row.model.added_sugar_100g,
-                saturated_fat_100g=row.model.saturated_fat_100g,
-                fiber_100g=row.model.fiber_100g,
-            )
-            for row in rows
-            if row.model.id and row.model.name
-        ]
+        return [self._ingredient_to_schema(row) for row in rows if row.model.id and row.model.name]
 
-    async def remember(self, lines: list[IngredientLine]) -> None:
-        """Retient les valeurs pour 100 g des ingrédients d'un plat (`NUT-12`).
+    @staticmethod
+    def _ingredient_to_schema(row: Row[IngredientRow]) -> Ingredient:
+        return Ingredient(
+            id=row.index,
+            token=row.token,
+            ingredient_id=row.model.id,
+            name=row.model.name,
+            calories_100g=row.model.calories_100g,
+            protein_100g=row.model.protein_100g,
+            added_sugar_100g=row.model.added_sugar_100g,
+            saturated_fat_100g=row.model.saturated_fat_100g,
+            fiber_100g=row.model.fiber_100g,
+            portion_g=row.model.portion_g,
+            barcode=row.model.barcode,
+            edited_on=row.model.edited_on,
+        )
 
-        **La dernière saisie gagne.** Un ingrédient déjà connu voit ses valeurs
-        remplacées plutôt que conservées : on recompose avec l'emballage qu'on a sous la
-        main, et c'est celui-là qui est juste aujourd'hui. Le rapprochement se fait sur le
-        nom réduit — même casse, mêmes espaces —, jamais approximativement : deux yaourts
-        dont les noms diffèrent d'une lettre sont deux produits.
+    async def remember(self, lines: list[IngredientLine]) -> dict[str, str]:
+        """Retient les valeurs pour 100 g des ingrédients d'un plat (`NUT-12`, `NUT-20`).
+
+        **La dernière saisie gagne**, sauf verrou. Un ingrédient déjà connu voit ses
+        valeurs remplacées plutôt que conservées : on recompose avec l'emballage qu'on a
+        sous la main, et c'est celui-là qui est juste aujourd'hui. Le rapprochement se
+        fait sur le nom réduit — même casse, mêmes espaces —, jamais approximativement :
+        deux yaourts dont les noms diffèrent d'une lettre sont deux produits.
+
+        L'exception est `edited_on` (`NUT-20`) : une entrée corrigée à la main n'est plus
+        écrasée. Sans ce verrou, corriger une valeur au catalogue n'aurait servi qu'à la
+        voir disparaître au repas suivant, sans un mot.
+
+        **Fusion et non reconstruction.** Portion, code-barres et date de correction
+        appartiennent à l'entrée, pas à la ligne du plat ; réécrire la ligne entière — ce
+        que faisait cette méthode — les effacerait au premier repas venu.
 
         Une ligne sans aucune valeur n'entre pas au catalogue : elle n'a rien à y
-        apprendre, et y figurer ferait une suggestion qui ne remplirait aucun champ.
+        apprendre, et y figurer ferait une suggestion qui ne remplirait aucun champ. Elle
+        entre tout de même au **journal** — voir `journal`.
+
+        Rend les identifiants par nom réduit, pour que le journal puisse s'y rattacher.
         """
+        rows = await self._ingredients.read_all(fresh=True)
+        by_name = {row.model.name.strip().casefold(): row for row in rows if row.model.name}
+        identifiers = {key: row.model.id for key, row in by_name.items() if row.model.id}
+
         useful = [
             line
             for line in lines
@@ -438,13 +513,17 @@ class NutritionService:
             or line.fiber_100g is not None
         ]
         if not useful:
-            return
-
-        rows = await self._ingredients.read_all(fresh=True)
-        by_name = {row.model.name.strip().casefold(): row for row in rows if row.model.name}
+            return identifiers
 
         for line in useful:
-            existing = by_name.get(line.name.strip().casefold())
+            key = line.name.strip().casefold()
+            existing = by_name.get(key)
+
+            if existing is not None and existing.model.edited_on is not None:
+                # Verrouillée à la main : on ne touche à rien, pas même au code-barres.
+                # L'entrée garde son identifiant, et la ligne du journal s'y rattache.
+                continue
+
             model = IngredientRow(
                 id=existing.model.id if existing and existing.model.id else secrets.token_hex(6),
                 name=line.name.strip(),
@@ -453,7 +532,13 @@ class NutritionService:
                 added_sugar_100g=line.added_sugar_100g,
                 saturated_fat_100g=line.saturated_fat_100g,
                 fiber_100g=line.fiber_100g,
+                portion_g=existing.model.portion_g if existing else None,
+                # Un scan apporte son code ; une ligne tapée à la main n'en a pas, et ne
+                # doit pas effacer celui qui était là.
+                barcode=line.barcode or (existing.model.barcode if existing else ""),
             )
+            identifiers[key] = model.id
+
             if existing is None:
                 await self._ingredients.append(model)
             else:
@@ -462,6 +547,175 @@ class NutritionService:
                 # confirmer. C'est une conséquence de l'enregistrement du repas, pas une
                 # correction voulue.
                 await self._ingredients.replace(existing.index, existing.model, model)
+
+        return identifiers
+
+    # ── Catalogue alimentaire (`NUT-18` → `NUT-21`) ───
+
+    async def catalog(self, key: CatalogRange) -> CatalogView:
+        """La page catalogue : le catalogue, les quantités de la plage, et le trou.
+
+        Les bornes se calculent **ici** et non à l'écran : le client envoie une clé de
+        plage, il ne sait pas quel jour on est (§2 de `CLAUDE.md`).
+        """
+        today = now_local().date()
+        start, end = catalog_of.bounds(key, today)
+
+        catalogue = await self._ingredients.read_all()
+        intake = await self._intake.read_all()
+        meals = await self._meals.read_all()
+
+        return CatalogView(
+            range=key,
+            start=start,
+            end=end,
+            coverage=self._coverage(meals, intake, start=start, end=end),
+            entries=catalog_of.entries(catalogue, intake, start=start, end=end),
+        )
+
+    @staticmethod
+    def _coverage(
+        meals: list[Row[MealRow]],
+        intake: list[Row[IntakeRow]],
+        *,
+        start: date,
+        end: date,
+    ) -> CatalogCoverage:
+        """Combien de repas de la plage portent des aliments, sur combien en tout.
+
+        Le numérateur se compte en **horodatages distincts du journal**, et non sur une
+        colonne de `meals.csv`. Marquer les repas composés là-bas aurait changé le sens de
+        `source` pour toutes les lignes déjà écrites — les anciens repas composés s'y
+        seraient déclarés `manual` à jamais, et la couverture aurait menti sur le passé.
+        """
+        composed = {
+            row.model.datetime_.isoformat()
+            for row in intake
+            if start <= local_day_of(row.model.datetime_) <= end
+        }
+        counted = sum(1 for row in meals if start <= local_day_of(row.model.datetime_) <= end)
+        return CatalogCoverage(composed=len(composed), meals=counted)
+
+    async def food(self, ingredient_id: str) -> CatalogFood:
+        """La fiche d'un aliment : ses quatre plages, et ses derniers repas.
+
+        L'identifiant peut être celui d'une entrée du catalogue, ou le **nom réduit** d'un
+        aliment qui n'existe qu'au journal — `entries` en rend, et une fiche inatteignable
+        pour la moitié des lignes de la page aurait été une demi-fonctionnalité.
+        """
+        today = now_local().date()
+        catalogue = await self._ingredients.read_all()
+        intake = await self._intake.read_all()
+
+        relay = {
+            row.model.id: catalog_of.name_key(row.model.name) for row in catalogue if row.model.id
+        }
+        key = relay.get(ingredient_id, catalog_of.name_key(ingredient_id))
+
+        start, end = catalog_of.bounds("day", today)
+        entry = next(
+            (
+                item
+                for item in catalog_of.entries(catalogue, intake, start=start, end=end)
+                if (item.ingredient_id == ingredient_id and ingredient_id)
+                or catalog_of.name_key(item.name) == key
+            ),
+            None,
+        )
+        if entry is None:
+            raise StorageNotFoundError("Cet aliment n'est ni au catalogue ni au journal.")
+
+        return CatalogFood(
+            entry=entry,
+            periods=catalog_of.periods(intake, relay, key, today),
+            recent=catalog_of.recent(intake, relay, key),
+        )
+
+    async def add_ingredient(self, payload: IngredientPayload) -> Ingredient:
+        """Ajoute un aliment au catalogue, avant même de l'avoir mangé (`NUT-20`).
+
+        **Un nom déjà connu est corrigé, pas doublé.** Le rapprochement du dépôt se fait
+        sur le nom réduit ; en laisser entrer deux ferait deux suggestions identiques dans
+        la feuille « repas composé », dont une seule remplirait les bons champs.
+
+        L'entrée naît **verrouillée** : elle a été saisie à la main, et c'est exactement ce
+        que le verrou protège.
+        """
+        rows = await self._ingredients.read_all(fresh=True)
+        key = payload.name.strip().casefold()
+        existing = next(
+            (row for row in rows if row.model.name.strip().casefold() == key and row.model.id),
+            None,
+        )
+
+        model = IngredientRow(
+            id=existing.model.id if existing else secrets.token_hex(6),
+            name=payload.name.strip(),
+            calories_100g=payload.calories_100g,
+            protein_100g=payload.protein_100g,
+            added_sugar_100g=payload.added_sugar_100g,
+            saturated_fat_100g=payload.saturated_fat_100g,
+            fiber_100g=payload.fiber_100g,
+            portion_g=payload.portion_g,
+            barcode=payload.barcode.strip(),
+            edited_on=now_local().date(),
+        )
+
+        if existing is None:
+            row = await self._ingredients.append(model)
+        else:
+            row = await self._ingredients.replace(existing.index, existing.model, model)
+        return self._ingredient_to_schema(row)
+
+    async def update_ingredient(
+        self, index: int, token: str, payload: IngredientUpdate
+    ) -> Ingredient:
+        """Corrige une entrée du catalogue (`NUT-20`), sous `If-Match`.
+
+        Deux mouvements dans un seul appel, et ils vont dans des sens opposés : les champs
+        fournis remplacent, ceux nommés dans `clear` s'effacent. Sans cette seconde liste,
+        une valeur fausse ne pourrait jamais être retirée — un champ absent et un champ à
+        `null` seraient le même message, et le plus prudent des deux l'emporterait
+        toujours.
+
+        Toute correction **pose le verrou**, `release` le retire. Ce sont les deux faces
+        d'une même promesse : rien ne change en silence, ni du fait d'un scan, ni du fait
+        de l'écran.
+        """
+        rows = await self._ingredients.read_all(fresh=True)
+        current = next((row for row in rows if row.index == index), None)
+        if current is None:
+            raise StorageNotFoundError("Cet aliment n'est pas au catalogue.")
+
+        values = current.model.model_dump()
+        for name in (
+            "calories_100g",
+            "protein_100g",
+            "added_sugar_100g",
+            "saturated_fat_100g",
+            "fiber_100g",
+            "portion_g",
+        ):
+            given = getattr(payload, name)
+            if given is not None:
+                values[name] = given
+        for name in payload.clear:
+            values[name] = None
+        if payload.name is not None:
+            values["name"] = payload.name.strip()
+        values["edited_on"] = None if payload.release else now_local().date()
+
+        row = await self._ingredients.replace_by_token(index, token, IngredientRow(**values))
+        return self._ingredient_to_schema(row)
+
+    async def remove_ingredient(self, index: int, token: str) -> None:
+        """Retire une entrée du catalogue (`NUT-20`), sous `If-Match`.
+
+        Le **journal n'est pas touché**. Les grammes déjà mangés sont une mesure, et une
+        mesure ne s'efface pas parce qu'on range son catalogue : l'aliment réapparaît
+        simplement en ligne hors catalogue, avec son histoire.
+        """
+        await self._ingredients.delete_by_token(index, token)
 
     # ── Favoris (`NUT-10`) ────────────────────────────
 

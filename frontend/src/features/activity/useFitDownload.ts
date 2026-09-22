@@ -14,7 +14,7 @@
 import { useState } from 'react';
 
 import { activityApi } from '@/features/activity/api';
-import { tokenStore } from '@/lib/api';
+import { downloadAuthorized } from '@/lib/download';
 
 export function useFitDownload(): {
   download: (id: number, day: string) => Promise<void>;
@@ -28,18 +28,7 @@ export function useFitDownload(): {
     setBusy(true);
     setFailed(false);
     try {
-      const token = tokenStore.read();
-      const response = await fetch(activityApi.runFitPath(id), {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!response.ok) throw new Error('indisponible');
-
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `course-${day}.fit`;
-      link.click();
-      URL.revokeObjectURL(url);
+      await downloadAuthorized(activityApi.runFitPath(id), `course-${day}.fit`);
     } catch {
       // Un fichier qu'on n'a pas pu reprendre n'est pas une erreur d'écran : la course
       // reste entière sans lui, et le bouton le dit à sa place.

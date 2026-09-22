@@ -328,6 +328,10 @@ class IngredientLine(BaseModel):
     added_sugar_100g: Per100G | None = None
     saturated_fat_100g: Per100G | None = None
     fiber_100g: Per100G | None = None
+    #: Le code du produit scanné, quand la ligne en vient (`NUT-20`). Il ne change rien au
+    #: calcul : il suit la ligne jusqu'au catalogue, pour qu'une entrée arrivée par un scan
+    #: puisse plus tard être relue chez Open Food Facts.
+    barcode: str = Field(default="", max_length=14)
 
 
 class ComposedLine(BaseModel):
@@ -416,3 +420,179 @@ class Ingredient(BaseModel):
     added_sugar_100g: float | None = None
     saturated_fat_100g: float | None = None
     fiber_100g: float | None = None
+    #: La portion habituelle, en grammes (`NUT-21`). Sert une **puce** sous le champ de
+    #: poids, jamais un préremplissage : un poids inscrit sans qu'on l'ait pesé serait une
+    #: valeur inventée à l'écran.
+    portion_g: float | None = None
+    barcode: str = ""
+    #: Le jour d'une correction à la main (`NUT-20`). Non nul, il dit que les valeurs ne
+    #: seront plus écrasées par un scan — et c'est ce que la fiche affiche.
+    edited_on: date | None = None
+
+
+# ── Catalogue alimentaire (`NUT-18` → `NUT-21`) ───────
+
+#: Les plages du catalogue, **calendaires** et non glissantes.
+#:
+#: Choix assumé, avec sa conséquence : un 1er du mois affiche presque rien. C'est la
+#: cohérence avec la grille de `NUT-11`, qui compte déjà en semaines alignées sur le
+#: lundi, qui l'a emporté sur le confort d'une fenêtre qui ne retombe jamais à zéro.
+CatalogRange = Literal["day", "week", "month", "quarter"]
+
+#: Les quatre plages, dans l'ordre où la fiche les montre. Nommées une fois : une seconde
+#: liste ailleurs se décollerait de celle-ci au premier ajout.
+RANGE_KEYS: tuple[CatalogRange, ...] = ("day", "week", "month", "quarter")
+
+
+class CatalogEntry(BaseModel):
+    """Une ligne de la page catalogue : l'aliment, et ce qu'on en a mangé sur la plage.
+
+    `times` et `quantity_g` sont à **zéro** quand l'aliment n'a pas été consigné sur la
+    plage, et l'écran doit y dessiner un tiret. Ce n'est pas une contradiction avec « aucune
+    valeur inventée » : `last_on` à `null` dit que l'aliment n'a jamais été pesé, et le
+    zéro d'un compteur d'occurrences est une absence constatée, pas une mesure supposée.
+    """
+
+    #: `-1` et un jeton vide sur un aliment **hors catalogue** : il a été mangé — le
+    #: journal le dit — mais aucune ligne ne le décrit, donc rien à corriger ni à
+    #: supprimer. Même parti pris que `LoadList.orphans` : ce que l'écran ne montrerait
+    #: pas deviendrait inatteignable.
+    id: int = -1
+    token: str = ""
+    ingredient_id: str = ""
+    name: str
+    #: Faux quand l'aliment n'existe qu'au journal. Sa fiche propose alors de l'ajouter
+    #: plutôt que de le corriger.
+    catalogued: bool = True
+    calories_100g: float | None = None
+    protein_100g: float | None = None
+    added_sugar_100g: float | None = None
+    saturated_fat_100g: float | None = None
+    fiber_100g: float | None = None
+    portion_g: float | None = None
+    barcode: str = ""
+    edited_on: date | None = None
+    #: Nombre de repas composés de la plage où l'aliment apparaît.
+    times: int = 0
+    #: Somme des poids pesés sur la plage, en grammes.
+    quantity_g: float = 0.0
+    #: Jour du dernier repas où il apparaît, **toutes plages confondues**. C'est lui qui
+    #: trie la liste, et `null` veut dire « jamais consigné ».
+    last_on: date | None = None
+
+
+class CatalogCoverage(BaseModel):
+    """Ce que la page ne voit pas, chiffré (`NUT-19`).
+
+    Photo, saisie manuelle, favori et estimation IA n'enregistrent qu'un total d'assiette :
+    leurs aliments n'existent nulle part. Sans ces deux nombres à l'écran, lire « 0 g de
+    poulet ce mois-ci » après quatre repas notés en photo serait un mensonge crédible.
+    """
+
+    #: Repas de la plage dont les aliments sont connus — ceux qui ont été composés.
+    composed: int = 0
+    #: Repas de la plage, tous modes confondus.
+    meals: int = 0
+
+
+class CatalogView(BaseModel):
+    """La page catalogue en une requête."""
+
+    range: CatalogRange
+    #: Bornes **calculées par le serveur** : le client envoie une clé de plage, il ne sait
+    #: pas quel jour on est.
+    start: date
+    end: date
+    coverage: CatalogCoverage
+    entries: list[CatalogEntry]
+
+
+class CatalogIntake(BaseModel):
+    """Un repas où l'aliment est apparu, tel que la fiche le montre."""
+
+    date: date
+    quantity_g: float
+
+
+class CatalogPeriod(BaseModel):
+    """Le compte d'une plage, pour la fiche qui les montre toutes les quatre."""
+
+    range: CatalogRange
+    start: date
+    end: date
+    times: int = 0
+    quantity_g: float = 0.0
+
+
+class CatalogFood(BaseModel):
+    """La fiche d'un aliment : ses valeurs, ses quatre plages, ses derniers repas."""
+
+    entry: CatalogEntry
+    periods: list[CatalogPeriod]
+    #: Les derniers repas où l'aliment apparaît, du plus récent au plus ancien. C'est ce
+    #: détail qui rend les 720 g **vérifiables** au lieu d'être à croire.
+    recent: list[CatalogIntake]
+
+
+class IngredientPayload(BaseModel):
+    """Ajout d'un aliment au catalogue (`NUT-20`).
+
+    **Au moins une valeur pour 100 g**, et le validateur l'exige. Le catalogue existe pour
+    remplir des champs : une entrée qui n'en remplit aucun serait choisie dans la feuille
+    « repas composé » et ne compterait pas dans le total. C'est déjà la règle qu'applique
+    `remember` à l'écriture automatique ; la saisie à la main n'a pas à être plus permissive.
+    """
+
+    name: Label
+    calories_100g: Per100Calories | None = None
+    protein_100g: Per100G | None = None
+    added_sugar_100g: Per100G | None = None
+    saturated_fat_100g: Per100G | None = None
+    fiber_100g: Per100G | None = None
+    portion_g: QuantityG | None = None
+    barcode: str = Field(default="", max_length=14)
+
+    @model_validator(mode="after")
+    def require_a_value(self) -> IngredientPayload:
+        if all(
+            value is None
+            for value in (
+                self.calories_100g,
+                self.protein_100g,
+                self.added_sugar_100g,
+                self.saturated_fat_100g,
+                self.fiber_100g,
+            )
+        ):
+            raise ValueError("un aliment sans aucune valeur pour 100 g ne remplirait aucun champ")
+        return self
+
+
+class IngredientUpdate(BaseModel):
+    """Correction d'une entrée du catalogue (`NUT-20`).
+
+    Toute correction **pose le verrou** : l'entrée porte dès lors sa date de correction, et
+    un scan ultérieur ne réécrit plus ses valeurs. `release` le retire — c'est la touche
+    « Reprendre les valeurs de la base », qui rend la main au prochain scan.
+    """
+
+    name: Label | None = None
+    calories_100g: Per100Calories | None = None
+    protein_100g: Per100G | None = None
+    added_sugar_100g: Per100G | None = None
+    saturated_fat_100g: Per100G | None = None
+    fiber_100g: Per100G | None = None
+    portion_g: QuantityG | None = None
+    #: Champs à **effacer**. Sans cette liste, un `null` serait indistinguable d'un champ
+    #: absent, et une valeur fausse ne pourrait jamais être retirée — seulement remplacée.
+    clear: list[
+        Literal[
+            "calories_100g",
+            "protein_100g",
+            "added_sugar_100g",
+            "saturated_fat_100g",
+            "fiber_100g",
+            "portion_g",
+        ]
+    ] = Field(default_factory=list)
+    release: bool = False

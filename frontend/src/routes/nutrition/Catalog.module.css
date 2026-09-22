@@ -1,0 +1,230 @@
+/*
+ * Le catalogue alimentaire (`NUT-19` → `NUT-21`).
+ *
+ * Sa propre feuille, et non `Nutrition.module.css` : c'est un écran, pas une partie de
+ * l'écran Nutrition. La règle du dépôt est que le fichier de style suit le composant ;
+ * partager celui du journal aurait fait grossir un module déjà long de classes qu'un seul
+ * des deux écrans utilise.
+ */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+/* Ce que la page ne voit pas, dit en toutes lettres. En chasse fixe comme les autres
+   mentions de mesure, et juste sous les onglets : elle qualifie les chiffres du dessous,
+   pas la page en général. */
+.coverage {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.lines > *:not(:last-child) {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+/*
+ * L'enveloppe d'une ligne **hors catalogue**, qui n'a pas de `SwipeRow` autour d'elle.
+ *
+ * Le même rayon, pour la seule raison qui compte : un bord bas est rogné par les coins
+ * arrondis de son élément. Sans le rayon ici, le trait sous une ligne hors catalogue
+ * courait plus large que tous les autres — un défaut d'une dizaine de pixels, invisible
+ * à la mesure et très visible à l'œil.
+ */
+.lineWrap {
+  border-radius: var(--r-sm);
+}
+
+/*
+ * Une ligne : le nom, ce qu'on en a mangé, et depuis quand.
+ *
+ * Deux colonnes et deux rangs plutôt qu'une ligne à trois colonnes : « yaourt grec Lidl »
+ * et « 4 fois · 500 g » côte à côte sur 390 px laissent 150 px au nom, qui casse. Le
+ * compte prend donc le coin haut-droit, et la mention court sous le nom.
+ */
+.line {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px var(--s3);
+  width: 100%;
+  /* `--tap-lg` : la ligne est la porte de la fiche, et c'est le geste principal de la
+     page. */
+  min-height: var(--tap-lg);
+  padding: var(--s3) var(--s1);
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: var(--t);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .line:hover {
+    background: var(--surface-2);
+  }
+}
+
+.lineName {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+  font-weight: 500;
+}
+
+/* Le chevron du parcours mobile : il dit « ça s'ouvre » sans prendre de hauteur. Repris
+   de la ligne d'ingrédient, pour que les deux surfaces annoncent la même chose pareil. */
+.lineChevron {
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--ink-low);
+  border-bottom: 1.5px solid var(--ink-low);
+  transform: rotate(-45deg);
+  flex: none;
+}
+
+.lineCount {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.lineNote {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.add {
+  display: flex;
+  justify-content: stretch;
+}
+
+.add > * {
+  flex: 1;
+}
+
+/* ── La fiche d'un aliment ──────────────────────────── */
+
+.detail,
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.source {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.head {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+  text-transform: lowercase;
+}
+
+/*
+ * Les quatre plages. Une liste de définitions et non un tableau : ce sont quatre paires
+ * libellé-valeur, et un tableau aurait demandé un en-tête que personne ne lit.
+ */
+.periods {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s3);
+  margin: 0;
+}
+
+.period {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: var(--s3);
+}
+
+.period dt {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.period dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Les derniers repas — d'où sortent les grammes. Dense : c'est une preuve, pas une liste
+   qu'on parcourt. */
+.recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.recent li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s3);
+}
+
+@media (min-width: 600px) {
+  .formGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .periods {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+.actions > * {
+  flex: 1 1 auto;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--t-meta);
+  color: var(--recover);
+}

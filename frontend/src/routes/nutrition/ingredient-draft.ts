@@ -34,11 +34,22 @@ export interface IngredientDraft {
    */
   manual: boolean;
   /**
+   * La portion habituelle de cet aliment au catalogue (`NUT-21`), en grammes.
+   *
+   * **Elle ne remplit pas le champ de poids.** Un poids inscrit sans qu'on l'ait pesé
+   * serait une valeur inventée à l'écran, et le marquer « proposé » créerait un cinquième
+   * vocabulaire de proposition là où le dépôt en réserve deux à ce qu'un modèle rend. Elle
+   * sert une **puce** sous le champ, qui le remplit d'un appui — le geste économisé est le
+   * même, et rien n'entre dans un champ sans que le doigt l'ait demandé.
+   */
+  portion_g: string;
+  /**
    * D'où vient cette ligne, pour la fiche que le nom ouvre (`NUT-14`).
    *
-   * Ni l'un ni l'autre ne part au serveur : `toLines` n'envoie que ce que le calcul
-   * demande. Ils servent à **reconnaître** le produit — deux yaourts nature d'une même
-   * marque ne se distinguent que par leur code.
+   * La **marque** ne part jamais au serveur : elle sert à reconnaître le produit à
+   * l'écran — deux yaourts nature d'une même marque ne se distinguent que par leur code —
+   * et `NUT-13` a tranché qu'elle n'est pas une mesure. Le **code**, lui, suit la ligne
+   * depuis `NUT-20` : il est ce qui permettra de relire la fiche du produit plus tard.
    */
   brand: string;
   barcode: string;
@@ -58,6 +69,7 @@ export function emptyIngredient(): IngredientDraft {
     saturated_fat_100g: '',
     fiber_100g: '',
     manual: true,
+    portion_g: '',
     brand: '',
     barcode: '',
   };
@@ -139,6 +151,9 @@ export function toLines(rows: readonly IngredientDraft[]): IngredientLine[] {
         added_sugar_100g: decimal(row.added_sugar_100g),
         saturated_fat_100g: decimal(row.saturated_fat_100g),
         fiber_100g: decimal(row.fiber_100g),
+        // Le code suit la ligne jusqu'au catalogue (`NUT-20`) : sans lui, une entrée
+        // arrivée par un scan ne pourrait plus jamais être relue chez Open Food Facts.
+        barcode: row.barcode,
       },
     ];
   });

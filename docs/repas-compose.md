@@ -129,12 +129,15 @@ ses fonctions pures dans `ingredient-draft.ts` — même séparation que `estima
 
 ## 6. Ce qui n'est pas fait
 
-- **Aucune suppression au catalogue.** On peut en ajouter et en corriger — en
-  recomposant —, jamais en retirer depuis l'application. Même situation que
-  `circuit_loads.csv`, et pour la même raison : la route n'existe pas. Le fichier
-  s'édite à la main.
-- **Aucune correction d'un repas composé par ses ingrédients.** Les lignes ne sont pas
-  conservées avec le repas : seul le total l'est. Corriger un repas composé se fait donc
-  comme n'importe quelle correction, sur ses trois macros.
+- ~~**Aucune suppression au catalogue.**~~ Levé par `NUT-20`
+  ([`catalogue-alimentaire.md`](catalogue-alimentaire.md)) : une entrée s'ajoute, se
+  corrige et se supprime depuis `/nutrition/catalogue`, sous `If-Match` et en deux appuis.
+  Une correction à la main **pose un verrou** — sans lui, « la dernière saisie gagne »
+  l'aurait avalée au repas suivant.
+- **Aucune correction d'un repas composé par ses ingrédients.** Corriger un repas composé
+  se fait comme n'importe quelle correction, sur ses macros. Les lignes, elles, ne sont
+  plus perdues : depuis `NUT-18` elles entrent au **journal des aliments**
+  (`nutrition/intake.csv`) — mais ce journal est une mesure de ce qu'on a mangé, pas un
+  brouillon rejouable, et rien ne le relie à la ligne de `meals.csv` qu'il accompagne.
 - **Aucune unité autre que le gramme.** Ni pièce, ni cuillère, ni millilitre — une
   conversion demanderait une densité par aliment, que le catalogue ne porte pas.

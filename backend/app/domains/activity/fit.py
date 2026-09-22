@@ -38,6 +38,7 @@ from __future__ import annotations
 import io
 import re
 import secrets
+import zipfile
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -47,6 +48,7 @@ from statistics import median
 import fitdecode
 
 from app.core.exceptions import ValidationFailedError
+from app.domains.activity import garmin
 from app.storage.errors import StorageNotFoundError
 from app.storage.paths import RUN_FITS
 
@@ -78,6 +80,19 @@ GAP_MIN_M = 100.0
 #: Les `event_type` d'un `event timer` qui arrêtent le chronomètre. Le profil FIT en a
 #: quatre ; Strava n'écrit que `stop`, une montre Garmin écrit `stop_all`.
 TIMER_STOPS = frozenset({"stop", "stop_all", "stop_disable", "stop_disable_all"})
+
+#: Ce qui déclenche un tour **automatique** (`lap_trigger`). Un tour automatique au mile
+#: découpait la sortie du 19/09 en quatre paliers de 1,61 km : cohérents, donc gardés par
+#: `_laps_hold`, et moins lisibles que le kilomètre. Seul un tour automatique **au
+#: kilomètre** est gardé — c'est le kilomètre, avec le dénivelé que la montre a lissé.
+AUTO_LAP_TRIGGERS = frozenset(
+    {"distance", "time", "position_start", "position_lap", "position_waypoint", "position_marked"}
+)
+KILOMETRE_M = 1000.0
+
+#: Signature d'une archive `.zip` — l'« Exporter l'original » de Garmin Connect en rend une,
+#: qui contient le `.fit`.
+ZIP_MAGIC = b"PK\x03\x04"
 
 #: Fenêtre du lissage de la FC max relevée, en points. Une ceinture cardio produit des
 #: pics d'un battement — un contact perdu, une décharge statique — et le maximum brut en
@@ -137,6 +152,14 @@ class FitSample:
     heart_rate: int | None = None
     #: En **pas** par minute, déjà doublée — `record.cadence` compte des cycles de deux pas.
     cadence_spm: int | None = None
+    power_w: int | None = None
+    #: La foulée, telle qu'une montre l'estime — au poignet sans capteur de poitrine.
+    stance_ms: float | None = None
+    vertical_oscillation_cm: float | None = None
+    step_length_m: float | None = None
+    #: Champs **non documentés** (`garmin.py`) : lus par numéro, gardés par des bornes.
+    performance_condition: int | None = None
+    stamina_pct: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +168,40 @@ class FitPause:
 
     timer_s: float
     duration_s: float
+
+
+@dataclass(frozen=True)
+class FitMetrics:
+    """Ce que la montre a mesuré ou calculé **sur la séance**, au-delà de `runs.csv`.
+
+    Tout est facultatif : un export Strava de téléphone n'en porte rien, une montre en
+    porte presque tout. Ce qui vient de `garmin.py` n'est pas documenté par le fabricant,
+    et l'écran le signe « selon Garmin » (`docs/coach-course.md`, **C5**).
+    """
+
+    avg_power_w: int | None = None
+    normalized_power_w: int | None = None
+    max_power_w: int | None = None
+    avg_stance_ms: float | None = None
+    avg_vertical_oscillation_cm: float | None = None
+    avg_vertical_ratio_pct: float | None = None
+    avg_step_length_m: float | None = None
+    training_effect_aerobic: float | None = None
+    training_effect_anaerobic: float | None = None
+    training_load: int | None = None
+    #: La FC max **réglée dans la montre** — 220 moins l'âge tant que personne ne l'a changée.
+    #: Une référence de repli pour les zones, jamais une mesure (**C4**).
+    watch_max_hr: int | None = None
+    vo2max: float | None = None
+    recovery_h: float | None = None
+    performance_condition_start: int | None = None
+    performance_condition_end: int | None = None
+    stamina_start_pct: int | None = None
+    stamina_end_pct: int | None = None
+    #: Vrai quand un capteur **externe** est déclaré — ceinture, capteur de foulée. Sans
+    #: lui, la foulée est estimée au poignet, et l'écran le dit.
+    external_sensor: bool = False
+    device: str | None = None
 
 
 @dataclass(frozen=True)
@@ -175,6 +232,7 @@ class FitRun:
     #: Vrai quand l'enregistrement s'est interrompu — ni paliers ni efforts, pour la même
     #: raison : on ne sait pas comment répartir les mètres manquants.
     has_gap: bool = False
+    metrics: FitMetrics = field(default_factory=FitMetrics)
 
 
 # ── Décodage ──────────────────────────────────────────
@@ -189,6 +247,11 @@ def read(data: bytes) -> FitRun:
     laps: list[dict[str, object]] = []
     events: list[dict[str, object]] = []
     points: dict[datetime, dict[str, object]] = {}
+    extras: dict[datetime, dict[int, object]] = {}
+    session_zones: dict[str, object] = {}
+    devices: list[dict[str, object]] = []
+    creator: dict[str, object] = {}
+    summary = garmin.Summary()
 
     try:
         with fitdecode.FitReader(io.BytesIO(data)) as reader:
@@ -210,6 +273,17 @@ def read(data: bytes) -> FitRun:
                         # La fusion, et non `points[moment] = values` : c'est ici que se
                         # recolle ce que Strava a séparé en deux flux.
                         points.setdefault(moment, {}).update(values)
+                        extras.setdefault(moment, {}).update(garmin.numbered(frame))
+                elif frame.name == "time_in_zone":
+                    values = _values(frame)
+                    if values.get("reference_mesg") == "session":
+                        session_zones = values
+                elif frame.name == "device_info":
+                    devices.append(_values(frame))
+                elif frame.name == "file_id":
+                    creator = _values(frame)
+                elif frame.global_mesg_num == garmin.METRICS_MESSAGE:
+                    summary = garmin.summary(garmin.numbered(frame))
     except FitError:
         raise
     # `fitdecode` lève large sur un fichier tronqué : une erreur de structure, une fin
@@ -220,8 +294,9 @@ def read(data: bytes) -> FitRun:
 
     _check_sport(session)
 
-    ordered = [points[key] for key in sorted(points)]
-    samples, pauses = _samples(ordered, events)
+    moments = sorted(points)
+    ordered = [points[key] for key in moments]
+    samples, pauses = _samples(ordered, events, [extras.get(key, {}) for key in moments])
     duration_s = _duration_s(session, samples)
     distance_m = _distance_m(session, ordered)
     if duration_s is None or distance_m is None:
@@ -253,6 +328,7 @@ def read(data: bytes) -> FitRun:
         samples=samples,
         pauses=pauses,
         has_gap=has_gap,
+        metrics=_metrics(session, session_zones, devices, creator, summary, samples),
     )
 
 
@@ -290,7 +366,9 @@ def _values(frame: fitdecode.FitDataMessage) -> dict[str, object]:
 
 
 def _samples(
-    points: Sequence[dict[str, object]], events: Sequence[dict[str, object]]
+    points: Sequence[dict[str, object]],
+    events: Sequence[dict[str, object]],
+    extras: Sequence[dict[int, object]] | None = None,
 ) -> tuple[list[FitSample], list[FitPause]]:
     """Les relevés fusionnés, **horodatage moins pauses**, et les pauses elles-mêmes.
 
@@ -301,7 +379,13 @@ def _samples(
 
     Un `stop` sans `start` derrière est la fin de la sortie, pas une pause.
     """
-    timed = [item for item in points if isinstance(item.get("timestamp"), datetime)]
+    numbered = list(extras) if extras is not None else [{} for _ in points]
+    paired = [
+        (item, numbered[index])
+        for index, item in enumerate(points)
+        if isinstance(item.get("timestamp"), datetime)
+    ]
+    timed = [item for item, _ in paired]
     if not timed:
         return [], []
     origin = _naive(timed[0]["timestamp"])
@@ -324,7 +408,7 @@ def _samples(
     cursor = 0
     samples: list[FitSample] = []
 
-    for item in timed:
+    for item, extra in paired:
         moment = _naive(item["timestamp"])
         while cursor < len(switches) and switches[cursor][0] <= moment:
             at, running = switches[cursor]
@@ -361,6 +445,13 @@ def _samples(
                 altitude_m=altitude,
                 heart_rate=_bounded(_int(item.get("heart_rate")) or 0, 30, 250),
                 cadence_spm=_bounded(round(cadence * 2), 30, 300) if cadence else None,
+                power_w=_bounded(_int(item.get("power")) or 0, 1, 2500),
+                stance_ms=_within(_float(item.get("stance_time")), 100, 600),
+                # Le profil FIT les donne en millimètres ; l'écran lit des cm et des m.
+                vertical_oscillation_cm=_scaled(item.get("vertical_oscillation"), 0.1, 2, 25),
+                step_length_m=_scaled(item.get("step_length"), 0.001, 0.2, 3),
+                performance_condition=garmin.performance_condition(extra),
+                stamina_pct=garmin.stamina(extra),
             )
         )
     return samples, pauses
@@ -494,8 +585,13 @@ def _splits(
     distance_km: float,
     has_gap: bool,
 ) -> tuple[float | None, list[FitSplit], bool]:
-    """Les laps du fichier s'ils tiennent debout, le découpage kilométrique sinon (**F2**)."""
-    if _laps_hold(laps, distance_km):
+    """Les laps du fichier s'ils tiennent debout, le découpage kilométrique sinon (**F2**).
+
+    Un tour **automatique** ne tient debout qu'au kilomètre : au mile, au demi-kilomètre
+    ou toutes les cinq minutes, il découpe la sortie en unités que l'écran ne parle pas,
+    et le kilomètre dit la même chose plus lisiblement.
+    """
+    if _laps_hold(laps, distance_km) and not _automatic_off_kilometre(laps):
         return _from_laps(laps)
     if has_gap:
         return None, [], False
@@ -537,6 +633,21 @@ def _laps_hold(laps: list[dict[str, object]], distance_km: float) -> bool:
     return lengths[-1] <= reference * (1 + LAP_TOLERANCE)
 
 
+def _automatic_off_kilometre(laps: list[dict[str, object]]) -> bool:
+    """Vrai quand les tours pleins sont déclenchés par la montre, à une autre longueur que
+    le kilomètre. Un tour d'entraînement structuré (`wkt_step_index`) n'est pas
+    automatique : c'est une étape, et elle dit quelque chose."""
+    full = laps[:-1]
+    automatic = all(
+        lap.get("lap_trigger") in AUTO_LAP_TRIGGERS and lap.get("wkt_step_index") is None
+        for lap in full
+    )
+    if not full or not automatic:
+        return False
+    reference = median(_float(lap.get("total_distance")) or 0.0 for lap in full)
+    return abs(reference - KILOMETRE_M) > KILOMETRE_M * LAP_TOLERANCE
+
+
 def _from_laps(laps: list[dict[str, object]]) -> tuple[float | None, list[FitSplit], bool]:
     """Les tours tels que la montre les a relevés, dénivelé compris.
 
@@ -552,7 +663,12 @@ def _from_laps(laps: list[dict[str, object]]) -> tuple[float | None, list[FitSpl
         if not duration or duration <= 0:
             continue
         distance = lengths[index - 1]
-        cadence = _float(lap.get("avg_cadence"))
+        # `avg_running_cadence` en course — c'est le nom que le profil donne au même champ
+        # quand le sport est la course, et celui que `fitdecode` rend pour une Garmin. Lire
+        # `avg_cadence` seul laissait vides les paliers de toute montre.
+        cadence = _float(lap.get("avg_running_cadence") or lap.get("avg_cadence"))
+        if cadence is not None:
+            cadence += _float(lap.get("avg_fractional_cadence")) or 0.0
         splits.append(
             FitSplit(
                 index=index,
@@ -646,6 +762,102 @@ def _bucket_split(
     )
 
 
+# ── Ce que la montre ajoute ───────────────────────────
+
+
+def _metrics(
+    session: dict[str, object],
+    zones: dict[str, object],
+    devices: Sequence[dict[str, object]],
+    creator: dict[str, object],
+    summary: garmin.Summary,
+    samples: Sequence[FitSample],
+) -> FitMetrics:
+    conditions = [
+        item.performance_condition for item in samples if item.performance_condition is not None
+    ]
+    staminas = [item.stamina_pct for item in samples if item.stamina_pct is not None]
+    oscillation = _float(session.get("avg_vertical_oscillation"))
+    step = _float(session.get("avg_step_length"))
+    load = _float(session.get("training_load_peak"))
+    return FitMetrics(
+        avg_power_w=_bounded(_int(session.get("avg_power")) or 0, 1, 2500),
+        normalized_power_w=_bounded(_int(session.get("normalized_power")) or 0, 1, 2500),
+        max_power_w=_bounded(_int(session.get("max_power")) or 0, 1, 2500),
+        avg_stance_ms=_within(_float(session.get("avg_stance_time")), 100, 600),
+        avg_vertical_oscillation_cm=_scaled(oscillation, 0.1, 2, 25),
+        avg_vertical_ratio_pct=_within(_float(session.get("avg_vertical_ratio")), 1, 30),
+        avg_step_length_m=_scaled(step, 0.001, 0.2, 3),
+        training_effect_aerobic=_within(_float(session.get("total_training_effect")), 0, 5),
+        training_effect_anaerobic=_within(
+            _float(session.get("total_anaerobic_training_effect")), 0, 5
+        ),
+        training_load=_bounded(round(load), 0, 2000) if load is not None else None,
+        watch_max_hr=_bounded(_int(zones.get("max_heart_rate")) or 0, 100, 250),
+        vo2max=summary.vo2max,
+        recovery_h=summary.recovery_h,
+        performance_condition_start=conditions[0] if conditions else None,
+        performance_condition_end=conditions[-1] if conditions else None,
+        stamina_start_pct=staminas[0] if staminas else None,
+        stamina_end_pct=staminas[-1] if staminas else None,
+        external_sensor=any(
+            device.get("source_type") in {"antplus", "bluetooth", "bluetooth_low_energy"}
+            for device in devices
+        ),
+        device=_device(creator),
+    )
+
+
+def _device(creator: dict[str, object]) -> str | None:
+    """`epix_gen2_pro_47` → `Epix Gen2 Pro 47`. Le nom que le profil donne au produit, et
+    rien d'inventé : un produit que le profil ne connaît pas n'a que son fabricant."""
+    product = creator.get("garmin_product") or creator.get("product_name")
+    if isinstance(product, str) and product:
+        return " ".join(part.capitalize() for part in product.split("_"))
+    maker = creator.get("manufacturer")
+    return maker.capitalize() if isinstance(maker, str) and maker else None
+
+
+# ── L'archive d'export ────────────────────────────────
+
+
+def unpack(data: bytes) -> bytes:
+    """Le `.fit` d'une archive `.zip` d'export, ou les octets tels quels.
+
+    Garmin Connect exporte l'original dans un `.zip` qui ne contient que lui. On l'accepte
+    **s'il n'y a qu'un `.fit`** — deux feraient deux sorties sous un seul import — et dans
+    la limite de `MAX_BYTES` **décompressé**, lue sans jamais décompresser au-delà : une
+    archive de quelques kilo-octets peut en contenir des gigas.
+    """
+    if not data.startswith(ZIP_MAGIC):
+        return data
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(data))
+        members = [
+            item
+            for item in archive.infolist()
+            if not item.is_dir() and item.filename.lower().endswith(".fit")
+        ]
+        if len(members) != 1:
+            raise FitError(
+                "Cette archive doit contenir un seul fichier .fit"
+                + (
+                    " — elle n'en contient aucun."
+                    if not members
+                    else f" — elle en contient {len(members)}."
+                )
+            )
+        with archive.open(members[0]) as handle:
+            content = handle.read(MAX_BYTES + 1)
+    except FitError:
+        raise
+    except (zipfile.BadZipFile, zipfile.LargeZipFile, OSError, EOFError) as error:
+        raise FitError("Cette archive .zip n'a pas pu être ouverte.") from error
+    if len(content) > MAX_BYTES:
+        raise FitError(f"Fichier trop lourd : {MAX_BYTES // (1024 * 1024)} Mo au maximum.")
+    return content
+
+
 # ── Rangement (`STO-07`) ──────────────────────────────
 
 
@@ -690,6 +902,18 @@ def _float(value: object) -> float | None:
 def _int(value: object) -> int | None:
     number = _float(value)
     return round(number) if number is not None else None
+
+
+def _within(value: float | None, low: float, high: float) -> float | None:
+    """`_bounded` pour une mesure décimale : hors bornes, **absente**."""
+    if value is None or not low <= value <= high:
+        return None
+    return round(value, 2)
+
+
+def _scaled(value: object, factor: float, low: float, high: float) -> float | None:
+    number = _float(value)
+    return _within(number * factor, low, high) if number is not None else None
 
 
 def _bounded(value: int, low: int, high: int) -> int | None:

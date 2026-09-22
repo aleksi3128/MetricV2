@@ -1,0 +1,73 @@
+/*
+ * Le parcours du matin (`docs/coach-course.md` §5). Une étape par écran, le geste qui la
+ * termine à `--tap-lg`. Mobile d'abord ; aucune couleur en dur.
+ */
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink-mid);
+  text-wrap: pretty;
+}
+
+/* L'action qui termine une étape : la récompense du pouce (§3 de `CLAUDE.md`). */
+.finish {
+  min-height: var(--tap-lg);
+}
+
+.readiness {
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--line-soft);
+  text-wrap: pretty;
+}
+
+.good {
+  border-left-color: var(--effort);
+}
+
+.warn {
+  border-left-color: var(--load);
+}
+
+.neutral {
+  border-left-color: var(--ink-low);
+}
+
+.planned {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.error {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}

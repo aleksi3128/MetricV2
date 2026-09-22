@@ -50,6 +50,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './run/Run.module.css';
+import { Trends } from './Trends';
 
 const RECORD_COLUMNS: Column<EffortRecord>[] = [
   {
@@ -242,7 +243,7 @@ export function Runs() {
             </Card>
           </div>
 
-          {/* Les sorties d'avant les efforts. Une addition rejouable, pas une destruction :
+          {/* Les sorties d'avant l'analyse actuelle. Une addition rejouable, pas une destruction :
               pas de second appui (§3 de `CLAUDE.md`). */}
           {data.efforts_pending > 0 && (
             <Card>
@@ -251,8 +252,8 @@ export function Runs() {
                   {data.efforts_pending} {plural(data.efforts_pending, 'sortie')} à réanalyser
                 </strong>
                 <p className={styles.note}>
-                  Importées avant les meilleurs efforts : leurs records ne comptent pas encore, et
-                  leurs kilomètres incluaient les pauses du chrono.
+                  Importées avant la dernière analyse : leurs records, leur charge et ce que la
+                  montre a mesuré ne comptent pas encore.
                 </p>
                 <Button
                   variant="primary"
@@ -266,6 +267,8 @@ export function Runs() {
               </div>
             </Card>
           )}
+
+          <Trends />
 
           {data.records.length > 0 && (
             <>

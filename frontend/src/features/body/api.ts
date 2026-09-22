@@ -97,7 +97,58 @@ function guard(token: string): Record<string, string> {
   return { 'If-Match': token };
 }
 
+/** FC de repos et VFC d'un matin, lues sur la montre (`docs/coach-course.md`, **C3**). */
+export interface MorningEntry {
+  id: number;
+  token: string;
+  date: string;
+  resting_hr: number | null;
+  hrv_ms: number | null;
+  source: string;
+}
+
+/**
+ * La forme d'un matin contre la référence personnelle. `text` est rédigé par le serveur ;
+ * `status` ne décide qu'un ton à l'écran.
+ */
+export interface Readiness {
+  status: 'unknown' | 'normal' | 'lighten' | 'rest';
+  text: string;
+  resting_hr: number | null;
+  hrv_ms: number | null;
+  rhr_baseline: number | null;
+  rhr_delta: number | null;
+  hrv_baseline: number | null;
+  hrv_low: number | null;
+  hrv_high: number | null;
+  mornings: number;
+  needed: number;
+}
+
+export interface MorningView {
+  /** Le jour du serveur — la saisie se date avec lui, jamais avec l'horloge du téléphone. */
+  today: string;
+  entry: MorningEntry | null;
+  readiness: Readiness;
+  recent: MorningEntry[];
+}
+
+export interface MorningPayload {
+  date: string;
+  resting_hr: number | null;
+  hrv_ms: number | null;
+}
+
 export const bodyApi = {
+  morning: () => request<MorningView>('/api/body/morning'),
+  createMorning: (payload: MorningPayload) =>
+    request<MorningEntry>('/api/body/morning', { method: 'POST', body: payload }),
+  updateMorning: (id: number, token: string, payload: MorningPayload) =>
+    request<MorningEntry>(`/api/body/morning/${id}`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body: payload,
+    }),
   weight: (limit = 50) => request<WeightView>('/api/body/weight', { query: { limit } }),
 
   createWeight: (payload: WeightPayload) =>

@@ -172,6 +172,11 @@ export interface Ingredient {
   added_sugar_100g: number | null;
   saturated_fat_100g: number | null;
   fiber_100g: number | null;
+  /** La portion habituelle, en grammes (`NUT-21`). Sert une puce, jamais un préremplissage. */
+  portion_g: number | null;
+  barcode: string;
+  /** Le jour d'une correction à la main (`NUT-20`) : les valeurs ne sont plus écrasées. */
+  edited_on: string | null;
 }
 
 /** Un ingrédient pesé, tel qu'il part au calcul. */
@@ -183,6 +188,104 @@ export interface IngredientLine {
   added_sugar_100g?: number | null;
   saturated_fat_100g?: number | null;
   fiber_100g?: number | null;
+  /** Le code du produit scanné. Il ne change rien au total : il suit la ligne jusqu'au
+   * catalogue, pour qu'une entrée puisse plus tard être relue chez Open Food Facts. */
+  barcode?: string;
+}
+
+// ── Catalogue alimentaire (`NUT-18` → `NUT-21`) ───────
+
+/** Les quatre plages du catalogue, **calendaires** et non glissantes. */
+export type CatalogRange = 'day' | 'week' | 'month' | 'quarter';
+
+/**
+ * Une ligne de la page catalogue.
+ *
+ * `catalogued` à faux désigne un aliment qui n'existe qu'au **journal** : il a été mangé,
+ * mais aucune ligne ne le décrit — rien à corriger ni à supprimer, et `id` vaut `-1`.
+ */
+export interface CatalogEntry {
+  id: number;
+  token: string;
+  ingredient_id: string;
+  name: string;
+  catalogued: boolean;
+  calories_100g: number | null;
+  protein_100g: number | null;
+  added_sugar_100g: number | null;
+  saturated_fat_100g: number | null;
+  fiber_100g: number | null;
+  portion_g: number | null;
+  barcode: string;
+  edited_on: string | null;
+  times: number;
+  quantity_g: number;
+  /** `null` veut dire « jamais consigné » — l'écran y dessine un tiret, pas un zéro. */
+  last_on: string | null;
+}
+
+/** Ce que la page ne voit pas, chiffré : les repas non composés n'ont aucun aliment. */
+export interface CatalogCoverage {
+  composed: number;
+  meals: number;
+}
+
+export interface CatalogView {
+  range: CatalogRange;
+  start: string;
+  end: string;
+  coverage: CatalogCoverage;
+  entries: CatalogEntry[];
+}
+
+export interface CatalogIntake {
+  date: string;
+  quantity_g: number;
+}
+
+export interface CatalogPeriod {
+  range: CatalogRange;
+  start: string;
+  end: string;
+  times: number;
+  quantity_g: number;
+}
+
+export interface CatalogFood {
+  entry: CatalogEntry;
+  periods: CatalogPeriod[];
+  recent: CatalogIntake[];
+}
+
+/** Ajout d'un aliment au catalogue. Le serveur refuse une entrée sans aucune valeur. */
+export interface IngredientPayload {
+  name: string;
+  calories_100g?: number | null;
+  protein_100g?: number | null;
+  added_sugar_100g?: number | null;
+  saturated_fat_100g?: number | null;
+  fiber_100g?: number | null;
+  portion_g?: number | null;
+  barcode?: string;
+}
+
+/**
+ * Correction d'une entrée du catalogue.
+ *
+ * `clear` nomme les champs à **effacer** : sans cette liste, un champ absent et un champ
+ * à `null` diraient la même chose, et une valeur fausse ne pourrait que se remplacer.
+ * `release` retire le verrou posé par toute correction.
+ */
+export interface IngredientUpdate {
+  name?: string;
+  calories_100g?: number | null;
+  protein_100g?: number | null;
+  added_sugar_100g?: number | null;
+  saturated_fat_100g?: number | null;
+  fiber_100g?: number | null;
+  portion_g?: number | null;
+  clear?: string[];
+  release?: boolean;
 }
 
 export interface ComposedLine {
@@ -338,6 +441,35 @@ export const nutritionApi = {
    * conversions d'unités ne se traitent depuis un navigateur.
    */
   product: (barcode: string) => request<Product>(`/api/nutrition/products/${barcode}`),
+
+  /** Tout ce qu'on mange sur une plage, et ce que la page ne voit pas (`NUT-19`). */
+  catalog: (range: CatalogRange) =>
+    request<CatalogView>('/api/nutrition/catalog', { query: { range } }),
+
+  /**
+   * La fiche d'un aliment : ses quatre plages et ses derniers repas.
+   *
+   * `foodId` est l'identifiant d'une entrée du catalogue, ou le **nom** d'un aliment qui
+   * n'existe qu'au journal — la page en montre, leur fiche doit s'ouvrir aussi.
+   */
+  food: (foodId: string) =>
+    request<CatalogFood>(`/api/nutrition/catalog/${encodeURIComponent(foodId)}`),
+
+  addIngredient: (payload: IngredientPayload) =>
+    request<Ingredient>('/api/nutrition/ingredients', { method: 'POST', body: payload }),
+
+  updateIngredient: (id: number, token: string, payload: IngredientUpdate) =>
+    request<Ingredient>(`/api/nutrition/ingredients/${String(id)}`, {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'If-Match': token },
+    }),
+
+  removeIngredient: (id: number, token: string) =>
+    request<undefined>(`/api/nutrition/ingredients/${String(id)}`, {
+      method: 'DELETE',
+      headers: { 'If-Match': token },
+    }),
 
   /** Totalise des ingrédients pesés. **N'écrit rien** (`NUT-12`). */
   compose: (lines: IngredientLine[]) =>

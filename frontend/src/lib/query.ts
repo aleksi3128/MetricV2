@@ -25,6 +25,8 @@ export const keys = {
     all: () => ['body'] as const,
     weight: () => ['body', 'weight'] as const,
     measurements: () => ['body', 'measurements'] as const,
+    /** FC de repos, VFC et forme du jour (`docs/coach-course.md`, **C3**). */
+    morning: () => ['body', 'morning'] as const,
   },
   activity: {
     all: () => ['activity'] as const,
@@ -35,11 +37,15 @@ export const keys = {
     /** La dernière course et ses paliers — ce que `/activite/course` ouvre par défaut. */
     latestRun: () => ['activity', 'runs', 'latest'] as const,
     runProgress: () => ['activity', 'runs', 'progress'] as const,
+    /** Charge et corrélations — `docs/coach-course.md` §6. */
+    runTrends: () => ['activity', 'runs', 'trends'] as const,
     runSplits: (id: number) => ['activity', 'runs', id, 'splits'] as const,
     /** L'analyse d'une course importée — courbe, tracé, constats, zones. Une requête à
      *  part, parce qu'elle se relit depuis le `.fit` rangé et que la page doit s'afficher
      *  sans l'attendre. */
     runAnalysis: (id: number) => ['activity', 'runs', id, 'analysis'] as const,
+    /** Effort perçu, météo et forme du matin d'une course. */
+    runConditions: (id: number) => ['activity', 'runs', id, 'conditions'] as const,
     workouts: () => ['activity', 'workouts'] as const,
     workout: (id: number) => ['activity', 'workouts', id] as const,
     exercises: () => ['activity', 'exercises'] as const,
@@ -65,6 +71,8 @@ export const keys = {
     meals: (day: string) => ['nutrition', 'meals', day] as const,
     history: (range: string) => ['nutrition', 'history', range] as const,
     favorites: () => ['nutrition', 'favorites'] as const,
+    catalog: (range: string) => ['nutrition', 'catalog', range] as const,
+    food: (id: string) => ['nutrition', 'catalog', 'food', id] as const,
   },
   aggregates: {
     all: () => ['aggregates'] as const,
@@ -120,6 +128,15 @@ export const keys = {
     all: () => ['ai'] as const,
     /** État de l'assistance (`IA-07`) — lu une fois, il ne change pas en cours de session. */
     status: () => ['ai', 'status'] as const,
+  },
+  morning: {
+    all: () => ['morning'] as const,
+    /** Le parcours du matin : dû ou non, et où reprendre. */
+    flow: () => ['morning', 'flow'] as const,
+  },
+  coach: {
+    all: () => ['coach'] as const,
+    next: () => ['coach', 'next'] as const,
   },
   notifications: {
     all: () => ['notifications'] as const,

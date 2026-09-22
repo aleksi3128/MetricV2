@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.core.security import hash_password
+from app.domains.activity.weather import WeatherClient, WeatherProvider
 from app.domains.ai.client import OpenRouterClient
 from app.domains.ai.service import AiProvider, AiService, ModelCatalogue
 from app.domains.notifications.provider import PushProvider
@@ -28,6 +29,7 @@ from app.storage.webdav import WebDavClient
 # **Importé pour son effet de bord** : il fige l'horloge de la session, et doit le
 # faire avant que les fichiers de test ne calculent leur « TODAY » à l'import.
 from tests import _clock  # noqa: F401
+from tests.fake_open_meteo import FakeOpenMeteo
 from tests.fake_openfoodfacts import NUTELLA, FakeOpenFoodFacts
 from tests.fake_openrouter import FakeOpenRouter, free_model
 from tests.fake_webdav import FakeWebDav
@@ -58,10 +60,27 @@ def settings(password_hash: str) -> Settings:
 
 
 @pytest.fixture
-def client(settings: Settings) -> Iterator[TestClient]:
+def open_meteo() -> FakeOpenMeteo:
+    """La météo des sorties, scénarisable. **Toujours** branchée : voir `client`."""
+    return FakeOpenMeteo()
+
+
+@pytest.fixture
+def client(settings: Settings, open_meteo: FakeOpenMeteo) -> Iterator[TestClient]:
     # `with` déclenche le lifespan : sans lui, ni la couche stockage ni les objets de
     # sécurité ne seraient montés.
     with TestClient(create_app(settings)) as test_client:
+        # La météo est demandée à **chaque** import de `.fit` : sans ce double, la
+        # batterie toucherait le vrai Open-Meteo (`docs/coach-course.md`, **C6**).
+        weather = test_client.app.state.weather  # type: ignore[attr-defined]
+        assert isinstance(weather, WeatherProvider)
+        weather.use(
+            WeatherClient(
+                forecast_url="https://open-meteo.test",
+                archive_url="https://archive.open-meteo.test",
+                transport=httpx2.ASGITransport(app=open_meteo),
+            )
+        )
         yield test_client
 
 

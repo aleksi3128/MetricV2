@@ -21,6 +21,12 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple
 
 from app.core.dates import now_local, today_local, week_start
+from app.domains.activity.garmin import (
+    PERFORMANCE_CONDITION,
+    RECOVERY,
+    VO2MAX,
+    confirmed,
+)
 from app.domains.aggregates.service import DashboardService
 from app.domains.assistant import profile
 from app.domains.assistant.conversation import Need
@@ -32,7 +38,7 @@ if TYPE_CHECKING:  # pragma: no cover - import de typage seulement
     # Même arrangement qu'au lot L14, et pour la même raison : importer quoi que ce soit
     # de `app.domains.planning` exécute le `__init__` du paquet, donc son routeur. Le taux
     # de respect arrive **construit par le routeur**, jamais recalculé (`PLAN-06`).
-    from app.domains.activity.models import CircuitSessionSetRow
+    from app.domains.activity.models import CircuitSessionSetRow, RunMetricsRow
     from app.domains.planning.schemas import AdherenceView
     from app.storage.csv_repo import Row
 
@@ -196,7 +202,47 @@ async def build(
     lines.extend(await today_lines(store, current))
     lines.extend(await week_lines(store, current))
     lines.extend(await plan_lines(store, current))
+    lines.extend(await running_lines(store, current))
 
+    return lines
+
+
+async def running_lines(store: FileStore, today: date) -> list[str]:
+    """La forme du matin, la charge de course et ce qui va avec une bonne sortie.
+
+    Servi d'office, pour la raison de `today_lines` : « je cours ce soir ? » est une
+    question du quotidien, et la réponse dépend de ces trois choses. Les phrases sont
+    celles des écrans, à la lettre — le modèle ne peut pas les dire autrement que l'écran
+    d'à côté (`docs/coach-course.md` §6).
+    """
+    from app.domains.activity.trends import RunTrendsService
+    from app.domains.body.service import MorningService
+
+    readiness = await MorningService(store).readiness(today)
+    trends = RunTrendsService(store)
+    summary = await trends.summary(today)
+    lines = [
+        f"Forme du matin : {readiness.text}",
+        f"Charge de course : {summary.ratio_text} {summary.distribution_text}",
+    ]
+    if summary.last_hard is not None:
+        lines.append(f"Dernière séance de course dure : le {summary.last_hard:%d/%m/%Y}")
+    from app.domains.coach.service import CoachService
+
+    proposed = await CoachService(store).active_view(today)
+    if proposed is not None:
+        lines.append(
+            f"Séance proposée par le coach ({'acceptée' if proposed.status == 'accepted' else 'à valider'}) : "
+            f"{proposed.title}, {proposed.duration_min} min, le {proposed.date:%d/%m/%Y}"
+            + (f" — {proposed.adjusted}" if proposed.adjusted else "")
+        )
+    established = [item.text for item in await trends.findings() if item.status == "shown"]
+    lines.append(
+        "Corrélations établies sur tes sorties : " + " ".join(established)
+        if established
+        else "Corrélations établies sur tes sorties : aucune pour l'instant — trop peu de "
+        "sorties comparables pour rien affirmer"
+    )
     return lines
 
 
@@ -783,7 +829,9 @@ async def _activity_recent(store: FileStore, _today: date) -> list[str]:
     """
     from app.domains.activity.service import CircuitSessionService, RunService
 
-    runs = [RunService.to_schema(row) for row in (await RunService(store).all())[-5:]]
+    service = RunService(store)
+    runs = [RunService.to_schema(row) for row in (await service.all())[-5:]]
+    watched = await service.watch_metrics()
     sessions = (await CircuitSessionService(store).all())[-5:]
 
     lines: list[str] = []
@@ -799,6 +847,8 @@ async def _activity_recent(store: FileStore, _today: date) -> list[str]:
             details.append(f"dénivelé {run.elevation_m} m")
         if run.cadence_spm is not None:
             details.append(f"cadence {run.cadence_spm} ppm")
+        measured = watched.get(run.run_id)
+        details.extend(_watch_details(measured) if measured else [])
         lines.append(
             f"Course du {run.date:%d/%m/%Y} : {', '.join(details)} "
             f"(row_id={run.id}, token={run.token})"
@@ -822,6 +872,49 @@ async def _activity_recent(store: FileStore, _today: date) -> list[str]:
             f"Séance du {seance.date:%d/%m/%Y} : {seance.name}, {', '.join(details)}{travail}"
         )
     return lines or ["Activités récentes : aucune"]
+
+
+def _watch_details(measured: RunMetricsRow) -> list[str]:
+    """Ce que la montre a mesuré, puis ce qu'elle a **calculé**, signé comme tel.
+
+    La signature n'est pas une politesse : l'effet d'entraînement ou la condition de
+    performance sont des estimations d'un fabricant, que la consigne interdit de présenter
+    comme des mesures (`docs/coach-course.md`, **C5**). Le modèle les reçoit donc déjà
+    rangées sous « selon Garmin » — et seulement celles dont la lecture est confirmée.
+    """
+    details: list[str] = []
+    if measured.avg_power_w is not None:
+        details.append(f"puissance {measured.avg_power_w} W")
+    if measured.decoupling_pct is not None:
+        basis = "puissance" if measured.decoupling_basis == "power" else "vitesse"
+        details.append(
+            f"découplage {fr(measured.decoupling_pct)} % ({basis} par battement, "
+            "échauffement exclu)"
+        )
+    if measured.avg_stance_ms is not None:
+        details.append(f"contact au sol {round(measured.avg_stance_ms)} ms")
+
+    garmin: list[str] = []
+    if measured.training_effect_aerobic is not None:
+        garmin.append(f"effet aérobie {fr(measured.training_effect_aerobic)}")
+    if measured.training_effect_anaerobic is not None:
+        garmin.append(f"anaérobie {fr(measured.training_effect_anaerobic)}")
+    if measured.training_load is not None:
+        garmin.append(f"charge {measured.training_load}")
+    if measured.recovery_h is not None and confirmed(RECOVERY):
+        garmin.append(f"récupération {fr(measured.recovery_h)} h")
+    if measured.vo2max is not None and confirmed(VO2MAX):
+        garmin.append(f"VO2max {fr(measured.vo2max)}")
+    if measured.performance_condition_end is not None and confirmed(PERFORMANCE_CONDITION):
+        start = measured.performance_condition_start
+        garmin.append(
+            "condition de performance "
+            + (f"{start:+d} → " if start is not None else "")
+            + f"{measured.performance_condition_end:+d}"
+        )
+    if garmin:
+        details.append(f"selon Garmin : {', '.join(garmin)}")
+    return details
 
 
 async def _trends(store: FileStore, today: date) -> list[str]:

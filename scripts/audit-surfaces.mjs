@@ -101,6 +101,16 @@ const SURFACES = [
   // feuille la plus haute de l'application, et celle qui a le plus de raisons de déborder
   // à 360 px. « Partager l'image » n'est pas appuyé — il ouvrirait la feuille du système.
   ['/activite/course', 'Faire une story', 'story d’une course'],
+  // La fiche d'un aliment du catalogue et la feuille d'ajout (`NUT-19`, `NUT-20`). La
+  // première dépend des données — le nom du bouton est celui d'un aliment réellement
+  // consigné ; sans lui la ligne rend « bouton introuvable », ce qui est un constat exact.
+  // La seconde ne dépend de rien, et c'est elle qui porte le plus de champs.
+  ['/nutrition/catalogue', 'Ajouter un aliment', 'ajouter un aliment au catalogue'],
+  ['/nutrition/catalogue', 'Fiche de riz basmati', 'fiche d’un aliment'],
+  // Le parcours du matin (`docs/coach-course.md` §5). Il s'ouvre seul entre 6 h et midi ;
+  // on l'ouvre ici par sa porte manuelle, pour le mesurer à toute heure. Son étape dépend
+  // des données du jour — la nuit sur une base vierge. « Enregistrer » n'est pas appuyé.
+  ['/corps', 'Parcours du matin', 'parcours du matin'],
 ];
 
 /** Le panneau d'une feuille. C'est lui qu'on mesure, pas l'écran resté derrière. */

@@ -11,6 +11,9 @@ testent que sur un fichier qu'on écrit soi-même.
 
 from __future__ import annotations
 
+import dataclasses
+import io
+import zipfile
 from datetime import UTC, datetime, time, timedelta
 
 import httpx2
@@ -22,8 +25,9 @@ from app.domains.activity import fit
 from app.storage.cache import FileCache
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider
+from tests.fake_open_meteo import FakeOpenMeteo
 from tests.fake_webdav import FakeWebDav
-from tests.fit_files import FitBuilder, paced, run_file, stream_file
+from tests.fit_files import FitBuilder, GarminExtras, paced, run_file, stream_file
 
 ACTIVITY = "/api/activity"
 RUNS_FILE = "Metric/activity/runs.csv"
@@ -569,9 +573,15 @@ def test_a_threshold_set_in_the_settings_wins(app_client: TestClient, auth: dict
     assert {item["zone"]: item["share"] for item in zones["bins"]}[4] == pytest.approx(1.0)
 
 
-def test_heart_rate_zones_use_the_highest_heart_rate_seen(
+def test_the_peak_of_an_easy_run_is_not_a_max_heart_rate(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:
+    """La règle **C4** : la plus haute FC d'un footing n'est pas une FC max.
+
+    Le 19/09, elle aurait valu 176, et classé en zone 5 une sortie courue 50 s/km plus
+    lentement que celle du 16/09. Sans effort à fond ni réglage, les zones repassent à
+    l'allure, et la phrase dit pourquoi.
+    """
     speeds = paced((5000, 5.0))
     beats = [150] * (len(speeds) - 60) + [190] * 61
     created = import_fit(
@@ -582,9 +592,80 @@ def test_heart_rate_zones_use_the_highest_heart_rate_seen(
     zones = app_client.get(f"{ACTIVITY}/runs/{created['id']}/analysis", headers=auth).json()[
         "zones"
     ]
+    assert zones["kind"] == "pace"
+    assert "Pas de zones cardio sans FC max fiable" in zones["detail"]
+
+
+def test_the_watch_setting_stands_in_and_says_so(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    speeds = paced((5000, 5.5))
+    data = stream_file(
+        speeds, start=yesterday_at(), heart_rates=[165], garmin=GarminExtras(watch_max_hr=202)
+    )
+    created = import_fit(app_client, auth, data).json()
+
+    zones = app_client.get(f"{ACTIVITY}/runs/{created['id']}/analysis", headers=auth).json()[
+        "zones"
+    ]
     assert zones["kind"] == "heart_rate"
-    assert zones["reference_value"] == 190
-    assert "sans doute sous ta vraie FC max" in zones["detail"]
+    assert zones["source"] == "watch"
+    assert zones["reference_value"] == 202
+    assert "réglée dans ta montre" in zones["detail"]
+
+
+def test_an_all_out_effort_sets_the_max_over_the_watch(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    speeds = paced((5000, 4.5))
+    beats = [170] * (len(speeds) - 60) + [194] * 61
+    hard = GarminExtras(watch_max_hr=202, session={"total_anaerobic_training_effect": 3.1})
+    import_fit(
+        app_client,
+        auth,
+        stream_file(speeds, start=yesterday_at(6), heart_rates=beats, garmin=hard),
+    )
+    easy = import_fit(
+        app_client,
+        auth,
+        stream_file(
+            paced((5000, 6.0)),
+            start=yesterday_at(16),
+            heart_rates=[150],
+            garmin=GarminExtras(watch_max_hr=202),
+        ),
+    ).json()
+
+    zones = app_client.get(f"{ACTIVITY}/runs/{easy['id']}/analysis", headers=auth).json()["zones"]
+    assert zones["source"] == "deduced"
+    assert zones["reference_value"] == 194
+    assert "effort à fond" in zones["detail"]
+
+
+def test_a_max_heart_rate_in_the_settings_wins_over_all(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    token = app_client.get("/api/settings", headers=auth).json()["token"]
+    saved = app_client.patch(
+        "/api/settings", json={"max_hr": "196"}, headers={**auth, "If-Match": token}
+    )
+    assert saved.status_code == 200, saved.text
+    created = import_fit(
+        app_client,
+        auth,
+        stream_file(
+            paced((5000, 5.5)),
+            start=yesterday_at(),
+            heart_rates=[160],
+            garmin=GarminExtras(watch_max_hr=202),
+        ),
+    ).json()
+
+    zones = app_client.get(f"{ACTIVITY}/runs/{created['id']}/analysis", headers=auth).json()[
+        "zones"
+    ]
+    assert zones["source"] == "settings"
+    assert zones["reference_value"] == 196
 
 
 def test_a_short_history_says_what_the_zones_need(
@@ -597,3 +678,371 @@ def test_a_short_history_says_what_the_zones_need(
     body = app_client.get(f"{ACTIVITY}/runs/{created['id']}/analysis", headers=auth).json()
     assert body["zones"] is None
     assert "3 km" in body["zones_missing"]
+
+
+# ── Une montre Garmin (`docs/coach-course.md`) ────────
+
+
+def test_an_automatic_mile_lap_is_cut_back_to_the_kilometre() -> None:
+    """Le 19/09 : un tour automatique au mile, quatre paliers de 1,61 km. Cohérents, et
+    moins lisibles que le kilomètre, que l'écran parle."""
+    speeds = paced((6006.2, 5.8))
+    laps = [(1609.34, 560.0, "distance")] * 3 + [(1178.18, 410.0, "session_end")]
+    parsed = fit.read(stream_file(speeds, garmin=GarminExtras(laps=laps)))
+
+    assert parsed.splits_from_laps is False
+    assert parsed.split_length_km == 1.0
+    # Six kilomètres, et les 6 m qui restent ne font pas un palier.
+    assert len(parsed.splits) == 6
+
+
+def test_an_automatic_kilometre_lap_keeps_the_watch_laps() -> None:
+    speeds = paced((3000, 6.0))
+    laps = [(1000.0, 360.0, "distance")] * 2 + [(1000.0, 360.0, "session_end")]
+    parsed = fit.read(stream_file(speeds, garmin=GarminExtras(laps=laps)))
+
+    assert parsed.splits_from_laps is True
+
+
+def test_manual_laps_keep_the_rule_they_had() -> None:
+    speeds = paced((3218.68, 6.0))
+    laps = [(1609.34, 580.0, "manual"), (1609.34, 579.0, "session_end")]
+    parsed = fit.read(stream_file(speeds, garmin=GarminExtras(laps=laps)))
+
+    assert parsed.splits_from_laps is True
+    assert parsed.split_length_km == 1.609
+
+
+def test_a_watch_lap_carries_its_running_cadence() -> None:
+    """En course, le profil appelle `avg_running_cadence` le champ qu'un téléphone écrit
+    `avg_cadence`. N'en lire qu'un laissait vides les paliers de toute montre."""
+    data = (
+        FitBuilder()
+        .add("file_id", type="activity", manufacturer=1, time_created=yesterday_at())
+        .add(
+            "session",
+            start_time=yesterday_at(),
+            total_distance=2000.0,
+            total_timer_time=720.0,
+            sport="running",
+        )
+        .add(
+            "lap",
+            total_distance=1000.0,
+            total_timer_time=360.0,
+            sport="running",
+            avg_cadence=84,
+            lap_trigger="manual",
+        )
+        .add(
+            "lap",
+            total_distance=1000.0,
+            total_timer_time=360.0,
+            sport="running",
+            avg_cadence=85,
+            lap_trigger="session_end",
+        )
+        .add("record", timestamp=yesterday_at(), distance=0.0)
+        .add("record", timestamp=yesterday_at() + timedelta(seconds=720), distance=2000.0)
+        .build()
+    )
+    parsed = fit.read(data)
+
+    assert [split.cadence_spm for split in parsed.splits] == [168, 170]
+
+
+def test_power_and_stride_are_read_each_second() -> None:
+    parsed = fit.read(
+        stream_file(
+            paced((2000, 5.5)),
+            powers=[252],
+            garmin=GarminExtras(
+                dynamics={"stance_time": 270.0, "vertical_oscillation": 91.2, "step_length": 1022}
+            ),
+        )
+    )
+    sample = parsed.samples[100]
+
+    assert sample.power_w == 252
+    assert sample.stance_ms == 270.0
+    assert sample.vertical_oscillation_cm == 9.12
+    assert sample.step_length_m == 1.02
+
+
+def test_what_garmin_does_not_document_is_read_by_number() -> None:
+    """Les valeurs brutes du fichier du 19/09, réécrites par numéro de champ."""
+    speeds = paced((3000, 5.8))
+    conditions: list[int | None] = [None] * 360 + [-3] * 600 + [-7]
+    parsed = fit.read(
+        stream_file(
+            speeds,
+            garmin=GarminExtras(
+                conditions=conditions,
+                staminas=[82] * 900 + [71],
+                summary={7: ("uint32", 1083952), 9: ("uint16", 1872)},
+                watch_max_hr=202,
+            ),
+        )
+    )
+    metrics = parsed.metrics
+
+    assert (metrics.performance_condition_start, metrics.performance_condition_end) == (-3, -7)
+    assert (metrics.stamina_start_pct, metrics.stamina_end_pct) == (82, 71)
+    assert metrics.vo2max == 57.9
+    assert metrics.recovery_h == 31.2
+    assert metrics.watch_max_hr == 202
+
+
+def test_an_undocumented_value_out_of_bounds_is_absent_not_clamped() -> None:
+    """Un champ mal identifié rend des valeurs absurdes. Les raboter les ferait passer pour
+    des mesures ; les écarter dit seulement qu'on ne sait pas."""
+    parsed = fit.read(
+        stream_file(
+            paced((2000, 5.8)),
+            garmin=GarminExtras(
+                conditions=[100],
+                staminas=[200],
+                summary={7: ("uint32", 65536 * 60), 9: ("uint16", 60 * 200)},
+            ),
+        )
+    )
+    metrics = parsed.metrics
+
+    assert metrics.performance_condition_end is None
+    assert metrics.stamina_end_pct is None
+    assert metrics.vo2max is None
+    assert metrics.recovery_h is None
+
+
+def test_a_phone_export_carries_no_watch_metrics() -> None:
+    metrics = fit.read(run_file()).metrics
+    assert dataclasses.replace(metrics, device=None) == fit.FitMetrics()
+
+
+def zipped(**members: bytes) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in members.items():
+            archive.writestr(name, content)
+    return buffer.getvalue()
+
+
+def test_the_garmin_export_archive_is_opened() -> None:
+    data = run_file()
+    assert fit.unpack(zipped(**{"24414861585_ACTIVITY.fit": data})) == data
+
+
+def test_an_archive_must_hold_exactly_one_file() -> None:
+    with pytest.raises(fit.FitError, match="elle en contient 2"):
+        fit.unpack(zipped(**{"a.fit": run_file(), "b.fit": run_file()}))
+    with pytest.raises(fit.FitError, match="n'en contient aucun"):
+        fit.unpack(zipped(**{"notes.txt": b"rien"}))
+
+
+def test_a_broken_archive_says_so() -> None:
+    with pytest.raises(fit.FitError, match="n'a pas pu être ouverte"):
+        fit.unpack(fit.ZIP_MAGIC + b"pas une archive")
+
+
+def test_importing_an_archive_stores_the_watch_file(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """F1 promet de rendre le fichier de la montre, pas l'emballage."""
+    data = run_file(start=yesterday_at())
+    response = app_client.post(
+        f"{ACTIVITY}/runs/fit",
+        files={"file": ("24414861585.zip", zipped(**{"x_ACTIVITY.fit": data}), "application/zip")},
+        headers=auth,
+    )
+    assert response.status_code == 201, response.text
+
+    stored = [path for path in dav.files if path.startswith("Metric/activity/fit/")]
+    assert dav.files[stored[0]].content == data
+
+
+METRICS_FILE = "Metric/activity/run_metrics.csv"
+WEATHER_FILE = "Metric/activity/run_weather.csv"
+
+
+def test_importing_writes_what_the_watch_measured(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    data = stream_file(
+        paced((5000, 5.5)),
+        start=yesterday_at(),
+        powers=[252],
+        heart_rates=[160],
+        garmin=GarminExtras(
+            session={"total_training_effect": 3.8, "avg_power": 252},
+            summary={7: ("uint32", 1083952)},
+        ),
+    )
+    created = import_fit(app_client, auth, data).json()
+
+    written = dav.content_of(METRICS_FILE)
+    assert created["run_id"] in written
+    assert "57.9" in written
+    assert "3.8" in written
+    assert ",power," in written
+
+
+def test_deleting_a_run_takes_its_watch_metrics_with_it(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+    assert created["run_id"] in dav.content_of(METRICS_FILE)
+
+    app_client.delete(
+        f"{ACTIVITY}/runs/{created['id']}", headers={**auth, "If-Match": created["token"]}
+    )
+    assert created["run_id"] not in dav.content_of(METRICS_FILE)
+
+
+# ── L'effort perçu, la météo, les conditions (`docs/coach-course.md` §4) ──
+
+
+def test_the_perceived_effort_is_set_alone_under_if_match(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+    route = f"{ACTIVITY}/runs/{created['id']}/rpe"
+
+    assert app_client.put(route, json={"rpe": 6}, headers=auth).status_code == 409
+    rated = app_client.put(route, json={"rpe": 6}, headers={**auth, "If-Match": created["token"]})
+    assert rated.status_code == 200
+    assert rated.json()["rpe"] == 6
+    assert (
+        app_client.put(route, json={"rpe": 11}, headers={**auth, "If-Match": "x"}).status_code
+        == 422
+    )
+
+
+def test_a_correction_of_the_run_keeps_its_perceived_effort(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+    rated = app_client.put(
+        f"{ACTIVITY}/runs/{created['id']}/rpe",
+        json={"rpe": 7},
+        headers={**auth, "If-Match": created["token"]},
+    ).json()
+    corrected = app_client.patch(
+        f"{ACTIVITY}/runs/{created['id']}",
+        json={
+            "date": rated["date"],
+            "distance_km": 5.1,
+            "duration_min": rated["duration_min"],
+            "note": "corrigée",
+        },
+        headers={**auth, "If-Match": rated["token"]},
+    )
+    assert corrected.status_code == 200, corrected.text
+    assert corrected.json()["rpe"] == 7
+
+
+def test_an_effort_rated_nine_sets_the_max_heart_rate(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """**C4** : un effort à fond se déclare aussi, pas seulement par l'effet anaérobie."""
+    speeds = paced((5000, 4.6))
+    beats = [175] * (len(speeds) - 60) + [192] * 61
+    hard = import_fit(
+        app_client,
+        auth,
+        stream_file(
+            speeds, start=yesterday_at(6), heart_rates=beats, garmin=GarminExtras(watch_max_hr=202)
+        ),
+    ).json()
+    app_client.put(
+        f"{ACTIVITY}/runs/{hard['id']}/rpe",
+        json={"rpe": 9},
+        headers={**auth, "If-Match": hard["token"]},
+    )
+
+    zones = app_client.get(f"{ACTIVITY}/runs/{hard['id']}/analysis", headers=auth).json()["zones"]
+    assert zones["source"] == "deduced"
+    assert zones["reference_value"] == 192
+
+
+def test_the_weather_of_the_start_is_asked_with_a_rounded_position(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, open_meteo: FakeOpenMeteo
+) -> None:
+    """**C6** : seule une position au dixième de degré sort du serveur, jamais le départ."""
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+
+    asked = open_meteo.requests[-1]
+    assert (asked["latitude"], asked["longitude"]) == ("43.6", "1.4")
+    assert asked["timezone"] == "auto"
+    assert created["run_id"] in dav.content_of(WEATHER_FILE)
+
+    conditions = app_client.get(f"{ACTIVITY}/runs/{created['id']}/conditions", headers=auth)
+    weather = conditions.json()["weather"]
+    # Départ à 06:59 locales : l'heure la plus proche est 07:00, qui vaut 14,0 + 0,7.
+    assert weather["temperature_c"] == 14.7
+    assert weather["humidity_pct"] == 80
+
+
+def test_an_old_run_asks_the_archive(
+    app_client: TestClient, auth: dict[str, str], open_meteo: FakeOpenMeteo
+) -> None:
+    import_fit(app_client, auth, run_file(start=yesterday_at() - timedelta(days=20)))
+    assert open_meteo.paths[-1] == "/v1/archive"
+
+
+def test_a_weather_outage_does_not_block_the_import(
+    app_client: TestClient, auth: dict[str, str], open_meteo: FakeOpenMeteo
+) -> None:
+    open_meteo.status = 500
+    response = import_fit(app_client, auth, run_file(start=yesterday_at()))
+
+    assert response.status_code == 201
+    conditions = app_client.get(
+        f"{ACTIVITY}/runs/{response.json()['id']}/conditions", headers=auth
+    ).json()
+    assert conditions["weather"] is None
+
+
+def test_the_rebuild_asks_the_weather_that_is_missing(
+    app_client: TestClient, auth: dict[str, str], open_meteo: FakeOpenMeteo
+) -> None:
+    open_meteo.status = 500
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+    open_meteo.status = 200
+    asked = len(open_meteo.requests)
+
+    app_client.post(f"{ACTIVITY}/runs/efforts/rebuild", headers=auth)
+    assert len(open_meteo.requests) == asked + 1
+    app_client.post(f"{ACTIVITY}/runs/efforts/rebuild", headers=auth)
+    # Reçue une fois, elle n'est plus redemandée.
+    assert len(open_meteo.requests) == asked + 1
+    conditions = app_client.get(f"{ACTIVITY}/runs/{created['id']}/conditions", headers=auth)
+    assert conditions.json()["weather"] is not None
+
+
+def test_the_conditions_carry_the_morning_of_the_run(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    created = import_fit(app_client, auth, run_file(start=yesterday_at())).json()
+    app_client.post(
+        "/api/body/morning", json={"date": created["date"], "resting_hr": 52}, headers=auth
+    )
+
+    morning = app_client.get(f"{ACTIVITY}/runs/{created['id']}/conditions", headers=auth).json()[
+        "morning"
+    ]
+    assert morning["resting_hr"] == 52
+    assert morning["status"] == "unknown"
+
+
+def test_a_run_with_efforts_but_no_watch_metrics_is_offered_a_rebuild(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, cache: FileCache
+) -> None:
+    """Le cas réel du 19/09 : importée avant ce lot, la sortie Garmin avait ses efforts et
+    aucune mesure de montre rangée. Compter les efforts seuls ne l'aurait jamais proposée."""
+    import_fit(app_client, auth, stream_file(paced((5000, 6.0)), start=yesterday_at()))
+    del dav.files[METRICS_FILE]
+    cache.clear()
+
+    assert app_client.get(f"{ACTIVITY}/runs/progress", headers=auth).json()["efforts_pending"] == 1
+    app_client.post(f"{ACTIVITY}/runs/efforts/rebuild", headers=auth)
+    assert app_client.get(f"{ACTIVITY}/runs/progress", headers=auth).json()["efforts_pending"] == 0

@@ -9,7 +9,7 @@
  */
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,6 +47,7 @@ const IMPORTED = {
   splits: 6,
   fit_path: '2026/09/11/20260911-065922-deadbeef.fit',
   max_hr: null,
+  rpe: null,
 };
 
 const EMPTY_SPLITS = {
@@ -108,6 +109,7 @@ function analysis(located: boolean) {
       heart_rate: null,
       cadence_spm: null,
       altitude_m: null,
+      power_w: null,
       x: located ? x : null,
       y: located ? y : null,
     })),
@@ -130,6 +132,12 @@ function analysis(located: boolean) {
     efforts: [],
     zones: null,
     zones_missing: 'Pas de zones sans allure seuil.',
+    power_domain: null,
+    aerobic: null,
+    garmin: null,
+    stride: null,
+    average_power_w: null,
+    normalized_power_w: null,
   };
 }
 
@@ -138,6 +146,14 @@ const calls: string[] = [];
 function stub(handler: (url: string, init?: RequestInit) => Response): ReturnType<typeof vi.fn> {
   const mock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     calls.push(input as string);
+    // Les conditions d'une course — effort perçu, météo, matin — ne sont le sujet d'aucun
+    // cas ici : vides, comme pour une sortie sans météo ni mesure du matin.
+    if ((input as string).includes('/coach/next'))
+      return Promise.resolve(
+        json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
+      );
+    if ((input as string).includes('/conditions'))
+      return Promise.resolve(json(200, { rpe: null, weather: null, morning: null, context: [] }));
     return Promise.resolve(handler(input as string, init));
   });
   vi.stubGlobal('fetch', mock);
@@ -174,10 +190,11 @@ async function chooseFit(): Promise<void> {
 }
 
 describe('ajouter une sortie par un .fit', () => {
-  it('écrit la course sans passer par le formulaire, et referme', async () => {
+  it('écrit la course sans passer par le formulaire, puis demande l’effort perçu', async () => {
     const mock = stub((url) => {
       if (url.includes('/api/ai/status')) return json(200, { enabled: true, message: 'ok' });
       if (url.includes('/api/activity/runs/fit')) return json(201, IMPORTED);
+      if (url.includes('/rpe')) return json(200, { ...IMPORTED, rpe: 7 });
       return json(200, {});
     });
     const { onClose } = renderSheet();
@@ -191,9 +208,34 @@ describe('ajouter une sortie par un .fit', () => {
     const sent = mock.mock.calls.find(([url]) => String(url).includes('/runs/fit'));
     expect((sent?.[1] as RequestInit | undefined)?.body).toBeInstanceOf(FormData);
 
+    // La course est écrite ; la feuille reste ouverte pour l'effort perçu.
+    const scale = await screen.findByRole('group', { name: 'Effort perçu, de 1 à 10' });
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.click(within(scale).getByRole('button', { name: '7' }));
+
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
+    const rated = mock.mock.calls.find(([url]) => String(url).includes('/rpe'));
+    const init = rated?.[1] as RequestInit | undefined;
+    expect(init?.method).toBe('PUT');
+    // Une note corrige la ligne : elle passe sous `If-Match`, avec le jeton lu.
+    expect(new Headers(init?.headers).get('If-Match')).toBe(IMPORTED.token);
+  });
+
+  it('laisse l’effort perçu pour plus tard', async () => {
+    stub((url) => {
+      if (url.includes('/api/ai/status')) return json(200, { enabled: true, message: 'ok' });
+      if (url.includes('/api/activity/runs/fit')) return json(201, IMPORTED);
+      return json(200, {});
+    });
+    const { onClose } = renderSheet();
+
+    await chooseFit();
+    await userEvent.click(await screen.findByRole('button', { name: 'Plus tard' }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(calls.some((url) => url.includes('/rpe'))).toBe(false);
   });
 
   it('affiche le refus du serveur dans la feuille, pas en toast', async () => {

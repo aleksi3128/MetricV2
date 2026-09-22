@@ -138,6 +138,11 @@ function stub(options: { adherence?: AdherenceView; aiEnabled?: boolean; month?:
         json(200, { enabled: options.aiEnabled ?? true, message: 'disponible' }),
       );
     }
+    // La carte du coach, vide : le calendrier est le sujet de ces cas, pas elle.
+    if (url.includes('/api/coach/next'))
+      return Promise.resolve(
+        json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
+      );
     if (url.includes('/api/planning/adherence')) {
       return Promise.resolve(json(200, options.adherence ?? ADHERENCE));
     }

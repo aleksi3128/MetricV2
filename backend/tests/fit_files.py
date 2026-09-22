@@ -17,93 +17,15 @@ exactement ce qu'on veut d'un aller-retour.
 from __future__ import annotations
 
 import math
-import struct
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
-import fitdecode.profile as profile
+from app.core.fit_writer import FitWriter, Numbered
 
-#: Origine des horodatages FIT.
-EPOCH = datetime(1989, 12, 31, tzinfo=UTC)
-
-#: Table du CRC-16 de la spécification FIT. `fitdecode` vérifie l'empreinte du fichier :
-#: sans elle, chaque cas de test échouerait sur la forme avant d'atteindre son sujet.
-CRC_TABLE = (
-    0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
-    0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
-)  # fmt: skip
-
-
-def crc16(data: bytes, value: int = 0) -> int:
-    for byte in data:
-        for nibble in (byte & 0x0F, (byte >> 4) & 0x0F):
-            keep = CRC_TABLE[value & 0x0F]
-            value = (value >> 4) & 0x0FFF
-            value = value ^ keep ^ CRC_TABLE[nibble]
-    return value
-
-
-def _raw(field: Any, value: object) -> int | float:
-    """La valeur telle qu'elle s'écrit dans le fichier — l'inverse exact du décodage."""
-    if isinstance(value, datetime):
-        return int((value - EPOCH).total_seconds())
-    if isinstance(value, str):
-        enum = getattr(field.type, "enum", None) or {}
-        for number, label in enum.items():
-            if label == value:
-                return int(number)
-        raise AssertionError(f"{value!r} n'est pas une valeur de {field.type.name}")
-
-    assert isinstance(value, (int, float)), f"{value!r} n'est pas un nombre"
-    scaled: float = float(value)
-    if field.offset:
-        scaled += float(field.offset)
-    if field.scale:
-        scaled *= float(field.scale)
-    return scaled if str(field.base_type.name).startswith("float") else round(scaled)
-
-
-class FitBuilder:
-    """Accumule des messages, puis rend les octets du fichier."""
-
-    def __init__(self) -> None:
-        self._body = bytearray()
-        self._locals: dict[str, int] = {}
-
-    def add(self, message: str, **values: object) -> FitBuilder:
-        mesg = next(m for m in profile.MESSAGE_TYPES.values() if m.name == message)
-        fields = []
-        for name, value in values.items():
-            field = next(f for f in mesg.fields.values() if f.name == name)
-            fields.append((field, _raw(field, value)))
-
-        local = self._locals.get(message)
-        if local is None:
-            # Une définition par type de message, réutilisée ensuite : c'est ce que fait
-            # une montre, et c'est ce qui rend le fichier représentatif.
-            local = len(self._locals) % 16
-            self._locals[message] = local
-            header = bytearray([0x40 | local, 0x00, 0x00])
-            header += struct.pack("<H", mesg.mesg_num)
-            header.append(len(fields))
-            for field, _ in fields:
-                header += bytes([field.def_num, field.base_type.size, field.base_type.identifier])
-            self._body += header
-
-        row = bytearray([local])
-        for field, value in fields:
-            row += struct.pack("<" + field.base_type.fmt, value)
-        self._body += row
-        return self
-
-    def build(self) -> bytes:
-        head = bytearray([14, 0x20])
-        head += struct.pack("<H", 2120)
-        head += struct.pack("<I", len(self._body))
-        head += b".FIT"
-        head += struct.pack("<H", crc16(bytes(head)))
-        whole = bytes(head) + bytes(self._body)
-        return whole + struct.pack("<H", crc16(whole))
+# Le cœur de l'encodeur vit dans l'application depuis que le coach écrit des séances pour la
+# montre (`docs/coach-course.md` §8) : un seul encodeur pour le dépôt. `FitBuilder` reste le
+# nom que la batterie emploie.
+FitBuilder = FitWriter
 
 
 def run_file(
@@ -223,6 +145,8 @@ def stream_file(
     located: bool = True,
     ascent_m: int | None = 6,
     altitude: list[float] | None = None,
+    powers: list[int] | None = None,
+    garmin: GarminExtras | None = None,
 ) -> bytes:
     """Un `.fit` seconde par seconde, pour éprouver `analysis.py`.
 
@@ -232,6 +156,8 @@ def stream_file(
     `event timer stop/start`, comme Strava les écrit.
 
     `cadences` est en **cycles** par minute, comme le format : `analysis` doit doubler.
+    `powers` donne les watts de chaque seconde ; `garmin` ajoute ce qu'une montre Garmin
+    écrit en plus — voir `GarminExtras`.
 
     Le parcours est un cercle dont la circonférence vaut la distance : un tracé qui revient
     à son départ, et dont aucune portion n'est rectiligne.
@@ -252,7 +178,11 @@ def stream_file(
     }
     if ascent_m is not None:
         session["total_ascent"] = ascent_m
+    if garmin is not None:
+        session.update(garmin.session)
     builder.add("session", **session)
+    if garmin is not None:
+        garmin.head(builder, start)
 
     def event(moment: datetime, kind: str) -> None:
         builder.add("event", timestamp=moment, event="timer", event_type=kind)
@@ -275,7 +205,13 @@ def stream_file(
             record["heart_rate"] = heart_rates[min(second, len(heart_rates) - 1)]
         if cadences is not None:
             record["cadence"] = cadences[min(second, len(cadences) - 1)]
-        builder.add("record", **record)
+        if powers is not None:
+            record["power"] = powers[min(second, len(powers) - 1)]
+        numbered: Numbered = {}
+        if garmin is not None:
+            record.update(garmin.dynamics_at(second))
+            numbered = garmin.numbered_at(second)
+        builder.add_with("record", numbered, **record)
 
         if second < len(speeds):
             covered += speeds[second]
@@ -286,6 +222,76 @@ def stream_file(
 
     event(start + timedelta(seconds=len(speeds) + offset), "stop")
     return builder.build()
+
+
+class GarminExtras:
+    """Ce qu'une Garmin écrit de plus qu'un téléphone, réglable champ par champ.
+
+    Les champs **non documentés** s'écrivent par numéro, avec les valeurs brutes qu'on a
+    lues dans le fichier de référence du 19/09 — c'est tout l'objet : éprouver la lecture
+    par numéro et les gardes de `garmin.py` sans versionner une vraie sortie.
+    """
+
+    def __init__(
+        self,
+        *,
+        session: dict[str, object] | None = None,
+        dynamics: dict[str, object] | None = None,
+        conditions: Sequence[int | None] | None = None,
+        staminas: Sequence[int | None] | None = None,
+        watch_max_hr: int | None = None,
+        summary: Numbered | None = None,
+        laps: list[tuple[float, float, str]] | None = None,
+        sensor: bool = False,
+    ) -> None:
+        self.session = session or {}
+        self.dynamics = dynamics or {}
+        self.conditions = conditions
+        self.staminas = staminas
+        self.watch_max_hr = watch_max_hr
+        self.summary = summary
+        self.laps = laps or []
+        self.sensor = sensor
+
+    def head(self, builder: FitBuilder, start: datetime) -> None:
+        if self.watch_max_hr is not None:
+            builder.add(
+                "time_in_zone",
+                reference_mesg="session",
+                reference_index=0,
+                max_heart_rate=self.watch_max_hr,
+            )
+        if self.summary is not None:
+            builder.add_numbered(140, self.summary)
+        builder.add("device_info", source_type="local")
+        if self.sensor:
+            builder.add("device_info", source_type="antplus")
+        elapsed = 0.0
+        for meters, seconds, trigger in self.laps:
+            builder.add(
+                "lap",
+                start_time=start + timedelta(seconds=elapsed),
+                total_distance=meters,
+                total_elapsed_time=seconds,
+                total_timer_time=seconds,
+                lap_trigger=trigger,
+            )
+            elapsed += seconds
+
+    def dynamics_at(self, second: int) -> dict[str, object]:
+        """La foulée de la seconde : une valeur fixe, ou une liste lue seconde par seconde."""
+        return {
+            name: value[min(second, len(value) - 1)] if isinstance(value, list) else value
+            for name, value in self.dynamics.items()
+        }
+
+    def numbered_at(self, second: int) -> Numbered:
+        numbered: Numbered = {}
+        if self.conditions is not None:
+            numbered[90] = ("sint8", self.conditions[min(second, len(self.conditions) - 1)])
+        if self.staminas is not None:
+            numbered[143] = ("uint8", self.staminas[min(second, len(self.staminas) - 1)])
+        return numbered
 
 
 def paced(*sections: tuple[float, float]) -> list[float]:

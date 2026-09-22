@@ -8,10 +8,19 @@ ligne partielle héritée ; une saisie, non.
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.core.validation import BodyFatPct, MeasurementCm, Note, PastDate, WeightKg
+from app.core.validation import (
+    BodyFatPct,
+    HrvMs,
+    MeasurementCm,
+    Note,
+    PastDate,
+    RestingHeartRate,
+    WeightKg,
+)
 
 # ── Pesées ────────────────────────────────────────────
 
@@ -141,3 +150,58 @@ class MeasurementView(BaseModel):
     indicators: list[MeasurementIndicator]
     entries: list[MeasurementEntry]
     total: int
+
+
+# ── Le matin (`docs/coach-course.md`, **C3**) ─────────
+
+
+class MorningPayload(BaseModel):
+    """FC de repos et VFC d'un matin, lues sur la montre. L'une des deux suffit."""
+
+    date: PastDate
+    resting_hr: RestingHeartRate | None = None
+    hrv_ms: HrvMs | None = None
+
+    @model_validator(mode="after")
+    def require_one(self) -> MorningPayload:
+        if self.resting_hr is None and self.hrv_ms is None:
+            raise ValueError("Saisis au moins la FC de repos ou la VFC.")
+        return self
+
+
+class MorningEntry(BaseModel):
+    id: int = Field(description="Position de la ligne dans le fichier")
+    token: str = Field(description="À renvoyer en « If-Match » pour modifier ou supprimer")
+    date: date
+    resting_hr: int | None = None
+    hrv_ms: int | None = None
+    source: str
+
+
+class ReadinessView(BaseModel):
+    """La forme d'un matin contre la référence de l'utilisateur (`readiness.py`).
+
+    `text` est rédigé par le serveur et s'affiche tel quel. `status` sert au coach et aux
+    tests ; l'écran ne décide rien dessus qu'un ton.
+    """
+
+    status: Literal["unknown", "normal", "lighten", "rest"]
+    text: str
+    resting_hr: int | None = None
+    hrv_ms: int | None = None
+    rhr_baseline: float | None = None
+    rhr_delta: int | None = None
+    hrv_baseline: float | None = None
+    hrv_low: int | None = None
+    hrv_high: int | None = None
+    mornings: int = 0
+    needed: int = 0
+
+
+class MorningView(BaseModel):
+    #: Le jour du serveur : le parcours du matin date sa saisie avec, jamais avec
+    #: l'horloge du téléphone.
+    today: date
+    entry: MorningEntry | None = None
+    readiness: ReadinessView
+    recent: list[MorningEntry] = Field(default_factory=list)

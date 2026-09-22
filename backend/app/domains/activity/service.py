@@ -37,8 +37,10 @@ from app.domains.activity.models import (
     CircuitSessionSetRow,
     MuscleGroup,
     RunEffortRow,
+    RunMetricsRow,
     RunRow,
     RunSplitRow,
+    RunWeatherRow,
 )
 from app.domains.activity.schemas import (
     CIRCUIT_EXERCISES_MAX,
@@ -72,6 +74,7 @@ from app.domains.activity.schemas import (
     ProposedCircuitExercise,
     Run,
     RunAnalysis,
+    RunConditions,
     RunContext,
     RunDetail,
     RunMark,
@@ -80,11 +83,14 @@ from app.domains.activity.schemas import (
     RunSplit,
     RunSplitPayload,
     RunSplits,
+    RunWeather,
     RunWeek,
     RunWindow,
 )
+from app.domains.activity.weather import WeatherClient
 from app.domains.ai.service import AiService
 from app.domains.app_settings.service import SettingsService
+from app.domains.body.service import MorningService
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageConflictError, StorageNotFoundError
 from app.storage.files import FileStore
@@ -96,7 +102,9 @@ from app.storage.paths import (
     CIRCUIT_SESSIONS,
     CIRCUITS,
     RUN_EFFORTS,
+    RUN_METRICS,
     RUN_SPLITS,
+    RUN_WEATHER,
     RUNS,
 )
 
@@ -119,10 +127,17 @@ def _round(value: float | None, digits: int = 2) -> float | None:
 class RunService:
     """Courses : saisie, allure dérivée, correction, paliers (`ACT-01`, `ACT-02`, `ACT-05`)."""
 
-    def __init__(self, store: FileStore) -> None:
+    def __init__(self, store: FileStore, *, weather: WeatherClient | None = None) -> None:
         self._repo: CsvRepository[RunRow] = CsvRepository(store, RUNS, RunRow)
+        self._weather_client = weather
+        self._weather: CsvRepository[RunWeatherRow] = CsvRepository(
+            store, RUN_WEATHER, RunWeatherRow
+        )
         self._splits: CsvRepository[RunSplitRow] = CsvRepository(store, RUN_SPLITS, RunSplitRow)
         self._efforts: CsvRepository[RunEffortRow] = CsvRepository(store, RUN_EFFORTS, RunEffortRow)
+        self._metrics: CsvRepository[RunMetricsRow] = CsvRepository(
+            store, RUN_METRICS, RunMetricsRow
+        )
         # Le dépôt brut, pour les `.fit` : ils ne passent pas par un `CsvRepository`, qui
         # ne sait lire que des lignes.
         self._store = store
@@ -153,6 +168,7 @@ class RunService:
             splits=splits,
             fit_path=model.fit_path,
             max_hr=model.max_hr,
+            rpe=model.rpe,
         )
 
     @staticmethod
@@ -210,6 +226,10 @@ class RunService:
     async def all(self) -> list[Row[RunRow]]:
         return await self._repo.read_all()
 
+    async def watch_metrics(self) -> dict[str, RunMetricsRow]:
+        """Ce que la montre a mesuré, par `run_id` — pour qui lit toutes les sorties."""
+        return {row.model.run_id: row.model for row in await self._metrics.read_all()}
+
     async def get(self, index: int) -> Run:
         rows = await self._repo.read_all()
         if not 0 <= index < len(rows):
@@ -259,9 +279,11 @@ class RunService:
         fit_path = current.fit_path if current else ""
         max_hr = current.max_hr if current else None
 
-        row = await self._repo.replace_by_token(
-            index, token, self._to_row(payload, source, run_id, fit_path, max_hr)
-        )
+        # L'effort perçu non plus : il se saisit à part (`set_rpe`), et une correction de
+        # distance ne doit pas effacer ce qu'on a ressenti.
+        replacement = self._to_row(payload, source, run_id, fit_path, max_hr)
+        replacement.rpe = current.rpe if current else None
+        row = await self._repo.replace_by_token(index, token, replacement)
         return self.to_schema(row, splits=len(await self._splits_of(run_id)))
 
     async def delete(self, index: int, token: str) -> None:
@@ -280,6 +302,8 @@ class RunService:
         if run_id:
             await self._splits.remove_where(lambda row: row.run_id == run_id)
             await self._efforts.remove_where(lambda row: row.run_id == run_id)
+            await self._metrics.remove_where(lambda row: row.run_id == run_id)
+            await self._weather.remove_where(lambda row: row.run_id == run_id)
         await self._repo.delete_by_token(index, token)
 
         # Le `.fit` part **en dernier**, une fois la ligne effacée pour de bon. Le projet
@@ -309,6 +333,9 @@ class RunService:
         rend 404 — visible, et rien pour le réparer sinon supprimer la course. Dans ce
         sens-ci, le pire est un binaire que rien ne désigne : invisible, et sans effet.
         """
+        # L'archive d'export de Garmin Connect est ouverte ici, et c'est **son `.fit`** qui
+        # est rangé : F1 promet de rendre le fichier de la montre, pas l'emballage.
+        data = fit.unpack(data)
         parsed = fit.read(data)
         await self._refuse_duplicate(parsed)
 
@@ -326,7 +353,95 @@ class RunService:
         efforts = analysis.best_efforts(parsed)
         if efforts:
             await self._efforts.extend(_effort_rows(created.run_id, efforts))
+        zones = await self._zone_seconds(parsed, created.run_id)
+        await self._metrics.append(_metrics_row(created.run_id, parsed, zones))
+        await self._record_weather(created.run_id, parsed)
         return created
+
+    async def _zone_seconds(self, parsed: fit.FitRun, run_id: str) -> analysis.Zones | None:
+        """Les secondes par zone d'une sortie, contre la référence **d'aujourd'hui**.
+
+        La même résolution que la page d'une sortie (`_zone_reference`) : une charge
+        comptée contre une autre FC max que celle des zones affichées dirait deux
+        intensités pour la même minute.
+        """
+        rows = await self._repo.read_all()
+        days = {row.model.run_id: row.model.date for row in rows if row.model.run_id}
+        stored = await self._efforts.read_all()
+        efforts = [
+            (parsed.day, effort.distance_m, effort.duration_s)
+            for effort in analysis.best_efforts(parsed)
+        ] + [
+            (days[row.model.run_id], row.model.distance_m, row.model.duration_s)
+            for row in stored
+            if row.model.run_id in days and row.model.run_id != run_id
+        ]
+        reference, _ = await self._zone_reference(parsed, rows, efforts)
+        if reference is None:
+            return None
+        return analysis.analyse(parsed, reference=reference).zones
+
+    async def _record_weather(self, run_id: str, parsed: fit.FitRun) -> bool:
+        """La météo du départ, **sans bloquer** (`weather.py`). Rend vrai si elle est écrite."""
+        if self._weather_client is None or parsed.start is None:
+            return False
+        located = next(
+            (item for item in parsed.samples if item.lat is not None and item.lon is not None),
+            None,
+        )
+        if located is None or located.lat is None or located.lon is None:
+            return False
+        found = await self._weather_client.at(
+            located.lat, located.lon, datetime.combine(parsed.day, parsed.start), today_local()
+        )
+        if found is None:
+            return False
+        await self._weather.append(
+            RunWeatherRow(
+                run_id=run_id,
+                temperature_c=found.temperature_c,
+                apparent_c=found.apparent_c,
+                humidity_pct=found.humidity_pct,
+                dew_point_c=found.dew_point_c,
+                wind_kmh=found.wind_kmh,
+            )
+        )
+        return True
+
+    async def set_rpe(self, index: int, token: str, rpe: int | None) -> Run:
+        """L'effort perçu d'une sortie, seul — sous `If-Match`, comme toute modification."""
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette course n'existe pas.")
+        updated = rows[index].model.model_copy(update={"rpe": rpe})
+        row = await self._repo.replace_by_token(index, token, updated)
+        return self.to_schema(row, splits=len(await self._splits_of(row.model.run_id)))
+
+    async def conditions(self, index: int) -> RunConditions:
+        """Ce qui entourait une sortie. Chaque partie absente l'est vraiment : pas de météo
+        sans réponse d'Open-Meteo, pas de forme sans mesure du matin."""
+        rows = await self._repo.read_all()
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette course n'existe pas.")
+        model = rows[index].model
+        weather = next(
+            (
+                RunWeather.model_validate(row.model, from_attributes=True)
+                for row in await self._weather.read_all()
+                if model.run_id and row.model.run_id == model.run_id
+            ),
+            None,
+        )
+        from app.domains.activity.trends import RunTrendsService
+
+        morning = await MorningService(self._store).readiness(model.date)
+        measured = morning.resting_hr is not None or morning.hrv_ms is not None
+        return RunConditions(
+            rpe=model.rpe,
+            weather=weather,
+            morning=morning if measured else None,
+            context=await RunTrendsService(self._store).context_lines(model),
+        )
 
     async def read_analysis(self, index: int) -> RunAnalysis:
         """Ce que le `.fit` d'une course dit de sa gestion, **relu depuis le fichier**.
@@ -389,35 +504,19 @@ class RunService:
         """
         values = await SettingsService(self._store).values()
         kind = analysis.zone_kind(parsed)
+        # Sans FC max fiable, les zones retombent sur l'allure — une sortie avec cardio
+        # garde ses zones, et la phrase dit pourquoi elles ne sont pas cardio.
+        without_heart_rate = ""
 
         if kind == "heart_rate":
-            if values.max_hr is not None:
-                return (
-                    analysis.ZoneReference(
-                        kind=kind,
-                        value=values.max_hr,
-                        source="settings",
-                        detail="FC max saisie dans les réglages.",
-                    ),
-                    None,
-                )
-            seen = [(row.model.max_hr, row.model.date) for row in rows if row.model.max_hr]
-            if parsed.max_hr:
-                seen.append((parsed.max_hr, parsed.day))
-            if seen:
-                highest, day = max(seen, key=lambda item: (item[0] or 0, item[1]))
-                assert highest is not None
-                return (
-                    analysis.ZoneReference(
-                        kind=kind,
-                        value=highest,
-                        source="deduced",
-                        detail=f"FC max la plus haute relevée, le {analysis.day_label(day)} — "
-                        "sans doute sous ta vraie FC max.",
-                    ),
-                    None,
-                )
-            return None, "Pas de zones cardio : aucune FC max relevée ni saisie."
+            heart_rate = await self._heart_rate_reference(parsed, rows, values.max_hr)
+            if heart_rate is not None:
+                return heart_rate, None
+            kind = "pace"
+            without_heart_rate = (
+                " Pas de zones cardio sans FC max fiable\u00a0: saisis-la dans les réglages, "
+                "ou cours un effort à fond."
+            )
 
         if values.threshold_pace_min_km is not None:
             return (
@@ -425,7 +524,7 @@ class RunService:
                     kind=kind,
                     value=values.threshold_pace_min_km,
                     source="settings",
-                    detail="Allure seuil saisie dans les réglages.",
+                    detail="Allure seuil saisie dans les réglages." + without_heart_rate,
                 ),
                 None,
             )
@@ -434,7 +533,7 @@ class RunService:
             return (
                 None,
                 "Pas de zones sans allure seuil : cours 3 km d'une traite, ou saisis-la "
-                "dans les réglages.",
+                "dans les réglages." + without_heart_rate,
             )
         pace, day, distance = deduced
         return (
@@ -446,10 +545,102 @@ class RunService:
                 # point, et l'écran n'en ajoute aucun — il en écrivait deux.
                 detail=f"Allure seuil estimée depuis ton {analysis.label_of(distance)} du "
                 f"{analysis.day_label(day)}"
-                + ("" if analysis.day_label(day).endswith(".") else "."),
+                + ("" if analysis.day_label(day).endswith(".") else ".")
+                + without_heart_rate,
             ),
             None,
         )
+
+    async def _heart_rate_reference(
+        self, parsed: fit.FitRun | None, rows: list[Row[RunRow]], saved: int | None
+    ) -> analysis.ZoneReference | None:
+        """La FC max des zones, dans l'ordre décidé (`docs/coach-course.md`, **C4**).
+
+        1. **Saisie** dans les réglages.
+        2. **Mesurée** sur une sortie qualifiante — un effort à fond. La plus haute FC d'un
+           footing n'en est pas une : celle du 19/09, 176, aurait classé en zone 5 une
+           sortie courue 50 s/km plus lentement que celle du 16/09.
+        3. **Réglée dans la montre**, signée comme telle : 220 moins l'âge tant que personne
+           ne l'a changée. Elle surestime, et le dit.
+
+        Aucune des trois : pas de zones cardio.
+        """
+        if saved is not None:
+            return analysis.ZoneReference(
+                kind="heart_rate",
+                value=saved,
+                source="settings",
+                detail="FC max saisie dans les réglages.",
+            )
+
+        stored = await self._metrics.read_all()
+        anaerobic = {row.model.run_id: row.model.training_effect_anaerobic for row in stored}
+        peaks = [
+            (row.model.max_hr, row.model.date)
+            for row in rows
+            if row.model.max_hr
+            and analysis.qualifies(anaerobic.get(row.model.run_id), row.model.rpe)
+        ]
+        if (
+            parsed is not None
+            and parsed.max_hr
+            and analysis.qualifies(parsed.metrics.training_effect_anaerobic)
+        ):
+            peaks.append((parsed.max_hr, parsed.day))
+        if peaks:
+            highest, day = max(peaks, key=lambda item: (item[0] or 0, item[1]))
+            assert highest is not None
+            return analysis.ZoneReference(
+                kind="heart_rate",
+                value=highest,
+                source="deduced",
+                detail=f"FC max mesurée sur ton effort à fond du {analysis.day_label(day)}"
+                + ("" if analysis.day_label(day).endswith(".") else "."),
+            )
+
+        watch = (parsed.metrics.watch_max_hr if parsed is not None else None) or next(
+            (row.model.watch_max_hr for row in reversed(stored) if row.model.watch_max_hr),
+            None,
+        )
+        if watch:
+            return analysis.ZoneReference(
+                kind="heart_rate",
+                value=watch,
+                source="watch",
+                detail="FC max réglée dans ta montre — 220 moins l'âge, tant qu'on ne la "
+                "change pas. Elle surestime souvent\u00a0: un effort à fond la mesurera.",
+            )
+        return None
+
+    async def references(self, today: date) -> tuple[analysis.ZoneReference | None, float | None]:
+        """La FC max et l'allure seuil **de l'historique**, sans sortie ouverte — celles que
+        le coach emploie pour chiffrer une séance. Même résolution que les zones d'une page."""
+        rows = await self._repo.read_all()
+        values = await SettingsService(self._store).values()
+        heart = await self._heart_rate_reference(None, rows, values.max_hr)
+        if values.threshold_pace_min_km is not None:
+            return heart, values.threshold_pace_min_km
+        days = {row.model.run_id: row.model.date for row in rows if row.model.run_id}
+        deduced = analysis.deduce_threshold(
+            (
+                (days[item.model.run_id], item.model.distance_m, item.model.duration_s)
+                for item in await self._efforts.read_all()
+                if item.model.run_id in days
+            ),
+            today,
+        )
+        return heart, deduced[0] if deduced else None
+
+    async def best_efforts(self) -> dict[int, float]:
+        """Le meilleur temps de toutes les sorties sur chaque distance, en secondes."""
+        best: dict[int, float] = {}
+        for row in await self._efforts.read_all():
+            model = row.model
+            current = best.get(model.distance_m)
+            best[model.distance_m] = (
+                model.duration_s if current is None else min(current, model.duration_s)
+            )
+        return best
 
     async def rebuild_efforts(self) -> EffortRebuild:
         """Relit chaque `.fit` rangé et réécrit ses efforts **et ses paliers** (**A5**).
@@ -469,6 +660,7 @@ class RunService:
         rows = await self._repo.read_all(fresh=True)
         efforts: list[RunEffortRow] = []
         splits_rows: list[RunSplitRow] = []
+        metrics_rows: list[RunMetricsRow] = []
         runs = 0
         for row in rows:
             model = row.model
@@ -482,6 +674,9 @@ class RunService:
                 continue
             runs += 1
             efforts.extend(_effort_rows(model.run_id, analysis.best_efforts(parsed)))
+            metrics_rows.append(
+                _metrics_row(model.run_id, parsed, await self._zone_seconds(parsed, model.run_id))
+            )
             if payload.splits:
                 splits_rows.extend(_split_rows(model.run_id, payload))
 
@@ -492,7 +687,25 @@ class RunService:
         await self._splits.remove_where(lambda item: item.run_id in rebuilt)
         if splits_rows:
             await self._splits.extend(splits_rows)
-        return EffortRebuild(runs=runs, efforts=len(efforts), splits=len(splits_rows))
+        await self._metrics.remove_where(lambda item: item.run_id in rebuilt)
+        if metrics_rows:
+            await self._metrics.extend(metrics_rows)
+
+        # La météo **manquante** seulement : celle qu'on a déjà reçue ne change pas, et la
+        # redemander à chaque rattrapage ferait autant d'appels que de sorties.
+        known = {row.model.run_id for row in await self._weather.read_all()}
+        for row in rows:
+            model = row.model
+            if not model.fit_path or not model.run_id or model.run_id in known:
+                continue
+            try:
+                parsed = fit.read(await self._fit_bytes(row.index))
+            except (StorageNotFoundError, fit.FitError):
+                continue
+            await self._record_weather(model.run_id, parsed)
+        return EffortRebuild(
+            runs=runs, efforts=len(efforts), splits=len(splits_rows), metrics=len(metrics_rows)
+        )
 
     async def fit_file(self, index: int) -> tuple[bytes, str]:
         """Le fichier tel qu'il est arrivé, et le nom sous lequel le proposer."""
@@ -619,16 +832,24 @@ class RunService:
         ]
         labels = dict(analysis.EFFORTS)
         analysed = {item.model.run_id for item in stored_efforts}
+        measured = {row.model.run_id for row in await self._metrics.read_all()}
         # « À réanalyser » : importée d'un `.fit`, découpée en paliers, et sans efforts —
         # c'est exactement une sortie d'avant ce lot. Une sortie trouée n'a ni paliers ni
         # efforts, et ne doit pas faire revenir le bouton à chaque ouverture.
+        #
+        # **Ou sans mesures de montre rangées** (`docs/coach-course.md` §3). La sortie
+        # Garmin du 19/09, importée avant ce lot, avait ses efforts et aucune de ses mesures :
+        # compter les efforts seuls ne l'aurait jamais proposée, et sa charge, sa puissance
+        # et ses zones seraient restées hors de tout calcul sans que rien ne le dise.
         pending = sum(
             1
             for row in rows
             if row.model.fit_path
             and row.model.run_id
-            and counts.get(row.model.run_id)
-            and row.model.run_id not in analysed
+            and (
+                (counts.get(row.model.run_id) and row.model.run_id not in analysed)
+                or row.model.run_id not in measured
+            )
         )
         found_weeks = progress.weeks(sorties, today_local())
 
@@ -778,6 +999,45 @@ def _fit_payload(parsed: fit.FitRun) -> RunPayload:
             "Ce fichier .fit porte des valeurs que l'application ne peut pas enregistrer "
             "(date à venir, distance ou durée hors bornes)."
         ) from error
+
+
+def _metrics_row(
+    run_id: str, parsed: fit.FitRun, zones: analysis.Zones | None = None
+) -> RunMetricsRow:
+    """Ce que la montre a mesuré, et le découplage calculé ici — une ligne par sortie, même
+    vide : sa présence dit que la sortie a été lue, son contenu ce que le fichier portait."""
+    metrics = parsed.metrics
+    effort = analysis.aerobic(parsed)
+    return RunMetricsRow(
+        run_id=run_id,
+        device=metrics.device,
+        avg_power_w=metrics.avg_power_w,
+        normalized_power_w=metrics.normalized_power_w,
+        max_power_w=metrics.max_power_w,
+        avg_stance_ms=metrics.avg_stance_ms,
+        avg_vertical_oscillation_cm=metrics.avg_vertical_oscillation_cm,
+        avg_vertical_ratio_pct=metrics.avg_vertical_ratio_pct,
+        avg_step_length_m=metrics.avg_step_length_m,
+        training_effect_aerobic=metrics.training_effect_aerobic,
+        training_effect_anaerobic=metrics.training_effect_anaerobic,
+        training_load=metrics.training_load,
+        watch_max_hr=metrics.watch_max_hr,
+        vo2max=metrics.vo2max,
+        recovery_h=metrics.recovery_h,
+        performance_condition_start=metrics.performance_condition_start,
+        performance_condition_end=metrics.performance_condition_end,
+        stamina_start_pct=metrics.stamina_start_pct,
+        stamina_end_pct=metrics.stamina_end_pct,
+        decoupling_pct=effort.decoupling_pct if effort else None,
+        decoupling_basis=effort.basis if effort else None,
+        efficiency=effort.efficiency if effort else None,
+        zone_kind=zones.kind if zones else None,
+        zone1_s=zones.bins[0].seconds if zones else None,
+        zone2_s=zones.bins[1].seconds if zones else None,
+        zone3_s=zones.bins[2].seconds if zones else None,
+        zone4_s=zones.bins[3].seconds if zones else None,
+        zone5_s=zones.bins[4].seconds if zones else None,
+    )
 
 
 def _effort_rows(run_id: str, efforts: Sequence[analysis.Effort]) -> list[RunEffortRow]:

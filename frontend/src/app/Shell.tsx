@@ -4,6 +4,7 @@ import { Button } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { cx } from '@/lib/cx';
 import { useScrollTop } from '@/lib/scroll';
+import { MorningFlowProvider } from '@/routes/morning/MorningFlow';
 
 import styles from './Shell.module.css';
 import { TabBar } from './TabBar';
@@ -60,52 +61,56 @@ export function Shell() {
   useScrollTop(pathname, hash);
 
   return (
-    <div className={styles.shell}>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <NavLink to="/" className={cx(styles.brand)}>
-            Metric
-          </NavLink>
+    // Le parcours du matin s'ouvre au-dessus de n'importe quel écran : c'est l'ouverture de
+    // l'application qu'il guette, pas celle d'une page (`docs/coach-course.md` §5).
+    <MorningFlowProvider>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <div className={styles.headerInner}>
+            <NavLink to="/" className={cx(styles.brand)}>
+              Metric
+            </NavLink>
 
-          <nav className={styles.nav} aria-label="Navigation principale">
-            {NAV.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) => cx(styles.navLink, isActive && styles.navActive)}
+            <nav className={styles.nav} aria-label="Navigation principale">
+              {NAV.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) => cx(styles.navLink, isActive && styles.navActive)}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <span className={styles.spacer} />
+
+            <div className={styles.user}>
+              {state.status === 'authenticated' && (
+                <span className={styles.username}>{state.username}</span>
+              )}
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  void logout();
+                }}
               >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          <span className={styles.spacer} />
-
-          <div className={styles.user}>
-            {state.status === 'authenticated' && (
-              <span className={styles.username}>{state.username}</span>
-            )}
-            <Button
-              variant="quiet"
-              onClick={() => {
-                void logout();
-              }}
-            >
-              Déconnexion
-            </Button>
+                Déconnexion
+              </Button>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* La clé change avec l'adresse : c'est ce qui fait rejouer l'animation d'entrée à
+        {/* La clé change avec l'adresse : c'est ce qui fait rejouer l'animation d'entrée à
           chaque navigation, sans bibliothèque de transition et sans état à tenir. */}
-      <main key={pathname} className={cx(styles.main, 'enter')}>
-        <Outlet />
-      </main>
+        <main key={pathname} className={cx(styles.main, 'enter')}>
+          <Outlet />
+        </main>
 
-      <TabBar />
-    </div>
+        <TabBar />
+      </div>
+    </MorningFlowProvider>
   );
 }
 

@@ -49,6 +49,7 @@ const RUN = {
   splits: 8,
   fit_path: '2026/09/13/x.fit',
   max_hr: null,
+  rpe: null,
 };
 
 function point(index: number) {
@@ -60,6 +61,7 @@ function point(index: number) {
     heart_rate: null,
     cadence_spm: null,
     altitude_m: null,
+    power_w: null,
     x: index / 10,
     y: (index % 3) / 3,
   };
@@ -86,6 +88,12 @@ const ANALYSIS = {
   efforts: [],
   zones: null,
   zones_missing: 'Aucune référence.',
+  power_domain: null,
+  aerobic: null,
+  garmin: null,
+  stride: null,
+  average_power_w: null,
+  normalized_power_w: null,
 };
 
 /** Les paliers et le contexte, réduits à ce que la page exige : ni l'un ni l'autre n'est
@@ -137,6 +145,12 @@ function serve(run: unknown = RUN) {
     vi.fn((input: RequestInfo | URL) => {
       const url = input as string;
       if (url.includes('/analysis')) return Promise.resolve(json(200, ANALYSIS));
+      if (url.includes('/coach/next'))
+        return Promise.resolve(
+          json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
+        );
+      if (url.includes('/conditions'))
+        return Promise.resolve(json(200, { rpe: null, weather: null, morning: null, context: [] }));
       return Promise.resolve(json(200, { run, splits: SPLITS, context: CONTEXT }));
     }),
   );

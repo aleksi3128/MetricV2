@@ -310,13 +310,15 @@ def test_the_run_file_stays_readable_in_a_spreadsheet(
         # raison, et les lignes d'avant lui présentent une cellule vide.
         "split_length_km,fit_path,"
         # `max_hr` après lui (`docs/analyse-course.md`), pour la même raison encore.
-        "max_hr"
+        "max_hr,"
+        # `rpe`, l'effort perçu (`docs/coach-course.md`, **C10**), ferme la marche.
+        "rpe"
     )
     assert lines[1].startswith("2026-07-20,8.4,44.2,5.262")
     # Une saisie au clavier ne porte ni identifiant stable, ni paliers, ni bornes
-    # horaires, ni fichier, ni FC max : des cellules vides, qui sont une valeur légitime et
-    # non un trou.
-    assert lines[1].endswith("jambes lourdes,manual,,,,,,,,")
+    # horaires, ni fichier, ni FC max, ni effort perçu : des cellules vides, qui sont une
+    # valeur légitime et non un trou.
+    assert lines[1].endswith("jambes lourdes,manual,,,,,,,,,")
 
 
 # ── Allure, distance et cadence (C06) ─────────────────

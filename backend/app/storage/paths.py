@@ -12,6 +12,17 @@ from datetime import datetime
 # ── Fichiers de données (annexe du backlog) ─────────
 WEIGHT = "body/weight.csv"
 MEASUREMENTS = "body/measurements.csv"
+#: FC de repos et VFC du matin (`docs/coach-course.md`, **C3**) — des mesures, rangées avec
+#: les pesées parce que c'est ce qu'elles sont : un relevé du corps au réveil.
+MORNING = "body/morning.csv"
+
+#: L'état du parcours du matin — étapes passées, « Pas ce matin » (`docs/coach-course.md`
+#: §5). Un état et non une mesure : il ne dit que ce que les données ne savent pas.
+MORNING_FLOW = "routine/morning_flow.csv"
+
+#: Les propositions du coach, une active à la fois et l'historique gardé
+#: (`docs/coach-course.md` §7) — ce qui permettra de juger le coach sur ce qu'il a proposé.
+COACH = "coach/recommendations.csv"
 
 RUNS = "activity/runs.csv"
 
@@ -41,6 +52,17 @@ RUN_FITS = "activity/fit"
 #: chaque ouverture. Un fichier à part, comme les paliers, parce que leur nombre varie avec
 #: la longueur de la sortie.
 RUN_EFFORTS = "activity/run_efforts.csv"
+
+#: Ce que la montre a mesuré ou calculé sur chaque sortie importée — puissance, foulée,
+#: effet d'entraînement, et les champs que Garmin ne documente pas (`docs/coach-course.md`).
+#:
+#: Dérivé du `.fit` et rangé pour la raison des efforts : l'historique, la charge et le
+#: coach les lisent **tous**, et relire chaque fichier coûterait une lecture Nextcloud par
+#: sortie. Reconstruit par le même rattrapage.
+RUN_METRICS = "activity/run_metrics.csv"
+
+#: La météo de chaque sortie importée, reçue d'Open-Meteo (`docs/coach-course.md`, **C6**).
+RUN_WEATHER = "activity/run_weather.csv"
 
 
 #: Les séances **modèles** ouvertes dans Cadence Tabata (**D2**), et leurs exercices.
@@ -80,6 +102,13 @@ MEALS = "nutrition/meals.csv"
 MEAL_FAVORITES = "nutrition/favorites.csv"
 #: Catalogue d'ingrédients et leurs valeurs pour 100 g (`NUT-12`).
 MEAL_INGREDIENTS = "nutrition/ingredients.csv"
+#: Journal des aliments consommés (`NUT-18`) — une ligne par aliment et par repas composé.
+#:
+#: Le pendant de `MEAL_INGREDIENTS`, et la raison de la paire est celle des circuits juste
+#: au-dessus : le catalogue est un patron — un nom, des valeurs pour 100 g —, le journal
+#: est une **mesure** datée qui ne se rejoue pas. Sans lui, un repas composé ne laissait
+#: que son total d'assiette et aucune trace de ce qu'on avait pesé.
+MEAL_INTAKE = "nutrition/intake.csv"
 MEAL_PHOTOS = "nutrition/photos"
 
 HYDRATION_LOG = "hydration/intake_log.csv"

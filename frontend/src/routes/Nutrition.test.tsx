@@ -982,6 +982,9 @@ describe('scanner un aliment', () => {
         added_sugar_100g: 56.3,
         saturated_fat_100g: 10.6,
         fiber_100g: null,
+        // `NUT-20` : le code suit la ligne jusqu'au catalogue, où il permettra de relire
+        // la fiche du produit. Il n'entre dans aucun calcul.
+        barcode: '3017620422003',
       },
     ]);
     // Les macros ne partent pas : le serveur recalcule.

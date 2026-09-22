@@ -26,10 +26,12 @@ from app.domains import (
     auth,
     body,
     brief,
+    coach,
     goals,
     heatmap,
     hydration,
     imports,
+    morning,
     notifications,
     nutrition,
     planning,
@@ -45,6 +47,8 @@ protected_router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)]
 
 for domain in (
     body,
+    morning,
+    coach,
     activity,
     hydration,
     supplements,

@@ -86,6 +86,12 @@ class Settings(BaseSettings):
     # et une éventuelle instance miroir n'aient pas à réécrire le client.
     openfoodfacts_base_url: str = "https://world.openfoodfacts.org"
 
+    # ── Météo d'une sortie (`docs/coach-course.md`, **C6**) ──
+    # Aucune clé non plus. Deux adresses : la prévision sert les jours récents, l'archive
+    # le reste — elle a quelques jours de retard.
+    open_meteo_forecast_url: str = "https://api.open-meteo.com"
+    open_meteo_archive_url: str = "https://archive-api.open-meteo.com"
+
     # ── Export iCal (`PLAN-05`) ───────────────────────
     # Sans clé, le flux public n'est pas publié du tout — et le planning reste
     # consultable, modifiable et téléchargeable sous jeton.

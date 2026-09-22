@@ -86,6 +86,9 @@ function IngredientRow({
       added_sugar_100g: fieldText(known.added_sugar_100g),
       saturated_fat_100g: fieldText(known.saturated_fat_100g),
       fiber_100g: fieldText(known.fiber_100g),
+      // La portion ne remplit rien : elle arme la puce sous le champ (`NUT-21`).
+      portion_g: fieldText(known.portion_g),
+      barcode: known.barcode,
     });
   }
 
@@ -146,6 +149,30 @@ function IngredientRow({
           onChange({ ...row, quantity_g: event.target.value });
         }}
       />
+
+      {/* **La portion habituelle ne préremplit pas le champ** (`NUT-21`). Un poids inscrit
+          sans qu'on l'ait pesé serait une valeur inventée, et le marquer « proposé »
+          créerait un cinquième vocabulaire de proposition. Une puce le remplit d'un appui :
+          le geste économisé est le même, et rien n'entre dans un champ sans que le doigt
+          l'ait demandé.
+
+          Elle est un **item de la grille**, sous la colonne du poids, et non un enfant de
+          celle-ci : dans la colonne, elle en doublait la hauteur et désalignait le nom et
+          « retirer » de la même ligne. Vu en capture, comme le reste. */}
+      {row.portion_g !== '' && row.quantity_g.trim() === '' && (
+        <button
+          type="button"
+          className={styles.foodPortion}
+          // Le libellé tient dans 92 px, l'intention non : sans ce nom accessible,
+          // « 180 g » sous un champ de grammes se lirait comme une valeur déjà là.
+          aria-label={`Peser la portion habituelle de ${row.name}, ${row.portion_g} g`}
+          onClick={() => {
+            onChange({ ...row, quantity_g: row.portion_g });
+          }}
+        >
+          {`${row.portion_g} g`}
+        </button>
+      )}
 
       {/* Une addition se défait sans confirmation : rien n'est encore écrit. */}
       <button

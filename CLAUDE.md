@@ -37,6 +37,8 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Les pages Course — constats, courbe et tracé liés, zones, meilleurs efforts | [`docs/analyse-course.md`](docs/analyse-course.md) |
 | La fiche d'un repas — correction, favori, graisses saturées et fibres | [`docs/fiche-repas.md`](docs/fiche-repas.md) |
 | Une course en image de story — fond transparent, tracé et chiffres | [`docs/story-course.md`](docs/story-course.md) |
+| Le coach de course — un `.fit` Garmin lu en entier, le matin guidé, la sortie suivante | [`docs/coach-course.md`](docs/coach-course.md) |
+| Le catalogue alimentaire — ce qu'on mange, ses quantités, et l'écriture au catalogue | [`docs/catalogue-alimentaire.md`](docs/catalogue-alimentaire.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -170,8 +172,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (203 fichiers), 1 681 tests backend
-               # prettier, eslint, tsc, 479 tests d'écran
+make check     # ruff, ruff format, mypy (240 fichiers), 1 988 tests backend
+               # prettier, eslint, tsc, 678 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.
@@ -322,6 +324,8 @@ ce qui a été mesuré, ce qui a été écarté et pourquoi, et finit par ce qui
 | Les phases 4 et 6 de [`refonte-activite.md`](docs/refonte-activite.md) | la copie de sauvegarde, puis la suppression de `workouts.csv`, `exercises.csv` et `exercise_log.csv`. **À la main, par l'utilisateur** — ce sont de vraies données de santé et le projet n'a aucune annulation |
 | La démonstration d'un exercice ne s'affiche que sur un nom **exact** du catalogue | `exercise_media.py` ; un rapprochement approximatif reproduirait celui de Cadence, ce que le dépôt refuse en toutes lettres |
 | Aucun écran n'a jamais été touché sur un **vrai téléphone** | l'émulation ne reproduit ni le pouce, ni le clavier système, ni la latence |
+| Les champs Garmin **non documentés** — VO2max, récupération, condition de performance, stamina | décodés et rangés, **masqués** tant que `garmin.CONFIRMED` est vide : leurs valeurs du 19/09 attendent d'être relues sur Garmin Connect ([`coach-course.md`](docs/coach-course.md) §11) |
+| Open-Meteo et le coach n'ont **jamais été appelés en réel** | doublures partout, y compris à l'écran ; le premier import en production sera le premier appel |
 
 Deux lignes sont sorties de ce tableau avec la phase 5 : les calculs métier de `/activite`
 (la tuile « Tonnage » et ses deux `Bars`) ont disparu avec l'écran qui les portait.

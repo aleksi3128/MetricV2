@@ -690,9 +690,43 @@
   min-width: 0;
 }
 
+/* La portion habituelle (`NUT-21`) : une **cible**, pas une mention. Elle remplit le champ
+   au-dessus d'un appui, d'où `--tap` en plancher comme partout ailleurs. Discrète —
+   pointillés plutôt qu'un cadre plein : ce qui la déclenche est un raccourci, pas l'action
+   principale de la ligne.
+
+   Deuxième rangée de la grille, colonne du poids : dans la colonne, elle doublait la
+   hauteur de la cellule et décalait le nom et « retirer » vers le bas. */
+.foodPortion {
+  grid-column: 2;
+  min-height: var(--tap);
+  padding: 0 var(--s2);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  cursor: pointer;
+  transition: var(--t);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .foodPortion:hover {
+    color: var(--ink);
+    border-color: var(--ink-low);
+  }
+}
+
 /* `--tap` en dur plutôt qu'un `Button` : la touche vit dans une ligne dont la hauteur est
-   celle du champ, et un bouton du dépôt y ajouterait ses propres marges. */
+   celle du champ, et un bouton du dépôt y ajouterait ses propres marges.
+
+   Sa place est **fixée** dans la grille : la puce de portion vient après elle dans le
+   document — c'est l'ordre de tabulation qu'on veut —, et sans cet ancrage le placement
+   automatique la faisait descendre d'une rangée derrière la puce. */
 .foodRemove {
+  grid-column: 3;
+  grid-row: 1;
   min-height: var(--tap);
   min-width: var(--tap);
   padding: 0 var(--s2);
@@ -919,4 +953,15 @@
   font-family: var(--mono);
   font-size: var(--t-num-md);
   overflow-wrap: anywhere;
+}
+
+/* La porte du catalogue, en fin de page (`NUT-19`). Pleine largeur : c'est une
+   destination, et une touche étroite au milieu d'une page qui n'a plus rien en dessous se
+   cherche au pouce. */
+.catalogLink {
+  display: flex;
+}
+
+.catalogLink > * {
+  flex: 1;
 }

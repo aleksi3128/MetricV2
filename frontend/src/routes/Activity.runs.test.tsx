@@ -48,6 +48,7 @@ function run(id: number, date: string, distance: number, minutes: number, splits
     splits,
     fit_path: splits > 0 ? `2026/08/21/20260821-194000-${String(id).padStart(8, '0')}.fit` : '',
     max_hr: null,
+    rpe: null,
   };
 }
 
@@ -206,6 +207,48 @@ const EMPTY = {
 
 const calls: { url: string; method: string }[] = [];
 
+/** La charge et les corrélations, telles que le serveur les rend — rédigées. */
+const TRENDS = {
+  load: {
+    acute: 124,
+    chronic_weekly: 80,
+    ratio: 1.55,
+    ratio_text:
+      'Charge des 7 derniers jours : 1,6 fois ta moyenne des 4 semaines — au-dessus de 1,5, on ne fait plus que du facile.',
+    easy_share: 0.12,
+    moderate_share: 0.1,
+    hard_share: 0.78,
+    distribution_text:
+      'Sur 14 jours : 12 % facile, 10 % modéré, 78 % dur. Moins de 70 % de facile : la prochaine sortie est facile.',
+    last_hard: '2026-09-19',
+    unmeasured: 0,
+    weeks: [
+      { start: '2026-09-07', load: 60, runs: 2, share: 0.48 },
+      { start: '2026-09-14', load: 124, runs: 3, share: 1 },
+    ],
+  },
+  correlations: [
+    {
+      key: 'strength_48h',
+      label: 'Séance Cadence dans les 48 h',
+      status: 'pending',
+      text: 'Séance Cadence dans les 48 h — 1 sortie comparable, 10 nécessaires, dont 5 de chaque côté.',
+      n_high: 0,
+      n_low: 1,
+      effect_pct: null,
+    },
+    {
+      key: 'calories_prev',
+      label: 'Calories de la veille',
+      status: 'shown',
+      text: 'Calories de la veille — au-dessus de 2 200 kcal, ton efficacité est 4 % meilleure (au-dessus de 2 200 kcal (6 sorties) contre en dessous (6)). Observé, pas prouvé : une corrélation n’est pas une cause.',
+      n_high: 6,
+      n_low: 6,
+      effect_pct: 4,
+    },
+  ],
+};
+
 function stub(body: unknown, status = 200) {
   vi.stubGlobal(
     'fetch',
@@ -215,6 +258,7 @@ function stub(body: unknown, status = 200) {
       if (url.includes('/efforts/rebuild')) {
         return Promise.resolve(json(200, { runs: 3, efforts: 10, splits: 16 }));
       }
+      if (url.includes('/runs/trends')) return Promise.resolve(json(200, TRENDS));
       return Promise.resolve(json(status, body));
     }),
   );
@@ -365,5 +409,34 @@ describe('page Toutes tes courses', () => {
     expect(await screen.findByText('Courses indisponibles')).toBeInTheDocument();
     // Le message vient du serveur et s'affiche tel quel : le client décide sur le code.
     expect(screen.getByText('Requête invalide.')).toBeInTheDocument();
+  });
+});
+
+describe('Toutes tes courses — la charge et ce qui va avec une bonne sortie', () => {
+  it('écrit la charge et la répartition telles que le serveur les rédige', async () => {
+    stub(PROGRESS);
+    renderRuns();
+
+    expect(
+      await screen.findByText(/au-dessus de 1,5, on ne fait plus que du facile/),
+    ).toBeInTheDocument();
+    const shares = screen.getByRole('list', { name: 'Répartition de l’intensité sur 14 jours' });
+    expect(shares).toHaveTextContent('Facile');
+    expect(shares).toHaveTextContent('78 %');
+    expect(screen.getByText(/Dernière séance dure : samedi 19 septembre/)).toBeInTheDocument();
+  });
+
+  it('met les constats passés d’abord, et replie ceux qui attendent', async () => {
+    stub(PROGRESS);
+    renderRuns();
+
+    const list = await screen.findByRole('list', { name: 'Ce qui va avec tes bonnes sorties' });
+    expect(list.querySelectorAll('li')).toHaveLength(1);
+    expect(list).toHaveTextContent('Observé, pas prouvé');
+    // Ce qui attend se replie sous une ligne qui le compte.
+    expect(screen.getByText('1 facteur en attente de sorties comparables')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Facteurs en attente' })).toHaveTextContent(
+      '10 nécessaires, dont 5 de chaque côté',
+    );
   });
 });

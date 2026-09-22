@@ -100,6 +100,10 @@
   min-width: 0;
 }
 
+.secondaryChoice {
+  margin-bottom: var(--s3);
+}
+
 .legend {
   list-style: none;
   margin: var(--s4) 0 0;
@@ -280,6 +284,129 @@
   color: var(--signal);
 }
 
+/* ── Foulée, et ce que la montre calcule ───────────── */
+
+/* Une ligne par mesure, libellé à gauche et valeur à droite : à 390 px, deux colonnes de
+   tuiles coupaient « Oscillation verticale » en deux, et la valeur se lisait sous le
+   libellé du voisin. */
+.facts {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.fact:last-child {
+  border-bottom: 0;
+}
+
+.fact dt {
+  color: var(--ink-mid);
+  min-width: 0;
+}
+
+/* La valeur ne se coupe jamais ; c'est l'écart de fin de sortie qui passe dessous. Sur la
+   même ligne, à 402 px, il repoussait « Longueur de pas » sur deux lignes et laissait
+   « sortie » seul sur une troisième. */
+.fact dd {
+  margin: 0;
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.fact dd small {
+  color: var(--ink-low);
+  font-size: var(--t-meta);
+}
+
+.factChange {
+  display: block;
+}
+
+.facts + .note {
+  margin-top: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-soft);
+}
+
+.swatchPower {
+  background: repeating-linear-gradient(90deg, var(--signal) 0 4px, transparent 4px 7px);
+}
+
+/* ── Effort perçu et conditions ────────────────────── */
+
+.rate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* Deux rangées de cinq et non une bande qui défile : dix pastilles côte à côte faisaient
+   39 px de large à 402 px — sous le plancher de 44 —, et la bande cachait 9 et 10 hors de
+   l'écran. Trouvé en mesurant la page. */
+.rateGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(var(--tap), 1fr));
+  gap: var(--s2);
+}
+
+.rateGrid > button {
+  min-width: 0;
+  justify-content: center;
+}
+
+.rateWord {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.rateError {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}
+
+.conditionsHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--s3);
+}
+
+.conditionsHead small {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.conditionsFacts {
+  margin-top: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Une phrase entière — la forme du matin — ne tient pas à droite d'un libellé : elle
+   passe dessous, alignée à gauche comme un texte. */
+.factStacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.factStacked dd {
+  text-align: left;
+  flex-shrink: 1;
+}
+
 /* ── Meilleurs efforts et fichier ──────────────────── */
 
 .effortCell {
@@ -375,4 +502,23 @@
     align-items: center;
     gap: var(--s6);
   }
+}
+
+/* Un constat de corrélation qui attend ses sorties : lu, mais sans poids. */
+.pending {
+  border-left-color: var(--line-soft);
+  color: var(--ink-mid);
+}
+
+.contextLine {
+  display: block;
+}
+
+/* Les facteurs qui attendent leurs sorties, repliés sous une ligne qui les compte. */
+.waiting summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  cursor: pointer;
+  color: var(--ink-mid);
 }

@@ -10,13 +10,19 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 from app.core.dates import today_local
+from app.core.exceptions import ValidationFailedError
 from app.domains.app_settings.service import SettingsService
-from app.domains.body.models import MEASUREMENT_FIELDS, MeasurementRow, WeightRow
+from app.domains.body.models import MEASUREMENT_FIELDS, MeasurementRow, MorningRow, WeightRow
+from app.domains.body.readiness import Morning, assess
 from app.domains.body.schemas import (
     MeasurementEntry,
     MeasurementIndicator,
     MeasurementPayload,
     MeasurementView,
+    MorningEntry,
+    MorningPayload,
+    MorningView,
+    ReadinessView,
     WeightEntry,
     WeightPayload,
     WeightPoint,
@@ -25,7 +31,7 @@ from app.domains.body.schemas import (
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
-from app.storage.paths import MEASUREMENTS, WEIGHT
+from app.storage.paths import MEASUREMENTS, MORNING, WEIGHT
 
 #: Fenêtre de la tendance lissée (`BODY-05`).
 TREND_DAYS = 7
@@ -78,6 +84,13 @@ class WeightService:
         rows = await self._repo.read_all()
         target = await self._settings.number("target_weight_kg")
         return self._stats(sorted(rows, key=lambda row: row.model.date), target)
+
+    async def entries(self) -> list[WeightEntry]:
+        """Toutes les pesées, **dans l'ordre des jours** — pour qui cherche celle d'un jour."""
+        rows = await self._repo.read_all()
+        return [
+            self._entry(row) for row in sorted(rows, key=lambda row: (row.model.date, row.index))
+        ]
 
     async def points(self) -> list[tuple[date, float]]:
         """Pesées en couples `(jour, valeur)`, triées (`AGG-04`, `AGG-03`).
@@ -301,3 +314,87 @@ class MeasurementService:
 
 
 __all__ = ["CHANGE_WINDOW", "TREND_DAYS", "MeasurementService", "WeightService", "date"]
+
+
+class MorningService:
+    """FC de repos et VFC du matin, et la forme qu'elles disent (`docs/coach-course.md` §4)."""
+
+    #: Matins rendus dans l'historique de la vue — deux semaines se lisent d'un coup d'œil.
+    RECENT = 14
+
+    def __init__(self, store: FileStore) -> None:
+        self._repo: CsvRepository[MorningRow] = CsvRepository(store, MORNING, MorningRow)
+
+    async def view(self, *, today: date | None = None) -> MorningView:
+        day = today or today_local()
+        rows = await self._repo.read_all()
+        current = next((row for row in rows if row.model.date == day), None)
+        recent = sorted(rows, key=lambda row: (row.model.date, row.index), reverse=True)
+        return MorningView(
+            today=day,
+            entry=self._entry(current) if current else None,
+            readiness=self._readiness(rows, day),
+            recent=[self._entry(row) for row in recent[: self.RECENT]],
+        )
+
+    async def readiness(self, day: date) -> ReadinessView:
+        """La forme d'un jour donné — pour le coach, la page d'une sortie, le parcours."""
+        return self._readiness(await self._repo.read_all(), day)
+
+    async def mornings(self) -> list[Morning]:
+        return [
+            Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms)
+            for row in await self._repo.read_all()
+        ]
+
+    async def create(self, payload: MorningPayload) -> MorningEntry:
+        """Un matin par jour : le second se corrige, il ne s'ajoute pas.
+
+        Deux lignes pour le même matin feraient deux références possibles, et le coach
+        choisirait l'une sans que rien ne dise laquelle.
+        """
+        for row in await self._repo.read_all(fresh=True):
+            if row.model.date == payload.date:
+                raise ValidationFailedError(
+                    f"Le matin du {payload.date:%d/%m} est déjà saisi\u00a0: corrige-le "
+                    "plutôt que d'en ajouter un second."
+                )
+        row = await self._repo.append(
+            MorningRow(date=payload.date, resting_hr=payload.resting_hr, hrv_ms=payload.hrv_ms)
+        )
+        return self._entry(row)
+
+    async def update(self, index: int, token: str, payload: MorningPayload) -> MorningEntry:
+        existing = await self._repo.read_all(fresh=True)
+        source = existing[index].model.source if 0 <= index < len(existing) else "manual"
+        row = await self._repo.replace_by_token(
+            index,
+            token,
+            MorningRow(
+                date=payload.date,
+                resting_hr=payload.resting_hr,
+                hrv_ms=payload.hrv_ms,
+                source=source,
+            ),
+        )
+        return self._entry(row)
+
+    async def delete(self, index: int, token: str) -> None:
+        await self._repo.delete_by_token(index, token)
+
+    @staticmethod
+    def _readiness(rows: list[Row[MorningRow]], day: date) -> ReadinessView:
+        history = [Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms) for row in rows]
+        judged = assess(day, history)
+        return ReadinessView.model_validate(judged, from_attributes=True)
+
+    @staticmethod
+    def _entry(row: Row[MorningRow]) -> MorningEntry:
+        return MorningEntry(
+            id=row.index,
+            token=row.token,
+            date=row.model.date,
+            resting_hr=row.model.resting_hr,
+            hrv_ms=row.model.hrv_ms,
+            source=row.model.source,
+        )

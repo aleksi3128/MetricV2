@@ -30,6 +30,7 @@ from app.core.errors import register_error_handlers
 from app.core.limits import RequestSizeLimit
 from app.core.security import PasswordChecker, TokenIssuer
 from app.core.throttle import LoginThrottle
+from app.domains.activity.weather import WeatherProvider
 from app.domains.ai.service import AiProvider
 from app.domains.api import protected_router, public_router
 from app.domains.brief.scheduler import BriefScheduler
@@ -89,6 +90,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         products = ProductProvider(settings.openfoodfacts_base_url)
         await products.start()
 
+        # La météo des sorties (`docs/coach-course.md`, **C6**) : même régime que la base
+        # produits — aucune clé, un pool de connexions, et un échec qui ne bloque rien.
+        weather = WeatherProvider(settings.open_meteo_forecast_url, settings.open_meteo_archive_url)
+        await weather.start()
+
         # La lecture du jour, et sa passe horaire.
         #
         # **Deuxième tâche de fond du projet, et elle ne dépend pas de la première.**
@@ -106,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.ai = ai
         app.state.push = push
         app.state.products = products
+        app.state.weather = weather
         app.state.password_checker = PasswordChecker(settings)
         app.state.token_issuer = TokenIssuer(settings)
         app.state.login_throttle = LoginThrottle()
@@ -122,6 +129,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 await briefs.stop()
             await push.stop()
             await products.stop()
+            await weather.stop()
             await ai.stop()
             await provider.stop()
 

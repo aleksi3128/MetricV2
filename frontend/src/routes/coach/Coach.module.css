@@ -1,0 +1,141 @@
+/*
+ * La séance proposée (`docs/coach-course.md` §7). Mobile d'abord, 390 px ; aucune couleur
+ * en dur — tout passe par `tokens.css`.
+ */
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-size: var(--t-body);
+}
+
+.head small {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+/* L'allègement du matin : une règle qui a changé la séance, dite avant la séance. */
+.adjusted {
+  margin: 0;
+  padding: var(--s2) var(--s3);
+  border-left: 3px solid var(--load);
+  color: var(--ink);
+  font-size: var(--t-sub);
+  text-wrap: pretty;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: var(--s3);
+  padding: var(--s2) 0 var(--s2) var(--s3);
+  border-left: 3px solid var(--line-soft);
+}
+
+.warmup,
+.cooldown {
+  border-left-color: var(--recover);
+}
+
+.run {
+  border-left-color: var(--effort);
+}
+
+.recover {
+  border-left-color: var(--ink-low);
+}
+
+.stepLabel small {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.stepTarget {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-mid);
+}
+
+.rationale,
+.rules {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.rules {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.waiting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* Le cadre se déplie : il répond à « pourquoi ça ? », une question qu'on ne pose pas à
+   chaque lecture. Son titre est une cible au doigt. */
+.frame {
+  margin-top: var(--s3);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.frame summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.frame ul {
+  margin: 0;
+  padding-left: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+
+/* Accepter termine le geste : la récompense du pouce (§3 de `CLAUDE.md`). */
+.accept {
+  min-height: var(--tap-lg);
+}
+
+.accepted {
+  margin: 0;
+  color: var(--ink);
+}
+
+.error {
+  margin: var(--s2) 0 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}

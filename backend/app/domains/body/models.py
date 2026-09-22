@@ -1,4 +1,5 @@
-"""Modèles CSV du domaine Corps (`body/weight.csv`, `body/measurements.csv`).
+"""Modèles CSV du domaine Corps (`body/weight.csv`, `body/measurements.csv`,
+`body/morning.csv`).
 
 Colonnes reprises de l'annexe du backlog. Ces modèles décrivent le **fichier** ; les
 formes échangées avec le client vivent dans `schemas.py` et portent les bornes de
@@ -52,3 +53,20 @@ MEASUREMENT_FIELDS: tuple[tuple[str, str], ...] = (
     ("thigh_cm", "Cuisse"),
     ("body_fat_pct", "Masse grasse"),
 )
+
+
+class MorningRow(CsvModel):
+    """Les deux mesures du matin. `body/morning.csv` (`docs/coach-course.md`, **C3**).
+
+    **Des mesures, lues sur la montre** : la FC de repos de son widget, la VFC moyenne de
+    la nuit. Pas un ressenti — l'utilisateur a choisi ces deux nombres-là plutôt qu'une
+    note de forme, précisément parce qu'ils ne dépendent pas de l'humeur du réveil.
+
+    Une ligne par jour. L'une des deux peut manquer : la VFC d'une Garmin n'existe
+    qu'après quelques nuits portées, et une nuit sans montre n'en donne aucune.
+    """
+
+    date: date
+    resting_hr: int | None = None
+    hrv_ms: int | None = None
+    source: str = "manual"

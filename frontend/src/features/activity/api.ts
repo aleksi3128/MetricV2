@@ -6,6 +6,7 @@
  * diverger du premier.
  */
 
+import type { Readiness } from '@/features/body/api';
 import { request } from '@/lib/api';
 
 export interface Run {
@@ -45,6 +46,8 @@ export interface Run {
   fit_path: string;
   /** La plus haute FC tenue, lue dans le `.fit`. `null` sans cardio. */
   max_hr: number | null;
+  /** L'effort perçu, de 1 à 10 — saisi après la sortie (`docs/coach-course.md`, **C10**). */
+  rpe: number | null;
 }
 
 // ── Analyse d'une sortie importée (`docs/analyse-course.md`) ──
@@ -66,6 +69,7 @@ export interface RunPoint {
   pace_class: PaceClass | null;
   heart_rate: number | null;
   cadence_spm: number | null;
+  power_w: number | null;
   /** `null` sauf relief : sur du plat, le profil ne dessinerait que le bruit. */
   altitude_m: number | null;
   x: number | null;
@@ -112,11 +116,119 @@ export interface RunZoneBin {
 export interface RunZones {
   kind: 'heart_rate' | 'pace';
   reference_value: number;
-  source: 'settings' | 'deduced';
+  /** `watch` : le réglage de la montre, en attendant une mesure — ni saisie ni mesure. */
+  source: 'settings' | 'deduced' | 'watch';
   /** D'où vient la référence, en toutes lettres. Une estimation le dit toujours. */
   detail: string;
   bins: RunZoneBin[];
   summary: string;
+}
+
+export interface RunLoadWeek {
+  start: string;
+  load: number;
+  runs: number;
+  /** Part de la semaine la plus lourde, entre 0 et 1 — servie, pas cherchée. */
+  share: number;
+}
+
+/** La charge d'entraînement, et ce qu'elle dit (`docs/coach-course.md` §6). */
+export interface RunLoad {
+  acute: number | null;
+  chronic_weekly: number | null;
+  ratio: number | null;
+  ratio_text: string;
+  easy_share: number | null;
+  moderate_share: number | null;
+  hard_share: number | null;
+  distribution_text: string;
+  last_hard: string | null;
+  unmeasured: number;
+  weeks: RunLoadWeek[];
+}
+
+/**
+ * Un facteur et ce qu'il dit. `shown` : un écart a passé l'épreuve ; `none` : rien de net ;
+ * `pending` : pas assez de sorties. Le texte est rédigé par le serveur.
+ */
+export interface RunCorrelation {
+  key: string;
+  label: string;
+  status: 'shown' | 'none' | 'pending';
+  text: string;
+  n_high: number;
+  n_low: number;
+  effect_pct: number | null;
+}
+
+export interface RunTrends {
+  load: RunLoad;
+  correlations: RunCorrelation[];
+}
+
+export interface RunWeather {
+  temperature_c: number | null;
+  apparent_c: number | null;
+  humidity_pct: number | null;
+  dew_point_c: number | null;
+  wind_kmh: number | null;
+}
+
+/**
+ * Ce qui entourait une sortie (`docs/coach-course.md` §4). Chaque partie est `null` quand
+ * elle manque — pas de météo sans réponse d'Open-Meteo, pas de forme sans mesure du matin.
+ */
+export interface RunConditions {
+  rpe: number | null;
+  weather: RunWeather | null;
+  morning: Readiness | null;
+  /** Ce qui entourait la sortie, en phrases rédigées par le serveur. */
+  context: string[];
+}
+
+/** Découplage et efficacité, échauffement retiré (`docs/coach-course.md`). */
+export interface RunAerobic {
+  basis: 'power' | 'pace';
+  decoupling_pct: number;
+  efficiency: number;
+  heart_rate_first: number;
+  heart_rate_second: number;
+}
+
+/**
+ * Ce que la montre a calculé elle-même. **Signé à l'écran** : ni mesure de Metric, ni
+ * proposition d'un modèle. Un champ que Garmin ne documente pas n'arrive qu'une fois sa
+ * lecture confirmée — `null` sinon.
+ */
+export interface RunGarmin {
+  device: string | null;
+  vo2max: number | null;
+  training_effect_aerobic: number | null;
+  training_effect_aerobic_label: string | null;
+  training_effect_anaerobic: number | null;
+  training_effect_anaerobic_label: string | null;
+  training_load: number | null;
+  recovery_h: number | null;
+  performance_condition_start: number | null;
+  performance_condition_end: number | null;
+  stamina_start_pct: number | null;
+  stamina_end_pct: number | null;
+}
+
+export interface RunStrideMeasure {
+  average: number;
+  /** Dernier tiers moins premier tiers, dans l'unité de la mesure. */
+  change: number | null;
+}
+
+/** La foulée. `wrist` : estimée au poignet, sans capteur de poitrine. */
+export interface RunStride {
+  source: 'sensor' | 'wrist';
+  cadence_spm: RunStrideMeasure | null;
+  step_length_m: RunStrideMeasure | null;
+  stance_ms: RunStrideMeasure | null;
+  vertical_oscillation_cm: RunStrideMeasure | null;
+  vertical_ratio_pct: number | null;
 }
 
 export interface RunAnalysis {
@@ -130,6 +242,7 @@ export interface RunAnalysis {
   pace_ticks_min_km: number[];
   heart_rate_domain: [number, number] | null;
   cadence_domain: [number, number] | null;
+  power_domain: [number, number] | null;
   altitude_domain_m: [number, number] | null;
   average_pace_min_km: number | null;
   /** Présente seulement quand des arrêts chrono en marche l'écartent de la moyenne. */
@@ -144,6 +257,11 @@ export interface RunAnalysis {
   zones: RunZones | null;
   /** Ce que coûte le prochain geste quand les zones manquent. */
   zones_missing: string | null;
+  aerobic: RunAerobic | null;
+  garmin: RunGarmin | null;
+  stride: RunStride | null;
+  average_power_w: number | null;
+  normalized_power_w: number | null;
 }
 
 /**
@@ -737,6 +855,15 @@ export const activityApi = {
     }),
   deleteRun: (id: number, token: string) =>
     request<undefined>(`/api/activity/runs/${id}`, { method: 'DELETE', headers: guard(token) }),
+  /** L'effort perçu seul, sous `If-Match`. `null` l'efface. */
+  setRunRpe: (id: number, token: string, rpe: number | null) =>
+    request<Run>(`/api/activity/runs/${id}/rpe`, {
+      method: 'PUT',
+      headers: guard(token),
+      body: { rpe },
+    }),
+  runConditions: (id: number) => request<RunConditions>(`/api/activity/runs/${id}/conditions`),
+  runTrends: () => request<RunTrends>('/api/activity/runs/trends'),
 
   /**
    * Importe une sortie depuis un `.fit`. **Écrit directement** (`docs/import-fit.md`,

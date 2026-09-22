@@ -55,6 +55,7 @@ const RUN: Run = {
   splits: 9,
   fit_path: '2026/09/13/x.fit',
   max_hr: null,
+  rpe: null,
 };
 
 function point(distance: number, paceClass: PaceClass | null): RunPoint {
@@ -66,6 +67,7 @@ function point(distance: number, paceClass: PaceClass | null): RunPoint {
     heart_rate: null,
     cadence_spm: null,
     altitude_m: null,
+    power_w: null,
     // Une diagonale : deux axes qui bougent, de quoi éprouver le cadrage.
     x: distance / 8.14,
     y: distance / 8.14,
@@ -101,6 +103,12 @@ const ANALYSIS = {
   efforts: [],
   zones: null,
   zones_missing: null,
+  power_domain: null,
+  aerobic: null,
+  garmin: null,
+  stride: null,
+  average_power_w: null,
+  normalized_power_w: null,
 } satisfies RunAnalysis;
 
 const OPTIONS: StoryOptions = { ink: 'light', accent: 'signal', colored: true, trimmed: false };

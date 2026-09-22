@@ -40,6 +40,7 @@ from app.core.validation import (
 )
 from app.domains.activity import circuit_link as _link
 from app.domains.activity.models import MuscleGroup
+from app.domains.body.schemas import ReadinessView
 
 # ── Saisies souples ───────────────────────────────────
 
@@ -263,6 +264,7 @@ class Run(BaseModel):
     fit_path: str = ""
     #: La plus haute FC tenue, lue dans le `.fit`. Vide sans cardio.
     max_hr: int | None = None
+    rpe: int | None = None
 
 
 # ── Analyse d'une sortie importée (`docs/analyse-course.md`) ──
@@ -287,6 +289,7 @@ class RunPoint(BaseModel):
     pace_class: Literal["faster", "even", "slower"] | None = None
     heart_rate: int | None = None
     cadence_spm: int | None = None
+    power_w: int | None = None
     #: Vide sauf **relief** (**A10**) : sur du plat, le profil ne dessinerait que le bruit.
     altitude_m: float | None = None
     x: float | None = None
@@ -343,12 +346,62 @@ class RunZones(BaseModel):
     kind: Literal["heart_rate", "pace"]
     #: FC max en bpm, ou allure seuil en min/km.
     reference_value: float
-    source: Literal["settings", "deduced"]
+    #: `watch` : le réglage de la montre, en attendant une mesure (`docs/coach-course.md`,
+    #: **C4**). Ni saisie ni mesure — et `detail` le dit.
+    source: Literal["settings", "deduced", "watch"]
     #: D'où vient la référence, en une phrase **ponctuée** : une estimation le dit toujours,
     #: et l'écran l'affiche sans rien y ajouter.
     detail: str
     bins: list[RunZoneBin] = Field(default_factory=list)
     summary: str = ""
+
+
+class RunAerobic(BaseModel):
+    """Découplage et efficacité, échauffement retiré (`docs/coach-course.md` §3)."""
+
+    basis: Literal["power", "pace"]
+    #: Part de puissance (ou de vitesse) par battement perdue d'une moitié à l'autre.
+    decoupling_pct: float
+    #: Mètres par minute, par battement.
+    efficiency: float
+    heart_rate_first: int
+    heart_rate_second: int
+
+
+class RunGarmin(BaseModel):
+    """Ce que la montre a calculé elle-même. **Tout est signé « selon Garmin »** à l'écran
+    (**C5**) : ni mesure de Metric, ni proposition d'un modèle."""
+
+    device: str | None = None
+    vo2max: float | None = None
+    training_effect_aerobic: float | None = None
+    #: Le nom que Garmin donne au palier : « Améliore » pour 3,8.
+    training_effect_aerobic_label: str | None = None
+    training_effect_anaerobic: float | None = None
+    training_effect_anaerobic_label: str | None = None
+    training_load: int | None = None
+    recovery_h: float | None = None
+    performance_condition_start: int | None = None
+    performance_condition_end: int | None = None
+    stamina_start_pct: int | None = None
+    stamina_end_pct: int | None = None
+
+
+class RunStrideMeasure(BaseModel):
+    average: float
+    #: Dernier tiers moins premier tiers — la signature de la fatigue.
+    change: float | None = None
+
+
+class RunStride(BaseModel):
+    """La foulée. `wrist` : estimée au poignet, sans capteur — l'écran le dit."""
+
+    source: Literal["sensor", "wrist"]
+    cadence_spm: RunStrideMeasure | None = None
+    step_length_m: RunStrideMeasure | None = None
+    stance_ms: RunStrideMeasure | None = None
+    vertical_oscillation_cm: RunStrideMeasure | None = None
+    vertical_ratio_pct: float | None = None
 
 
 class RunAnalysis(BaseModel):
@@ -371,6 +424,7 @@ class RunAnalysis(BaseModel):
     pace_ticks_min_km: list[float] = Field(default_factory=list)
     heart_rate_domain: tuple[int, int] | None = None
     cadence_domain: tuple[int, int] | None = None
+    power_domain: tuple[int, int] | None = None
     altitude_domain_m: tuple[float, float] | None = None
     average_pace_min_km: float | None = None
     #: Servie seulement quand des arrêts chrono en marche l'écartent de la moyenne (**A6**).
@@ -387,6 +441,11 @@ class RunAnalysis(BaseModel):
     zones: RunZones | None = None
     #: Ce que coûte le prochain geste quand les zones manquent.
     zones_missing: str | None = None
+    aerobic: RunAerobic | None = None
+    garmin: RunGarmin | None = None
+    stride: RunStride | None = None
+    average_power_w: int | None = None
+    normalized_power_w: int | None = None
 
 
 # ── Paliers rendus au client (`ACT-19`) ───────────────
@@ -673,6 +732,7 @@ class EffortRebuild(BaseModel):
     runs: int = 0
     efforts: int = 0
     splits: int = 0
+    metrics: int = 0
 
 
 class RunDetail(BaseModel):
@@ -1492,3 +1552,80 @@ class CircuitSession(BaseModel):
     rpe: int | None = None
     source: str
     sets: list[CircuitSessionSet]
+
+
+# ── L'effort perçu et les conditions (`docs/coach-course.md` §4) ──
+
+
+class RunRpePayload(BaseModel):
+    """L'effort perçu d'une sortie, de 1 à 10. `null` l'efface."""
+
+    rpe: Rpe | None = None
+
+
+class RunWeather(BaseModel):
+    temperature_c: float | None = None
+    apparent_c: float | None = None
+    humidity_pct: int | None = None
+    dew_point_c: float | None = None
+    wind_kmh: float | None = None
+
+
+class RunConditions(BaseModel):
+    """Ce qui entourait une sortie : ce qu'on en a ressenti, le temps qu'il faisait, la
+    forme du matin. Chaque partie est absente plutôt qu'inventée."""
+
+    rpe: int | None = None
+    weather: RunWeather | None = None
+    morning: ReadinessView | None = None
+    #: Ce qui entourait la sortie, en phrases rédigées ici : la veille, le dernier repas,
+    #: la musculation, le poids. Les faits que les corrélations comparent (§6).
+    context: list[str] = Field(default_factory=list)
+
+
+# ── Charge et corrélations (`docs/coach-course.md` §6) ─
+
+
+class RunLoadWeek(BaseModel):
+    start: date
+    load: float
+    runs: int
+    share: float = 0.0
+
+
+class RunLoad(BaseModel):
+    """La charge, et ce qu'elle dit. Les phrases sont rédigées par le serveur."""
+
+    acute: float | None = None
+    chronic_weekly: float | None = None
+    ratio: float | None = None
+    ratio_text: str = ""
+    easy_share: float | None = None
+    moderate_share: float | None = None
+    hard_share: float | None = None
+    distribution_text: str = ""
+    last_hard: date | None = None
+    #: Sorties des sept derniers jours sans charge — faute de référence pour la compter.
+    unmeasured: int = 0
+    weeks: list[RunLoadWeek] = Field(default_factory=list)
+
+
+class RunCorrelation(BaseModel):
+    """Un facteur et ce qu'il dit — ou ce qu'il lui manque pour dire quelque chose.
+
+    `shown` : un écart passé l'épreuve. `none` : assez de sorties, rien de net. `pending` :
+    pas assez de sorties. L'écran teinte selon le statut et n'en décide rien d'autre.
+    """
+
+    key: str
+    label: str
+    status: Literal["shown", "none", "pending"]
+    text: str
+    n_high: int = 0
+    n_low: int = 0
+    effect_pct: float | None = None
+
+
+class RunTrends(BaseModel):
+    load: RunLoad
+    correlations: list[RunCorrelation] = Field(default_factory=list)

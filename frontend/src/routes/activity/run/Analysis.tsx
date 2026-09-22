@@ -21,7 +21,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 
-import { Badge, Card, DistanceProfile, Empty, Rule, Skeleton, Table, Track } from '@/components/ui';
+import {
+  Badge,
+  Card,
+  DistanceProfile,
+  Empty,
+  Rule,
+  Segmented,
+  Skeleton,
+  Table,
+  Track,
+} from '@/components/ui';
 import type { Column, Tone } from '@/components/ui';
 import {
   type PaceClass,
@@ -36,7 +46,9 @@ import { cx } from '@/lib/cx';
 import { duration, integer, longDate, num, pace, percent } from '@/lib/format';
 import { useRunAnalysis } from '@/features/activity/useRunAnalysis';
 
+import { CoachCard } from '../../coach/CoachCard';
 import styles from './Run.module.css';
+import { Stride, Watch } from './Watch';
 
 /** La bonne nouvelle en vert, celle qui a coûté en ambre : les deux tons que la charte
  * donne à « activité » et à « seuil approché », déjà ceux des barres d'écart. */
@@ -50,6 +62,15 @@ const CLASS_TONE: Record<PaceClass, Tone | null> = {
   faster: 'effort',
   even: null,
   slower: 'load',
+};
+
+/** La courbe secondaire : une à la fois, choisie parmi celles que le fichier porte. */
+type Secondary = 'heart_rate' | 'power' | 'cadence';
+
+const SECONDARY_SWATCH: Record<Secondary, string | undefined> = {
+  heart_rate: styles.swatchHeart,
+  power: styles.swatchPower,
+  cadence: styles.swatchCadence,
 };
 
 const ZONE_CLASS: Record<number, string | undefined> = {
@@ -89,22 +110,45 @@ function Course({ run, analysis }: { run: Run; analysis: RunAnalysis }) {
   const here = active === null ? undefined : points[active];
   const tones = points.map((point) => (point.pace_class ? CLASS_TONE[point.pace_class] : null));
 
-  const secondary =
-    analysis.heart_rate_domain !== null
-      ? {
-          label: 'Fréquence cardiaque',
-          values: points.map((point) => point.heart_rate),
-          domain: analysis.heart_rate_domain,
-          tone: 'recover' as const,
-        }
-      : analysis.cadence_domain !== null
-        ? {
+  // Une montre porte cardio, puissance et cadence : trois courbes secondaires sur un même
+  // dessin de 340 px ne se liraient plus. Une à la fois, et le choix ne s'offre que s'il
+  // y a de quoi choisir.
+  const lines = {
+    heart_rate:
+      analysis.heart_rate_domain === null
+        ? null
+        : {
+            label: 'Fréquence cardiaque',
+            short: 'FC',
+            values: points.map((point) => point.heart_rate),
+            domain: analysis.heart_rate_domain,
+            tone: 'recover' as const,
+          },
+    power:
+      analysis.power_domain === null
+        ? null
+        : {
+            label: 'Puissance',
+            short: 'Puissance',
+            values: points.map((point) => point.power_w),
+            domain: analysis.power_domain,
+            tone: 'signal' as const,
+          },
+    cadence:
+      analysis.cadence_domain === null
+        ? null
+        : {
             label: 'Cadence',
+            short: 'Cadence',
             values: points.map((point) => point.cadence_spm),
             domain: analysis.cadence_domain,
             tone: 'signal' as const,
-          }
-        : undefined;
+          },
+  };
+  const available = (Object.keys(lines) as Secondary[]).filter((key) => lines[key] !== null);
+  const [chosen, setChosen] = useState<Secondary | null>(null);
+  const shown = chosen !== null && available.includes(chosen) ? chosen : (available[0] ?? null);
+  const secondary = shown === null ? undefined : (lines[shown] ?? undefined);
 
   return (
     <Card>
@@ -140,6 +184,11 @@ function Course({ run, analysis }: { run: Run; analysis: RunAnalysis }) {
                 <b>{integer(here.heart_rate)}</b> bpm
               </span>
             )}
+            {here.power_w !== null && (
+              <span>
+                <b>{integer(here.power_w)}</b> W
+              </span>
+            )}
             {here.cadence_spm !== null && (
               <span>
                 <b>{integer(here.cadence_spm)}</b> spm
@@ -169,6 +218,21 @@ function Course({ run, analysis }: { run: Run; analysis: RunAnalysis }) {
         )}
         {analysis.pace_domain_min_km !== null && (
           <div className={styles.profile}>
+            {/* Au-dessus de la courbe qu'il pilote, pas du tracé : posé en tête de carte, il
+                touchait le cercle de départ et se lisait comme un réglage de la carte. */}
+            {available.length > 1 && shown !== null && (
+              <div className={styles.secondaryChoice}>
+                <Segmented
+                  label="Courbe sous l’allure"
+                  options={available.map((key) => ({
+                    value: key,
+                    label: lines[key]?.short ?? key,
+                  }))}
+                  value={shown}
+                  onChange={setChosen}
+                />
+              </div>
+            )}
             <DistanceProfile
               distances={points.map((point) => point.distance_km)}
               distanceTicks={analysis.distance_ticks_km}
@@ -231,14 +295,9 @@ function Course({ run, analysis }: { run: Run; analysis: RunAnalysis }) {
           <i className={cx(styles.swatch, styles.swatchDashed)} />
           moyenne
         </li>
-        {secondary && (
+        {secondary && shown !== null && (
           <li>
-            <i
-              className={cx(
-                styles.swatch,
-                secondary.tone === 'recover' ? styles.swatchHeart : styles.swatchCadence,
-              )}
-            />
+            <i className={cx(styles.swatch, SECONDARY_SWATCH[shown])} />
             {secondary.label.toLowerCase()}
           </li>
         )}
@@ -356,8 +415,24 @@ export function Analysis({ run }: { run: Run }) {
         </>
       )}
 
+      <CoachCard forRun={run.run_id} rule="Et maintenant" />
+
       <Rule>Intensité</Rule>
       <Zones zones={data.zones} missing={data.zones_missing} />
+
+      {data.stride !== null && (
+        <>
+          <Rule>Foulée</Rule>
+          <Stride stride={data.stride} />
+        </>
+      )}
+
+      {data.garmin !== null && (
+        <>
+          <Rule>Selon ta montre</Rule>
+          <Watch garmin={data.garmin} />
+        </>
+      )}
 
       {data.efforts.length > 0 && (
         <>

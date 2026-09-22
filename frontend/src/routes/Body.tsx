@@ -28,6 +28,7 @@ import { delta, kg, num, plural, shortDate } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { useOpenMorning } from './morning/context';
 import styles from './Body.module.css';
 
 /** Nombre de points affichés sur la courbe. Au-delà, la tendance devient illisible. */
@@ -305,6 +306,7 @@ function MeasurementPanel() {
 // ── Écran ─────────────────────────────────────────────
 
 export function Body() {
+  const openMorning = useOpenMorning();
   const invalidate = useInvalidateBody();
   const { notify } = useToast();
   const [editing, setEditing] = useState<WeightEntry | null>(null);
@@ -387,7 +389,17 @@ export function Body() {
 
   return (
     <div className={cx('wrap', styles.screen)}>
-      <PageHead eyebrow="Domaine Corps" title={<>Poids &amp; mensurations</>} />
+      <PageHead
+        eyebrow="Domaine Corps"
+        title={<>Poids &amp; mensurations</>}
+        actions={
+          // La porte manuelle du parcours du matin : il s'ouvre seul entre 6 h et midi,
+          // mais une FC de repos se rattrape aussi le soir (`docs/coach-course.md` §5).
+          <Button variant="quiet" onClick={openMorning}>
+            Parcours du matin
+          </Button>
+        }
+      />
 
       <Rule>Indicateurs</Rule>
 

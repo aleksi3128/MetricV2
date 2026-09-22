@@ -104,6 +104,10 @@ class RunRow(CsvModel):
     #: n'est saisie. Vide sur tout ce qui ne vient pas d'un fichier cardio — une moyenne de
     #: séance ne dit rien du maximum, et on ne le déduira pas d'elle.
     max_hr: int | None = None
+    #: L'effort perçu, de 1 à 10, saisi après la sortie (`docs/coach-course.md`, **C10**).
+    #: Face à la FC, c'est ce qui révèle la fatigue que les capteurs ne voient pas ; à 9 et
+    #: plus, il fait de la sortie un effort à fond, dont la FC max vaut référence (**C4**).
+    rpe: int | None = None
 
 
 class RunSplitRow(CsvModel):
@@ -156,6 +160,74 @@ class RunEffortRow(CsvModel):
     duration_s: float
     #: Où l'effort commence dans la sortie. Pour le dire, pas pour le recalculer.
     start_km: float = 0.0
+
+
+class RunMetricsRow(CsvModel):
+    """Ce que la montre a mesuré ou calculé sur une sortie. `activity/run_metrics.csv`.
+
+    **Dérivé du `.fit`, donc reconstructible** (`docs/coach-course.md` §3) — le rattrapage
+    d'**A5** le réécrit entier. Un fichier à part et non des colonnes de `runs.csv`, pour
+    la raison qui sépare `run_efforts.csv` : `runs.csv` est **saisi** et se corrige au
+    formulaire ; ceci se recalcule. Les mêler ferait qu'une correction de faute de frappe
+    écrase une mesure de la montre, ou l'inverse.
+
+    Tout est facultatif : un export de téléphone n'en porte presque rien. Les champs
+    marqués *Garmin* ne sont pas documentés par le fabricant (`garmin.py`).
+    """
+
+    run_id: str
+    device: str | None = None
+    avg_power_w: int | None = None
+    normalized_power_w: int | None = None
+    max_power_w: int | None = None
+    avg_stance_ms: float | None = None
+    avg_vertical_oscillation_cm: float | None = None
+    avg_vertical_ratio_pct: float | None = None
+    avg_step_length_m: float | None = None
+    training_effect_aerobic: float | None = None
+    training_effect_anaerobic: float | None = None
+    training_load: int | None = None
+    #: Le réglage de la montre, **pas une mesure** : la référence de repli des zones (**C4**).
+    watch_max_hr: int | None = None
+    #: *Garmin*.
+    vo2max: float | None = None
+    #: *Garmin*, en heures.
+    recovery_h: float | None = None
+    #: *Garmin*, au premier relevé qui la porte et au dernier.
+    performance_condition_start: int | None = None
+    performance_condition_end: int | None = None
+    #: *Garmin*.
+    stamina_start_pct: int | None = None
+    stamina_end_pct: int | None = None
+    #: Calculés ici, échauffement retiré (`analysis.aerobic`).
+    decoupling_pct: float | None = None
+    decoupling_basis: str | None = None
+    efficiency: float | None = None
+    #: Les secondes dans chacune des cinq zones, contre la référence **du moment de
+    #: l'import** — `heart_rate` ou `pace`. La charge de la sortie en découle (`load.py`) ;
+    #: le rattrapage les recalcule contre la référence du jour.
+    zone_kind: str | None = None
+    zone1_s: float | None = None
+    zone2_s: float | None = None
+    zone3_s: float | None = None
+    zone4_s: float | None = None
+    zone5_s: float | None = None
+
+
+class RunWeatherRow(CsvModel):
+    """La météo d'une sortie, demandée à Open-Meteo. `activity/run_weather.csv`.
+
+    Ni saisie ni dérivée du `.fit` : **reçue** d'un tiers, et c'est ce qui la sépare de
+    `run_metrics.csv`. Le rattrapage la redemande pour les sorties qui n'en ont pas.
+    """
+
+    run_id: str
+    temperature_c: float | None = None
+    apparent_c: float | None = None
+    humidity_pct: int | None = None
+    dew_point_c: float | None = None
+    wind_kmh: float | None = None
+    source: str = "open-meteo"
 
 
 class CircuitRow(CsvModel):

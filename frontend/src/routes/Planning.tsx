@@ -32,6 +32,7 @@ import { hoursMinutes, longDate, percent, plural, shortDate } from '@/lib/format
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { CoachCard } from './coach/CoachCard';
 import styles from './Planning.module.css';
 
 /**
@@ -910,6 +911,11 @@ export function Planning() {
             />
           )}
 
+          {/* La proposition du coach, **à valider** : hors de `plan.csv` tant qu'elle n'est pas
+              acceptée — une proposition n'est pas encore une séance prévue (§7). Sous le
+              calendrier et non au-dessus : en tête, elle repoussait le premier chiffre de
+              l'écran à 822 px. À côté de l'autre proposition assistée, la semaine type. */}
+          <CoachCard rule="Séance proposée par le coach" />
           <ProposalCard />
           <SubscriptionCard />
         </>

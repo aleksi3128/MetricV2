@@ -23,11 +23,14 @@ from app.domains.body.schemas import (
     MeasurementEntry,
     MeasurementPayload,
     MeasurementView,
+    MorningEntry,
+    MorningPayload,
+    MorningView,
     WeightEntry,
     WeightPayload,
     WeightView,
 )
-from app.domains.body.service import MeasurementService, WeightService
+from app.domains.body.service import MeasurementService, MorningService, WeightService
 from app.storage.errors import StorageConflictError
 
 router = APIRouter(prefix="/body", tags=["corps"])
@@ -131,3 +134,35 @@ async def update_measurements(
 )
 async def delete_measurements(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
     await MeasurementService(store).delete(row_id, _token_or_conflict(if_match))
+
+
+# ── Le matin (`docs/coach-course.md`, **C3**) ─────────
+
+
+@router.get("/morning", response_model=MorningView, summary="FC de repos, VFC et forme du jour")
+async def read_morning(store: StoreDep) -> MorningView:
+    return await MorningService(store).view()
+
+
+@router.post(
+    "/morning",
+    response_model=MorningEntry,
+    status_code=status.HTTP_201_CREATED,
+    summary="Saisir les mesures d'un matin",
+)
+async def create_morning(payload: MorningPayload, store: StoreDep) -> MorningEntry:
+    return await MorningService(store).create(payload)
+
+
+@router.patch("/morning/{row_id}", response_model=MorningEntry, summary="Corriger un matin")
+async def update_morning(
+    row_id: RowId, payload: MorningPayload, store: StoreDep, if_match: IfMatch = None
+) -> MorningEntry:
+    return await MorningService(store).update(row_id, _token_or_conflict(if_match), payload)
+
+
+@router.delete(
+    "/morning/{row_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Supprimer un matin"
+)
+async def delete_morning(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
+    await MorningService(store).delete(row_id, _token_or_conflict(if_match))

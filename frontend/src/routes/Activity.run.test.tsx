@@ -13,7 +13,7 @@
  */
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,6 +22,11 @@ import { createQueryClient } from '@/lib/query';
 import { Run } from './activity/Run';
 
 const calls: string[] = [];
+
+/** Les conditions d'une course, vides sauf dans les cas qui les éprouvent. */
+/** La proposition du coach, vide sauf dans les cas qui l'éprouvent. */
+let COACH: unknown = { current: null, missing: 'Importe ta prochaine sortie.', pending: false };
+let CONDITIONS: unknown = { rpe: null, weather: null, morning: null, context: [] };
 
 function json(status: number, body: unknown): Response {
   return { ok: status < 400, status, json: () => Promise.resolve(body) } as Response;
@@ -154,6 +159,7 @@ const DETAIL = {
     splits: 9,
     fit_path: '',
     max_hr: null,
+    rpe: null,
   },
   splits: {
     splits: SPLITS,
@@ -259,6 +265,7 @@ function point(index: number, pace: number, pace_class: 'faster' | 'even' | 'slo
     heart_rate: null,
     cadence_spm: null,
     altitude_m: null,
+    power_w: null,
     x: index / 10,
     y: 0.5,
   };
@@ -329,6 +336,12 @@ const ANALYSIS = {
     summary: '98 % du temps en zone 4, Seuil.',
   },
   zones_missing: null,
+  power_domain: null,
+  aerobic: null,
+  garmin: null,
+  stride: null,
+  average_power_w: null,
+  normalized_power_w: null,
 };
 
 function stub(route: (url: string) => [number, unknown]) {
@@ -337,7 +350,11 @@ function stub(route: (url: string) => [number, unknown]) {
     vi.fn((input: RequestInfo | URL) => {
       const url = input as string;
       calls.push(url);
-      const [status, body] = route(url);
+      const [status, body] = url.includes('/conditions')
+        ? [200, CONDITIONS]
+        : url.includes('/coach/next')
+          ? [200, COACH]
+          : route(url);
       return Promise.resolve(json(status, body));
     }),
   );
@@ -365,6 +382,8 @@ function renderRun(at = '/activite/course') {
 
 beforeEach(() => {
   calls.length = 0;
+  COACH = { current: null, missing: 'Importe ta prochaine sortie.', pending: false };
+  CONDITIONS = { rpe: null, weather: null, morning: null, context: [] };
 });
 
 afterEach(() => {
@@ -598,5 +617,196 @@ describe('page Course — ce que le fichier dit de la gestion', () => {
     // Les chiffres et les paliers, eux, viennent d'une autre réponse.
     expect(screen.getByText('8,14')).toBeInTheDocument();
     expect(screen.getAllByText('km 8').length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Une sortie de montre (`docs/coach-course.md`) : cardio, puissance et cadence sur la même
+ * grille, la foulée estimée au poignet, et ce que Garmin calcule — **signé**.
+ */
+const WATCH_POINTS = ANALYSIS.points.map((item, index) => ({
+  ...item,
+  heart_rate: 150 + index * 5,
+  power_w: 250 + index,
+  cadence_spm: 168,
+}));
+
+const WATCHED = {
+  ...ANALYSIS,
+  points: WATCH_POINTS,
+  heart_rate_domain: [150, 160],
+  power_domain: [250, 252],
+  cadence_domain: [168, 168],
+  average_power_w: 252,
+  normalized_power_w: 253,
+  stride: {
+    source: 'wrist',
+    cadence_spm: { average: 169, change: 1 },
+    step_length_m: { average: 1.02, change: -0.01 },
+    stance_ms: { average: 270, change: null },
+    vertical_oscillation_cm: { average: 9.1, change: -0.1 },
+    vertical_ratio_pct: 8.93,
+  },
+  garmin: {
+    device: 'Epix Gen2 Pro 47',
+    vo2max: null,
+    training_effect_aerobic: 3.8,
+    training_effect_aerobic_label: 'Améliore',
+    training_effect_anaerobic: 0.2,
+    training_effect_anaerobic_label: 'Aucun effet',
+    training_load: 130,
+    recovery_h: null,
+    performance_condition_start: null,
+    performance_condition_end: null,
+    stamina_start_pct: null,
+    stamina_end_pct: null,
+  },
+};
+
+describe('page Course — une sortie de montre', () => {
+  it('signe ce que Garmin calcule, sans rien afficher de ce qu’il n’a pas confirmé', async () => {
+    serve(FITTED, [200, WATCHED]);
+    renderRun();
+
+    expect(await screen.findByText('Selon ta montre')).toBeInTheDocument();
+    expect(screen.getByText('Effet aérobie').nextSibling).toHaveTextContent('3,8 · Améliore');
+    expect(screen.getByText('Charge d’entraînement').nextSibling).toHaveTextContent('130');
+    expect(screen.getByText(/Calculé par ta Epix Gen2 Pro 47, pas par Metric/)).toBeInTheDocument();
+    // Un champ non confirmé arrive `null` : pas de ligne, pas de tiret qui passerait pour
+    // une mesure absente.
+    expect(screen.queryByText('VO2max')).not.toBeInTheDocument();
+    expect(screen.queryByText('Récupération conseillée')).not.toBeInTheDocument();
+  });
+
+  it('dit que la foulée est estimée au poignet, et ce qu’elle fait en fin de sortie', async () => {
+    serve(FITTED, [200, WATCHED]);
+    renderRun();
+
+    expect(await screen.findByText('Foulée')).toBeInTheDocument();
+    expect(screen.getByText('Longueur de pas').nextSibling).toHaveTextContent(
+      '1,02 m−0,01 m en fin de sortie',
+    );
+    // Un écart sous le bruit arrive `null` du serveur : rien ne s'écrit, pas même « 0 ms ».
+    expect(screen.getByText('Contact au sol').nextSibling).toHaveTextContent(/^270 ms$/);
+    expect(screen.getByText(/Estimée au poignet, sans capteur de poitrine/)).toBeInTheDocument();
+  });
+
+  it('met la puissance en tête, moyenne et normalisée', async () => {
+    serve(FITTED, [200, WATCHED]);
+    renderRun();
+
+    expect(await screen.findByText('253 normalisée')).toBeInTheDocument();
+    expect(screen.getByText('Puissance', { selector: 'div' }).nextSibling).toHaveTextContent(
+      '252W',
+    );
+  });
+
+  it('laisse choisir la courbe sous l’allure, une à la fois', async () => {
+    serve(FITTED, [200, WATCHED]);
+    renderRun();
+
+    const choice = await screen.findByRole('group', { name: 'Courbe sous l’allure' });
+    const buttons = within(choice).getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual(['FC', 'Puissance', 'Cadence']);
+    expect(within(choice).getByRole('button', { name: 'FC' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    fireEvent.click(within(choice).getByRole('button', { name: 'Puissance' }));
+    const legend = screen.getByRole('list', { name: 'Légende' });
+    expect(within(legend).getByText('puissance')).toBeInTheDocument();
+    expect(within(legend).queryByText('fréquence cardiaque')).not.toBeInTheDocument();
+  });
+
+  it('ne propose aucun choix quand le fichier n’a qu’une courbe', async () => {
+    serve(FITTED, [200, { ...ANALYSIS, heart_rate_domain: [150, 160] }]);
+    renderRun();
+
+    expect(await screen.findByRole('list', { name: 'Légende' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Courbe sous l’allure' })).not.toBeInTheDocument();
+  });
+
+  it('corrige une référence prise sur la montre, comme une déduite', async () => {
+    serve(FITTED, [
+      200,
+      {
+        ...WATCHED,
+        zones: {
+          ...ANALYSIS.zones,
+          kind: 'heart_rate',
+          reference_value: 202,
+          source: 'watch',
+          detail: 'FC max réglée dans ta montre — 220 moins l’âge, tant qu’on ne la change pas.',
+        },
+      },
+    ]);
+    renderRun();
+
+    expect(await screen.findByText(/FC max réglée dans ta montre/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Corriger dans les réglages' })).toBeInTheDocument();
+  });
+});
+
+describe('page Course — ce qui entourait la sortie', () => {
+  it('écrit la météo et la forme du matin telles que le serveur les donne', async () => {
+    CONDITIONS = {
+      rpe: 6,
+      weather: {
+        temperature_c: 14.7,
+        apparent_c: 13,
+        humidity_pct: 80,
+        dew_point_c: 10.5,
+        wind_kmh: 12,
+      },
+      morning: {
+        status: 'lighten',
+        text: 'FC de repos 56, 6 au-dessus de ta référence (50) : la séance dure s’allège.',
+        resting_hr: 56,
+        hrv_ms: null,
+        rhr_baseline: 50,
+        rhr_delta: 6,
+        hrv_baseline: null,
+        hrv_low: null,
+        hrv_high: null,
+        mornings: 14,
+        needed: 0,
+      },
+      context: ['La veille : 2150 kcal · 96 g de protéines.', 'Poids du jour : 59,9 kg.'],
+    };
+    serve(FITTED);
+    renderRun();
+
+    expect(await screen.findByText('Météo au départ')).toBeInTheDocument();
+    expect(screen.getByText('Météo au départ').nextSibling).toHaveTextContent(
+      '14,7 °C · ressentie 13 °C · humidité 80 % · vent 12 km/h',
+    );
+    expect(screen.getByText(/6 au-dessus de ta référence/)).toBeInTheDocument();
+    expect(screen.getByText('La veille : 2150 kcal · 96 g de protéines.')).toBeInTheDocument();
+    expect(screen.getByText('Poids du jour : 59,9 kg.')).toBeInTheDocument();
+  });
+
+  it('ne dessine ni météo ni matin qui n’existent pas', async () => {
+    serve(FITTED);
+    renderRun();
+
+    expect(
+      await screen.findByRole('group', { name: 'Effort perçu, de 1 à 10' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('1 très facile · 10 à fond')).toBeInTheDocument();
+    expect(screen.queryByText('Météo au départ')).not.toBeInTheDocument();
+    expect(screen.queryByText('Le matin')).not.toBeInTheDocument();
+  });
+
+  it('montre la note déjà donnée', async () => {
+    serve({ ...FITTED, run: { ...FITTED.run, rpe: 8 } });
+    renderRun();
+
+    const scale = await screen.findByRole('group', { name: 'Effort perçu, de 1 à 10' });
+    expect(within(scale).getByRole('button', { name: '8' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByText('8 · dur')).toBeInTheDocument();
   });
 });

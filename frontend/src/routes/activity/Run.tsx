@@ -35,6 +35,7 @@ import { duration, integer, longDate, num, pace } from '@/lib/format';
 import { keys } from '@/lib/query';
 
 import { Analysis } from './run/Analysis';
+import { Conditions } from './run/Conditions';
 import { Context, Splits } from './run/Splits';
 import { StorySheet } from './run/StorySheet';
 
@@ -98,6 +99,21 @@ function Summary({ run }: { run: RunRow }) {
       {run.elevation_m != null && (
         <Card>
           <Stat compact label="Dénivelé" value={`+${integer(run.elevation_m)}`} unit="m" />
+        </Card>
+      )}
+      {analysis?.average_power_w != null && (
+        <Card>
+          <Stat
+            compact
+            label="Puissance"
+            value={integer(analysis.average_power_w)}
+            unit="W"
+            detail={
+              analysis.normalized_power_w == null
+                ? undefined
+                : `${integer(analysis.normalized_power_w)} normalisée`
+            }
+          />
         </Card>
       )}
     </div>
@@ -244,6 +260,7 @@ export function Run() {
       ) : (
         <>
           <Summary run={run} />
+          <Conditions run={run} />
           <Share run={run} />
 
           {fitted ? (

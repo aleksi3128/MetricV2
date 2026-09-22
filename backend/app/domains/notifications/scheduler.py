@@ -45,6 +45,7 @@ from app.domains.activity.service import CircuitSessionService, RunService
 from app.domains.hydration.service import HydrationService
 from app.domains.notifications.push import PushSender
 from app.domains.notifications.reminders import (
+    EVE,
     LEAD,
     PRAISE_CAP,
     DaySnapshot,
@@ -133,6 +134,9 @@ class ReminderScheduler:
         if await self._praise_allowed(moment):
             slots[ReminderKind.PRAISE] = (moment.time().replace(second=0, microsecond=0),)
         slots[ReminderKind.WORKOUT_SOON] = tuple(shift(heure, -LEAD) for heure, *_ in seances)
+        # **L'annonce de la veille suit le réglage des rappels de séance** : qui les a coupés
+        # ne veut pas non plus qu'on lui annonce demain (`docs/coach-course.md` §7).
+        slots[ReminderKind.TOMORROW_RUN] = (EVE,) if slots.get(ReminderKind.WORKOUT) else ()
         if not any(slots.values()):
             return []
 
@@ -326,7 +330,22 @@ class ReminderScheduler:
             protein_target_g=repas.protein_target_g,
             workouts_planned=len(prevues),
             workouts_logged=len(runs) + len(sessions),
+            tomorrow_run=await self._tomorrow_run(day),
         )
+
+    async def _tomorrow_run(self, day: date) -> str:
+        """La séance que le coach propose pour demain, en une phrase — ou rien."""
+        from app.domains.coach.service import CoachService
+
+        view = await CoachService(self._store).active_view(day)
+        tomorrow = day + timedelta(days=1)
+        if view is None or view.date != tomorrow or view.type == "rest":
+            return ""
+        when = f" à {view.time}" if view.time else ""
+        first = next(
+            (step.target for step in view.steps if step.kind == "run" and step.target), None
+        )
+        return f"{view.title}, {view.duration_min} min{when}" + (f" · {first}." if first else ".")
 
     # ── Cycle de vie ──────────────────────────────────
 

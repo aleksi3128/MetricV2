@@ -87,6 +87,9 @@ const PRIVATE_ROUTES = [
   ['/assistant', 'assistant'],
   ['/routine', 'routine'],
   ['/nutrition', 'nutrition'],
+  // Le catalogue alimentaire (`NUT-19`). Ses lignes dépendent des données — sur une
+  // base vierge il rend son état vide, ce qui est un écran à regarder comme un autre.
+  ['/nutrition/catalogue', 'nutrition-catalogue'],
   ['/assiduite', 'assiduite'],
   ['/reglages', 'reglages'],
 ];

@@ -47,6 +47,9 @@ describe('toLines', () => {
         saturated_fat_100g: null,
         // `NUT-16` : la valeur tenue part au calcul, même sans être à l'écran.
         fiber_100g: 1.3,
+        // `NUT-20` : vide sur une ligne tapée à la main. Le code ne change rien au total —
+        // il suit la ligne jusqu'au catalogue, pour pouvoir relire le produit plus tard.
+        barcode: '',
       },
     ]);
   });

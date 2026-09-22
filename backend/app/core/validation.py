@@ -95,6 +95,10 @@ Reps = Annotated[int, Field(ge=1, le=200, description="Répétitions par série"
 Sets = Annotated[int, Field(ge=1, le=50, description="Nombre de séries")]
 LoadKg = Annotated[float, Field(ge=0, le=1000, description="Charge en kg, 0 = poids du corps")]
 Rpe = Annotated[int, Field(ge=1, le=10, description="Effort perçu (`ACT-18`)")]
+#: Les deux mesures du matin (`docs/coach-course.md`, **C3**). Larges : elles écartent une
+#: faute de frappe, pas un cœur inhabituel.
+RestingHeartRate = Annotated[int, Field(ge=25, le=130, description="FC de repos, en bpm")]
+HrvMs = Annotated[int, Field(ge=5, le=300, description="VFC moyenne de la nuit, en ms")]
 Calories = Annotated[int, Field(ge=0, le=10000, description="Calories")]
 
 # ── Nutrition (`NUT`) ─────────────────────────────────

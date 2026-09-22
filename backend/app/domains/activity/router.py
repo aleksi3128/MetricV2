@@ -6,12 +6,14 @@ destructrices l'exigent en `If-Match` (`STO-05`, voir `docs/patron-domaine.md`).
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, File, Header, Path, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, File, Header, Path, Query, UploadFile, status
 from fastapi.responses import Response
 
+from app.core.dates import now_local
 from app.core.deps import StoreDep
 from app.core.validation import today_local
 from app.domains.activity.models import MuscleGroup
@@ -33,9 +35,14 @@ from app.domains.activity.schemas import (
     LoadPayload,
     Run,
     RunAnalysis,
+    RunConditions,
+    RunCorrelation,
     RunDetail,
+    RunLoad,
     RunPayload,
     RunProgress,
+    RunRpePayload,
+    RunTrends,
 )
 from app.domains.activity.service import (
     CircuitLoadService,
@@ -44,10 +51,16 @@ from app.domains.activity.service import (
     RunService,
 )
 from app.domains.activity.stats import ActivityStats
-from app.domains.ai.deps import AiServiceDep
+from app.domains.activity.trends import RunTrendsService
+from app.domains.activity.weather import WeatherDep
+from app.domains.ai.deps import AiProviderDep, AiServiceDep
+from app.domains.ai.service import AiProvider
+from app.domains.coach.service import IN_PROGRESS
 from app.storage.errors import StorageConflictError
+from app.storage.files import FileStore
 
 router = APIRouter(prefix="/activity", tags=["activité"])
+log = logging.getLogger(__name__)
 
 RowId = Annotated[int, Path(ge=0, description="Position de la ligne dans le fichier")]
 IfMatch = Annotated[
@@ -101,7 +114,13 @@ async def create_run(payload: RunPayload, store: StoreDep) -> Run:
     status_code=status.HTTP_201_CREATED,
     summary="Importer une sortie depuis un fichier .fit",
 )
-async def import_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> Run:
+async def import_fit(
+    store: StoreDep,
+    weather: WeatherDep,
+    ai: AiProviderDep,
+    background: BackgroundTasks,
+    file: Annotated[UploadFile, File()],
+) -> Run:
     """Décode un `.fit` et **écrit la course**, paliers compris (`docs/import-fit.md`).
 
     **Déclarée avant `/runs/{row_id}`** comme `latest` et `progress` : FastAPI essaie les
@@ -117,7 +136,30 @@ async def import_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> Ru
     """
     data = await file.read()
     await file.close()
-    return await RunService(store).create_from_fit(data)
+    created = await RunService(store, weather=weather).create_from_fit(data)
+    # Le coach propose la suite **après** la réponse : un appel au modèle prend quelques
+    # secondes, et l'import n'a pas à les attendre. La page le dit pendant ce temps
+    # (`CoachNext.pending`, `docs/coach-course.md` §7).
+    # Inscrite **avant** la réponse : l'écran qui relit `/coach/next` juste après l'import
+    # doit déjà savoir que la suite se prépare.
+    IN_PROGRESS.add(created.run_id)
+    background.add_task(propose_after_import, store, ai, created.run_id)
+    return created
+
+
+async def propose_after_import(store: FileStore, ai: AiProvider, run_id: str) -> None:
+    """Jamais une panne pour l'utilisateur : la course est écrite, la proposition suivra
+    au prochain import ou sur demande si celle-ci échoue."""
+    from app.domains.coach.service import CoachService
+
+    try:
+        await CoachService(store).propose(
+            ai.service if ai.enabled else None, now=now_local(), run_id=run_id
+        )
+    except Exception:  # pragma: no cover - journalisé, jamais remonté
+        log.exception("Coach : proposition après import impossible")
+    finally:
+        IN_PROGRESS.discard(run_id)
 
 
 @router.post(
@@ -125,14 +167,36 @@ async def import_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> Ru
     response_model=EffortRebuild,
     summary="Réanalyser les sorties importées d'un fichier .fit",
 )
-async def rebuild_run_efforts(store: StoreDep) -> EffortRebuild:
+async def rebuild_run_efforts(store: StoreDep, weather: WeatherDep) -> EffortRebuild:
     """Recalcule les meilleurs efforts **et les paliers** de chaque `.fit` rangé (**A5**).
 
     Sans `If-Match`, et ce n'est pas une entorse à `STO-05` : la route ne corrige aucune
     ligne qu'un écran a affichée, elle **remplace des données dérivées** par ce que le
     fichier source dit aujourd'hui. La rejouer deux fois donne le même fichier.
     """
-    return await RunService(store).rebuild_efforts()
+    return await RunService(store, weather=weather).rebuild_efforts()
+
+
+@router.get(
+    "/runs/trends",
+    response_model=RunTrends,
+    summary="Charge d'entraînement et corrélations des sorties",
+)
+async def read_run_trends(store: StoreDep) -> RunTrends:
+    """La charge des semaines et ce qui va avec une bonne sortie (`docs/coach-course.md` §6).
+
+    Déclarée avant `/runs/{row_id}`, comme `latest` : le motif d'identifiant n'accepte
+    qu'un entier, mais l'ordre évite de le vérifier.
+    """
+    service = RunTrendsService(store)
+    summary = await service.summary(today_local())
+    return RunTrends(
+        load=RunLoad.model_validate(summary, from_attributes=True),
+        correlations=[
+            RunCorrelation.model_validate(item, from_attributes=True)
+            for item in await service.findings()
+        ],
+    )
 
 
 @router.get(
@@ -236,6 +300,24 @@ async def read_run_fit(row_id: RowId, store: StoreDep) -> Response:
             "Content-Disposition": f'attachment; filename="{filename}"',
         },
     )
+
+
+@router.put("/runs/{row_id}/rpe", response_model=Run, summary="Noter l'effort perçu d'une course")
+async def set_run_rpe(
+    row_id: RowId, payload: RunRpePayload, store: StoreDep, if_match: IfMatch = None
+) -> Run:
+    """L'effort perçu seul (`docs/coach-course.md`, **C10**) : deux appuis après l'import,
+    sans repasser par le formulaire entier de la course."""
+    return await RunService(store).set_rpe(row_id, _token(if_match), payload.rpe)
+
+
+@router.get(
+    "/runs/{row_id}/conditions",
+    response_model=RunConditions,
+    summary="Ce qui entourait une course : effort perçu, météo, forme du matin",
+)
+async def read_run_conditions(row_id: RowId, store: StoreDep) -> RunConditions:
+    return await RunService(store).conditions(row_id)
 
 
 @router.patch("/runs/{row_id}", response_model=Run, summary="Corriger une course")

@@ -19,6 +19,7 @@ import {
   Card,
   Empty,
   Field,
+  LinkButton,
   PageHead,
   Ring,
   Rule,
@@ -702,6 +703,15 @@ export function Nutrition() {
         </Card>
 
         <Favorites favorites={data?.favorites ?? []} />
+      </div>
+
+      {/* La porte du catalogue (`NUT-19`). En bas, et c'est voulu : on vient ici pour
+          noter un repas, pas pour tenir une liste d'aliments. Le catalogue se consulte
+          quand la journée est notée, ou en rangeant ses courses. */}
+      <div className={styles.catalogLink}>
+        <LinkButton variant="ghost" to="/nutrition/catalogue">
+          Catalogue alimentaire
+        </LinkButton>
       </div>
 
       {data !== undefined && (

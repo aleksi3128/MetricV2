@@ -16,6 +16,7 @@ import { Goals } from '@/routes/Goals';
 import { KitchenSink } from '@/routes/KitchenSink';
 import { Login } from '@/routes/Login';
 import { Nutrition } from '@/routes/Nutrition';
+import { Catalog } from '@/routes/nutrition/Catalog';
 import { Planning } from '@/routes/Planning';
 import { Routine } from '@/routes/Routine';
 import { Settings } from '@/routes/Settings';
@@ -74,6 +75,7 @@ export function App() {
         <Route path="/assiduite" element={<Assiduity />} />
         <Route path="/routine" element={<Routine />} />
         <Route path="/nutrition" element={<Nutrition />} />
+        <Route path="/nutrition/catalogue" element={<Catalog />} />
         <Route path="/reglages" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

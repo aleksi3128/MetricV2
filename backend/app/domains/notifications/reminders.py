@@ -113,7 +113,12 @@ DESTINATIONS: dict[str, str] = {
     "workout": "/activite",
     "workout_soon": "/activite",
     "praise": "/activite",
+    "tomorrow_run": "/planning",
 }
+
+#: L'heure de l'annonce de la veille : assez tôt pour préparer ses affaires, assez tard pour
+#: que la journée soit faite.
+EVE = time(20, 30)
 
 #: Combien de félicitations par semaine glissante, au plus (**N5**).
 #:
@@ -187,6 +192,9 @@ class ReminderKind(StrEnum):
     #: même chose : celui-ci annonce ce qui vient, l'autre constate en fin de journée qu'il
     #: n'y a rien de noté. Un seul type aurait donné un message qui ment dans un des deux cas.
     WORKOUT_SOON = "workout_soon"
+    #: La séance que le coach propose pour demain, la veille au soir (`docs/coach-course.md`
+    #: §7, **C8**). Une annonce, comme `WORKOUT_SOON` : elle dit ce qui vient.
+    TOMORROW_RUN = "tomorrow_run"
 
 
 @dataclass(frozen=True)
@@ -231,6 +239,9 @@ class DaySnapshot:
     feats: tuple[str, ...] = ()
     #: Séances et courses notées aujourd'hui.
     workouts_logged: int = 0
+    #: La séance proposée pour demain, en une phrase construite par l'appelant — vide sans
+    #: proposition pour demain.
+    tomorrow_run: str = ""
 
 
 @dataclass(frozen=True)
@@ -433,6 +444,13 @@ def compose(checkpoint: Checkpoint, snapshot: DaySnapshot) -> Reminder | None:
                 url=lien,
             )
 
+        case ReminderKind.TOMORROW_RUN:
+            # Rien de proposé pour demain : rien à annoncer. Le coach ne se rappelle pas
+            # à l'utilisateur les jours où il n'a rien à dire.
+            if not snapshot.tomorrow_run:
+                return None
+            return Reminder(kind=kind, title="Demain", body=snapshot.tomorrow_run)
+
         case ReminderKind.WORKOUT:
             # Aucune séance prévue : aucun rappel. C'est `HEAT-12` — attendu seulement si
             # un déclencheur est vrai — et c'est ce qui empêche le rappel du jour de repos.
@@ -537,6 +555,7 @@ def due(
 
 __all__ = [
     "DAILY_CAP",
+    "EVE",
     "GAP_SHARE",
     "GRACE",
     "LEAD",

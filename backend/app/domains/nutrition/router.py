@@ -12,11 +12,17 @@ from app.domains.ai.deps import AiServiceDep
 from app.domains.nutrition.deps import ProductClientDep
 from app.domains.nutrition.photos import MAX_BYTES, PhotoError
 from app.domains.nutrition.schemas import (
+    CatalogFood,
+    CatalogRange,
+    CatalogView,
     ComposedMealPayload,
     ComposePayload,
     Composition,
     Favorite,
     FavoritePayload,
+    Ingredient,
+    IngredientPayload,
+    IngredientUpdate,
     Meal,
     MealEstimate,
     MealPayload,
@@ -38,6 +44,10 @@ IfMatch = Annotated[str | None, Header(alias="If-Match")]
 HistoryRange = Annotated[
     Literal["month", "quarter", "year"], Query(description="Plage de l'historique")
 ]
+
+#: Les quatre plages du catalogue, **calendaires** (`NUT-19`). Déclarées en `Literal`
+#: comme celles de l'historique : une plage inconnue est refusée par le contrat lui-même.
+CatalogRangeQuery = Annotated[CatalogRange, Query(description="Plage du catalogue")]
 
 #: Un an. Le chemin d'une photo contient son horodatage et un aléa : il ne désigne jamais
 #: deux contenus différents, la réponse est donc cachable durablement (`NUT-08`).
@@ -299,3 +309,73 @@ async def replay_favorite(favorite_id: str, store: StoreDep) -> Meal:
 )
 async def remove_favorite(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
     await NutritionService(store).remove_favorite(row_id, _token(if_match))
+
+
+# ── Catalogue alimentaire (`NUT-18` → `NUT-21`) ───────
+
+
+@router.get("/catalog", response_model=CatalogView, summary="Tout ce qu'on mange, par plage")
+async def catalog(store: StoreDep, range: CatalogRangeQuery = "week") -> CatalogView:
+    """La page catalogue en une requête : les aliments, leurs quantités, et le trou.
+
+    Le trou est servi avec le reste (`coverage`) plutôt que laissé à l'écran : photo,
+    saisie manuelle, favori et estimation IA n'enregistrent aucun aliment, et une page qui
+    ne dirait pas combien de repas lui échappent laisserait lire « 0 g de poulet » comme
+    une mesure.
+    """
+    return await NutritionService(store).catalog(range)
+
+
+@router.get(
+    "/catalog/{food_id}",
+    response_model=CatalogFood,
+    summary="La fiche d'un aliment",
+)
+async def catalog_food(food_id: str, store: StoreDep) -> CatalogFood:
+    """Les quatre plages d'un aliment, et les derniers repas où il apparaît.
+
+    `food_id` est l'identifiant d'une entrée du catalogue, ou le **nom** d'un aliment qui
+    n'existe qu'au journal : la page en montre, leur fiche doit s'ouvrir aussi.
+    """
+    return await NutritionService(store).food(food_id)
+
+
+@router.post(
+    "/ingredients",
+    response_model=Ingredient,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ajouter un aliment au catalogue",
+)
+async def add_ingredient(payload: IngredientPayload, store: StoreDep) -> Ingredient:
+    """Sans l'avoir mangé une fois (`NUT-20`).
+
+    Jusqu'ici le catalogue ne s'alimentait qu'en sous-produit d'un repas composé : un
+    aliment devait être mangé pour être connu, et les cinq champs de sa première fois
+    étaient à remplir devant l'assiette.
+    """
+    return await NutritionService(store).add_ingredient(payload)
+
+
+@router.patch(
+    "/ingredients/{row_id}",
+    response_model=Ingredient,
+    summary="Corriger un aliment du catalogue",
+)
+async def update_ingredient(
+    row_id: RowId,
+    payload: IngredientUpdate,
+    store: StoreDep,
+    if_match: IfMatch = None,
+) -> Ingredient:
+    """Une correction **pose le verrou** : un scan ultérieur ne réécrira plus ces valeurs."""
+    return await NutritionService(store).update_ingredient(row_id, _token(if_match), payload)
+
+
+@router.delete(
+    "/ingredients/{row_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Retirer un aliment du catalogue",
+)
+async def remove_ingredient(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
+    """Le journal des aliments n'est pas touché : ce qui a été mangé reste mangé."""
+    await NutritionService(store).remove_ingredient(row_id, _token(if_match))

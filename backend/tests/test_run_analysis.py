@@ -13,8 +13,8 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.domains.activity import analysis, fit
-from tests.fit_files import paced, stream_file
+from app.domains.activity import analysis, fit, garmin
+from tests.fit_files import GarminExtras, paced, stream_file
 
 
 def analysed(speeds: list[float], **options: object) -> analysis.Analysis:
@@ -222,13 +222,28 @@ def test_without_heart_rate_nothing_is_drawn_for_it() -> None:
 
 
 def test_a_heart_that_climbs_at_the_same_pace_is_a_drift() -> None:
+    """Les deux moitiés se prennent **après les dix premières minutes** : la bascule est
+    posée au milieu de cette fenêtre, et ce sont ses battements que la phrase cite."""
     speeds = paced((6000, 5.5))
-    half = len(speeds) // 2
-    beats = [140] * half + [160] * (len(speeds) + 1 - half)
+    middle = round((analysis.WARMUP_S + len(speeds)) / 2)
+    beats = [140] * middle + [160] * (len(speeds) + 1 - middle)
     found = insight(analysed(speeds, heart_rates=beats), "hr_drift")
 
     assert found.tone == "bad"
     assert "140 puis 160 bpm" in found.text
+    assert "échauffement exclu" in found.text
+
+
+def test_the_warm_up_does_not_count_in_the_drift() -> None:
+    """Le 19/09 : 111 bpm au départ, 160 deux minutes plus tard. Compter ces minutes dans
+    la première moitié la ferait paraître efficace, et tout découplage gonflerait."""
+    speeds = paced((6000, 5.5))
+    beats = [110] * int(analysis.WARMUP_S) + [150] * (len(speeds) + 1)
+    result = analysed(speeds, heart_rates=beats)
+
+    assert result.aerobic is not None
+    assert result.aerobic.decoupling_pct == 0.0
+    assert insight(result, "hr_drift").tone == "good"
 
 
 def test_a_steady_heart_is_good_news() -> None:
@@ -384,3 +399,166 @@ def test_the_fastest_prediction_wins() -> None:
 )
 def test_a_clock_reads_like_the_screen(minutes: float, written: str) -> None:
     assert analysis.clock(minutes) == written
+
+
+# ── Une montre Garmin (`docs/coach-course.md`) ────────
+
+
+def garmin_run(speeds: list[float], watts: list[int], **extras: object) -> analysis.Analysis:
+    return analysis.analyse(
+        fit.read(stream_file(speeds, powers=watts, garmin=GarminExtras(**extras)))  # type: ignore[arg-type]
+    )
+
+
+def test_a_steady_effort_on_a_varying_course_is_the_terrain() -> None:
+    """Le cas du 19/09, écrit en une ligne : l'allure bouge de 25 s/km, la puissance pas.
+
+    L'allure seule aurait dit « départ trop rapide » et « seconde moitié plus lente ». Les
+    watts disent un effort tenu, et nomment ce qui a bougé.
+    """
+    speeds = paced((1000, 5.6), (1000, 5.9), (1000, 6.05), (1000, 5.75), (1000, 5.9), (1000, 5.7))
+    result = garmin_run(speeds, [252])
+
+    assert "fast_start" not in codes(result)
+    assert "slump" not in codes(result)
+    assert insight(result, "split").title == "Effort tenu"
+    terrain = insight(result, "terrain")
+    assert terrain.tone == "neutral"
+    assert "252 et 252 W" in terrain.text
+    assert "5:36 à 6:03" in terrain.text
+
+
+def test_a_fast_start_in_watts_is_named_in_watts() -> None:
+    speeds = paced((5000, 5.5))
+    watts = [290] * 330 + [250] * (len(speeds) + 1)
+    found = insight(garmin_run(speeds, watts), "fast_start")
+
+    assert found.title == "Départ trop appuyé"
+    assert "290 W" in found.text
+    assert "250 W" in found.text
+
+
+def test_a_slump_in_watts_is_placed_on_the_course() -> None:
+    speeds = paced((6000, 5.5))
+    watts = [250] * 1000 + [220] * 200 + [250] * (len(speeds) + 1)
+    result = garmin_run(speeds, watts)
+
+    assert insight(result, "slump").text.startswith("Du km 3")
+    assert "terrain" not in codes(result)
+
+
+def test_power_is_on_the_curve_with_its_own_axis() -> None:
+    result = garmin_run(paced((3000, 5.5)), [240] * 300 + [260] * 1000)
+
+    assert {point.power_w for point in result.points} >= {240, 260}
+    assert result.power_domain is not None
+    assert result.power_domain[0] <= 240
+    assert result.power_domain[1] >= 260
+
+
+def test_the_drift_reads_watts_per_beat_when_power_covers_the_run() -> None:
+    speeds = paced((6000, 5.5))
+    middle = round((analysis.WARMUP_S + len(speeds)) / 2)
+    beats = [150] * middle + [165] * (len(speeds) + 1 - middle)
+    result = analysis.analyse(
+        fit.read(stream_file(speeds, powers=[250], heart_rates=beats, garmin=GarminExtras()))
+    )
+
+    assert result.aerobic is not None
+    assert result.aerobic.basis == "power"
+    assert result.aerobic.decoupling_pct == pytest.approx(9.1, abs=0.1)
+    assert insight(result, "hr_drift").text.startswith("Puissance par battement")
+
+
+def test_what_garmin_computed_is_carried_and_named(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(garmin, "CONFIRMED", frozenset({garmin.VO2MAX, garmin.RECOVERY}))
+    result = garmin_run(
+        paced((3000, 5.5)),
+        [250],
+        session={"total_training_effect": 3.8, "total_anaerobic_training_effect": 0.2},
+        summary={7: ("uint32", 1083952), 9: ("uint16", 1872)},
+    )
+
+    assert result.garmin is not None
+    assert result.garmin.vo2max == 57.9
+    assert result.garmin.recovery_h == 31.2
+    assert result.garmin.training_effect_aerobic_label == "Améliore"
+    assert result.garmin.training_effect_anaerobic_label == "Aucun effet"
+
+
+def test_an_unconfirmed_reading_is_kept_off_the_screen() -> None:
+    """Règle 4 de `garmin.py` : décodé, rangé, mais pas montré avant d'avoir été vérifié
+    sur Garmin Connect. Ce qui est documenté, lui, sort."""
+    result = garmin_run(
+        paced((3000, 5.5)),
+        [250],
+        session={"total_training_effect": 3.8},
+        summary={7: ("uint32", 1083952), 9: ("uint16", 1872)},
+        conditions=[-3],
+    )
+
+    assert result.garmin is not None
+    assert result.garmin.training_effect_aerobic == 3.8
+    assert result.garmin.vo2max is None
+    assert result.garmin.recovery_h is None
+    assert result.garmin.performance_condition_end is None
+
+
+def test_a_phone_export_has_no_garmin_card() -> None:
+    assert analysed(paced((3000, 5.5))).garmin is None
+
+
+def test_the_stride_is_shown_only_when_the_watch_measured_it() -> None:
+    speeds = paced((3000, 5.5))
+    assert garmin_run(speeds, [250]).stride is None
+
+    measured = garmin_run(
+        speeds,
+        [250],
+        dynamics={"stance_time": 270.0, "vertical_oscillation": 91.0, "step_length": 1020},
+    )
+    assert measured.stride is not None
+    assert measured.stride.source == "wrist"
+    assert measured.stride.stance_ms is not None
+    assert measured.stride.stance_ms.average == 270
+    assert measured.stride.vertical_oscillation_cm is not None
+    assert measured.stride.vertical_oscillation_cm.average == 9.1
+    assert measured.stride.step_length_m is not None
+    assert measured.stride.step_length_m.average == 1.02
+
+
+def test_a_chest_sensor_changes_what_the_stride_says_of_itself() -> None:
+    measured = garmin_run(
+        paced((3000, 5.5)),
+        [250],
+        dynamics={"stance_time": 250.0, "step_length": 1100},
+        sensor=True,
+    )
+    assert measured.stride is not None
+    assert measured.stride.source == "sensor"
+
+
+def test_a_stride_that_tires_says_so_and_noise_says_nothing() -> None:
+    """La signature de la fatigue — un contact au sol qui s'allonge — s'affiche ; l'écart
+    d'une milliseconde que le 19/09 montrait sur chaque mesure est tu."""
+    speeds = paced((3000, 5.5))
+    third = len(speeds) // 3
+    stances = [260.0] * (2 * third) + [272.0] * (len(speeds) + 1 - 2 * third)
+    steps = [1020] * (2 * third) + [1030] * (len(speeds) + 1 - 2 * third)
+    measured = garmin_run(speeds, [250], dynamics={"stance_time": stances, "step_length": steps})
+
+    assert measured.stride is not None
+    assert measured.stride.stance_ms is not None
+    assert measured.stride.stance_ms.change == 12
+    assert measured.stride.step_length_m is not None
+    assert measured.stride.step_length_m.change is None
+
+
+def test_a_steady_power_is_drawn_flat() -> None:
+    """Cadrée sur son seul min–max, une puissance tenue à ±2 % remplissait le dessin."""
+    result = garmin_run(paced((3000, 5.5)), [247, 252, 257] * 400)
+
+    assert result.power_domain is not None
+    low, high = result.power_domain
+    assert low <= 252 * 0.85
+    assert high >= 252 * 1.15

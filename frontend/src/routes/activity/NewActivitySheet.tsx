@@ -51,6 +51,7 @@ import { num } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
 import { useToast } from '@/lib/toast';
 
+import { RateRun } from './run/Rate';
 import styles from '../Activity.module.css';
 import { useInvalidateActivity } from './shared';
 
@@ -132,6 +133,9 @@ function RunWizard({
    */
   const [edited, setEdited] = useState<'distance' | 'pace' | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  /** La sortie qu'un `.fit` vient d'écrire : la feuille demande alors son effort perçu
+   *  (`docs/coach-course.md`, **C10**), deux appuis, avant de se refermer. */
+  const [imported, setImported] = useState<Run | null>(null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -163,6 +167,26 @@ function RunWizard({
     if (name === 'pace_min_km') setEdited('pace');
   };
 
+  if (imported !== null) {
+    return (
+      <div className={styles.form}>
+        <p className={styles.imported}>
+          Sortie importée : {num(imported.distance_km, 2)} km. Comment l’as-tu ressentie ?
+        </p>
+        <RateRun
+          run={imported}
+          onRated={(rated) => {
+            notify(`Effort perçu noté : ${String(rated.rpe)}/10.`, 'effort');
+            onDone();
+          }}
+        />
+        <Button variant="quiet" onClick={onDone}>
+          Plus tard
+        </Button>
+      </div>
+    );
+  }
+
   if (step === 1) {
     return (
       <AppleStep
@@ -177,7 +201,7 @@ function RunWizard({
           // `num` et non `toFixed` : la virgule décimale française vient de là, et
           // l'historique juste derrière écrit « 5,08 km ».
           notify(`Sortie importée : ${num(run.distance_km, 2)} km.`, 'effort');
-          onDone();
+          setImported(run);
         }}
         onRead={(draft) => {
           setFields((current) => ({
@@ -429,7 +453,9 @@ function AppleStep({
       <input
         id="run-fit"
         type="file"
-        accept=".fit,application/vnd.ant.fit"
+        // Le `.zip` aussi : c'est ce que rend « Exporter l'original » de Garmin Connect, et
+        // le serveur en sort le `.fit` (`docs/coach-course.md` §3).
+        accept=".fit,.zip,application/vnd.ant.fit,application/zip"
         className="sr-only"
         onChange={(event) => {
           const chosen = event.target.files?.[0];
