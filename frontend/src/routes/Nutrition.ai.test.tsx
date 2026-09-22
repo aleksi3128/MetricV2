@@ -149,14 +149,16 @@ async function openSheet(mode: string) {
   await userEvent.click(await screen.findByRole('button', { name: mode }));
 }
 
-/** Ouvre la feuille en mode photo et y dépose une image. */
-async function choosePhoto() {
-  await openSheet('Photo');
-  const input = document.querySelector('#meal-photo') as HTMLInputElement;
-  await userEvent.upload(input, new File(['photo'], 'assiette.jpg', { type: 'image/jpeg' }));
-  // La réduction passe par `createImageBitmap`, absent de jsdom : le fichier d'origine
-  // repart tel quel, ce qui est exactement le repli voulu. On attend qu'il soit posé.
-  await screen.findByAltText('Aperçu du repas');
+/**
+ * Ouvre la feuille en mode description et écrit de quoi estimer.
+ *
+ * C'était `choosePhoto` jusqu'à `NUT-22` : les deux modes photo sont partis, et la
+ * description est devenue la seule entrée d'une estimation. Ce que ces tests défendent
+ * n'a pas changé d'un mot — rien ne s'écrit sans validation —, seule la façon d'y arriver.
+ */
+async function describePlate() {
+  await openSheet('Description');
+  await userEvent.type(within(mealForm()).getByLabelText('Description'), 'poulet riz brocolis');
 }
 
 /**
@@ -192,9 +194,9 @@ afterEach(() => {
 describe('estimation d’une assiette', () => {
   it('n’offre que la saisie manuelle sans clé configurée', async () => {
     // `IA-07` : ce qui n'est pas configuré est **annoncé** indisponible, jamais deviné.
-    // Trois des cinq modes n'ont rien à proposer sans clé : ils ne sont pas grisés,
-    // ils ne sont pas là, et l'écran dit pourquoi. Les deux qui restent — les valeurs à
-    // la main et le repas composé — n'appellent aucun modèle.
+    // Un des trois modes n'a rien à proposer sans clé : il n'est pas grisé, il n'est pas
+    // là, et l'écran dit pourquoi. Les deux qui restent — les valeurs à la main et le
+    // repas composé — n'appellent aucun modèle.
     stub((url) =>
       url.includes('/api/ai/status')
         ? json(200, { enabled: false, message: 'Aucune clé OpenRouter n’est configurée.' })
@@ -204,7 +206,7 @@ describe('estimation d’une assiette', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
 
-    expect(screen.queryByRole('button', { name: 'Photo' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Description' })).not.toBeInTheDocument();
     expect(await screen.findByText(/Aucune clé OpenRouter/)).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: 'Repas composé' })).toBeInTheDocument();
@@ -214,18 +216,18 @@ describe('estimation d’une assiette', () => {
     expect(within(mealForm()).getByLabelText('Protéines (g)')).toBeInTheDocument();
   });
 
-  it('ne propose pas d’estimer tant qu’il n’y a ni photo ni description', async () => {
+  it('ne propose pas d’estimer tant que rien n’est décrit', async () => {
     stub();
     renderNutrition();
 
-    await openSheet('Photo');
+    await openSheet('Description');
 
     expect(screen.getByRole('button', { name: 'Estimer les macros' })).toBeDisabled();
   });
 
   it('n’offre aucune estimation en saisie manuelle', async () => {
-    // C'est tout le sens du quatrième mode : trois nombres lus sur un emballage n'ont
-    // rien à faire estimer.
+    // C'est tout le sens de ce mode : trois nombres lus sur un emballage n'ont rien à
+    // faire estimer.
     stub();
     renderNutrition();
 
@@ -235,7 +237,7 @@ describe('estimation d’une assiette', () => {
     expect(within(mealForm()).getByLabelText('Protéines (g)')).toBeInTheDocument();
   });
 
-  it('estime depuis une description seule, sans photo', async () => {
+  it('estime depuis la description, et n’envoie rien d’autre', async () => {
     stub();
     renderNutrition();
 
@@ -254,29 +256,27 @@ describe('estimation d’une assiette', () => {
     expect(form.get('photo')).toBeNull();
   });
 
-  it('envoie la photo et la description ensemble', async () => {
+  it('n’offre plus de photographier son assiette', async () => {
+    // `NUT-22` : deux modes la demandaient, et le champ fichier est parti avec eux. Les
+    // repas déjà photographiés, eux, gardent leur image — c'est `Nutrition.test.tsx` qui
+    // défend la vignette.
     stub();
     renderNutrition();
 
-    await openSheet('Photo et description');
-    const input = document.querySelector('#meal-photo') as HTMLInputElement;
-    await userEvent.upload(input, new File(['photo'], 'assiette.jpg', { type: 'image/jpeg' }));
-    await screen.findByAltText('Aperçu du repas');
-    await userEvent.type(
-      within(mealForm()).getByLabelText('Description'),
-      'cuisson à l’huile d’olive',
-    );
-    await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
 
-    await screen.findByText(/38 g de protéines/);
-    const form = writes().find((call) => call.url.includes('/analyze'))?.init?.body as FormData;
-    expect(form.get('photo')).not.toBeNull();
-    expect(form.get('comment')).toBe('cuisson à l’huile d’olive');
+    expect(screen.queryByRole('button', { name: 'Photo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Photo et description' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Description' }));
+    expect(document.querySelector('#meal-photo')).toBeNull();
   });
 
-  it('affiche le refus de taille du serveur, code et phrase', async () => {
+  it('affiche le refus du serveur, code et phrase', async () => {
     // Le défaut d'origine : un `413` nu, donc un écran d'échec sans message. Le refus
     // porte maintenant un code et une phrase française, et elle s'affiche telle quelle.
+    // La route accepte toujours une image — les repas d'avant `NUT-22` existent — donc
+    // ce refus reste le sien.
     stub((url) =>
       url.includes('/api/nutrition/analyze')
         ? json(413, {
@@ -287,7 +287,7 @@ describe('estimation d’une assiette', () => {
     );
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
 
     expect(await screen.findByText(/trop lourd pour être envoyé/)).toBeInTheDocument();
@@ -298,7 +298,7 @@ describe('estimation d’une assiette', () => {
     stub();
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
 
     expect(await screen.findByText(/38 g de protéines/)).toBeInTheDocument();
@@ -311,7 +311,7 @@ describe('estimation d’une assiette', () => {
     stub();
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
 
@@ -327,7 +327,7 @@ describe('estimation d’une assiette', () => {
     stub();
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
 
@@ -342,7 +342,7 @@ describe('estimation d’une assiette', () => {
     stub();
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
     await userEvent.click(screen.getByRole('button', { name: /Pas d’accord|Pas d'accord/ }));
@@ -356,7 +356,7 @@ describe('estimation d’une assiette', () => {
     stub();
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
     await userEvent.click(screen.getByRole('button', { name: 'Calories : augmenter' }));
@@ -375,7 +375,7 @@ describe('estimation d’une assiette', () => {
     );
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
@@ -398,7 +398,7 @@ describe('estimation d’une assiette', () => {
     );
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Utiliser ces valeurs' }));
     await userEvent.click(screen.getByRole('button', { name: /Pas d’accord|Pas d'accord/ }));
@@ -429,7 +429,7 @@ describe('estimation d’une assiette', () => {
     );
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
 
     expect(await screen.findByText(/rien su estimer/)).toBeInTheDocument();
@@ -445,7 +445,7 @@ describe('estimation d’une assiette', () => {
     );
     renderNutrition();
 
-    await choosePhoto();
+    await describePlate();
     await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
 
     expect(await screen.findByText(/Quota des modèles gratuits épuisé/)).toBeInTheDocument();
@@ -454,68 +454,43 @@ describe('estimation d’une assiette', () => {
   });
 });
 
-describe('estimation d’un repas déjà au journal', () => {
-  it('propose l’estimation là où les macros manquent', async () => {
+describe('l’estimation depuis la photo rangée', () => {
+  it('n’est plus proposée au journal', async () => {
+    // `NUT-22` : la porte ne s'ouvrait que sur un repas photographié et non chiffré.
+    // Plus aucun repas nouveau ne remplit la première condition — la garder aurait laissé
+    // une fonctionnalité qui ne vaut que pour le passé. Un repas ancien se corrige à sa
+    // fiche, comme tous les autres.
     stub();
     renderNutrition();
 
-    expect(
-      await screen.findByRole('button', { name: /Estimer les macros du repas/ }),
-    ).toBeInTheDocument();
-  });
-
-  it('ne la propose pas sur un repas déjà chiffré', async () => {
-    stub((url) =>
-      url.endsWith('/api/nutrition')
-        ? json(200, { ...VIEW, meals: [{ ...VIEW.meals[0], protein_g: 40 }] })
-        : undefined,
-    );
-    renderNutrition();
-
+    // Le repas de la vue porte bien une photo et n'a pas de macros : c'est exactement le
+    // cas qui affichait le bouton.
     await screen.findByRole('button', { name: /Supprimer le repas/ });
     expect(
       screen.queryByRole('button', { name: /Estimer les macros du repas/ }),
     ).not.toBeInTheDocument();
   });
 
-  it('n’écrit rien tant que la proposition n’est pas validée', async () => {
-    stub((url, init) =>
-      url.includes('/api/nutrition/0/analyze') && init?.method === 'POST'
-        ? json(200, ESTIMATE)
-        : undefined,
-    );
+  it('n’écrit rien au journal, puisqu’elle n’a plus de porte', async () => {
+    // La route serveur existe toujours. Ce que ce test défend est qu'aucun geste de
+    // l'écran ne l'appelle : une porte retirée à moitié laisserait un `PATCH` déclenché
+    // par un chemin qu'on ne regarde plus.
+    stub();
     renderNutrition();
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Estimer les macros du repas/ }),
-    );
+    await screen.findByRole('button', { name: /Supprimer le repas/ });
 
-    expect(await screen.findByText(/38 g de protéines/)).toBeInTheDocument();
+    expect(writes().filter((call) => call.url.includes('/analyze'))).toHaveLength(0);
     expect(writes().filter((call) => call.init?.method === 'PATCH')).toHaveLength(0);
   });
 
-  it('corrige le repas sous garde de jeton une fois validée', async () => {
-    // Une écriture reste une écriture : `STO-05` s'applique à l'estimation comme au reste.
-    stub((url, init) => {
-      if (url.includes('/api/nutrition/0/analyze')) return json(200, ESTIMATE);
-      if (init?.method === 'PATCH') return json(200, { ...VIEW.meals[0], protein_g: 38 });
-      return undefined;
-    });
+  it('garde la vignette du repas photographié', async () => {
+    // Ne plus pouvoir ajouter une photo n'est pas une raison de cacher celles qui
+    // existent : ce sont de vraies données, et le projet n'a aucune annulation.
+    stub();
     renderNutrition();
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: /Estimer les macros du repas/ }),
-    );
-    await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer ces valeurs' }));
-
-    await waitFor(() => {
-      const patch = writes().find((call) => call.init?.method === 'PATCH');
-      expect(patch).toBeDefined();
-      expect((patch?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-repas');
-      expect(JSON.parse(patch?.init?.body as string)).toMatchObject({
-        protein_g: 38,
-        source: 'ai',
-      });
-    });
+    const ligne = await screen.findByRole('button', { name: /Fiche du repas/ });
+    expect(ligne.querySelector('img')).not.toBeNull();
   });
 });

@@ -1,14 +1,24 @@
 /**
- * Ajouter un repas — quatre modes de saisie, une seule feuille.
+ * Ajouter un repas — trois modes de saisie, une seule feuille.
  *
  * Le formulaire était **déplié en permanence** au bas de l'écran : un sélecteur de type,
  * une zone de photo, une description et trois pas-à-pas, tout le temps, qu'on vienne
  * photographier son assiette ou taper trois nombres lus sur un emballage. Il demandait
  * donc de traverser ce dont on n'avait pas besoin pour atteindre ce qu'on voulait.
  *
- * Une feuille, et **le mode d'abord** : photo, photo et description, description seule,
- * ou les trois nombres à la main. Le mode ne change pas ce qui est enregistré — un repas
- * reste un repas — il change ce que la feuille demande et ce qu'elle propose d'estimer.
+ * Une feuille, et **le mode d'abord** : une description, un plat composé de ses
+ * ingrédients, ou les valeurs à la main. Le mode ne change pas ce qui est enregistré — un
+ * repas reste un repas — il change ce que la feuille demande et ce qu'elle propose
+ * d'estimer.
+ *
+ * ## La photo s'est arrêtée (`NUT-22`)
+ *
+ * Deux modes la demandaient. Ils ont été retirés parce qu'ils ne servaient plus, pas
+ * parce qu'ils fonctionnaient mal — la réduction à 1600 px, le `413` du reverse-proxy et
+ * le `accept` sans HEIC avaient tous été payés une fois. **Les repas déjà photographiés
+ * gardent leur image** : la vignette du journal et la fiche la montrent toujours, et le
+ * serveur accepte encore une image à l'estimation. Ne plus pouvoir en ajouter n'est pas
+ * une raison de cacher celles qui existent.
  *
  * ## Ce qui n'a pas bougé, et pourquoi
  *
@@ -16,16 +26,9 @@
  * pose dans des pas-à-pas marqués `proposed`, et la marque disparaît dès qu'on retouche.
  * C'est la seule façon dont le projet le dit, et elle n'est pas redite ici autrement.
  *
- * **Rien n'est écrit avant le dernier appui.** L'estimation ne touche pas au stockage, la
- * photo n'est rangée qu'à l'enregistrement, et les quatre portes de sortie de `Sheet`
- * ferment sans rien laisser — à n'importe quelle étape, y compris pendant l'attente.
- *
- * ## La photo est réduite avant de partir
- *
- * `lib/image.ts` la ramène à 1600 px et la réencode en JPEG. Une photo d'iPhone brute fait
- * cinq à huit mégaoctets et se faisait refuser par le reverse-proxy avec un `413` nu.
- * L'écran annonce le poids réel de ce qui part : c'est la seule façon de savoir, du côté
- * de l'utilisateur, que la réduction a bien eu lieu.
+ * **Rien n'est écrit avant le dernier appui.** L'estimation ne touche pas au stockage, et
+ * les quatre portes de sortie de `Sheet` ferment sans rien laisser — à n'importe quelle
+ * étape, y compris pendant l'attente.
  */
 
 import { useMutation } from '@tanstack/react-query';
@@ -43,7 +46,6 @@ import {
 } from '@/features/nutrition/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { fileSize, reduceImage } from '@/lib/image';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Nutrition.module.css';
@@ -71,26 +73,19 @@ import { ScanStep } from './ScanStep';
 /* `Macro` et `MealMode` vivent dans `meal-draft.ts` : c'est lui qui doit les reconnaître
    dans du texte relu, et deux déclarations de la même liste finiraient par diverger. */
 
-/** Les cinq modes de saisie, dans l'ordre où ils sont proposés. */
+/** Les trois modes de saisie, dans l'ordre où ils sont proposés. */
 const MODES: { value: MealMode; label: string; hint: string }[] = [
-  { value: 'photo', label: 'Photo', hint: 'l’assiette suffit' },
-  { value: 'photo-texte', label: 'Photo et description', hint: 'le plus précis' },
-  { value: 'texte', label: 'Description', hint: 'sans photo' },
-  { value: 'compose', label: 'Repas composé', hint: 'ingrédients pour 100 g et quantités' },
+  { value: 'texte', label: 'Description', hint: 'les macros sont estimées' },
+  { value: 'compose', label: 'Repas composé', hint: 'des aliments et leurs poids' },
   { value: 'manuel', label: 'Valeurs à la main', hint: 'protéines, calories, fibres…' },
 ];
 
 /** Les deux modes qui n'appellent aucun modèle, et restent donc offerts sans clé. */
 const OFFLINE_MODES: readonly MealMode[] = ['manuel', 'compose'];
 
-/** Le mode demande-t-il une photo ? */
-function wantsPhoto(mode: MealMode): boolean {
-  return mode === 'photo' || mode === 'photo-texte';
-}
-
-/** Le mode demande-t-il une description ? */
+/** Le mode demande-t-il une description ? Elle est ce que l'estimation lit. */
 function wantsText(mode: MealMode): boolean {
-  return mode === 'photo-texte' || mode === 'texte';
+  return mode === 'texte';
 }
 
 /** Le mode passe-t-il par une estimation ? Les deux derniers, non — c'est tout leur sens. */
@@ -114,7 +109,6 @@ const EMPTY: MealFormValues = {
   calories: '',
   saturated_fat_g: '',
   fiber_g: '',
-  photo: null,
   source: 'manual',
 };
 
@@ -136,18 +130,10 @@ export function MealSheet({
 }) {
   const { notify } = useToast();
   const ai = useAiStatus();
-  const fileInput = useRef<HTMLInputElement>(null);
 
   const [mode, setMode] = useState<MealMode | null>(null);
   const [values, setValues] = useState<MealFormValues>(EMPTY);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [weight, setWeight] = useState<number | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-
-  // Vrai quand la saisie reprise portait une photo, qui elle n'a pas suivi. C'est la
-  // seule chose qu'une reprise perd, et donc la seule qu'elle ait à annoncer : des champs
-  // remplis se lisent tout seuls, un cadre photo vide ne dit pas ce qu'il a perdu.
-  const [photoLost, setPhotoLost] = useState(false);
 
   // La feuille tient-elle déjà une saisie ? Une référence et non un état : l'effet de
   // reprise ne doit se rejouer qu'à l'ouverture, pas à chaque frappe.
@@ -180,15 +166,6 @@ export function MealSheet({
   // La ligne arrivée par un scan, qui attend son poids — c'est là que va le focus.
   const [weighing, setWeighing] = useState<string | null>(null);
 
-  // Révocation au démontage : sans elle, fermer la feuille avec un aperçu ouvert fuirait
-  // sa mémoire jusqu'au rechargement.
-  useEffect(() => {
-    if (preview === null) return;
-    return () => {
-      URL.revokeObjectURL(preview);
-    };
-  }, [preview]);
-
   /**
    * Tout remettre à zéro — c'est ce que « annuler » veut dire, à n'importe quelle étape.
    *
@@ -202,22 +179,15 @@ export function MealSheet({
   const reset = useCallback((): void => {
     setMode(null);
     setValues(EMPTY);
-    setPreview((current) => {
-      if (current) URL.revokeObjectURL(current);
-      return null;
-    });
-    setWeight(null);
     setEstimate(null);
     setProposed([]);
     setRows([]);
     setTotal(null);
     setError(null);
-    setPhotoLost(false);
     setStep({ kind: 'form' });
     setWeighing(null);
     clearDraft();
     live.current = false;
-    if (fileInput.current) fileInput.current.value = '';
   }, []);
 
   /**
@@ -229,7 +199,7 @@ export function MealSheet({
    */
   const resume = useCallback((draft: MealDraft): void => {
     setMode(draft.mode);
-    setValues({ ...draft.values, photo: null });
+    setValues(draft.values);
     setRows(draft.rows);
     setStep({ kind: 'form' });
     setWeighing(null);
@@ -237,7 +207,6 @@ export function MealSheet({
     setEstimate(draft.estimate);
     setTotal(null);
     setError(null);
-    setPhotoLost(draft.photo);
     live.current = true;
   }, []);
 
@@ -246,7 +215,7 @@ export function MealSheet({
    *
    * `open` seul en dépendance de fond — la feuille ne se relit **qu'en s'ouvrant**. `live`
    * dit si elle tient déjà cette saisie : dans ce cas on n'y touche pas, sans quoi chaque
-   * réouverture écraserait la photo, son aperçu et le total, qui ne vivent qu'en mémoire.
+   * réouverture écraserait le total, qui ne vit qu'en mémoire.
    */
   useEffect(() => {
     if (!open) return;
@@ -268,16 +237,7 @@ export function MealSheet({
    */
   useEffect(() => {
     if (!open || mode === null) return;
-    const { photo, ...rest } = values;
-    writeDraft({
-      mode,
-      values: rest,
-      rows,
-      proposed,
-      estimate,
-      photo: photo !== null,
-      saved_at: Date.now(),
-    });
+    writeDraft({ mode, values, rows, proposed, estimate, saved_at: Date.now() });
   }, [open, mode, values, rows, proposed, estimate]);
 
   /**
@@ -297,37 +257,8 @@ export function MealSheet({
     setEstimate(null);
   }
 
-  /** La photo est réduite **au moment du choix**, pas à l'envoi : le poids se lit avant. */
-  const choose = useMutation({
-    mutationFn: async (file: File | null) => {
-      if (file === null) return null;
-      return reduceImage(file);
-    },
-    onSuccess: (result) => {
-      // **Un format que le navigateur n'ouvre pas ne doit pas rendre un cadre vide.** Le
-      // fichier part quand même — le serveur, lui, sait le ranger — mais l'aperçu comme la
-      // vignette resteront blancs, et le dire vaut mieux que de laisser croire à une
-      // photo perdue.
-      if (result && !result.readable) {
-        notify('Ton navigateur ne sait pas afficher ce format. La photo part quand même.', 'load');
-      }
-      setPreview((current) => {
-        if (current) URL.revokeObjectURL(current);
-        return result ? URL.createObjectURL(result.file) : null;
-      });
-      setValues((current) => ({ ...current, photo: result?.file ?? null }));
-      setWeight(result?.file.size ?? null);
-      // Une estimation appartient à la photo qui l'a produite : changer de photo sans la
-      // jeter laisserait des macros d'une autre assiette.
-      reject();
-    },
-    onError: () => {
-      notify('Cette image n’a pas pu être lue. Essaie une autre photo.', 'recover');
-    },
-  });
-
   const suggest = useMutation({
-    mutationFn: () => nutritionApi.analyze(values.photo, values.comment),
+    mutationFn: () => nutritionApi.analyze(values.comment),
     onSuccess: setEstimate,
     onError: (caught: unknown) => {
       // Un refus de l'IA se dit et s'oublie : la saisie manuelle reste entière (`IA-07`).
@@ -348,8 +279,8 @@ export function MealSheet({
         next[key] = fieldText(value);
         filled.push(key);
       }
-      // La description ne remplace jamais celle qui a été tapée : ce qu'on écrit soi-même
-      // décrit mieux son repas que ce qu'un modèle voit sur une photo.
+      // La description ne remplace jamais celle qui a été tapée : c'est elle que le
+      // modèle a lue, et la reformuler par-dessus n'apprendrait rien.
       if (result.comment !== null && current.comment.trim() === '') next.comment = result.comment;
       return next;
     });
@@ -463,22 +394,17 @@ export function MealSheet({
   // aurait rien à composer.
   const nothingToLog = composing
     ? values.comment.trim() === '' || lines.length === 0
-    : values.comment.trim() === '' && values.photo === null;
-  const nothingToEstimate = values.photo === null && values.comment.trim() === '';
+    : values.comment.trim() === '';
+  const nothingToEstimate = values.comment.trim() === '';
   const busy =
-    choose.isPending ||
-    suggest.isPending ||
-    save.isPending ||
-    saveComposed.isPending ||
-    computeTotal.isPending;
+    suggest.isPending || save.isPending || saveComposed.isPending || computeTotal.isPending;
 
   return (
     <Sheet
       open={open}
       /* Fermer ne jette plus la saisie : les quatre portes de sortie de `Sheet` sont aussi
-         celles d'un pouce qui dérape ou d'un aller simple vers l'appareil photo. Le
-         brouillon la garde quinze minutes ; « Changer de mode » reste le geste qui
-         l'efface vraiment. */
+         celles d'un pouce qui dérape, ou d'un appel qui arrive. Le brouillon la garde
+         quinze minutes ; « Changer de mode » reste le geste qui l'efface vraiment. */
       onClose={onClose}
       /* Le titre suit la surface — une feuille qui garde son titre ne dit pas où l'on
          est — et la fiche prend le nom de son aliment. Le répéter en tête de la fiche
@@ -548,15 +474,6 @@ export function MealSheet({
             </p>
           )}
 
-          {/* Fermer et rouvrir la feuille garde la photo ; recharger la page, non. Le
-              seul moment où la reprise perd quelque chose est aussi le seul où elle
-              parle. */}
-          {photoLost && (
-            <p className={styles.note}>
-              Saisie reprise. La photo, elle, n’a pas suivi — à reprendre.
-            </p>
-          )}
-
           <div className={styles.field}>
             <label htmlFor="meal-type">Type</label>
             <select
@@ -574,44 +491,6 @@ export function MealSheet({
               ))}
             </select>
           </div>
-
-          {wantsPhoto(mode) && (
-            <div className={styles.field}>
-              <label htmlFor="meal-photo">Photo</label>
-              {/* **`image/heic` est absent de « accept », et il ne faut pas le remettre.**
-                  iOS transcode une photo HEIC en JPEG au moment du choix — sauf si
-                  « accept » annonce accepter le HEIC, auquel cas il livre l'original tel
-                  quel. Or aucun navigateur hors Safari ne sait afficher du HEIC : l'envoi
-                  réussissait, le fichier était rangé et servi en 200, et ni l'aperçu ni la
-                  vignette ne montraient quoi que ce soit. Tout marchait, rien ne
-                  s'affichait. Les trois autres champs fichier de l'application l'omettent
-                  déjà ; celui-ci avait dérivé. */}
-              <input
-                ref={fileInput}
-                id="meal-photo"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                capture="environment"
-                className="sr-only"
-                onChange={(event) => {
-                  choose.mutate(event.target.files?.[0] ?? null);
-                }}
-              />
-              {preview !== null ? (
-                <img className={styles.preview} src={preview} alt="Aperçu du repas" />
-              ) : (
-                <label htmlFor="meal-photo" className={styles.drop}>
-                  {choose.isPending ? 'réduction…' : 'prendre ou choisir une photo'}
-                </label>
-              )}
-              {/* Le poids réel de ce qui partira. Sans lui, rien à l'écran ne dit que la
-                  réduction a eu lieu — et c'est précisément ce qui manquait le jour où
-                  l'envoi se faisait refuser sans explication. */}
-              {weight !== null && (
-                <span className={styles.empty}>{fileSize(weight)} — réduite avant l’envoi</span>
-              )}
-            </div>
-          )}
 
           {(wantsText(mode) || mode === 'manuel' || composing) && (
             <Field
@@ -676,7 +555,7 @@ export function MealSheet({
               <Button
                 variant="ghost"
                 busy={suggest.isPending}
-                disabled={nothingToEstimate || choose.isPending}
+                disabled={nothingToEstimate}
                 onClick={() => {
                   suggest.mutate();
                 }}
@@ -775,7 +654,7 @@ export function MealSheet({
             <p className={styles.empty}>
               {composing
                 ? 'Un nom de plat et un ingrédient pesé suffisent. Les valeurs pour 100 g peuvent rester vides.'
-                : 'Une photo ou une description suffit. Les macros peuvent attendre.'}
+                : 'Une description suffit. Les macros peuvent attendre.'}
             </p>
           )}
         </form>

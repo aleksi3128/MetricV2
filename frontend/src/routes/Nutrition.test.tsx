@@ -254,7 +254,7 @@ describe('écran Nutrition', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
 
-    for (const mode of ['Photo', 'Photo et description', 'Description', 'Valeurs à la main']) {
+    for (const mode of ['Description', 'Repas composé', 'Valeurs à la main']) {
       expect(screen.getByRole('button', { name: mode })).toBeInTheDocument();
     }
     // Rien n'est demandé tant que le mode n'est pas choisi.
@@ -271,7 +271,7 @@ describe('écran Nutrition', () => {
     await userEvent.type(screen.getByLabelText('Description'), 'salade');
     await userEvent.click(screen.getByRole('button', { name: 'Changer de mode' }));
 
-    expect(screen.getByRole('button', { name: 'Photo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Description' })).toBeInTheDocument();
     expect(calls.filter((call) => call.init?.method === 'POST')).toHaveLength(0);
   });
 
@@ -1103,7 +1103,6 @@ describe('le brouillon de la feuille', () => {
         rows: [],
         proposed: [],
         estimate: null,
-        photo: false,
         saved_at: Date.now() - 16 * 60 * 1000,
       }),
     );
@@ -1114,10 +1113,11 @@ describe('le brouillon de la feuille', () => {
     expect(screen.getByRole('button', { name: 'Repas composé' })).toBeInTheDocument();
   });
 
-  it('annonce la photo que la reprise n’a pas su garder', async () => {
-    // Un `File` ne se range pas en JSON : après un rechargement de la page, la photo
-    // manque. Le dire vaut mieux qu'un cadre vide dont on ne sait pas s'il a perdu
-    // quelque chose.
+  it('repart du choix du mode sur un brouillon d’avant le retrait de la photo', async () => {
+    // `NUT-22` : au déploiement, un brouillon en mode photo peut encore attendre quinze
+    // minutes dans le navigateur. Le reprendre ouvrirait la feuille sur un mode qu'elle
+    // ne sait plus afficher — un formulaire sans son champ, et la description perdue au
+    // milieu. La question du mode se repose, c'est le seul état honnête.
     stub();
     localStorage.setItem(
       'metric.meal-draft',
@@ -1135,8 +1135,11 @@ describe('le brouillon de la feuille', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
 
-    expect(screen.getByLabelText('Description')).toHaveValue('poulet riz');
-    expect(screen.getByText(/La photo, elle, n’a pas suivi/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Description' })).toBeInTheDocument();
+    // Et rien du formulaire : la description reprise n'est nulle part, puisque c'est le
+    // choix du mode qui est à l'écran.
+    expect(screen.queryByRole('button', { name: 'Enregistrer le repas' })).toBeNull();
+    expect(screen.queryByDisplayValue('poulet riz')).toBeNull();
   });
 });
 

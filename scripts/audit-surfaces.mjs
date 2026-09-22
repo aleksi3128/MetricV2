@@ -74,8 +74,8 @@ const SURFACES = [
   ['/activite', 'Enregistrer une course', 'assistant de course'],
   ['/assistant', 'Mémoire', 'carnet de l’assistant'],
   ['/assistant', 'Discussions', 'fil de l’assistant'],
-  // La feuille d'ajout d'un repas et ses quatre modes (C05). Elle s'ajoute ici le jour
-  // où elle est écrite, pas le jour où un défaut s'y découvre.
+  // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
+  // le jour où elle est écrite, pas le jour où un défaut s'y découvre.
   ['/nutrition', 'Ajouter un repas', 'modes de saisie d’un repas'],
   // Le formulaire du repas composé, et la surface de scan qui vit au fond (`NUT-13`).
   // Trois appuis, tous nommés, et aucun ne remplit ni ne valide quoi que ce soit.

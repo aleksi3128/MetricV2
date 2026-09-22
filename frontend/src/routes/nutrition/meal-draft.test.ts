@@ -35,7 +35,6 @@ function draft(fields: Partial<MealDraft> = {}): MealDraft {
     rows: [emptyIngredient()],
     proposed: [],
     estimate: null,
-    photo: false,
     saved_at: 1_000_000,
     ...fields,
   };
@@ -95,8 +94,20 @@ describe('ce qui vaut d’être rangé', () => {
     ).toBe(true);
   });
 
-  it('range une photo prise, même sans un mot', () => {
-    expect(worthKeeping(draft({ values: { ...draft().values, comment: '' }, photo: true }))).toBe(
+  it('range une estimation, même sans un mot', () => {
+    // Une estimation affichée est un travail déjà fait : la jeter à la fermeture
+    // demanderait de rappeler le modèle pour revenir au même écran.
+    const estimate = {
+      comment: null,
+      protein_g: 38,
+      added_sugar_g: null,
+      calories: null,
+      saturated_fat_g: null,
+      fiber_g: null,
+      readable: true,
+      empty: false,
+    };
+    expect(worthKeeping(draft({ values: { ...draft().values, comment: '' }, estimate }))).toBe(
       true,
     );
   });
@@ -126,7 +137,7 @@ describe('la relecture', () => {
   it('rend un plat sans aliment tel quel', () => {
     // Depuis `NUT-14`, c'est un état normal : le mode composé s'ouvre là-dessus. Y
     // remettre une ligne vierge repeuplerait un formulaire qu'on a retiré exprès.
-    writeDraft(draft({ rows: [], photo: true }));
+    writeDraft(draft({ rows: [] }));
 
     expect(readDraft(1_000_000)?.rows).toEqual([]);
   });
@@ -190,6 +201,16 @@ describe('la relecture', () => {
     localStorage.setItem('metric.meal-draft', JSON.stringify({ ...draft(), mode: 'code-barres' }));
 
     expect(readDraft(1_000_000)).toBeNull();
+  });
+
+  it('ne ressuscite pas la photo d’une version précédente', () => {
+    // `NUT-22` : un brouillon rangé avant le retrait des deux modes photo est encore dans
+    // le navigateur pendant quinze minutes. Le reprendre ouvrirait la feuille sur un mode
+    // qu'elle ne sait plus afficher — un formulaire sans son champ, donc un écran muet.
+    for (const mode of ['photo', 'photo-texte']) {
+      localStorage.setItem('metric.meal-draft', JSON.stringify({ ...draft(), mode }));
+      expect(readDraft(1_000_000)).toBeNull();
+    }
   });
 
   it('retombe sur une saisie manuelle quand la provenance est illisible', () => {

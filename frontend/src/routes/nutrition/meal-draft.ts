@@ -4,8 +4,8 @@
  * `Sheet` a **quatre portes de sortie** — la poignée, le voile, Échap, le bouton nommé —
  * et la feuille vidait tout à chacune. C'est le bon comportement pour « annuler » ; c'en
  * est un mauvais pour un pouce qui dérape sur le voile, un appel qui arrive, ou l'aller
- * simple vers l'application Appareil photo. Un repas composé se note en cinq champs par
- * ingrédient : les retaper est cher pour un geste qu'on n'a pas voulu.
+ * simple vers une autre application. Un repas composé se note en un aliment et un poids
+ * par ligne : les retaper est cher pour un geste qu'on n'a pas voulu.
  *
  * La saisie est donc rangée à chaque frappe, et reprise à la réouverture.
  *
@@ -24,21 +24,20 @@
  * aucun CSV, et ne sert qu'à décider si les champs valent encore d'être remontrés. Dater
  * le repas reste au serveur, comme partout ailleurs.
  *
- * ## La photo ne tient pas dans le brouillon
+ * ## Un mode disparu ne se reprend pas (`NUT-22`)
  *
- * Un `File` n'est pas du JSON. Le garder demanderait de le réencoder en base64 —
- * l'équivalent de 800 Ko sur les 5 Mo du stockage, pour une photo déjà réduite — et le
- * dépassement de quota est une erreur qu'on découvre en échouant. Elle reste donc en
- * mémoire : fermer et rouvrir la feuille la garde, un rechargement de la page la perd, et
- * la feuille **le dit** plutôt que de montrer un cadre vide.
+ * `MODES` est un `Record` et non un tableau, et c'est ce qui fait qu'un brouillon écrit
+ * avant le retrait de la photo ne ressuscite pas un mode que la feuille ne sait plus
+ * afficher : un mode inconnu fait rendre `null` à la relecture, et la feuille repart du
+ * choix. Cette garde était écrite avant d'avoir à servir ; elle sert.
  */
 
 import type { MealEstimate, MealFormValues } from '@/features/nutrition/api';
 
 import { emptyIngredient, isBlank, type IngredientDraft } from './ingredient-draft';
 
-/** Les cinq modes de saisie de la feuille, dans l'ordre où elle les propose. */
-export type MealMode = 'photo' | 'photo-texte' | 'texte' | 'manuel' | 'compose';
+/** Les trois modes de saisie de la feuille, dans l'ordre où elle les propose. */
+export type MealMode = 'texte' | 'manuel' | 'compose';
 
 /**
  * Les cinq valeurs qu'une estimation peut proposer, et que l'écran marque comme telles.
@@ -51,19 +50,17 @@ export type Macro = 'protein_g' | 'added_sugar_g' | 'calories' | 'saturated_fat_
 /**
  * Une saisie en cours.
  *
- * `values` est celui du formulaire **moins la photo** : le `Omit` fait que le jour où un
- * champ s'ajoute à `MealFormValues`, ce fichier cesse de compiler tant qu'il ne le range
- * pas. Un brouillon qui oublie un champ en silence est un brouillon qui ment.
+ * `values` est celui du formulaire, entier : le jour où un champ s'ajoute à
+ * `MealFormValues`, ce fichier cesse de compiler tant qu'il ne le range pas. Un brouillon
+ * qui oublie un champ en silence est un brouillon qui ment.
  */
 export interface MealDraft {
   mode: MealMode;
-  values: Omit<MealFormValues, 'photo'>;
+  values: MealFormValues;
   rows: IngredientDraft[];
   /** Les macros encore proposées : sans elles, une valeur du modèle repasserait pour une saisie. */
   proposed: Macro[];
   estimate: MealEstimate | null;
-  /** Vrai quand la saisie portait une photo — c'est ce que la feuille annonce à la reprise. */
-  photo: boolean;
   /** Quand ce brouillon a été rangé, en millisecondes locales. Voir l'en-tête. */
   saved_at: number;
 }
@@ -80,8 +77,6 @@ export const DRAFT_TTL_MS = 15 * 60 * 1000;
  * ressusciter un mode qui n'existe plus.
  */
 const MODES: Record<MealMode, true> = {
-  photo: true,
-  'photo-texte': true,
   texte: true,
   manuel: true,
   compose: true,
@@ -198,7 +193,7 @@ function parseEstimate(raw: unknown): MealEstimate | null {
  * pré-rempli par le serveur, le retenir seul reviendrait à retenir sa suggestion.
  */
 export function worthKeeping(draft: MealDraft): boolean {
-  if (draft.photo || draft.estimate !== null) return true;
+  if (draft.estimate !== null) return true;
   const { comment, protein_g, added_sugar_g, calories, saturated_fat_g, fiber_g } = draft.values;
   if (
     [comment, protein_g, added_sugar_g, calories, saturated_fat_g, fiber_g].some(
@@ -260,7 +255,6 @@ export function readDraft(now: number = Date.now()): MealDraft | null {
     rows: parseRows(parsed.rows),
     proposed: parseProposed(parsed.proposed),
     estimate: parseEstimate(parsed.estimate),
-    photo: parsed.photo === true,
     saved_at: savedAt,
   };
 }

@@ -13,7 +13,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 
 import {
-  AiBlock,
   Badge,
   Button,
   Card,
@@ -27,13 +26,7 @@ import {
   Stat,
 } from '@/components/ui';
 import { IconStar } from '@/components/ui/icons';
-import { useAiStatus } from '@/features/ai/useAiStatus';
-import {
-  nutritionApi,
-  type Favorite,
-  type Meal,
-  type MealEstimate,
-} from '@/features/nutrition/api';
+import { nutritionApi, type Favorite, type Meal } from '@/features/nutrition/api';
 import { usePhoto } from '@/features/nutrition/usePhoto';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -42,7 +35,6 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './Nutrition.module.css';
-import { estimateSentence } from './nutrition/estimate';
 import { History } from './nutrition/History';
 import { MealDetail } from './nutrition/MealDetail';
 import { MealSheet } from './nutrition/MealSheet';
@@ -72,12 +64,13 @@ function Thumbnail({ meal }: { meal: Meal }) {
 // ── Une ligne du journal ──────────────────────────────
 
 /**
- * Un repas déjà enregistré, et la porte de rattrapage que l'écran promet.
+ * Un repas déjà enregistré.
  *
- * « Une photo suffit, les chiffres peuvent venir après » : sans cette porte, « après »
- * n'existerait que pour les repas dont on a encore le fichier d'origine sous la main.
- * L'estimation ne modifie rien par elle-même — elle propose, et c'est un second appui qui
- * écrit, sous garde de jeton comme toute correction (`STO-05`).
+ * **L'estimation depuis la photo rangée a été retirée** (`NUT-22`). Elle ne s'affichait
+ * que sur un repas *photographié et non chiffré* : plus aucun repas nouveau ne remplit la
+ * première condition, et une porte qui ne s'ouvre que sur le passé se lit comme une
+ * fonctionnalité alors qu'elle n'en est plus une. Un repas ancien se corrige à sa fiche,
+ * comme tous les autres.
  *
  * **Le corps de la ligne ouvre la fiche du repas** (`NUT-15`) — ce qu'il apporte, et sa
  * correction. La ligne, elle, garde ses trois valeurs : les cinq y feraient deux lignes par
@@ -102,47 +95,6 @@ function MealCard({
   removing: boolean;
 }) {
   const bodyId = useId();
-  const invalidate = useInvalidateNutrition();
-  const { notify } = useToast();
-  const ai = useAiStatus();
-  const [estimate, setEstimate] = useState<MealEstimate | null>(null);
-
-  const suggest = useMutation({
-    mutationFn: () => nutritionApi.analyzeMeal(meal.id),
-    onSuccess: setEstimate,
-    onError: (caught: unknown) => {
-      notify(caught instanceof ApiError ? caught.message : 'Estimation impossible.', 'recover');
-    },
-  });
-
-  const apply = useMutation({
-    mutationFn: (result: MealEstimate) =>
-      nutritionApi.update(meal.id, meal.token, {
-        meal_type: meal.meal_type,
-        comment: meal.comment ?? result.comment,
-        protein_g: result.protein_g,
-        added_sugar_g: result.added_sugar_g,
-        calories: result.calories,
-        // Seulement si le modèle les a chiffrées : absentes, le serveur garde celles qui
-        // étaient rangées — des fibres notées à la main ne s'effacent pas faute d'estimation.
-        ...(result.saturated_fat_g !== null && { saturated_fat_g: result.saturated_fat_g }),
-        ...(result.fiber_g !== null && { fiber_g: result.fiber_g }),
-        // La provenance change réellement : ces macros n'ont pas été relevées.
-        source: 'ai',
-      }),
-    onSuccess: () => {
-      invalidate();
-      setEstimate(null);
-      notify('Estimation enregistrée. Elle se corrige comme une saisie.', 'effort');
-    },
-    onError: (caught: unknown) => {
-      notify(caught instanceof ApiError ? caught.message : 'Enregistrement impossible.', 'recover');
-    },
-  });
-
-  // Un repas sans photo n'a rien à faire analyser, et un repas déjà chiffré n'a rien à
-  // gagner à l'être : la proposition ne s'affiche que là où elle apporte quelque chose.
-  const estimable = ai.enabled && meal.photo !== null && meal.protein_g === null;
 
   return (
     <div className={styles.meal}>
@@ -179,19 +131,6 @@ function MealCard({
           la description passait sur deux ou trois lignes. Sur sa propre ligne, l'action
           rend la largeur au texte, et la carte y gagne en hauteur plus qu'elle n'en perd. */}
       <div className={styles.mealActions}>
-        {estimable && estimate === null && (
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label={`Estimer les macros du repas de ${time(meal.datetime)}`}
-            disabled={suggest.isPending}
-            onClick={() => {
-              suggest.mutate();
-            }}
-          >
-            {suggest.isPending ? '…' : 'estimer'}
-          </button>
-        )}
         <button
           type="button"
           className={cx(styles.iconButton, styles.danger, armed && styles.armed)}
@@ -206,58 +145,6 @@ function MealCard({
           {armed ? 'confirmer ?' : 'supprimer'}
         </button>
       </div>
-
-      {estimate !== null && (
-        <div className={styles.mealEstimate}>
-          <AiBlock
-            tag="Estimation"
-            actions={
-              estimate.empty || !estimate.readable ? (
-                <Button
-                  variant="quiet"
-                  onClick={() => {
-                    setEstimate(null);
-                  }}
-                >
-                  Fermer
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="primary"
-                    busy={apply.isPending}
-                    onClick={() => {
-                      apply.mutate(estimate);
-                    }}
-                  >
-                    Enregistrer ces valeurs
-                  </Button>
-                  <Button
-                    variant="quiet"
-                    onClick={() => {
-                      setEstimate(null);
-                    }}
-                  >
-                    Pas d&apos;accord
-                  </Button>
-                </>
-              )
-            }
-          >
-            {estimate.empty || !estimate.readable ? (
-              <p>
-                Rien n&apos;a pu être estimé sur cette photo. Le repas reste tel quel — les macros
-                se saisissent à la main.
-              </p>
-            ) : (
-              <p>
-                Ce repas contiendrait <strong>{estimateSentence(estimate)}</strong>. Rien n&apos;est
-                enregistré tant que tu n&apos;as pas validé.
-              </p>
-            )}
-          </AiBlock>
-        </div>
-      )}
     </div>
   );
 }
@@ -628,7 +515,7 @@ export function Nutrition() {
                     ? totals.calories_known < totals.meals
                       ? `${totals.calories_known} ${plural(totals.calories_known, 'chiffré')} sur ${totals.meals}`
                       : 'tous chiffrés'
-                    : 'une photo suffit à en ouvrir un'
+                    : 'une description suffit à en ouvrir un'
                 }
               />
             </Card>
@@ -697,7 +584,7 @@ export function Nutrition() {
             ))
           ) : (
             <Empty title="Aucun repas aujourd'hui">
-              Une photo suffit. Les chiffres peuvent venir après.
+              Une description suffit. Les chiffres peuvent venir après.
             </Empty>
           )}
         </Card>

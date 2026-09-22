@@ -355,7 +355,6 @@ export interface MealFormValues {
   calories: string;
   saturated_fat_g: string;
   fiber_g: string;
-  photo: File | null;
   /** `ai` quand les macros viennent d'une estimation acceptée (`NUT-04`). */
   source: 'manual' | 'ai';
 }
@@ -417,7 +416,6 @@ function multipart(values: MealFormValues): FormData {
     const raw = values[field].replace(',', '.').trim();
     if (raw) form.set(field, raw);
   }
-  if (values.photo) form.set('photo', values.photo);
   form.set('source', values.source);
   return form;
 }
@@ -485,23 +483,18 @@ export const nutritionApi = {
     request<Meal>('/api/nutrition/composed', { method: 'POST', body: payload }),
 
   /**
-   * Propose des macros depuis une photo, une description, ou les deux. **N'écrit rien**
-   * (`NUT-04`).
+   * Propose des macros depuis une description. **N'écrit rien** (`NUT-04`).
    *
-   * Les deux paramètres sont facultatifs séparément, jamais ensemble : c'est le serveur
-   * qui refuse une demande vide, et non ce client — une seconde règle ici divergerait de
-   * la sienne au premier cas limite.
+   * Multipart alors qu'il n'y a plus de fichier à porter (`NUT-22`) : la route accepte
+   * toujours une image — les repas déjà photographiés existent — et c'est elle qui refuse
+   * une demande vide. Changer son format d'entrée pour le seul appelant qui reste serait
+   * casser un contrat pour économiser une frontière de séparation.
    */
-  analyze: (photo: File | null, comment: string | null) => {
+  analyze: (comment: string | null) => {
     const form = new FormData();
-    if (photo) form.set('photo', photo);
     if (comment?.trim()) form.set('comment', comment.trim());
     return request<MealEstimate>('/api/nutrition/analyze', { method: 'POST', form });
   },
-
-  /** Même proposition, pour un repas déjà enregistré avec sa photo. */
-  analyzeMeal: (id: number) =>
-    request<MealEstimate>(`/api/nutrition/${id}/analyze`, { method: 'POST' }),
 
   update: (id: number, token: string, payload: MealUpdate) =>
     request<Meal>(`/api/nutrition/${id}`, {
