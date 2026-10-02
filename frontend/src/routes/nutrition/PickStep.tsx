@@ -1,5 +1,5 @@
 /**
- * Ajouter un aliment à un plat — une porte, puis trois chemins (`NUT-23`).
+ * Ajouter un aliment à un plat — une porte, puis deux chemins (`NUT-23`, `UI-07`).
  *
  * ## Ce qu'il y avait avant, et pourquoi c'était faux
  *
@@ -11,10 +11,22 @@
  * libellé, « Ajouter un aliment », désignait par ailleurs une *création d'entrée* sur la
  * page catalogue : deux gestes très différents sous un seul nom.
  *
- * Une porte, donc, et trois chemins déclarés : le catalogue, le code-barres, la main.
+ * Une porte, donc, et les chemins déclarés derrière elle : le catalogue et le code-barres.
  *
  * **Ce que ça coûte** : un appui de plus pour scanner. C'est le prix d'un vocabulaire
  * unique, et il se paie une fois par aliment neuf plutôt qu'à chaque aliment connu.
+ *
+ * ## La saisie à la main a quitté cette étape
+ *
+ * Elle y était le troisième chemin, sous la liste. Elle en est **retirée à la demande de
+ * l'utilisateur** : deux aliments sur trois se reprennent au catalogue, le reste se scanne,
+ * et la porte se payait à chaque ouverture en hauteur prise à la liste.
+ *
+ * **Ce que ça coûte, et il faut le dire** : un aliment sans code-barres que le catalogue
+ * ignore — le riz en vrac, les œufs, les légumes du marché — ne s'ajoute plus directement
+ * à un plat. Il reste deux chemins vers lui, et aucun n'est ici : un code-barres **inconnu**
+ * ouvre toujours « Ajouter cet aliment à la main » dans `ScanStep`, et `/nutrition/catalogue`
+ * crée l'entrée une fois pour toutes — après quoi l'aliment est dans la liste ci-dessous.
  *
  * ## Une étape, pas une feuille de plus
  *
@@ -44,10 +56,23 @@
  *
  * ## La liste est plafonnée, et le dit
  *
- * Douze lignes au plus. Un catalogue de deux cents aliments repousserait sinon la saisie à
- * la main et le retour à un écran et demi de défilement. Le compte de ce qui n'est pas
- * montré est écrit : une liste tronquée en silence fait croire qu'un aliment a disparu du
- * catalogue.
+ * Douze lignes au plus. Le compte de ce qui n'est pas montré est écrit : une liste tronquée
+ * en silence fait croire qu'un aliment a disparu du catalogue.
+ *
+ * Le plafond répondait d'abord à la mise en page — un catalogue de deux cents aliments
+ * repoussait la saisie à la main et le retour à un écran et demi de défilement. C'est
+ * `.pickZone` qui en répond maintenant : les deux chemins restants ne quittent plus le bas
+ * de la feuille. Il reste pour ce qu'il dit en propre — deux cents lignes à faire défiler
+ * ne sont pas une liste, c'est une botte de foin, et le compte des autres invite au geste
+ * qui la réduit vraiment, préciser la recherche.
+ *
+ * ## Ce qui bouge, et ce qui ne bouge plus (`UI-07`)
+ *
+ * La feuille se redimensionnait à chaque caractère tapé : douze lignes pour le catalogue
+ * entier, deux pour « riz ». Le panneau sautait donc sous le pouce entre deux appuis, et la
+ * cible visée n'était plus là où on l'avait vue. La hauteur est tenue par `Sheet`, et
+ * l'étape la remplit : le viseur et la recherche en haut, les deux chemins en bas, la liste
+ * qui défile entre eux. Rien ici ne décide de sa propre hauteur.
  */
 
 import { useRef, useState } from 'react';
@@ -68,7 +93,6 @@ export function PickStep({
   onPick,
   onProduct,
   onScan,
-  onManual,
   onBack,
 }: {
   catalogue: readonly Ingredient[];
@@ -78,7 +102,6 @@ export function PickStep({
   onProduct: (product: Product) => void;
   /** Déplier le viseur plein : c'est ce que le viseur réduit fait quand on le touche. */
   onScan: () => void;
-  onManual: () => void;
   onBack: () => void;
 }) {
   const [query, setQuery] = useState('');
@@ -140,53 +163,65 @@ export function PickStep({
         }}
       />
 
-      {/* Trois états ici, et le troisième n'est pas le second : un catalogue vide et une
-          recherche sans résultat ne se réparent pas du même geste. */}
-      {catalogue.length === 0 ? (
-        <p className={styles.empty}>
-          Ton catalogue est vide. Un aliment scanné y entre tout seul après le repas ; d’ici là, le
-          code-barres et la saisie à la main suffisent.
-        </p>
-      ) : shown.length === 0 ? (
-        <p className={styles.empty}>
-          Aucun aliment ne porte ce nom. Scanne-le, ou saisis-le à la main — il entrera au catalogue
-          avec le repas.
-        </p>
-      ) : (
-        <div className={styles.pickList}>
-          {shown.map((item) => (
-            <SheetRow
-              key={item.id}
-              label={item.name}
-              // L'indice est une **mesure** qui appartient à la ligne, pas une phrase qui
-              // explique un choix : il est donc lu avec le nom, et `aria-label` n'a rien à
-              // redéfinir ici (voir `SheetRow`).
-              hint={
-                item.calories_100g === null
-                  ? 'valeurs inconnues'
-                  : `${integer(item.calories_100g)} kcal/100 g`
-              }
-              onClick={() => {
-                onPick(item);
-              }}
-            />
-          ))}
-          {hidden > 0 && (
-            <p className={styles.empty}>
-              {hidden === 1
-                ? 'Un autre aliment correspond — précise ta recherche.'
-                : `${integer(hidden)} autres aliments correspondent — précise ta recherche.`}
-            </p>
-          )}
-        </div>
-      )}
+      {/* **La zone qui défile, de hauteur constante** (`UI-07`).
 
-      {/* Le dernier chemin, et la sortie. En dessous de la liste : la saisie à la main
-          est ce qui reste quand ni le catalogue ni un code-barres n'ont répondu. */}
+          La liste raccourcit à chaque caractère tapé, et c'est ce qui faisait le plus
+          bouger la feuille : douze lignes pour un catalogue entier, deux pour « riz », et
+          le panneau se redimensionnait sous le pouce entre deux appuis. Le champ de
+          recherche remontait donc pendant qu'on y tapait, et le retour avec lui.
+
+          Un conteneur à part plutôt que `flex: 1` sur chacun des trois états : le vide du
+          catalogue et la recherche sans résultat doivent occuper la **même** place que la
+          liste, sinon la feuille rebouge à l'instant précis où l'on cherche un aliment
+          qu'elle ne connaît pas. */}
+      <div className={styles.pickZone}>
+        {/* Trois états ici, et le troisième n'est pas le second : un catalogue vide et une
+            recherche sans résultat ne se réparent pas du même geste. */}
+        {catalogue.length === 0 ? (
+          <p className={styles.empty}>
+            Ton catalogue est vide. Un aliment scanné y entre tout seul après le repas ; d’ici là,
+            le code-barres et la saisie à la main suffisent.
+          </p>
+        ) : shown.length === 0 ? (
+          <p className={styles.empty}>
+            Aucun aliment ne porte ce nom. Scanne-le, ou saisis-le à la main — il entrera au
+            catalogue avec le repas.
+          </p>
+        ) : (
+          <div className={styles.pickList}>
+            {shown.map((item) => (
+              <SheetRow
+                key={item.id}
+                label={item.name}
+                // L'indice est une **mesure** qui appartient à la ligne, pas une phrase qui
+                // explique un choix : il est donc lu avec le nom, et `aria-label` n'a rien à
+                // redéfinir ici (voir `SheetRow`).
+                hint={
+                  item.calories_100g === null
+                    ? 'valeurs inconnues'
+                    : `${integer(item.calories_100g)} kcal/100 g`
+                }
+                onClick={() => {
+                  onPick(item);
+                }}
+              />
+            ))}
+            {hidden > 0 && (
+              <p className={styles.empty}>
+                {hidden === 1
+                  ? 'Un autre aliment correspond — précise ta recherche.'
+                  : `${integer(hidden)} autres aliments correspondent — précise ta recherche.`}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* La sortie, et elle seule. « Saisir à la main » était ici — voir l'en-tête pour
+          ce que son retrait coûte et par où la saisie à la main passe désormais. Le
+          conteneur reste : il tient le bas de l'étape, et c'est ce qui permet à la liste
+          de défiler entre lui et la recherche. */}
       <div className={styles.pickActions}>
-        <Button variant="quiet" onClick={onManual}>
-          Saisir à la main
-        </Button>
         <Button variant="quiet" onClick={onBack}>
           Retour
         </Button>

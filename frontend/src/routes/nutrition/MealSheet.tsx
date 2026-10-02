@@ -422,7 +422,14 @@ export function MealSheet({
     addRow(ingredientFromCatalogue(item), item.name);
   }
 
-  /** Une ligne vierge, à nommer et à peser : le vrac, un reste, un plat cuisiné. */
+  /**
+   * Une ligne vierge, à nommer et à peser : le vrac, un reste, un plat cuisiné.
+   *
+   * **Un seul appelant depuis que « Saisir à la main » a quitté l'étape de choix** : le
+   * code-barres inconnu de `ScanStep`, qui promet cette suite dans son message. La
+   * fonction reste parce que ce chemin-là reste — et c'est le dernier à mener à une ligne
+   * manuelle depuis la feuille.
+   */
   function addManual(): void {
     const row = emptyIngredient();
     setRows((current) => [...current, row]);
@@ -526,6 +533,21 @@ export function MealSheet({
          celles d'un pouce qui dérape, ou d'un appel qui arrive. Le brouillon la garde
          quinze minutes ; « Changer de mode » reste le geste qui l'efface vraiment. */
       onClose={onClose}
+      /* **Le choix du mode suit son contenu, les cinq autres pas tiennent la hauteur
+         commune** (`UI-07`).
+
+         C'est cette feuille qui a motivé la hauteur tenue de `Sheet` : le choix du mode,
+         le formulaire, l'ajout d'un aliment, le scan et la fiche d'un produit donnaient
+         cinq hauteurs, et la recherche du catalogue en donnait une par frappe. Le premier
+         pas est l'exception parce qu'il est le seul dont le contenu **ne change pas** —
+         trois lignes, rien qui entre ni sorte — et qu'à 86dvh elles flottaient au-dessus
+         de 380 px de vide. Le saut qui suit est provoqué par l'appui sur un mode : on
+         change d'écran, on ne subit pas une secousse.
+
+         `mode === null` et non l'étape : quand aucun mode n'est choisi, aucune des trois
+         surfaces qui prennent la feuille n'est atteignable — elles s'ouvrent depuis le
+         formulaire du mode composé. */
+      fit={mode === null}
       /* Le titre suit la surface — une feuille qui garde son titre ne dit pas où l'on
          est — et la fiche prend le nom de son aliment. Le répéter en tête de la fiche
          aurait écrit deux fois « Nutella » à deux centimètres d'écart. */
@@ -540,7 +562,7 @@ export function MealSheet({
         mode === null
           ? 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
           : step.kind === 'pick'
-            ? 'Dans ton catalogue, par son code-barres, ou à la main.'
+            ? 'Dans ton catalogue, ou par son code-barres.'
             : step.kind === 'scan'
               ? 'Le code-barres suffit. Rien n’est enregistré avant ta validation.'
               : undefined
@@ -556,7 +578,6 @@ export function MealSheet({
           onScan={() => {
             setStep({ kind: 'scan' });
           }}
-          onManual={addManual}
           onBack={back}
         />
       ) : step.kind === 'scan' ? (

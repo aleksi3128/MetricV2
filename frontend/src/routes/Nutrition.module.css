@@ -738,10 +738,33 @@
 
 /* ── Choisir un aliment (`NUT-23`) ────────────────── */
 
+/* **L'étape occupe tout le corps de la feuille** (`UI-07`).
+
+   `height: 100%` demande une hauteur définie au parent, et c'est `Sheet` qui la donne
+   depuis que `.body` y est en `flex: 1`. Ce qui en découle : le viseur et la recherche
+   tiennent en haut, les deux chemins restants tiennent en bas, et c'est `.pickZone` entre
+   les deux qui absorbe la variation. Le corps de la feuille ne défile alors plus du tout
+   — seule la zone le fait. */
 .pick {
   display: flex;
   flex-direction: column;
   gap: var(--s4);
+  height: 100%;
+}
+
+/* La zone de la liste : ce qui défile, et la seule chose dont la hauteur change n'est plus
+   celle du panneau mais la longueur de son contenu **à l'intérieur** d'elle.
+
+   `min-height` à trois lignes : quand le viseur, la recherche et les deux chemins prennent
+   déjà tout — un téléphone couché, un clavier système ouvert —, la zone ne se laisse pas
+   écraser à rien. C'est le corps de la feuille qui reprend le défilement dans ce cas, et
+   trois lignes valent mieux qu'une liste réduite à un liseré. */
+.pickZone {
+  flex: 1;
+  min-height: calc(var(--tap-lg) * 3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Le viseur **réduit** de l'étape de choix (`NUT-27`). Une cible pleine largeur, assez

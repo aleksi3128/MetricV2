@@ -25,9 +25,25 @@
   border-top: 1px solid var(--line);
   border-radius: var(--r) var(--r) 0 0;
   box-shadow: var(--shadow);
-  /* La feuille ne monte jamais jusqu'en haut : on doit voir qu'il y a un écran derrière,
-     sinon c'est une page et le geste vers le bas n'a plus de sens. */
-  max-height: 86dvh;
+  /*
+   * **Une hauteur tenue, et non une hauteur subie** (`UI-07`).
+   *
+   * C'était `max-height` seul : la feuille prenait la hauteur de son contenu et se
+   * redimensionnait donc à chaque chose qui entre ou sort d'elle. Sur « Ajouter un
+   * repas », le choix du mode, le formulaire, l'étape d'ajout d'un aliment et la fiche
+   * d'un produit donnaient quatre hauteurs ; et dans l'étape d'ajout, **chaque frappe**
+   * dans la recherche en donnait une de plus, puisque la liste du catalogue raccourcit.
+   * Le panneau sautait sous le pouce entre deux appuis, et la cible visée n'était plus là
+   * où on l'avait vue.
+   *
+   * 86dvh : la feuille ne monte jamais jusqu'en haut — on doit voir qu'il y a un écran
+   * derrière, sinon c'est une page et le geste vers le bas n'a plus de sens.
+   *
+   * Ce que ça coûte : une feuille courte laisse du vide sous son contenu. C'est le prix
+   * d'un panneau qui ne bouge pas, et `.fit` est la sortie nommée pour les surfaces où ce
+   * vide est pire que le saut.
+   */
+  height: 86dvh;
   display: flex;
   flex-direction: column;
   /* Le doigt la suit pendant le geste ; à la fin, elle rejoint sa place. */
@@ -50,6 +66,24 @@
     border: 1px solid var(--line);
     animation: fade 0.18s ease;
   }
+}
+
+/*
+ * La feuille qui **suit son contenu**, pour les surfaces où la hauteur tenue ne se
+ * justifie pas.
+ *
+ * Un seul emploi aujourd'hui : le choix du mode de saisie d'un repas, trois lignes qui
+ * ouvrent la feuille. À 86dvh, elles flottaient au-dessus de 380 px de vide — et ce
+ * premier pas n'a rien qui entre ou sort de lui, donc rien à stabiliser. Le saut qui
+ * suit est provoqué par un appui délibéré sur un mode : c'est un changement d'écran, pas
+ * une secousse.
+ *
+ * Après la requête de grand écran, et non avant : sinon la règle de largeur qui y vit
+ * l'emporterait sur `height` par ordre de déclaration le jour où elle en porterait un.
+ */
+.fit {
+  height: auto;
+  max-height: 86dvh;
 }
 
 .grip {
@@ -110,7 +144,14 @@
   margin-top: 2px;
 }
 
+/* `flex: 1` et non la hauteur du contenu : c'est ce qui donne au corps une hauteur
+   **définie**, donc ce qui permet à une étape d'y poser une zone qui défile toute seule
+   — la liste du catalogue de `PickStep`. Sans lui, le corps s'arrête au contenu et un
+   enfant en `flex: 1` n'a rien à remplir. `min-height: 0` parce qu'un conteneur de
+   défilement en flex refuse sinon de descendre sous la taille de son contenu. */
 .body {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

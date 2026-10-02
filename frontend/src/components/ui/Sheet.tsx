@@ -30,6 +30,7 @@ export function Sheet({
   title,
   /** Décrit ce que la feuille sert à faire, sous le titre. */
   lede,
+  fit,
   children,
   className,
 }: {
@@ -37,6 +38,19 @@ export function Sheet({
   onClose: () => void;
   title: string;
   lede?: string | undefined;
+  /**
+   * La feuille suit la hauteur de son contenu, au lieu de tenir la hauteur commune.
+   *
+   * Le défaut est l'inverse — voir `.panel` : un panneau qui s'ajuste à ce qu'il porte
+   * saute sous le pouce dès que son contenu change, et « Ajouter un repas » en donnait
+   * cinq hauteurs. Ce drapeau est la sortie nommée, pour les surfaces **dont le contenu
+   * ne change pas** et qui sont assez courtes pour que le vide se remarque plus que le
+   * saut : aujourd'hui le seul choix du mode de saisie d'un repas.
+   *
+   * Il ne s'emploie donc pas pour « faire plus joli à l'ouverture » d'une surface qui va
+   * grandir — ce serait rendre le saut à la feuille qui vient de s'en débarrasser.
+   */
+  fit?: boolean | undefined;
   children: ReactNode;
   className?: string | undefined;
 }) {
@@ -126,7 +140,7 @@ export function Sheet({
 
       <div
         ref={panel}
-        className={cx(styles.panel, className)}
+        className={cx(styles.panel, fit === true && styles.fit, className)}
         role="dialog"
         aria-modal="true"
         aria-label={title}

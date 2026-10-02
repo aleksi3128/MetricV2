@@ -279,11 +279,12 @@ export function IngredientTable({
         ))
       )}
 
-      {/* **Une porte, et trois chemins derrière** (`NUT-23`). Il y en avait deux ici, et
+      {/* **Une porte, et les chemins derrière** (`NUT-23`). Il y en avait deux ici, et
           l'ordre disait laquelle est la principale : le scan d'abord, la saisie à la main
           ensuite. Le geste quotidien — reprendre un aliment déjà connu — n'en avait aucune,
           et se faisait par la seconde en espérant que le catalogue réponde. Le choix est
-          maintenant dans `PickStep`, qui les nomme tous les trois. */}
+          maintenant dans `PickStep`, qui nomme le catalogue et le code-barres ; la saisie
+          à la main y a été retirée, et son en-tête dit par où elle passe désormais. */}
       <div className={styles.ingredientActions}>
         <Button variant="ghost" onClick={onPick}>
           Ajouter un aliment

@@ -145,6 +145,19 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
     if (url.includes('/api/nutrition/history')) {
       return Promise.resolve(json(200, NUTRITION_HISTORY));
     }
+    // Idem, et pour la même raison : un code-barres cherché tombait sur la vue du jour
+    // et passait donc pour un produit **trouvé**, aux champs absurdes. Le défaut est
+    // maintenant « inconnu », qui est le cas réel d'un code tapé au hasard — et c'est la
+    // porte par laquelle `addByHand` atteint une ligne manuelle. `stubProduct` le
+    // remplace pour les tests qui scénarisent un produit connu.
+    if (url.includes('/api/nutrition/products/')) {
+      return Promise.resolve(
+        json(404, {
+          code: 'product_not_found',
+          message: 'Open Food Facts ne connaît pas ce produit.',
+        }),
+      );
+    }
     if (url.includes('/api/nutrition')) return Promise.resolve(json(200, VIEW));
     return Promise.resolve(json(200, {}));
   });
@@ -501,15 +514,24 @@ describe('écran Nutrition', () => {
  * des valeurs pour 100 g et des quantités, et affiche le nombre que le serveur rend.
  */
 /**
- * Ouvre une ligne vierge : la porte unique, puis « Saisir à la main » (`NUT-23`).
+ * Ouvre une ligne vierge — **par le chemin qui reste** (`NUT-23`, `UI-07`).
  *
- * C'était un seul appui jusqu'ici. Le chemin en demande un de plus depuis que les trois
- * façons d'ajouter un aliment — le catalogue, le code-barres, la main — sont nommées au
- * même endroit au lieu d'être deux boutons dont l'ordre décidait pour l'utilisateur.
+ * C'était « Ajouter un aliment » puis « Saisir à la main », deux appuis. Ce second bouton
+ * a été retiré de l'étape de choix : la saisie à la main ne s'atteint plus que derrière un
+ * code-barres que la base ne connaît pas, là où le message la promet.
+ *
+ * L'aide **suit ce chemin plutôt que d'en garder un privé**. Un raccourci de test vers un
+ * état que l'utilisateur ne peut plus atteindre ferait passer huit cas pour vérifiés sur
+ * une surface morte — exactement ce que la batterie est censée empêcher.
  */
 async function addByHand(): Promise<void> {
   await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'Saisir à la main' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Scanner un code-barres' }));
+  await userEvent.type(await screen.findByLabelText('Code-barres'), '0000000000000');
+  await userEvent.click(screen.getByRole('button', { name: 'Chercher ce code' }));
+  await userEvent.click(
+    await screen.findByRole('button', { name: 'Ajouter cet aliment à la main' }),
+  );
 }
 
 describe('repas composé', () => {
@@ -769,9 +791,9 @@ describe('repas composé', () => {
     expect(screen.getByLabelText('Nom du plat')).toHaveValue('riz basmati');
   });
 
-  it('nomme les trois chemins au même endroit', async () => {
-    // Deux boutons dont l'ordre décidait pour l'utilisateur sont devenus une porte et
-    // trois chemins déclarés.
+  it('nomme ses deux chemins au même endroit', async () => {
+    // Deux boutons dont l'ordre décidait pour l'utilisateur sont devenus une porte et des
+    // chemins déclarés : le catalogue et le code-barres.
     stub();
     renderNutrition();
 
@@ -780,7 +802,9 @@ describe('repas composé', () => {
 
     expect(await screen.findByLabelText('Chercher un aliment')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Scanner un code-barres' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Saisir à la main' })).toBeInTheDocument();
+    // « Saisir à la main » a quitté l'étape : la ligne manuelle ne s'atteint plus que
+    // derrière un code-barres inconnu, ce que `addByHand` emprunte.
+    expect(screen.queryByRole('button', { name: 'Saisir à la main' })).toBeNull();
     // Et rien n'a été ajouté au plat tant qu'aucun chemin n'est pris.
     expect(screen.queryByLabelText(/^Grammes/)).toBeNull();
   });
