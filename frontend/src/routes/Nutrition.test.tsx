@@ -158,6 +158,24 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
         }),
       );
     }
+    // Idem encore : le total d'un plat recevait la vue du jour, sans `calories` ni
+    // `lines`, et `CompositionTotal` plantait sur `num(undefined)`. Seulement quand la
+    // saisie dépassait `TOTAL_DELAY_MS` — depuis que `addByHand` tape un code-barres,
+    // c'est le cas sur une machine lente, pas en local. Le défaut est la réponse réelle
+    // à des lignes saisies à la main sans valeurs pour 100 g : rien à totaliser.
+    if (url === '/api/nutrition/compose') {
+      return Promise.resolve(
+        json(200, {
+          lines: [],
+          calories: 0,
+          protein_g: 0,
+          added_sugar_g: 0,
+          saturated_fat_g: 0,
+          fiber_g: 0,
+          empty: true,
+        }),
+      );
+    }
     if (url.includes('/api/nutrition')) return Promise.resolve(json(200, VIEW));
     return Promise.resolve(json(200, {}));
   });
