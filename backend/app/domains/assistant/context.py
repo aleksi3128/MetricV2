@@ -357,6 +357,19 @@ async def week_lines(store: FileStore, today: date) -> list[str]:
             details.append(f"FC moyenne {run.avg_hr}")
         lines.append(f"Course du {run.date:%d/%m} : {', '.join(details)}")
 
+    # Les natations, **dans la notation** et avec leurs tours douteux : un coach qui lit
+    # « 850 m » sans savoir que trois tours sont suspects conseillerait sur un faux total.
+    from app.domains.activity.swims import SwimService
+
+    for nage in await SwimService(store).between(debut, today - timedelta(days=1)):
+        details = [f"{fr(nage.distance_m)} m", f"{fr(round(nage.duration_s / 60))} min"]
+        if nage.avg_hr is not None:
+            details.append(f"FC moyenne {nage.avg_hr}")
+        if nage.suspect_laps:
+            details.append(f"{nage.suspect_laps} tour(s) douteux d'après la montre")
+        blocs = " ; ".join(line.text for line in nage.lines)
+        lines.append(f"Natation du {nage.date:%d/%m} : {', '.join(details)} — {blocs}")
+
     if not lines:
         # L'absence se dit, mais **bornée à la fenêtre** : « rien depuis sept jours » est
         # vrai et utile, « tu ne t'entraînes pas » serait une conclusion qui n'est pas la

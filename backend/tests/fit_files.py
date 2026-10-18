@@ -310,3 +310,150 @@ def paced(*sections: tuple[float, float]) -> list[float]:
         if rest > 1e-6:
             speeds.append(rest)
     return speeds
+
+
+# ── La natation en piscine (`docs/planning-natation.md` §6) ─
+
+#: Une longueur : `(nage, secondes, coups)`, `nage` à `None` pour une longueur de repos.
+Length = tuple[str | None, float, int | None]
+#: Un tour : `("swim", [longueurs])` ou `("rest", secondes)`.
+SwimLapSpec = tuple[str, object]
+
+
+def swim_file(
+    laps: Sequence[SwimLapSpec],
+    *,
+    start: datetime = datetime(2026, 10, 11, 5, 50, 32, tzinfo=UTC),
+    offset_hours: int = 2,
+    pool_m: float | None = 25.0,
+    sport: str = "swimming",
+    sub_sport: str = "lap_swimming",
+    heart_rate: int | None = 140,
+) -> bytes:
+    """Un `.fit` de bassin, tour par tour et longueur par longueur.
+
+    La **forme** de celui d'une Epix Pro relu pour ce lot — tours manuels, nage et repos
+    alternés, longueurs de repos dans un tour de nage — et jamais ses valeurs : un vrai
+    fichier de nage est une séance de quelqu'un, horodatée et cardiaque.
+    """
+    builder = FitBuilder()
+    builder.add("file_id", type="activity", manufacturer=1, time_created=start)
+    builder.add("activity", timestamp=start, local_timestamp=start + timedelta(hours=offset_hours))
+
+    lengths: list[tuple[datetime, Length]] = []
+    lap_rows: list[dict[str, object]] = []
+    clock = start
+    total = 0.0
+    distance = 0.0
+    for kind, spec in laps:
+        if kind == "rest":
+            assert isinstance(spec, int | float)
+            lap_rows.append(
+                {
+                    "start_time": clock,
+                    "total_distance": 0.0,
+                    "total_timer_time": float(spec),
+                    "total_elapsed_time": float(spec),
+                    "first_length_index": len(lengths),
+                    "num_lengths": 0,
+                    "lap_trigger": "manual",
+                }
+            )
+            clock += timedelta(seconds=float(spec))
+            total += float(spec)
+            continue
+        assert isinstance(spec, list)
+        first = len(lengths)
+        lap_start = clock
+        active = 0
+        strokes = 0
+        for length in spec:
+            lengths.append((clock, length))
+            clock += timedelta(seconds=length[1])
+            if length[0] is not None:
+                active += 1
+                strokes += length[2] or 0
+        elapsed = (clock - lap_start).total_seconds()
+        total += elapsed
+        lap_distance = active * (pool_m or 25.0)
+        distance += lap_distance
+        row: dict[str, object] = {
+            "start_time": lap_start,
+            "total_distance": lap_distance,
+            "total_timer_time": elapsed,
+            "total_elapsed_time": elapsed,
+            "first_length_index": first,
+            "num_lengths": len(spec),
+            "num_active_lengths": active,
+            # `total_strokes` est la lecture **nage** de `total_cycles` : le décodeur ne la
+            # résout que si le message dit son sport, comme le fait une montre.
+            "sport": sport,
+            "total_cycles": strokes,
+            "lap_trigger": "manual",
+        }
+        if heart_rate is not None:
+            row["avg_heart_rate"] = heart_rate
+            row["max_heart_rate"] = heart_rate + 15
+        lap_rows.append(row)
+
+    session: dict[str, object] = {
+        "start_time": start,
+        "sport": sport,
+        "sub_sport": sub_sport,
+        "total_distance": distance,
+        "total_timer_time": total,
+        "total_elapsed_time": total + 12,
+        "total_cycles": sum(length[2] or 0 for _, length in lengths),
+        "total_calories": 320,
+    }
+    if pool_m is not None:
+        session["pool_length"] = pool_m
+    builder.add("session", **session)
+    for row in lap_rows:
+        builder.add("lap", **row)
+    for moment, (stroke, seconds, count) in lengths:
+        values: dict[str, object] = {
+            "start_time": moment,
+            "total_timer_time": seconds,
+            "total_elapsed_time": seconds,
+            "length_type": "idle" if stroke is None else "active",
+        }
+        if stroke is not None:
+            values["swim_stroke"] = stroke
+            if count is not None:
+                values["total_strokes"] = count
+        builder.add("length", **values)
+    if heart_rate is not None:
+        for step in range(0, int(total), 10):
+            builder.add("record", timestamp=start + timedelta(seconds=step), heart_rate=heart_rate)
+    return builder.build()
+
+
+#: Le bassin de référence de la batterie : chaque piège du fichier relu, une fois.
+#:
+#: * tour 0 — une brasse impossible (13 s, 3 coups) au milieu de deux dos, avec des
+#:   longueurs de repos dedans : douteux, et nage seulement détectée ;
+#: * tours 3 à 9 — quatre 50 m, dont deux lus « brasse puis crawl » : `4×50 CR R~40` ;
+#: * tour 11 — un « 75 m » qui est un 50 m dont une longueur a été coupée en deux ;
+#: * tour 13 — un repos long, qui rompt le groupe ;
+#: * tour 15 — une brasse lente et homogène, qui n'est pas douteuse.
+REFERENCE_POOL: list[SwimLapSpec] = [
+    ("swim", [("breaststroke", 13, 3), (None, 18, None), ("backstroke", 29, 6),
+              (None, 50, None), ("backstroke", 31, 9)]),
+    ("rest", 1),
+    ("rest", 26),
+    ("swim", [("freestyle", 44, 16), ("freestyle", 40, 16)]),
+    ("rest", 31),
+    ("swim", [("freestyle", 42, 13), ("freestyle", 42, 18)]),
+    ("rest", 37),
+    ("swim", [("breaststroke", 41, 12), ("freestyle", 39, 21)]),
+    ("rest", 43),
+    ("swim", [("breaststroke", 40, 13), ("freestyle", 40, 19)]),
+    ("rest", 45),
+    ("swim", [("breaststroke", 40, 14), ("freestyle", 16, 7), ("freestyle", 24, 7)]),
+    ("rest", 42),
+    ("swim", [("freestyle", 35, 14), ("freestyle", 46, 16)]),
+    ("rest", 172),
+    ("swim", [("breaststroke", 73, 25)]),
+    ("rest", 33),
+]  # fmt: skip

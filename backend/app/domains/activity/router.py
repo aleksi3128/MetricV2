@@ -51,6 +51,8 @@ from app.domains.activity.service import (
     RunService,
 )
 from app.domains.activity.stats import ActivityStats
+from app.domains.activity.swim_schemas import SwimDetail, SwimList, SwimStrokePayload
+from app.domains.activity.swims import SwimService
 from app.domains.activity.trends import RunTrendsService
 from app.domains.activity.weather import WeatherDep
 from app.domains.ai.deps import AiProviderDep, AiServiceDep
@@ -106,6 +108,55 @@ def muscle_groups() -> list[str]:
 )
 async def create_run(payload: RunPayload, store: StoreDep) -> Run:
     return await RunService(store).create(payload)
+
+
+# ── La natation en piscine (`docs/planning-natation.md` §6) ─
+
+
+@router.get("/swims", response_model=SwimList, summary="Les natations importées")
+async def list_swims(store: StoreDep) -> SwimList:
+    return SwimList(swims=await SwimService(store).all())
+
+
+@router.post(
+    "/swims/fit",
+    response_model=SwimDetail,
+    status_code=status.HTTP_201_CREATED,
+    summary="Importer une natation en piscine depuis un fichier .fit",
+)
+async def import_swim_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> SwimDetail:
+    """Décode le `.fit`, range le fichier, écrit la séance et ses tours.
+
+    L'eau libre, un autre sport, un fichier illisible ou déjà importé rendent
+    `validation_error` avec un message affichable tel quel.
+    """
+    data = await file.read()
+    await file.close()
+    return await SwimService(store).create_from_fit(data)
+
+
+@router.patch(
+    "/swims/laps/{row_id}", response_model=SwimDetail, summary="Corriger la nage d'un tour"
+)
+async def correct_swim_lap(
+    row_id: RowId, payload: SwimStrokePayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimDetail:
+    return await SwimService(store).correct_lap(row_id, _token(if_match), payload)
+
+
+@router.get("/swims/{swim_id}", response_model=SwimDetail, summary="Une natation et ses tours")
+async def read_swim(
+    swim_id: Annotated[str, Path(min_length=1, max_length=32)], store: StoreDep
+) -> SwimDetail:
+    return await SwimService(store).detail(swim_id)
+
+
+@router.delete(
+    "/swims/{row_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Supprimer une natation"
+)
+async def delete_swim(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
+    """Supprime la séance, ses tours, puis son fichier — dans cet ordre."""
+    await SwimService(store).delete(row_id, _token(if_match))
 
 
 @router.post(

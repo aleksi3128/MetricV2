@@ -115,6 +115,17 @@ class FitError(ValidationFailedError):
     """
 
 
+class FitIsSwimError(FitError):
+    """Un `.fit` de natation envoyé à l'import de course.
+
+    Un code à part pour que l'écran **réaiguille** le fichier vers l'import de la nage au
+    lieu d'afficher un refus : le client décide sur le code, jamais sur le message
+    (`docs/planning-natation.md` §6.3).
+    """
+
+    code = "fit_is_swim"
+
+
 # ── Ce qu'un fichier rend ─────────────────────────────
 
 
@@ -351,6 +362,8 @@ def _check_sport(session: dict[str, object]) -> None:
     ne s'agit pas d'un doute mais d'une sortie qui n'a rien à faire dans `runs.csv`.
     """
     sport = session.get("sport")
+    if sport == "swimming":
+        raise FitIsSwimError("Ce fichier décrit une natation, pas une course à pied.")
     if isinstance(sport, str) and sport not in RUN_SPORTS:
         label = sport.replace("_", " ")
         raise FitError(f"Ce fichier décrit une sortie « {label} », pas une course à pied.")
@@ -924,3 +937,14 @@ def _bounded(value: int, low: int, high: int) -> int | None:
     où on attend 180. Ramener à la borne écrirait ce chiffre faux comme s'il était mesuré.
     """
     return value if low <= value <= high else None
+
+
+# ── Ce que la lecture de la nage emprunte ─────────────
+#
+# `swim_fit.py` lit un autre sport dans le même format. Il réemploie la garde d'entrée, la
+# lecture d'un message et l'heure de départ **telles qu'elles sont** — deux lectures du
+# décalage horaire d'un fichier finiraient par dater une séance de nage autrement qu'une
+# course du même matin.
+check = _check
+values_of = _values
+start_of = _start

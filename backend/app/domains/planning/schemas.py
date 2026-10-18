@@ -22,6 +22,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.validation import DurationMin, Label, Note, PlannedDate
+from app.domains.activity.swim_schemas import SwimLine
 from app.domains.planning.swim import MAX_CHARS, SwimProgram
 
 #: Les natures planifiables. Fermée côté API alors que le fichier tolère n'importe quoi :
@@ -121,6 +122,11 @@ class PlannedSession(BaseModel):
     #: Lu à chaque affichage et non stocké : un sigle renommé en Réglages se voit aussitôt,
     #: et le total ne peut pas diverger du texte dont il vient.
     swim: SwimProgram | None = None
+    #: La distance **nagée** ce jour-là par la natation qui honore celle-ci, et l'écart au
+    #: prévu (`docs/planning-natation.md` §6.4). Calculés au serveur, `null` sans natation
+    #: réalisée — et l'écart `null` aussi sans total prévu : on ne compare pas à rien.
+    done_m: int | None = None
+    gap_m: int | None = None
 
 
 class DoneActivity(BaseModel):
@@ -130,11 +136,17 @@ class DoneActivity(BaseModel):
     n'écrit jamais ce qui a eu lieu, et ne le recopie pas non plus.
     """
 
-    kind: Literal["run", "workout"]
+    kind: Literal["run", "workout", "swim"]
     #: Position de la ligne dans son fichier, pour aller la voir sur `/activite`.
     id: int
     label: str
     duration_min: float
+    #: Pour une natation : son identifiant, et la séance réécrite dans la notation — ce que
+    #: le panneau du jour pose à côté du programme prévu.
+    swim_id: str | None = None
+    distance_m: float | None = None
+    lines: list[SwimLine] = Field(default_factory=list)
+    suspect_laps: int = 0
 
 
 class DayCell(BaseModel):

@@ -281,7 +281,7 @@ def _recovery(token: str) -> tuple[str, int] | None:
     return letter, value
 
 
-def _clock(seconds: int) -> str:
+def format_clock(seconds: int) -> str:
     """15 → `15` ; 60 → `1'` ; 90 → `1'30`. La forme qu'on relit au bord du bassin."""
     if seconds < 60:
         return str(seconds)
@@ -366,7 +366,7 @@ def _block(text: str, glossary: Glossary) -> _Block:
             stroke.code,
             pace.code if pace else None,
             *(option.code for option in options),
-            f"{recovery[0]}{_clock(recovery[1])}" if recovery else None,
+            f"{recovery[0]}{format_clock(recovery[1])}" if recovery else None,
         )
         if part
     )
@@ -403,7 +403,7 @@ def _group(match: re.Match[str], glossary: Glossary) -> _Read:
         if found is None or " " in tail:
             raise _NotationError(f"« {tail} » : après la parenthèse, seule une récupération.", tail)
         tail_rest = found[1] if found[0] == "R" else 0
-        tail_text = f" {found[0]}{_clock(found[1])}"
+        tail_text = f" {found[0]}{format_clock(found[1])}"
 
     rest = reps * (sum(b.reps * (b.rest_s or 0) for b in blocks) + tail_rest)
     text = f"{reps}×({' ; '.join(b.text for b in blocks)}){tail_text}"
@@ -610,6 +610,7 @@ __all__ = [
     "code_problem",
     "correction",
     "describe_errors",
+    "format_clock",
     "guide",
     "normalise_code",
     "parse",

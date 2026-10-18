@@ -44,7 +44,7 @@ from app.domains.planning.schemas import (
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
 from app.storage.files import FileStore
-from app.storage.paths import CIRCUIT_SESSIONS, PLAN, RUNS, SWIM_CODES
+from app.storage.paths import CIRCUIT_SESSIONS, PLAN, RUNS, SWIM_CODES, SWIM_LAPS, SWIMS
 
 #: Profondeur d'historique servie au flux iCal.
 #:
@@ -59,6 +59,39 @@ DEFAULT_ADHERENCE_WEEKS = 8
 
 #: Semaines d'historique résumées au modèle (`PLAN-03`).
 HISTORY_WEEKS = 4
+
+
+def _honoured(planned: int, planned_swims: int, done: list[DoneActivity]) -> int:
+    """Combien de séances prévues un jour honore (`PLAN-06`, et D15 pour la natation).
+
+    La règle d'origine tient : n'importe quelle activité honore n'importe quelle séance,
+    `min(prévu, réalisé)` sur la journée. **Sauf une natation prévue**, qui n'est honorée
+    que par une natation — une sortie courue ne remplace pas une séance de bassin. Une
+    natation en trop, elle, honore une autre séance comme n'importe quelle activité.
+    """
+    swims = sum(1 for item in done if item.kind == "swim")
+    others = len(done) - swims
+    swims_honoured = min(planned_swims, swims)
+    spare = swims - swims_honoured
+    return swims_honoured + min(planned - planned_swims, others + spare)
+
+
+def _compare_swims(planned: list[PlannedSession], done: list[DoneActivity]) -> None:
+    """Pose sur chaque natation prévue la distance nagée et l'écart (§6.4).
+
+    Appariées **dans l'ordre du jour** : la première natation prévue avec la première
+    nagée. Deux séances de bassin le même jour sont rares, et un appariement plus savant
+    déciderait à la place de l'utilisateur laquelle remplaçait laquelle.
+    """
+    swims = [item for item in done if item.kind == "swim"]
+    targets = [session for session in planned if session.kind == "natation"]
+    for session, swum in zip(targets, swims, strict=False):
+        # La distance **de la montre**, tours douteux compris (D12) : la même que celle que
+        # la séance affiche, sans quoi l'écart et le total se contrediraient.
+        distance = round(swum.distance_m or 0)
+        session.done_m = distance
+        total = session.swim.total_m if session.swim is not None else None
+        session.gap_m = distance - total if total is not None else None
 
 
 def new_id() -> str:
@@ -147,13 +180,15 @@ class PlanningService:
         start = week_start(month_start)
         end = week_start(month_end) + timedelta(days=6)
 
-        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES])
+        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES, SWIMS, SWIM_LAPS])
         planned = await self.between(start, end)
         done = await self._done_between(start, end)
 
         by_day: dict[date, list[PlannedSession]] = defaultdict(list)
         for session in planned:
             by_day[session.date].append(session)
+        for day, sessions in by_day.items():
+            _compare_swims(sessions, done.get(day, []))
 
         days: list[DayCell] = []
         cursor = start
@@ -204,6 +239,23 @@ class PlanningService:
                         duration_min=session.model.duration_min,
                     )
                 )
+
+        # Les natations, lues chez `activity/swims.py` — qui les réécrit dans la notation.
+        from app.domains.activity.swims import SwimService
+
+        for swum in await SwimService(self._store).between(start, end):
+            done[swum.date].append(
+                DoneActivity(
+                    kind="swim",
+                    id=swum.id,
+                    label=f"Natation · {round(swum.distance_m)} m",
+                    duration_min=round(swum.duration_s / 60, 1),
+                    swim_id=swum.swim_id,
+                    distance_m=swum.distance_m,
+                    lines=swum.lines,
+                    suspect_laps=swum.suspect_laps,
+                )
+            )
 
         return done
 
@@ -351,13 +403,16 @@ class PlanningService:
         start = this_week - timedelta(weeks=weeks - 1)
         end = this_week + timedelta(days=6)
 
-        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES])
+        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES, SWIMS, SWIM_LAPS])
         planned = await self.between(start, end)
         done = await self._done_between(start, end)
 
         planned_by_day: dict[date, int] = defaultdict(int)
+        swims_by_day: dict[date, int] = defaultdict(int)
         for session in planned:
             planned_by_day[session.date] += 1
+            if session.kind == "natation":
+                swims_by_day[session.date] += 1
 
         rows: list[WeekAdherence] = []
         total_planned = 0
@@ -370,7 +425,8 @@ class PlanningService:
             week_planned = sum(planned_by_day.get(day, 0) for day in days)
             week_done = sum(len(done.get(day, [])) for day in days)
             week_honoured = sum(
-                min(planned_by_day.get(day, 0), len(done.get(day, []))) for day in days
+                _honoured(planned_by_day.get(day, 0), swims_by_day.get(day, 0), done.get(day, []))
+                for day in days
             )
 
             total_planned += week_planned
@@ -424,7 +480,7 @@ class PlanningService:
         start = request.start or (week_start(current) + timedelta(days=7))
         end = start + timedelta(days=7 * request.weeks - 1)
 
-        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS])
+        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIMS, SWIM_LAPS])
         existing = await self.between(start, end)
         history, basis = await self._history(current)
         muscles = await self._muscles(current)

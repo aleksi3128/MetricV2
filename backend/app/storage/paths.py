@@ -63,6 +63,11 @@ RUN_METRICS = "activity/run_metrics.csv"
 
 #: La météo de chaque sortie importée, reçue d'Open-Meteo (`docs/coach-course.md`, **C6**).
 RUN_WEATHER = "activity/run_weather.csv"
+#: Les natations en piscine importées d'un `.fit`, et leurs tours
+#: (`docs/planning-natation.md` §6.3). Le fichier lui-même est rangé avec ceux des courses,
+#: sous `RUN_FITS` : un `.fit` est un `.fit`, et un seul dossier se sauvegarde d'un geste.
+SWIMS = "activity/swims.csv"
+SWIM_LAPS = "activity/swim_laps.csv"
 
 
 #: Les séances **modèles** ouvertes dans Cadence Tabata (**D2**), et leurs exercices.

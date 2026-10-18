@@ -452,3 +452,54 @@ class CircuitSessionSetRow(CsvModel):
     #: `CircuitExerciseRow`, avec la même règle : c'est `reps` qui dit la nature de la
     #: ligne. Aucune charge ne l'accompagne, donc aucun tonnage n'en sort (**C4**).
     reps: int = -1
+
+
+class SwimRow(CsvModel):
+    """Une natation en piscine, importée de la montre. `activity/swims.csv`.
+
+    Famille *mesure*, comme `runs.csv` : une ligne sans date ne se relit pas. Tout vient du
+    `.fit` (`docs/planning-natation.md` §6.3) — rien ne se saisit à la main ici, et c'est
+    ce qui permet de garder la distance **de la montre** même quand un tour est douteux.
+    """
+
+    #: Identifiant stable : les tours s'y rattachent.
+    swim_id: str
+    date: date
+    start: time | None = None
+    pool_m: float = 25.0
+    #: La distance annoncée par la montre, tours douteux compris (§6.2, décision D12).
+    distance_m: float
+    #: Temps au chrono, `total_timer_time`.
+    duration_s: float
+    elapsed_s: float | None = None
+    avg_hr: int | None = None
+    max_hr: int | None = None
+    strokes: int | None = None
+    calories: int | None = None
+    fit_path: str = ""
+    source: str = "fit"
+
+
+class SwimLapRow(CsvModel):
+    """Un tour d'une natation. `activity/swim_laps.csv`.
+
+    `detected` garde **ce que la montre a dit**, longueur par longueur (`BR CR`) ;
+    `stroke` garde ce que l'utilisateur en a dit, vide tant qu'il n'a rien corrigé. Les
+    deux colonnes et non une seule : écraser la lecture de la montre ferait oublier qu'elle
+    se trompait, et pourquoi on l'avait corrigée.
+    """
+
+    swim_id: str = ""
+    seq: int = 0
+    #: `swim` ou `rest`.
+    kind: str = "swim"
+    distance_m: float = 0.0
+    duration_s: float = 0.0
+    #: Longueurs de repos **dans** un tour de nage — on a soufflé sans appuyer.
+    idle_s: float = 0.0
+    detected: str = ""
+    stroke: str = ""
+    strokes: int | None = None
+    avg_hr: int | None = None
+    max_hr: int | None = None
+    suspect: bool = False
