@@ -54,6 +54,7 @@ export {
   Rule,
   Segmented,
   Skeleton,
+  TextArea,
   Stepper,
   Steps,
   SwipeRow,

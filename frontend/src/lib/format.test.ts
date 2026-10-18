@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  meters,
+  swimClock,
   delta,
   duration,
   hoursMinutes,
@@ -50,6 +52,18 @@ describe('durées', () => {
     expect(hoursMinutes(440)).toBe('7 h 20');
     expect(hoursMinutes(120)).toBe('2 h');
     expect(hoursMinutes(45)).toBe('45 min');
+  });
+});
+
+describe('nage', () => {
+  it('écrit un repos comme au bord du bassin', () => {
+    expect(swimClock(15)).toBe('15 s');
+    expect(swimClock(60)).toBe("1'");
+    expect(swimClock(160)).toBe("2'40");
+  });
+
+  it('sépare les milliers de mètres', () => {
+    expect(meters(1400)).toMatch(/^1\s400 m$/u);
   });
 });
 

@@ -11,8 +11,9 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  TextareaHTMLAttributes,
 } from 'react';
-import { useId, useState } from 'react';
+import { forwardRef, useId, useState } from 'react';
 import { Link } from 'react-router';
 
 import { cx } from '@/lib/cx';
@@ -294,6 +295,55 @@ export function Field({ label, error, hint, unit, hideLabel, className, id, ...r
     </div>
   );
 }
+
+// ── Zone de texte ─────────────────────────────────────
+
+interface TextAreaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  error?: string | undefined;
+  hint?: string | undefined;
+}
+
+/**
+ * Le pendant multiligne de `Field` : même étiquette, même erreur, même case.
+ *
+ * Ajouté pour le programme de nage, qu'on écrit une ligne par bloc
+ * (`docs/planning-natation.md` §4.2). Un `<textarea>` stylé dans l'écran aurait été la
+ * seconde façon d'écrire une case de saisie — et la première à rater le plancher de 16 px
+ * qui empêche iOS de zoomer.
+ */
+export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function TextArea(
+  { label, error, hint, className, id, ...rest },
+  ref,
+) {
+  const generated = useId();
+  const fieldId = id ?? generated;
+  const describedBy = error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined;
+
+  return (
+    <div className={cx(styles.field, className)}>
+      <label htmlFor={fieldId}>{label}</label>
+      <textarea
+        id={fieldId}
+        ref={ref}
+        className={cx(styles.input, styles.textarea, error && styles.inputInvalid)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        {...rest}
+      />
+      {error !== undefined && (
+        <span className={styles.fieldError} id={`${fieldId}-error`} role="alert">
+          {error}
+        </span>
+      )}
+      {error === undefined && hint !== undefined && (
+        <span className={styles.fieldHint} id={`${fieldId}-hint`}>
+          {hint}
+        </span>
+      )}
+    </div>
+  );
+});
 
 // ── Pas-à-pas ─────────────────────────────────────────
 

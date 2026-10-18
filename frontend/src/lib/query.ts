@@ -97,12 +97,18 @@ export const keys = {
     /** Adresse d'abonnement (`PLAN-05`) — elle vient d'un réglage serveur, elle ne
      *  change pas en cours de session. */
     subscription: () => ['planning', 'subscription'] as const,
+    /** Le glossaire de nage. Sous `planning` : un libellé renommé change ce que le mois
+     *  affiche, et l'invalidation du domaine doit l'emporter avec lui. */
+    swimCodes: () => ['planning', 'swim-codes'] as const,
+    swimParse: (program: string) => ['planning', 'swim-parse', program] as const,
   },
   assistant: {
     all: () => ['assistant'] as const,
     /** Les fils de discussion (`IA-13`). Ils vivent sur le serveur depuis le lot L18. */
     threads: () => ['assistant', 'threads'] as const,
     thread: (id: string) => ['assistant', 'threads', id] as const,
+    /** Le fil posé sous la grille du planning — un seul, ouvert à la première question. */
+    planningThread: () => ['assistant', 'threads', 'planning'] as const,
     /** Le carnet de mémoire (`IA-11`). Le fil de conversation, lui, n'est jamais mis en
      *  cache : il n'existe pas côté serveur. */
     memory: () => ['assistant', 'memory'] as const,

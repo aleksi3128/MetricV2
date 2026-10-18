@@ -39,16 +39,18 @@
  * parcours. C'est `ActivitySheet` qui s'en charge, inchangée.
  */
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 
 import { Button, Field, Sheet, Stepper } from '@/components/ui';
-import { activityApi, type Run } from '@/features/activity/api';
+import { activityApi, type Run, type SwimDetail } from '@/features/activity/api';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
-import { num } from '@/lib/format';
+import { meters, num } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
+import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import { RateRun } from './run/Rate';
@@ -111,6 +113,8 @@ function RunWizard({
   const invalidate = useInvalidateActivity();
   const { notify } = useToast();
   const ai = useAiStatus();
+  const client = useQueryClient();
+  const navigate = useNavigate();
 
   const [fields, setFields] = useState<RunFields>({
     date: today,
@@ -202,6 +206,16 @@ function RunWizard({
           // l'historique juste derrière écrit « 5,08 km ».
           notify(`Sortie importée : ${num(run.distance_km, 2)} km.`, 'effort');
           setImported(run);
+        }}
+        onSwimImported={(swim) => {
+          // Une natation vit au planning, à côté de ce qui était prévu ce jour-là : la
+          // feuille se ferme et l'écran y mène, sur le bon jour.
+          invalidate();
+          void client.invalidateQueries({ queryKey: keys.planning.all() });
+          for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
+          notify(`Natation importée : ${meters(swim.distance_m)}.`, 'effort');
+          onDone();
+          void navigate(`/planning?jour=${swim.date}`);
         }}
         onRead={(draft) => {
           setFields((current) => ({
@@ -381,6 +395,7 @@ function AppleStep({
   onSkip,
   onBack,
   onImported,
+  onSwimImported,
 }: {
   today: string;
   enabled: boolean;
@@ -388,6 +403,8 @@ function AppleStep({
   onSkip: () => void;
   onBack: () => void;
   onImported: (run: Run) => void;
+  /** Le fichier était une natation : le serveur l'a dit par son code, et elle est importée. */
+  onSwimImported: (swim: SwimDetail) => void;
 }) {
   const { notify } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -432,10 +449,26 @@ function AppleStep({
     },
   });
 
+  const importSwim = useMutation({
+    mutationFn: (chosen: File) => activityApi.importSwimFit(chosen),
+    onSuccess: onSwimImported,
+    onError: (caught: unknown) => {
+      setRefused(
+        caught instanceof ApiError ? caught.message : 'Ce fichier .fit n’a pas pu être lu.',
+      );
+    },
+  });
+
   const importFit = useMutation({
     mutationFn: (chosen: File) => activityApi.importFit(chosen),
     onSuccess: onImported,
-    onError: (caught: unknown) => {
+    onError: (caught: unknown, chosen) => {
+      // Une natation déposée ici : le serveur le dit **par son code**, et le fichier part à
+      // l'import de la nage sans que l'utilisateur ait à savoir qu'il y en a deux.
+      if (caught instanceof ApiError && caught.code === 'fit_is_swim') {
+        importSwim.mutate(chosen);
+        return;
+      }
       setRefused(
         caught instanceof ApiError ? caught.message : 'Ce fichier .fit n’a pas pu être lu.',
       );
@@ -467,11 +500,13 @@ function AppleStep({
         }}
       />
       <label htmlFor="run-fit" className={styles.drop}>
-        {importFit.isPending ? 'lecture du fichier…' : 'importer un fichier .fit'}
+        {importFit.isPending || importSwim.isPending
+          ? 'lecture du fichier…'
+          : 'importer un fichier .fit'}
       </label>
       <p className={styles.note}>
         Le fichier de ta montre ou de Strava. Distance, temps, paliers et parcours sont lus dedans,
-        la sortie est enregistrée et le fichier conservé.
+        la sortie est enregistrée et le fichier conservé. Une natation en piscine va au planning.
       </p>
 
       <p className={styles.note}>

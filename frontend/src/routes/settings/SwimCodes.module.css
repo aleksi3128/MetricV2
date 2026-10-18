@@ -1,0 +1,85 @@
+/* Section « Natation » de l'écran Réglages — le glossaire de la notation.
+   Les classes de note et d'actions reprennent celles des autres sections : elles vivent
+   sur le même écran et doivent se ressembler. Redéclarées plutôt qu'importées, comme le
+   fait `Profile.module.css`. */
+
+.note {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.6;
+}
+
+.note code,
+.code {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+.group {
+  margin-top: var(--s5);
+}
+
+.groupTitle {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+
+.row {
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+.entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+}
+
+.code {
+  min-width: 3.2rem;
+  font-size: var(--t-sub);
+}
+
+.label {
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--s1);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}

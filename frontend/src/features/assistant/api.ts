@@ -7,6 +7,7 @@
  * s'écrivait, ce qui n'est plus le cas.
  */
 
+import type { ProposedSession } from '@/features/planning/api';
 import { ApiError, request, tokenStore } from '@/lib/api';
 
 /** Ce qu'on dit quand le flux s'arrête sans avoir rien conclu. */
@@ -38,9 +39,16 @@ export interface Message {
   content: string;
 }
 
+/**
+ * La portée d'un fil : `planning` pour celui posé sous la grille du planning, vide sinon.
+ * Elle appartient au fil — rouvert depuis `/assistant`, il garde sa consigne de notation.
+ */
+export type ThreadScope = '' | 'planning';
+
 export interface ThreadSummary {
   thread_id: string;
   title: string;
+  scope: ThreadScope;
   created: string | null;
   updated: string | null;
   messages: number;
@@ -83,6 +91,7 @@ export interface ThreadMessage {
 export interface ThreadDetail {
   thread_id: string;
   title: string;
+  scope: ThreadScope;
   created: string | null;
   updated: string | null;
   messages: ThreadMessage[];
@@ -120,6 +129,13 @@ export interface ActionReport {
    * ligne en rouvrant le fil trois jours plus tard.
    */
   resource_id: string | null;
+  /**
+   * Les séances d'un `plan.propose`, **lues par le serveur** — programme de nage et total
+   * compris. L'écran les affiche et en retire ; il ne relit aucune notation.
+   */
+  sessions?: ProposedSession[];
+  /** Ce que la relecture a écarté, et pourquoi. Le taire laisserait croire à une liste complète. */
+  dropped?: string[];
 }
 
 export interface ChatReply {
@@ -209,6 +225,19 @@ function ifMatch(token: string): Record<string, string> {
   return { 'If-Match': token };
 }
 
+/**
+ * Le corps d'une question. La portée ne part que **sans** fil : celle d'un fil existant
+ * est écrite côté serveur, et ne se change pas d'une question à l'autre.
+ */
+function chatBody(
+  question: string,
+  threadId: string | null,
+  scope: ThreadScope,
+): Record<string, string> {
+  if (threadId !== null) return { question, thread_id: threadId };
+  return scope === '' ? { question } : { question, scope };
+}
+
 export const assistantApi = {
   memory: () => request<AssistantView>('/api/assistant/memory'),
 
@@ -229,10 +258,10 @@ export const assistantApi = {
     }),
 
   /** Pose une question. Sans `threadId`, le serveur ouvre un fil et rend son identifiant. */
-  ask: (question: string, threadId: string | null) =>
+  ask: (question: string, threadId: string | null, scope: ThreadScope = '') =>
     request<ChatReply>('/api/assistant/chat', {
       method: 'POST',
-      body: threadId === null ? { question } : { question, thread_id: threadId },
+      body: chatBody(question, threadId, scope),
     }),
 
   /**
@@ -263,6 +292,7 @@ export const assistantApi = {
     onStep: (step: string) => void,
     onDelta?: (text: string) => void,
     onReset?: () => void,
+    scope: ThreadScope = '',
   ): Promise<ChatReply> => {
     const token = tokenStore.read();
     let response: Response;
@@ -273,16 +303,16 @@ export const assistantApi = {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(threadId === null ? { question } : { question, thread_id: threadId }),
+        body: JSON.stringify(chatBody(question, threadId, scope)),
       });
     } catch {
-      return assistantApi.ask(question, threadId);
+      return assistantApi.ask(question, threadId, scope);
     }
 
     // `!response.body` et non `=== null` : un navigateur sans flux de lecture rend
     // `undefined`, et c'est précisément le cas où le repli doit prendre la main.
     if (!response.ok || !response.body) {
-      return assistantApi.ask(question, threadId);
+      return assistantApi.ask(question, threadId, scope);
     }
 
     const reader = response.body.getReader();
@@ -328,6 +358,9 @@ export const assistantApi = {
   },
 
   threads: () => request<ThreadList>('/api/assistant/threads'),
+
+  /** Le fil Planning, ou `null` tant qu'aucune question n'y a été posée. */
+  planningThread: () => request<{ thread: ThreadDetail | null }>('/api/assistant/threads/planning'),
 
   thread: (threadId: string) => request<ThreadDetail>(`/api/assistant/threads/${threadId}`),
 

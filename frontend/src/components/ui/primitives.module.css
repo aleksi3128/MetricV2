@@ -239,6 +239,14 @@
   color: var(--ink-low);
 }
 
+/* La zone de texte : la même case, qui grandit vers le bas. `resize` vertical seulement —
+   tirée en largeur, elle déborderait de la carte qui la porte. */
+.textarea {
+  min-height: calc(var(--tap-lg) * 2.5);
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .inputInvalid {
   border-color: var(--recover);
 }
@@ -412,8 +420,12 @@
   font-size: var(--t-sub);
   padding: 10px 14px;
   min-height: var(--tap);
+  /* Le plancher dans les **deux** dimensions. Une pastille d'un caractère — `×`, `R` —
+     mesurait 39 px de large : la hauteur était tenue, la largeur jamais demandée. */
+  min-width: var(--tap);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   white-space: nowrap;
   cursor: pointer;

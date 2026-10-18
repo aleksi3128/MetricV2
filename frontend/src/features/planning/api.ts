@@ -13,7 +13,77 @@
 
 import { request } from '@/lib/api';
 
-export type PlanKind = 'course' | 'muscu' | 'autre';
+export type PlanKind = 'course' | 'muscu' | 'natation' | 'autre';
+
+/** Une part de la distance d'un programme — par nage, ou par allure. */
+export interface SwimShare {
+  code: string;
+  label: string;
+  distance_m: number;
+}
+
+/** Une ligne d'un programme, **réécrite par le serveur** : `×`, `'`, sigles du glossaire. */
+export interface SwimProgramLine {
+  number: number;
+  kind: 'section' | 'block';
+  text: string;
+  distance_m: number;
+}
+
+export interface SwimError {
+  line: number;
+  token: string | null;
+  message: string;
+}
+
+/**
+ * Un programme de nage **lu par le serveur** (`docs/planning-natation.md` §2.3).
+ *
+ * L'écran n'en lit aucun lui-même : reconnaître un sigle, dérouler `8×50`, additionner les
+ * mètres sont la règle du format, et elle n'a qu'une implémentation. Les totaux sont `null`
+ * sur un programme fautif — un total calculé sur les seules lignes lisibles serait faux.
+ */
+export interface SwimProgram {
+  lines: SwimProgramLine[];
+  errors: SwimError[];
+  total_m: number | null;
+  by_stroke: SwimShare[];
+  by_pace: SwimShare[];
+  rest_s: number | null;
+}
+
+/** Une ligne de la séance **nagée**, réécrite dans la notation : `4×50 CR R~40`. */
+export interface SwimLine {
+  text: string;
+  distance_m: number;
+  laps: number[];
+  /** Une longueur douteuse dans ces tours, d'après la montre. Signalé, jamais corrigé. */
+  suspect: boolean;
+  /** La nage écrite n'est qu'une lecture de la montre, que personne n'a confirmée. */
+  detected: boolean;
+}
+
+export type SwimCategory = 'stroke' | 'pace' | 'option';
+
+export interface SwimCodeEntry {
+  code: string;
+  label: string;
+  category: SwimCategory;
+  /** Livré avec l'application : son libellé se renomme, il ne se supprime jamais. */
+  base: boolean;
+  default_label: string | null;
+  /** La ligne de `swim_codes.csv`, **s'il y en a une** — un sigle de base jamais renommé n'en a pas. */
+  id: number | null;
+  token: string | null;
+  /** Employé par une séance prévue : le serveur en refusera la suppression. */
+  used: boolean;
+}
+
+export interface SwimCodePayload {
+  code: string;
+  label: string;
+  category: SwimCategory;
+}
 
 export interface PlannedSession {
   id: number;
@@ -36,13 +106,25 @@ export interface PlannedSession {
    * au premier cas limite.
    */
   workout_url: string | null;
+  /** Le programme tel qu'il a été tapé — ce que le formulaire de correction recharge. */
+  program: string | null;
+  /** Le programme **lu**, `null` hors natation. */
+  swim: SwimProgram | null;
+  /** La distance nagée ce jour-là, et l'écart au prévu — calculés par le serveur. */
+  done_m: number | null;
+  gap_m: number | null;
 }
 
 export interface DoneActivity {
-  kind: 'run' | 'workout';
+  kind: 'run' | 'workout' | 'swim';
   id: number;
   label: string;
   duration_min: number;
+  /** Pour une natation : la séance réécrite dans la notation, et ses tours douteux. */
+  swim_id: string | null;
+  distance_m: number | null;
+  lines: SwimLine[];
+  suspect_laps: number;
 }
 
 export interface DayCell {
@@ -84,6 +166,8 @@ export interface ProposedSession {
   title: string;
   duration_min: number;
   note: string | null;
+  program: string | null;
+  swim: SwimProgram | null;
   reason: string | null;
 }
 
@@ -109,6 +193,8 @@ export interface PlanFormValues {
   title: string;
   duration_min: string;
   note?: string | null;
+  /** Le programme d'une natation, une ligne par bloc. Ignoré hors natation. */
+  program?: string | null;
 }
 
 /** Garde anti-conflit : le jeton lu est celui qu'on renvoie (`STO-05`). */
@@ -148,4 +234,31 @@ export const planningApi = {
     }),
 
   subscription: () => request<SubscriptionInfo>('/api/planning/subscription'),
+
+  /** Lit un programme **sans rien écrire** — l'aperçu du formulaire. */
+  parseSwim: (program: string) =>
+    request<SwimProgram>('/api/planning/swim/parse', { method: 'POST', body: { program } }),
+
+  swimCodes: () => request<{ codes: SwimCodeEntry[] }>('/api/planning/swim/codes'),
+
+  /** Ajoute un sigle, ou renomme pour la première fois un sigle de base. */
+  addSwimCode: (payload: SwimCodePayload) =>
+    request<{ codes: SwimCodeEntry[] }>('/api/planning/swim/codes', {
+      method: 'POST',
+      body: payload,
+    }),
+
+  updateSwimCode: (id: number, token: string, payload: SwimCodePayload) =>
+    request<{ codes: SwimCodeEntry[] }>(`/api/planning/swim/codes/${String(id)}`, {
+      method: 'PATCH',
+      body: payload,
+      headers: ifMatch(token),
+    }),
+
+  /** Retire un sigle ajouté, ou rend son libellé livré à un sigle de base. */
+  removeSwimCode: (id: number, token: string) =>
+    request<{ codes: SwimCodeEntry[] }>(`/api/planning/swim/codes/${String(id)}`, {
+      method: 'DELETE',
+      headers: ifMatch(token),
+    }),
 };

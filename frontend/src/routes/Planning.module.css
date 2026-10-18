@@ -173,27 +173,33 @@
   background: var(--effort);
 }
 
+/* La natation : une barre, comme une longueur, là où les autres séances sont un point.
+   Même couleur que tout le monde — la charte a quatre teintes et chacune a un sens ; la
+   forme suffit à distinguer, et le nom accessible de la case le dit en toutes lettres. */
+.markSwim {
+  width: 12px;
+  height: 5px;
+  border-radius: 3px;
+}
+
 .legend {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s1);
+  gap: var(--s1) var(--s3);
   font-size: var(--t-meta);
   color: var(--ink-low);
 }
 
-.legend .markPlanned,
-.legend .markDone {
-  margin-left: var(--s3);
-}
-
-.legend .markPlanned:first-child {
-  margin-left: 0;
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
 }
 
 /* ── Listes du jour et des propositions ────────────── */
 
-.list,
-.proposed {
+.list {
   display: flex;
   flex-direction: column;
   gap: var(--s2);
@@ -214,17 +220,6 @@
   flex-direction: column;
   gap: 3px;
   min-width: 0;
-}
-
-/* Une séance retirée d'une proposition reste visible et grisée plutôt que de disparaître :
-   rien n'est écrit, le geste doit donc rester réversible d'un appui — et une ligne qui
-   s'évapore laisse douter de ce qu'on vient de faire. */
-.itemDropped {
-  opacity: 0.45;
-}
-
-.itemDropped .itemBody strong {
-  text-decoration: line-through;
 }
 
 .itemActions {
@@ -259,12 +254,6 @@
 .note {
   font-size: var(--t-sub);
   color: var(--ink-mid);
-}
-
-.dropped {
-  margin-top: var(--s3);
-  font-size: var(--t-meta);
-  color: var(--ink-low);
 }
 
 /* ── Formulaire ────────────────────────────────────── */
@@ -305,39 +294,24 @@
 
 /* ── Indicateurs et abonnement ─────────────────────── */
 
-/* Trois chiffres courts, et ils restent sur trois colonnes **y compris à 390 px**.
+/* Le respect du planning, sur une ligne au-dessus du mois.
 
-   Première version : des tuiles `Stat` empilées sous 480 px. Mesuré dans le navigateur,
-   cela repoussait le calendrier à 492 px du haut d'une fenêtre de 844 — l'écran s'ouvrait
-   sur trois nombres géants, et le mois, qui est le sujet, arrivait après le pli. Un
-   indicateur de contexte ne doit pas coûter la moitié de la première page. */
-.stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--s3);
-  margin-top: var(--s4);
-  padding-top: var(--s4);
-  border-top: 1px solid var(--line);
-}
-
-.stat {
+   Il a été trois tuiles, puis trois chiffres sous un titre : mesuré dans le navigateur,
+   chacune de ces formes repoussait le calendrier — le sujet de l'écran — vers le pli. Un
+   indicateur de contexte ne doit pas coûter la première page. */
+.adherence {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
 }
 
-.statKey {
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  letter-spacing: 0.1em;
-  color: var(--ink-low);
-  text-transform: uppercase;
-}
-
-.statValue {
-  font-family: var(--mono);
-  font-size: var(--t-num-md);
-  color: var(--ink);
+.adherenceText {
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
 }
 
 .subscription {
@@ -391,4 +365,197 @@
   min-height: var(--tap-lg);
   width: 100%;
   margin-top: var(--s2);
+}
+
+/* ── La natation (`docs/planning-natation.md`) ─────── */
+
+/* Ce qui a été nagé, sous ce qui était prévu — la distance de la montre et l'écart. */
+.doneLine {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--effort);
+}
+
+.import {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s4);
+}
+
+.refused {
+  font-size: var(--t-sub);
+  color: var(--recover);
+}
+
+/* Le champ de programme, ses puces, l'aperçu du serveur et le glossaire : un seul bloc,
+   pleine largeur même quand le formulaire passe sur deux colonnes. */
+.programField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  grid-column: 1 / -1;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-sm);
+}
+
+.previewTitle {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.glossary {
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+}
+
+.glossary summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.glossary code,
+.note code {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+.glossary > * + * {
+  margin-top: var(--s3);
+}
+
+.glossaryGroup ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 2px var(--s3);
+  margin-top: var(--s1);
+}
+
+.glossaryTitle {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+/* ── Une natation faite, tour par tour ─────────────── */
+
+.swimSheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.sheetHeading {
+  font-size: var(--t-sub);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.laps {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+
+.lap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  background: var(--surface-2);
+  border-radius: var(--r-sm);
+}
+
+/* Le tour entier est la cible : un appui l'ouvre pour corriger sa nage. */
+.lapHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: var(--tap);
+  padding: var(--s2) var(--s3);
+  background: none;
+  border: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lapMain {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  font-family: var(--mono);
+  font-size: var(--t-sub);
+}
+
+.lapStroke {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+}
+
+.lapFlag {
+  font-family: var(--display);
+  font-size: var(--t-meta);
+  color: var(--recover);
+}
+
+.lapEdit {
+  padding: 0 var(--s3) var(--s3);
+}
+
+.lapRest {
+  padding: 0 var(--s3);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.danger {
+  min-height: var(--tap);
+  align-self: flex-start;
+}
+
+.dangerArmed {
+  color: var(--recover);
+}
+
+/* ── Le fil du coach ───────────────────────────────── */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.chatForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.starters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
 }

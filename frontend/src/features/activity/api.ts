@@ -7,6 +7,7 @@
  */
 
 import type { Readiness } from '@/features/body/api';
+import type { SwimLine } from '@/features/planning/api';
 import { request } from '@/lib/api';
 
 export interface Run {
@@ -874,6 +875,30 @@ export const activityApi = {
     form.append('file', file);
     return request<Run>('/api/activity/runs/fit', { method: 'POST', form });
   },
+  /**
+   * Importe une natation en piscine depuis son `.fit` (`docs/planning-natation.md` §6).
+   *
+   * Appelé quand l'import de course répond `fit_is_swim` : l'écran **réaiguille sur le
+   * code**, jamais sur le message, et l'utilisateur n'a pas à savoir qu'il y a deux routes.
+   */
+  importSwimFit: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<SwimDetail>('/api/activity/swims/fit', { method: 'POST', form });
+  },
+  swim: (swimId: string) => request<SwimDetail>(`/api/activity/swims/${swimId}`),
+  /** Corrige la nage d'un tour. `null` rend la lecture de la montre. */
+  correctSwimLap: (id: number, token: string, stroke: string | null) =>
+    request<SwimDetail>(`/api/activity/swims/laps/${String(id)}`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body: { stroke },
+    }),
+  deleteSwim: (id: number, token: string) =>
+    request<undefined>(`/api/activity/swims/${String(id)}`, {
+      method: 'DELETE',
+      headers: guard(token),
+    }),
   /** L'analyse, relue depuis le `.fit` rangé : la page s'affiche sans l'attendre. */
   runAnalysis: (id: number) => request<RunAnalysis>(`/api/activity/runs/${id}/analysis`),
   /** Recalcule efforts et paliers de chaque `.fit` rangé. Rejouable sans rien doubler. */
@@ -948,3 +973,47 @@ export const activityApi = {
       headers: guard(token),
     }),
 };
+
+// ── La natation en piscine (`docs/planning-natation.md` §6) ──
+
+/** Un tour, tel que la montre l'a délimité — et tel qu'on l'a corrigé. */
+export interface SwimLap {
+  id: number;
+  token: string;
+  seq: number;
+  kind: 'swim' | 'rest';
+  distance_m: number;
+  duration_s: number;
+  idle_s: number;
+  /** La nage lue par la montre, longueur par longueur : `['BR', 'CR']`. */
+  detected: string[];
+  /** La nage corrigée, `null` tant que rien n'a été dit. */
+  stroke: string | null;
+  strokes: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  /** Une longueur douteuse dans ce tour (§6.2). Signalé, jamais corrigé. */
+  suspect: boolean;
+}
+
+export interface SwimDetail {
+  id: number;
+  token: string;
+  swim_id: string;
+  date: string;
+  start: string | null;
+  pool_m: number;
+  /** La distance **de la montre**, tours douteux compris (D12). */
+  distance_m: number;
+  duration_s: number;
+  elapsed_s: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  strokes: number | null;
+  calories: number | null;
+  /** Temps **nagé** au 100 m, repos exclus — calculé par le serveur. */
+  pace_100_s: number | null;
+  suspect_laps: number;
+  lines: SwimLine[];
+  laps: SwimLap[];
+}

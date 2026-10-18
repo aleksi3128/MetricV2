@@ -66,6 +66,25 @@ export function hoursMinutes(minutes: number): string {
   return `${hours} h ${String(mins).padStart(2, '0')}`;
 }
 
+/**
+ * Secondes → la notation de nage : `15 s`, `1'`, `2'40`.
+ *
+ * L'écriture du bord de bassin, celle que le serveur emploie dans les programmes — un repos
+ * écrit `00:02:40` sous une ligne `8×100 CR R20` se lirait dans une autre langue.
+ */
+export function swimClock(seconds: number): string {
+  const total = Math.round(seconds);
+  if (total < 60) return `${String(total)} s`;
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return secs === 0 ? `${String(mins)}'` : `${String(mins)}'${String(secs).padStart(2, '0')}`;
+}
+
+/** Une distance de nage en mètres, avec l'espace insécable des milliers : `1 400 m`. */
+export function meters(value: number): string {
+  return `${integer(value)} m`;
+}
+
 /** Allure en minutes par kilomètre → `5:16`. */
 export function pace(minutesPerKm: number): string {
   return duration(minutesPerKm);

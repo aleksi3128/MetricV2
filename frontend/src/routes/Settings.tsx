@@ -28,6 +28,7 @@ import { useToast } from '@/lib/toast';
 
 import { Profile } from './settings/Profile';
 import { Reminders } from './settings/Reminders';
+import { SwimCodes } from './settings/SwimCodes';
 import { Tracks } from './settings/Tracks';
 
 import styles from './Settings.module.css';
@@ -536,6 +537,8 @@ export function Settings() {
       <Tracks />
 
       <Profile />
+
+      <SwimCodes />
 
       <Reminders />
 

@@ -6,8 +6,9 @@ sous la grille un **fil de l'assistant** qui ne parle que cette langue-là. Il f
 boucle avec le réalisé : le `.fit` de la montre en piscine, refusé jusqu'ici en toutes
 lettres, devient lisible et se réécrit dans la même notation, à côté de ce qui était prévu.
 
-Rien n'est codé. Les décisions ci-dessous ont été prises une à une le 18 octobre 2026, et
-la partie import repose sur un fichier réel décodé avant d'écrire (§6).
+Les décisions ci-dessous ont été prises une à une le 18 octobre 2026, et la partie import
+repose sur un fichier réel décodé avant d'écrire (§6). **Le lot est livré** le même jour ;
+le §9 dit ce qui a dévié du plan en route, et pourquoi.
 
 ---
 
@@ -262,9 +263,10 @@ gratuits, c'est une latence et un coût imprévisibles — la règle du §3 d'
 [`assistant-agent.md`](assistant-agent.md) vaut ici aussi.
 
 À l'écran, `plan.propose` rend l'`AiBlock` de la proposition. « Adopter (n) » confirme avec
-**ce qui reste**, et le serveur relit encore une fois avant d'écrire, `source: ai`. Un fil
-rouvert trois jours plus tard garde sa proposition adoptable ; une date passée est refusée
-par `PlannedDate`, avec son message.
+**ce qui reste**, et le serveur relit encore une fois avant d'écrire, `source: ai`.
+
+Une proposition **ne survit pas** à la page qui l'a reçue (voir §9) : le fil ne range que
+ce qui a été fait, et un fil rouvert montre la réponse sans son bloc à adopter.
 
 ### 5.4 Un seul fil, deux écrans
 
@@ -412,3 +414,44 @@ anciennes, rien à migrer — mais une ouverture dans un tableur la montrera.
 - la vérification de la prose des réponses (§5.2) ;
 - `plan.propose` sur `/assistant` : le fil ordinaire garde `plan.add` tel quel. Unifier les
   deux comportements est une question à part.
+
+---
+
+## 9. Ce qui a été livré, et ce qui a dévié
+
+| Phase | Commit | État |
+|---|---|---|
+| 1 — la notation | `feat(plan): la notation de nage se lit…` | ✅ 53 tests purs |
+| 2 et 3 — glossaire et données | `feat(plan): une séance de natation porte son programme…` | ✅ réunies : la garde du glossaire ne se vérifie que sur des séances qui portent un programme |
+| 5 — le fil, côté serveur | `feat(ia): le fil Planning propose…` | ✅ 15 tests sur réponses simulées |
+| 6 — l'import, côté serveur | `feat(act): une natation en piscine s'importe…` | ✅ le fichier réel marque exactement les tours 0, 11, 25 |
+| 4 — l'écran, et le front des phases 2, 5, 6 | `feat(plan): /planning refait pour la natation…` | ✅ regardé à 402, 390, 360 px, deux thèmes |
+
+**Ce qui a dévié du plan :**
+
+- **Une proposition en attente n'est pas rangée avec le message.** Le plan la voulait
+  adoptable trois jours plus tard. Le fil ne range que ce qui a été fait ; ranger une
+  proposition l'aurait laissée « à adopter » après son adoption, faute de lien entre la
+  confirmation et le message. Elle vit donc le temps de la page.
+- **Le fil n'a pas été extrait en un seul composant**, mais en deux modules :
+  `routes/assistant/useConversation.ts` (l'état) et `Conversation.tsx` (les tours, les
+  cartes d'action). Chaque écran garde sa saisie et sa mise en page ; les 49 tests de
+  `/assistant` passent sans retouche.
+- **La natation se distingue à la forme dans la grille, pas à la couleur** : la charte a
+  quatre teintes et chacune a un sens. Une barre pour la natation, un point pour le reste.
+- **`Chip` tient désormais le plancher en largeur** (`min-width: var(--tap)`) : une pastille
+  d'un caractère — `×`, `R` — mesurait 39 px. Le correctif vaut pour toute l'application.
+- **`TextArea` rejoint les primitives**, pour le champ de programme.
+- **Un `.fit` de nage déposé à l'import de course** est réaiguillé sur le code
+  `fit_is_swim` et mène au planning, sur le jour de la séance (`?jour=`).
+
+**Ce qui n'a pas été fait :**
+
+- **Le vrai OpenRouter n'a pas été appelé.** Tout le fil a été éprouvé sur réponses
+  simulées, y compris à l'écran. La première vraie question dira si un modèle gratuit tient
+  la notation — compter les séances écartées (§8).
+- **À 360 px, les cases du calendrier font 39 px de large**, sous le plancher. C'était vrai
+  avant ce lot — sept colonnes dans 360 px — et la grille n'a pas changé de structure.
+- Les natations n'apparaissent pas dans l'historique de `/activite` : elles vivent au
+  planning, à côté de ce qui était prévu.
+

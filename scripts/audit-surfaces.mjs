@@ -117,6 +117,14 @@ const SURFACES = [
   // on l'ouvre ici par sa porte manuelle, pour le mesurer à toute heure. Son étape dépend
   // des données du jour — la nuit sur une base vierge. « Enregistrer » n'est pas appuyé.
   ['/corps', 'Parcours du matin', 'parcours du matin'],
+  // Le formulaire du planning, passé en feuille avec la natation (`docs/planning-natation.md`
+  // §4.2). Il s'ouvre sur une natation, donc avec le champ de programme et ses puces — la
+  // rangée la plus large de la feuille. « Planifier » n'est pas réappuyé : ce serait écrire.
+  ['/planning', 'Planifier', 'planifier une séance'],
+  // Une natation faite, tour par tour (§6). Elle dépend des données : le bouton n'existe
+  // que sur un jour qui porte une natation importée. Sans elle, la ligne rend « bouton
+  // introuvable » — on remplace alors la date par celle d'une natation réelle.
+  ['/planning?jour=2026-10-11', 'Les tours', 'une natation, tour par tour'],
 ];
 
 /** Le panneau d'une feuille. C'est lui qu'on mesure, pas l'écran resté derrière. */

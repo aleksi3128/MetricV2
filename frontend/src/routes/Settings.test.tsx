@@ -55,6 +55,8 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
     if (url.includes('/api/heatmap/tracks')) return Promise.resolve(json(200, TRACKS));
     if (url.includes('/api/assistant/profile')) return Promise.resolve(json(200, PROFILE));
     if (url.includes('/api/notifications')) return Promise.resolve(json(200, NOTIFICATIONS));
+    // La section « Natation » lit le glossaire ; ces cas ne portent pas sur elle.
+    if (url.includes('/api/planning/swim/codes')) return Promise.resolve(json(200, { codes: [] }));
     return Promise.resolve(json(200, SETTINGS));
   });
   vi.stubGlobal('fetch', fetchMock);

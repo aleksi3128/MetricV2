@@ -261,6 +261,32 @@ describe('ajouter une sortie par un .fit', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('réaiguille une natation vers son import, sur le code et non sur le message', async () => {
+    // Une natation déposée à l'import de course : le serveur répond `fit_is_swim`, et le
+    // même fichier repart vers l'import de la nage sans que rien ne s'affiche en refus.
+    stub((url) => {
+      if (url.includes('/api/ai/status')) return json(200, { enabled: true, message: 'ok' });
+      if (url.includes('/api/activity/runs/fit')) {
+        return json(422, { code: 'fit_is_swim', message: 'Un message qui peut changer.' });
+      }
+      if (url.includes('/api/activity/swims/fit')) {
+        return json(201, { swim_id: 'nage01', date: '2026-10-11', distance_m: 850 });
+      }
+      return json(200, {});
+    });
+    const { onClose } = renderSheet();
+
+    await chooseFit();
+
+    await waitFor(() => {
+      expect(calls.some((url) => url.includes('/api/activity/swims/fit'))).toBe(true);
+    });
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('reste proposé quand la lecture de capture ne l’est pas', async () => {
     // L'import .fit est du décodage, pas un modèle : il ne dépend d'aucune clé.
     stub((url) => {
