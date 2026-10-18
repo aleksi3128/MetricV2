@@ -217,6 +217,7 @@ LECTURE_PAR_ECRITURE = {
     "circuit.create": "seances_cadence",
     "supplement.take": "supplements_du_jour",
     "plan.add": "planning_a_venir",
+    "plan.propose": "planning_a_venir",
     "plan.delete": "planning_a_venir",
 }
 

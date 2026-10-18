@@ -255,6 +255,13 @@ class ActionSpec:
     label: str
     payload: type[BaseModel]
     run: Runner
+    #: Les portées de fil où le modèle **voit** cette action (`docs/planning-natation.md`
+    #: §5.3). `""` est le fil ordinaire. Le fil Planning a son catalogue restreint : il
+    #: propose (`plan.propose`) au lieu d'écrire (`plan.add`), et ne touche à rien d'autre.
+    #:
+    #: Une confirmation, elle, passe quelle que soit la portée : elle vient d'un appui sur
+    #: ce que la table a déjà accepté de mettre en attente.
+    scopes: frozenset[str] = frozenset({""})
 
     @property
     def describe(self) -> str:
@@ -271,6 +278,17 @@ class ActionSpec:
 
 class TakeSupplementArgs(BaseModel):
     schedule_id: str = Field(min_length=1, max_length=64)
+
+
+class ProposePlanArgs(BaseModel):
+    """Des séances à **proposer**, que l'utilisateur adoptera ou non (§5.3).
+
+    Le pendant conversationnel de `AdoptionPayload`, et les mêmes bornes : deux semaines
+    au plus. Le programme d'une natation n'est pas vérifié ici mais à la relecture, séance
+    par séance — une faute écarte la séance fautive, pas la semaine entière.
+    """
+
+    sessions: list[PlanPayload] = Field(min_length=1, max_length=14)
 
 
 class DeleteByRowArgs(BaseModel):
@@ -398,6 +416,25 @@ async def _add_plan(store: FileStore, payload: PlanPayload) -> Outcome:
     )
 
 
+async def _propose_plan(store: FileStore, payload: ProposePlanArgs) -> Outcome:
+    """L'adoption, une fois confirmée : **ce qui reste** de la proposition, en une écriture.
+
+    L'écran renvoie les séances gardées et non celles qu'il retire — la même règle que
+    `AdoptionPayload`, et pour la même raison : une séance retirée ne peut pas être écrite
+    par un désaccord d'index. Les programmes repassent par la notation avant d'écrire.
+    """
+    from app.domains.planning.service import (
+        PlanningService,
+    )
+
+    result = await PlanningService(store).adopt(payload.sessions)
+    count = len(result.created)
+    return Outcome(
+        summary=f"{count} séance{'s' if count > 1 else ''} ajoutée{'s' if count > 1 else ''} "
+        "au planning."
+    )
+
+
 async def _delete_weight(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
     from app.domains.body.service import (
         WeightService,
@@ -437,8 +474,22 @@ async def _delete_run(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
 # ── La table ──────────────────────────────────────────
 
 
-def _spec(name: str, level: Level, label: str, payload: type[BaseModel], run: Any) -> ActionSpec:
-    return ActionSpec(name=name, level=level, label=label, payload=payload, run=run)
+#: Les portées d'une action — voir `ActionSpec.scopes`.
+ORDINARY = frozenset({""})
+PLANNING_ONLY = frozenset({"planning"})
+EVERYWHERE = frozenset({"", "planning"})
+
+
+def _spec(
+    name: str,
+    level: Level,
+    label: str,
+    payload: type[BaseModel],
+    run: Any,
+    *,
+    scopes: frozenset[str] = ORDINARY,
+) -> ActionSpec:
+    return ActionSpec(name=name, level=level, label=label, payload=payload, run=run, scopes=scopes)
 
 
 @cache
@@ -457,6 +508,10 @@ def catalogue() -> dict[str, ActionSpec]:
     from app.domains.hydration.schemas import IntakePayload
     from app.domains.nutrition.schemas import MealPayload
     from app.domains.planning.schemas import PlanPayload
+
+    # `ProposePlanArgs` est déclaré en tête sur une annotation en chaîne, faute de pouvoir
+    # importer le schéma du planning à ce moment-là : il se complète ici, au premier usage.
+    ProposePlanArgs.model_rebuild(_types_namespace={"PlanPayload": PlanPayload})
 
     specs = (
         # ── Ce qui s'exécute et s'annule ──
@@ -515,6 +570,16 @@ def catalogue() -> dict[str, ActionSpec]:
             PlanPayload,
             _add_plan,
         ),
+        _spec(
+            "plan.propose",
+            Level.CHANGE,
+            "proposer des séances au planning, que je retiendrai ou non une par une. Une "
+            "natation porte **toujours** son programme, dans la notation ci-dessus, une "
+            "ligne par bloc",
+            ProposePlanArgs,
+            _propose_plan,
+            scopes=PLANNING_ONLY,
+        ),
         # ── Ce qui demande un appui ──
         _spec(
             "weight.delete",
@@ -543,21 +608,24 @@ def catalogue() -> dict[str, ActionSpec]:
             "retirer une séance prévue",
             DeleteByRowArgs,
             _delete_plan,
+            scopes=EVERYWHERE,
         ),
     )
     return {spec.name: spec for spec in specs}
 
 
-def describe_catalogue() -> list[str]:
-    """Les lignes montrées au modèle, dans l'ordre de la table.
+def describe_catalogue(scope: str = "") -> list[str]:
+    """Les lignes montrées au modèle, dans l'ordre de la table, pour une portée de fil.
 
     Rendues ici et insérées telles quelles par `conversation.py`, qui ne connaît donc aucun
     nom d'action : un nom qui change ne se retrouve jamais à deux endroits.
     """
-    return [spec.describe for spec in catalogue().values()]
+    return [spec.describe for spec in catalogue().values() if scope in spec.scopes]
 
 
-def validate(name: str, args: dict[str, Any]) -> tuple[ActionSpec, BaseModel] | str:
+def validate(
+    name: str, args: dict[str, Any], *, scope: str | None = None
+) -> tuple[ActionSpec, BaseModel] | str:
     """Rend `(spec, charge utile)` si l'action est recevable, sinon la raison en français.
 
     La raison est destinée à être **lue par l'utilisateur**, pas seulement journalisée : si
@@ -565,7 +633,9 @@ def validate(name: str, args: dict[str, Any]) -> tuple[ActionSpec, BaseModel] | 
     dire vaut mieux que de laisser croire que c'est fait.
     """
     spec = catalogue().get(name)
-    if spec is None:
+    if spec is None or (scope is not None and scope not in spec.scopes):
+        # Hors portée, le refus est le même que pour un nom inventé : le modèle n'a pas vu
+        # cette action dans ce fil, et il ne doit pas pouvoir la deviner.
         return f"« {name} » n'est pas quelque chose que je sais faire."
 
     try:
@@ -605,12 +675,16 @@ def _refusal(error: ValidationError) -> str:
 
 
 __all__ = [
+    "EVERYWHERE",
     "HIDDEN_ARGS",
+    "ORDINARY",
+    "PLANNING_ONLY",
     "SOURCE",
     "ActionSpec",
     "DeleteByRowArgs",
     "Level",
     "Outcome",
+    "ProposePlanArgs",
     "TakeSupplementArgs",
     "Undo",
     "catalogue",

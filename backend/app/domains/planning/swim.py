@@ -530,9 +530,74 @@ def describe_errors(errors: Sequence[SwimError]) -> str:
     )
 
 
+#: Trois programmes d'exemple, montrés au modèle **tels quels**. Un gabarit abstrait laisse
+#: deviner la forme ; cinq échecs d'affilée sur un `kind` décrit « texte » ont montré ce
+#: que ça coûte (voir `assistant/actions.py`).
+EXAMPLES: tuple[str, ...] = (
+    "Échauffement :\n400 CR EF\n4×50 CR ÉD R15\nCorps :\n8×100 CR EA PB R20\n"
+    "Retour au calme :\n200 DOS RC",
+    "300 CR EF\n6×50 4N EA R20\n2×(4×25 CR SP R30 ; 100 DOS RC) R1'\n200 BR RC",
+    "Technique :\n8×50 CR ÉD RAT R15\n4×100 CR EF PB PL D2'\n200 CR RC",
+)
+
+
+def guide(glossary: Glossary | None = None) -> str:
+    """La notation, expliquée au modèle (`docs/planning-natation.md` §5.2).
+
+    Rendue d'ici et non écrite dans la consigne de l'assistant : la grammaire et le
+    glossaire sont ceux que `parse` applique, ajouts de l'utilisateur compris. Deux
+    descriptions écrites à deux endroits finiraient par se contredire, et c'est la plus
+    vieille que le modèle suivrait.
+    """
+    words = glossary or Glossary.base()
+    codes = "\n".join(f"- {line}" for line in words.describe())
+    examples = "\n\n".join(EXAMPLES)
+    return f"""## La natation, et sa notation — obligatoire
+
+Toute séance de natation que tu proposes porte un "program" écrit **dans cette notation et
+dans aucune autre**. Une ligne est un titre de section terminé par « : », ou un bloc :
+
+  [N×]distance NAGE [ALLURE] [OPTIONS…] [R<repos> | D<départ>]
+
+- distance en mètres, multiple de {POOL_STEP}, de {POOL_STEP} à {MAX_DISTANCE} ; « 8×50 » = huit fois 50 m ;
+- **une** nage, obligatoire, en premier ; **une** allure au plus ; des options ensuite ;
+- R15 = 15 s de repos après chaque répétition, R1' = 1 min, R1'30 = 1 min 30 ;
+  D1'30 = départ toutes les 1 min 30 ; jamais R et D sur le même bloc ; toujours en dernier ;
+- une série : 2×(4×25 CR SP R30 ; 100 DOS RC) R1' — blocs séparés par « ; », un seul niveau ;
+- **aucun autre mot**, aucun synonyme : « NL », « crawl », « tranquille » sont refusés ;
+- dans le JSON, les lignes du programme se séparent par \\n.
+
+Sigles admis :
+{codes}
+
+Exemples :
+
+{examples}
+
+Quand ta réponse parle d'une séance de natation, écris-la aussi dans cette notation.
+
+"""
+
+
+def correction(faults: Sequence[str]) -> str:
+    """Ce que le modèle reçoit quand sa proposition n'était pas dans la notation."""
+    listed = "\n".join(f"- {fault}" for fault in faults)
+    return f"""## À corriger — ta proposition précédente
+
+Ces séances n'étaient pas dans la notation, et ont été refusées :
+
+{listed}
+
+Réécris ta réponse entière, avec les mêmes séances corrigées. N'emploie que les sigles
+admis ci-dessus, dans l'ordre de la grammaire.
+
+"""
+
+
 __all__ = [
     "BASE_CODES",
     "CATEGORY_LABELS",
+    "EXAMPLES",
     "MAX_CHARS",
     "MAX_LINES",
     "Category",
@@ -543,7 +608,9 @@ __all__ = [
     "SwimProgram",
     "SwimShare",
     "code_problem",
+    "correction",
     "describe_errors",
+    "guide",
     "normalise_code",
     "parse",
     "uses",

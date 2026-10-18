@@ -25,7 +25,6 @@ from app.domains.activity import circuit_link
 from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
-from app.domains.goals.service import GoalService
 from app.domains.planning import swim
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
 from app.domains.planning.glossary import glossary_from
@@ -477,6 +476,12 @@ class PlanningService:
         l'objectif du moment — « cette semaine je prépare une course » n'a pas vocation à
         devenir un objectif de six semaines dans `goals.csv`.
         """
+        # Importé ici et non en tête : `goals/router.py` importe ce module-ci, et le paquet
+        # `goals` exécute son routeur dès qu'on y touche. Le cycle restait invisible tant
+        # qu'`app/domains/api.py` chargeait `goals` avant `planning` ; l'assistant, qui lit
+        # désormais les schémas du planning, renverse cet ordre.
+        from app.domains.goals.service import GoalService
+
         typed = request.objective.strip()
         return typed or await GoalService(self._store).objective_sentence()
 

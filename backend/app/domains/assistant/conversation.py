@@ -308,8 +308,14 @@ def build_prompt(
     slices: list[str] | None = None,
     naming: bool = False,
     final: bool = False,
+    guide: str = "",
 ) -> str:
     """Assemble la consigne. **Aucun fichier n'est envoyé au modèle** (`IA-09`).
+
+    `guide` est une rubrique **déjà rendue** par un domaine — la notation de nage, pour le
+    fil Planning (`docs/planning-natation.md` §5.2). Elle précède le catalogue, qui y
+    renvoie : « dans la notation ci-dessus ». Vide, la consigne est celle d'un fil
+    ordinaire, à l'octet près.
 
     `context` et `memory` sont déjà des phrases : ce module ne sait pas les produire, et
     c'est ce qui permet de le tester sur des valeurs fixes. `actions` suit la même règle —
@@ -389,7 +395,7 @@ def build_prompt(
             memory="\n".join(f"- {line}" for line in memory) or "- Rien de noté pour l'instant.",
             profile=who,
             history=turns,
-            actions=catalogue,
+            actions=guide + catalogue,
             question=question.strip(),
             shape="{" + ", ".join(shape) + "}",
             fields="\n".join(fields),

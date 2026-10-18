@@ -38,6 +38,7 @@ from app.domains.assistant.schemas import (
     ConfirmRequest,
     MemoryEntry,
     MemoryPayload,
+    PlanningThread,
     ProfilePayload,
     ProfileView,
     RenamePayload,
@@ -157,6 +158,17 @@ async def threads(store: StoreDep) -> ThreadList:
     discussions (`IA-07`).
     """
     return await AssistantService(store).threads()
+
+
+@router.get("/threads/planning", response_model=PlanningThread, summary="Le fil Planning")
+async def planning_thread(store: StoreDep) -> PlanningThread:
+    """Le fil posé sous la grille du planning, ou `null` s'il n'a jamais servi.
+
+    Déclarée **avant** `/threads/{thread_id}` : sinon « planning » serait lu comme un
+    identifiant de fil. Une lecture, qui n'ouvre rien — le fil naît à la première question
+    (`docs/planning-natation.md` §5.1).
+    """
+    return await AssistantService(store).planning_thread()
 
 
 @router.get("/threads/{thread_id}", response_model=ThreadDetail, summary="Une discussion")

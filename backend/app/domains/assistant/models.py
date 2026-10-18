@@ -124,6 +124,22 @@ class ThreadRow(CsvModel):
     #: remonte, ce qu'une date de création ne dirait pas.
     updated: CsvDateTime = None
     title: str = ""
+    #: La **portée** du fil : vide pour une discussion ordinaire, `planning` pour le fil
+    #: posé sous la grille du planning (`docs/planning-natation.md` §5).
+    #:
+    #: Elle appartient au fil et non à l'écran qui l'affiche : rouvert depuis `/assistant`,
+    #: le fil garde sa consigne et son catalogue. Ajoutée en dernier, avec un défaut.
+    scope: str = ""
+
+
+#: Les portées connues. Une cellule illisible vaut un fil ordinaire.
+SCOPES: tuple[str, ...] = ("", "planning")
+PLANNING_SCOPE = "planning"
+
+
+def normalise_scope(raw: str) -> str:
+    cleaned = raw.strip().lower()
+    return cleaned if cleaned in SCOPES else ""
 
 
 class MessageRow(CsvModel):

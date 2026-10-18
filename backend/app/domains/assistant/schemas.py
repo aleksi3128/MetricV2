@@ -27,6 +27,7 @@ from app.domains.assistant.profile import (
     MIN_BIRTH_YEAR,
     MIN_HEIGHT_CM,
 )
+from app.domains.planning.schemas import ProposedSession
 
 #: Plafond de la liste de matériel : le catalogue en compte 28, une charge utile plus
 #: longue est forcément fautive. Écrit ici et non deviné, parce que la borne doit
@@ -109,6 +110,10 @@ class ChatRequest(BaseModel):
     #: Le fil où poser la question. Absent, un fil est ouvert et son identifiant est rendu
     #: avec la réponse.
     thread_id: str | None = Field(default=None, max_length=32)
+    #: La portée du fil **à ouvrir**, quand `thread_id` est absent. `planning` rouvre le
+    #: fil Planning s'il existe : il n'y en a qu'un. Ignorée sur un fil existant, dont la
+    #: portée est écrite et ne se change pas d'une question à l'autre.
+    scope: Literal["planning"] | None = None
 
 
 class ProposedMemory(BaseModel):
@@ -171,6 +176,13 @@ class ActionReport(BaseModel):
     #: L'identifiant **stable** de la ligne créée, quand elle en porte un. Il survit à ce
     #: que `undo.row_id` ne survit pas : une position se décale, un identifiant non.
     resource_id: str | None = None
+    #: Les séances d'un `plan.propose`, **lues par le serveur** — programme de nage, total.
+    #: L'écran les affiche et en retire ; il ne relit aucune notation.
+    sessions: list[ProposedSession] = Field(default_factory=list)
+    #: Ce que la relecture a écarté, et pourquoi : « séance du 21/10 « Vitesse » : ligne 3 :
+    #: « NL » n'est pas dans le glossaire ». Le taire laisserait croire que le modèle n'a
+    #: proposé que cela.
+    dropped: list[str] = Field(default_factory=list)
 
 
 class ConfirmRequest(BaseModel):
@@ -363,6 +375,8 @@ class ThreadSummary(BaseModel):
 
     thread_id: str
     title: str
+    #: `planning` pour le fil du planning, vide sinon. La liste le marque d'un badge.
+    scope: str = ""
     created: dt.datetime | None = None
     #: Bougé à chaque message : c'est sur lui que la liste est triée, pour qu'un fil
     #: rouvert remonte.
@@ -401,6 +415,7 @@ class ThreadDetail(BaseModel):
 
     thread_id: str
     title: str = Field(max_length=MAX_TITLE)
+    scope: str = ""
     created: dt.datetime | None = None
     updated: dt.datetime | None = None
     messages: list[ThreadMessage] = Field(default_factory=list)
@@ -422,3 +437,14 @@ class ThreadList(BaseModel):
     #: calcul de temps — celui que l'invariant « le jour vient du serveur » interdit. Le
     #: client reçoit un identifiant ou rien : il n'a aucun écart à mesurer.
     resume: str | None = None
+
+
+class PlanningThread(BaseModel):
+    """Le fil Planning, ou rien.
+
+    `null` tant qu'aucune question n'y a été posée : le fil s'ouvre à la première, comme
+    tous les autres. Une lecture n'écrit pas — l'ouvrir ici pour rendre un fil vide
+    laisserait une ligne dans `threads.csv` à chaque visite d'un écran.
+    """
+
+    thread: ThreadDetail | None = None

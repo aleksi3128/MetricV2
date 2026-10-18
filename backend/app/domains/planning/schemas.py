@@ -242,6 +242,9 @@ class ProposedSession(BaseModel):
     duration_min: float
     note: str | None = None
     program: str | None = None
+    #: Le programme **lu**, comme sur une séance prévue — l'écran affiche le total d'une
+    #: proposition sans relire la notation. `null` hors natation.
+    swim: SwimProgram | None = None
     #: Motif du choix, en une phrase : « dos non travaillé depuis 12 jours ».
     #: Affiché, jamais écrit dans le fichier — c'est un argument, pas une donnée.
     reason: str | None = None

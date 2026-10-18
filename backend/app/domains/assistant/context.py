@@ -39,7 +39,7 @@ if TYPE_CHECKING:  # pragma: no cover - import de typage seulement
     # de `app.domains.planning` exécute le `__init__` du paquet, donc son routeur. Le taux
     # de respect arrive **construit par le routeur**, jamais recalculé (`PLAN-06`).
     from app.domains.activity.models import CircuitSessionSetRow, RunMetricsRow
-    from app.domains.planning.schemas import AdherenceView
+    from app.domains.planning.schemas import AdherenceView, PlannedSession
     from app.storage.csv_repo import Row
 
 #: Bilans hebdomadaires rappelés. Deux suffisent à situer une tendance ; au-delà, ils
@@ -276,8 +276,26 @@ async def plan_lines(store: FileStore, today: date) -> list[str]:
         # L'heure est facultative dans `plan.csv` — une séance sans créneau est une
         # possibilité normale, et lui en inventer un la daterait faussement.
         heure = f" à {item.time}" if item.time else ""
-        lines.append(f"Prévu {quand}{heure} : {item.title} ({fr(item.duration_min)} min)")
+        lines.append(
+            f"Prévu {quand}{heure} : {item.title} ({fr(item.duration_min)} min){_swim(item)}"
+        )
     return lines
+
+
+def _swim(item: PlannedSession) -> str:
+    """Le programme d'une natation prévue, dans sa forme réécrite, et son total.
+
+    Le modèle le voit **dans la notation** qu'on exige de lui : c'est aussi le meilleur
+    exemple qu'on puisse lui donner, puisque c'est celui de l'utilisateur.
+    """
+    read = item.swim
+    if item.kind != "natation" or read is None:
+        return ""
+    if not read.lines:
+        return " — natation, sans programme"
+    blocks = " ; ".join(line.text for line in read.lines)
+    total = f" ({read.total_m} m)" if read.total_m is not None else " (programme illisible)"
+    return f" — natation : {blocks}{total}"
 
 
 async def week_lines(store: FileStore, today: date) -> list[str]:
@@ -812,7 +830,7 @@ async def _plan_ahead(store: FileStore, today: date) -> list[str]:
     if not sessions:
         return ["Séances prévues : aucune dans les quatre semaines"]
     return [
-        f"Prévu le {item.date:%d/%m/%Y} à {item.time} : {item.title} "
+        f"Prévu le {item.date:%d/%m/%Y} à {item.time} : {item.title}{_swim(item)} "
         f"(row_id={item.id}, token={item.token})"
         for item in sessions
     ]

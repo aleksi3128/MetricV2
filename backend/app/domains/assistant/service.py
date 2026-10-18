@@ -53,10 +53,12 @@ from app.domains.assistant import context, conversation, profile
 from app.domains.assistant.models import (
     MAX_CONTENT,
     MAX_TITLE,
+    PLANNING_SCOPE,
     TOPICS,
     MemoryRow,
     MessageRow,
     ThreadRow,
+    normalise_scope,
     normalise_topic,
 )
 from app.domains.assistant.schemas import (
@@ -69,6 +71,7 @@ from app.domains.assistant.schemas import (
     EquipmentOption,
     MemoryEntry,
     MemoryPayload,
+    PlanningThread,
     ProfilePayload,
     ProfileView,
     ProposedAction,
@@ -78,6 +81,8 @@ from app.domains.assistant.schemas import (
     ThreadSummary,
     UndoRef,
 )
+from app.domains.planning import swim
+from app.domains.planning.schemas import ProposedSession
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
 from app.storage.files import FileStore
@@ -135,6 +140,48 @@ def _sortable(summary: ThreadSummary) -> tuple[bool, datetime]:
 RESUME_WITHIN = timedelta(hours=1)
 
 
+#: Le titre du fil Planning. Écrit et non demandé au modèle : il n'y en a qu'un.
+PLANNING_TITLE = "Planning"
+
+
+def _swim_fault(raw: object, glossary: swim.Glossary) -> str | None:
+    """La faute d'une séance proposée, ou `None` si elle n'en a pas.
+
+    Seule la notation est jugée ici. Une date ou une durée fausse sera refusée par le
+    schéma, avec le message de la table — ce n'est pas à cette relecture de le redire.
+    """
+    if not isinstance(raw, dict) or raw.get("kind") != "natation":
+        return None
+    title = str(raw.get("title") or "sans titre")
+    when = str(raw.get("date") or "?")
+    label = f"séance du {when} « {title} »"
+    program = raw.get("program")
+    if not isinstance(program, str) or not program.strip():
+        return f"{label} : le programme manque."
+    read = swim.parse(program, glossary)
+    if read.valid:
+        return None
+    return f"{label} : {swim.describe_errors(read.errors)}"
+
+
+def _attach_faults(reports: list[ActionReport], faults: list[str]) -> None:
+    """Dit ce que la relecture a écarté, sur la proposition qui reste — ou seule, s'il
+    n'en reste rien. Le taire laisserait croire que le modèle n'a proposé que cela."""
+    for report in reports:
+        if report.name == "plan.propose":
+            report.dropped = faults
+            return
+    reports.append(
+        ActionReport(
+            name="plan.propose",
+            level="change",
+            status="refused",
+            summary="Aucune séance n'a pu être proposée : la notation n'y était pas.",
+            dropped=faults,
+        )
+    )
+
+
 def _resumable(summaries: list[ThreadSummary]) -> str | None:
     """Le fil à rouvrir de lui-même, ou `None`.
 
@@ -142,10 +189,13 @@ def _resumable(summaries: list[ThreadSummary]) -> str | None:
     heure. Un fil sans horodatage n'est jamais rouvert : on ne sait pas quand il a servi,
     et le supposer récent ferait resurgir une conversation de l'an dernier.
     """
-    if not summaries:
+    # Le fil Planning vit sous la grille du planning : le rouvrir de lui-même sur
+    # `/assistant` ferait reprendre une conversation qu'on avait ouverte ailleurs.
+    ordinary = [summary for summary in summaries if not summary.scope]
+    if not ordinary:
         return None
 
-    latest = summaries[0]
+    latest = ordinary[0]
     if latest.updated is None:
         return None
     if now_local() - local_moment(latest.updated) > RESUME_WITHIN:
@@ -416,6 +466,7 @@ class AssistantService:
             ThreadSummary(
                 thread_id=row.model.id,
                 title=row.model.title,
+                scope=normalise_scope(row.model.scope),
                 created=row.model.created,
                 updated=row.model.updated,
                 messages=counts.get(row.model.id, 0),
@@ -451,10 +502,34 @@ class AssistantService:
         return ThreadDetail(
             thread_id=row.id,
             title=row.title,
+            scope=normalise_scope(row.scope),
             created=row.created,
             updated=row.updated,
             messages=messages,
         )
+
+    async def planning_thread(self) -> PlanningThread:
+        """Le fil Planning, s'il a déjà servi (`docs/planning-natation.md` §5.1)."""
+        found = await self._scoped_thread(PLANNING_SCOPE)
+        if found is None:
+            return PlanningThread(thread=None)
+        return PlanningThread(thread=await self.thread(found))
+
+    async def _scoped_thread(self, scope: str) -> str | None:
+        """Le fil d'une portée — il n'y en a qu'un. Le plus récent gagne si un tableur en a
+        dupliqué la ligne : c'est celui que l'écran vient de montrer."""
+        rows = [
+            row.model
+            for row in await self._threads.read_all()
+            if row.model.id and normalise_scope(row.model.scope) == scope
+        ]
+        if not rows:
+            return None
+        summaries = [
+            ThreadSummary(thread_id=row.id, title=row.title, updated=row.updated) for row in rows
+        ]
+        summaries.sort(key=_sortable, reverse=True)
+        return summaries[0].thread_id
 
     async def forget_thread(self, thread_id: str) -> None:
         """Supprime un fil et ses messages.
@@ -554,6 +629,7 @@ class AssistantService:
             return ThreadSummary(
                 thread_id=saved.model.id,
                 title=saved.model.title,
+                scope=normalise_scope(saved.model.scope),
                 created=saved.model.created,
                 updated=saved.model.updated,
                 messages=len(
@@ -593,7 +669,7 @@ class AssistantService:
         )
         return thread_id
 
-    async def _open_thread(self, title: str, *, moment: datetime) -> str:
+    async def _open_thread(self, title: str, *, moment: datetime, scope: str = "") -> str:
         """Ouvre un fil et rend son identifiant."""
         thread_id = new_id()
         await self._threads.append(
@@ -602,6 +678,7 @@ class AssistantService:
                 created=moment,
                 updated=moment,
                 title=title.strip()[:MAX_TITLE] or "Sans titre",
+                scope=scope,
             )
         )
         return thread_id
@@ -616,7 +693,9 @@ class AssistantService:
 
     # ── Les actions (`IA-15`) ─────────────────────────
 
-    async def _run_actions(self, proposed: list[ProposedAction]) -> list[ActionReport]:
+    async def _run_actions(
+        self, proposed: list[ProposedAction], *, scope: str = ""
+    ) -> list[ActionReport]:
         """Exécute ce qui s'exécute, met le reste en attente.
 
         **Aucune action ne fait échouer l'échange.** Un nom inventé, des arguments
@@ -631,7 +710,7 @@ class AssistantService:
         reports: list[ActionReport] = []
 
         for item in proposed:
-            checked = catalogue.validate(item.name, item.args)
+            checked = catalogue.validate(item.name, item.args, scope=scope)
             if isinstance(checked, str):
                 reports.append(
                     ActionReport(
@@ -648,20 +727,81 @@ class AssistantService:
             if spec.level is catalogue.Level.CHANGE:
                 # Rien n'est écrit. L'écran montrera ce que ça changerait, et un appui
                 # rappellera `confirm` avec les mêmes arguments.
-                reports.append(
-                    ActionReport(
-                        name=spec.name,
-                        level="change",
-                        status="pending",
-                        summary=spec.label.capitalize(),
-                        args=item.args,
-                    )
+                pending = ActionReport(
+                    name=spec.name,
+                    level="change",
+                    status="pending",
+                    summary=spec.label.capitalize(),
+                    args=item.args,
                 )
+                if isinstance(payload, catalogue.ProposePlanArgs):
+                    # Les séances **lues** par le serveur, programme de nage compris : l'écran
+                    # affiche un total en mètres, il ne le calcule pas.
+                    pending.sessions = await self._preview(payload)
+                    count = len(pending.sessions)
+                    pending.summary = (
+                        f"{count} séance{'s' if count > 1 else ''} proposée"
+                        f"{'s' if count > 1 else ''}, à retenir ou non une par une."
+                    )
+                reports.append(pending)
                 continue
 
             reports.append(await self._perform(spec, payload, item.args))
 
         return reports
+
+    async def _preview(self, payload: catalogue.ProposePlanArgs) -> list[ProposedSession]:
+        from app.domains.planning.service import PlanningService
+
+        glossary = await PlanningService(self._store).glossary()
+        return [
+            ProposedSession(
+                date=session.date,
+                time=session.time,
+                kind=session.kind,
+                title=session.title,
+                duration_min=session.duration_min,
+                note=session.note,
+                program=session.program,
+                swim=swim.parse(session.program or "", glossary)
+                if session.kind == "natation"
+                else None,
+            )
+            for session in payload.sessions
+        ]
+
+    async def _review_plan(
+        self, wanted: list[ProposedAction]
+    ) -> tuple[list[ProposedAction], list[str]]:
+        """Relit chaque programme de nage proposé (`docs/planning-natation.md` §5.3).
+
+        Rend les actions **sans les séances fautives**, et la liste de ces fautes. Une
+        séance hors notation est retirée seule : la semaine qui l'entoure peut être juste.
+        Une natation **sans programme** est une faute ici, alors qu'elle est permise à la
+        main — l'utilisateur sait ce qu'est sa « piscine libre », le modèle doit l'écrire.
+        """
+        from app.domains.planning.service import PlanningService
+
+        glossary = await PlanningService(self._store).glossary()
+        faults: list[str] = []
+        cleaned: list[ProposedAction] = []
+        for action in wanted:
+            sessions = action.args.get("sessions")
+            if action.name != "plan.propose" or not isinstance(sessions, list):
+                cleaned.append(action)
+                continue
+            kept: list[Any] = []
+            for raw in sessions:
+                fault = _swim_fault(raw, glossary)
+                if fault is None:
+                    kept.append(raw)
+                else:
+                    faults.append(fault)
+            if kept:
+                cleaned.append(
+                    action.model_copy(update={"args": {**action.args, "sessions": kept}})
+                )
+        return cleaned, faults
 
     async def _perform(
         self, spec: catalogue.ActionSpec, payload: Any, args: dict[str, Any]
@@ -771,14 +911,22 @@ class AssistantService:
         await _step(on_step, "je relis tes chiffres")
 
         thread_id = request.thread_id
+        scope = ""
+        if thread_id is None and request.scope == PLANNING_SCOPE:
+            # Il n'y a qu'un fil Planning : une question posée sans identifiant le rouvre
+            # plutôt que d'en ouvrir un second.
+            thread_id = await self._scoped_thread(PLANNING_SCOPE)
+            scope = PLANNING_SCOPE
         opening = thread_id is None
         history: list[tuple[str, str]] = []
         if thread_id is None:
-            title = _title_from(request.question)
+            title = PLANNING_TITLE if scope == PLANNING_SCOPE else _title_from(request.question)
         else:
             existing = await self._find_thread(thread_id)
             title = existing.title
+            scope = normalise_scope(existing.scope)
             history = await self._history(thread_id)
+        planning = scope == PLANNING_SCOPE
 
         known = await self._known()
         facts = await context.build(self._store, adherence=adherence, today=current)
@@ -788,21 +936,29 @@ class AssistantService:
         who = profile.lines(await SettingsService(self._store).all(), today=current)
 
         available = list(context.SLICES)
+        guide = ""
+        if planning:
+            from app.domains.planning.service import PlanningService
 
-        def prompt_for(extra: list[str], *, final: bool = False) -> str:
+            guide = swim.guide(await PlanningService(self._store).glossary())
+
+        def prompt_for(extra: list[str], *, final: bool = False, fix: str = "") -> str:
             return conversation.build_prompt(
                 question=request.question,
                 context=facts + extra,
                 memory=memory,
                 profile=who,
                 history=history,
-                actions=catalogue.describe_catalogue(),
+                actions=catalogue.describe_catalogue(scope),
                 slices=context.describe_slices(),
-                naming=opening,
+                # Le fil Planning garde son nom : il n'y en a qu'un, on le retrouve sous la
+                # grille et non dans une liste.
+                naming=opening and not planning,
                 # `final` à la seconde passe : sans lui, le modèle relit une consigne qui
                 # promet d'aller chercher une tranche de plus, redemande, et sa réponse
                 # d'attente — « je vérifie, puis je crée » — est celle qui s'affiche.
                 final=final,
+                guide=guide + fix,
             )
 
         async def consult(prompt: str, *, assured: bool) -> dict[str, Any]:
@@ -857,6 +1013,7 @@ class AssistantService:
         # appels, parce qu'il y a deux appels écrits. Aucune borne à respecter, aucune
         # récursion à surveiller.
         need = conversation.read_need(payload, available=available)
+        extra: list[str] = []
         if need:
             # La seconde passe est **la** raison pour laquelle une réponse peut durer trois
             # fois plus longtemps qu'une autre. La nommer, avec ce qui manquait, remplace
@@ -869,18 +1026,33 @@ class AssistantService:
             # quoi qu'elle réponde. C'est le plafond de `IA-16` qui rend la preuve inutile
             # ici — et c'est aussi ce qui fait que la question la plus lente de toutes est
             # celle qui se diffuse à coup sûr.
-            payload = await consult(
-                prompt_for(await context.slices(self._store, need, today=current), final=True),
-                assured=True,
-            )
+            extra = await context.slices(self._store, need, today=current)
+            payload = await consult(prompt_for(extra, final=True), assured=True)
 
         wanted = conversation.read_actions(payload)
+        faults: list[str] = []
+        if planning:
+            wanted, faults = await self._review_plan(wanted)
+            if faults and not need:
+                # **La relance, et elle prend la place de la seconde passe.** Le plafond de
+                # deux appels ne bouge pas : si `need` l'a déjà consommée, les séances
+                # fautives sont écartées et dites, sans troisième appel (§5.3).
+                await _step(on_step, "la notation n'y est pas — je fais corriger")
+                if on_delta is not None:
+                    # La première passe a pu s'afficher : la seconde la remplace entière.
+                    await on_delta("", True)
+                payload = await consult(
+                    prompt_for(extra, final=True, fix=swim.correction(faults)), assured=True
+                )
+                wanted, faults = await self._review_plan(conversation.read_actions(payload))
         if wanted:
             # Ce n'est pas la même attente : ici le modèle a fini, et c'est le stockage
             # qu'on sollicite. Le dire distingue « le modèle réfléchit » de « on écrit »,
             # et la seconde n'a pas le même remède quand elle traîne.
             await _step(on_step, "j’écris ce qu’il a décidé")
-        reports = await self._run_actions(wanted)
+        reports = await self._run_actions(wanted, scope=scope)
+        if faults:
+            _attach_faults(reports, faults)
 
         reply, proposed, _ = conversation.read_reply(
             payload,
@@ -915,8 +1087,9 @@ class AssistantService:
         ]
 
         if opening:
-            title = conversation.read_title(payload, fallback=title)
-            thread_id = await self._open_thread(title, moment=moment)
+            if not planning:
+                title = conversation.read_title(payload, fallback=title)
+            thread_id = await self._open_thread(title, moment=moment, scope=scope)
         if thread_id is None:  # pragma: no cover - `opening` vient de l'ouvrir
             raise StorageNotFoundError("Cette discussion n'existe pas.")
         await self._append_messages(
