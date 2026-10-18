@@ -117,6 +117,9 @@ SUPPLEMENT_SCHEDULE = "supplements/schedule.csv"
 SUPPLEMENT_LOG = "supplements/intake_log.csv"
 
 PLAN = "planning/plan.csv"
+#: Le glossaire de nage — ses ajouts et ses libellés renommés (`docs/planning-natation.md`
+#: §3). La base vit dans le code : un fichier absent la rend, il ne la perd pas.
+SWIM_CODES = "planning/swim_codes.csv"
 GOALS = "goals/goals.csv"
 WEEKLY_INSIGHTS = "insights/weekly.csv"
 MEMORY = "insights/memory.csv"

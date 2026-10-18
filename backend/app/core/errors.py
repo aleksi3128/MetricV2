@@ -82,6 +82,16 @@ async def handle_metric_error(request: Request, exc: Exception) -> JSONResponse:
     log = logger.warning if exc.status_code < 500 else logger.error
     log("%s %s → %s : %s", request.method, request.url.path, exc.code, exc)
 
+    if exc.fields:
+        return _respond(
+            exc,
+            {
+                "fields": [
+                    FieldError(field=field, message=message).model_dump()
+                    for field, message in exc.fields
+                ]
+            },
+        )
     return _respond(exc)
 
 

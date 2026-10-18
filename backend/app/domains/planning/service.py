@@ -20,14 +20,16 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from app.core.dates import today_local, week_start
-from app.core.exceptions import AiUnreadableError
+from app.core.exceptions import AiUnreadableError, SwimNotationError
 from app.domains.activity import circuit_link
 from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
 from app.domains.goals.service import GoalService
+from app.domains.planning import swim
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
-from app.domains.planning.models import PlanRow, normalise_kind
+from app.domains.planning.glossary import glossary_from
+from app.domains.planning.models import PlanRow, SwimCodeRow, normalise_kind
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionResult,
@@ -43,7 +45,7 @@ from app.domains.planning.schemas import (
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
 from app.storage.files import FileStore
-from app.storage.paths import CIRCUIT_SESSIONS, PLAN, RUNS
+from app.storage.paths import CIRCUIT_SESSIONS, PLAN, RUNS, SWIM_CODES
 
 #: Profondeur d'historique servie au flux iCal.
 #:
@@ -77,25 +79,36 @@ class PlanningService:
         self._sessions: CsvRepository[CircuitSessionRow] = CsvRepository(
             store, CIRCUIT_SESSIONS, CircuitSessionRow
         )
+        self._codes: CsvRepository[SwimCodeRow] = CsvRepository(store, SWIM_CODES, SwimCodeRow)
+
+    async def glossary(self, *, fresh: bool = False) -> swim.Glossary:
+        """Le glossaire en vigueur : la base de `swim.py`, et ce que le fichier y change."""
+        return glossary_from(await self._codes.read_all(fresh=fresh))
 
     # ── Lecture du planning ───────────────────────────
 
     @staticmethod
-    def _to_schema(row: Row[PlanRow]) -> PlannedSession:
+    def _to_schema(row: Row[PlanRow], glossary: swim.Glossary) -> PlannedSession:
         model = row.model
         assert model.date is not None  # garanti par le filtre de `_rows`
+        kind = normalise_kind(model.kind)
+        program = model.program.strip()
         return PlannedSession(
             id=row.index,
             token=row.token,
             session_id=model.id,
             date=model.date,
             time=model.time.strip() or None,
-            kind=normalise_kind(model.kind),
+            kind=kind,
             title=model.title,
             duration_min=model.duration_min,
             note=model.note or None,
             source=model.source or "manual",
             workout_url=circuit_link.find_in_text(model.note),
+            program=program or None,
+            # Lu même s'il est vide : une natation sans programme rend un programme sans
+            # ligne ni total — ce que l'écran affiche en tiret, et non en « 0 m ».
+            swim=swim.parse(program, glossary) if kind == "natation" else None,
         )
 
     async def _rows(self, *, fresh: bool = False) -> list[PlannedSession]:
@@ -106,8 +119,11 @@ class PlanningService:
         fichier — on n'efface pas ce qu'on ne comprend pas.
         """
         rows = await self._plan.read_all(fresh=fresh)
+        glossary = await self.glossary()
         sessions = [
-            self._to_schema(row) for row in rows if row.model.id and row.model.date is not None
+            self._to_schema(row, glossary)
+            for row in rows
+            if row.model.id and row.model.date is not None
         ]
         return sorted(sessions, key=lambda item: (item.date, item.time or ""))
 
@@ -132,7 +148,7 @@ class PlanningService:
         start = week_start(month_start)
         end = week_start(month_end) + timedelta(days=6)
 
-        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS])
+        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES])
         planned = await self.between(start, end)
         done = await self._done_between(start, end)
 
@@ -205,13 +221,40 @@ class PlanningService:
             duration_min=payload.duration_min,
             note=payload.note or "",
             source=source,
+            program=payload.program or "",
         )
 
+    async def parse(self, program: str) -> swim.SwimProgram:
+        """Lit un programme sans rien écrire — l'aperçu du formulaire."""
+        return swim.parse(program, await self.glossary())
+
+    async def check_programs(self, payloads: list[tuple[str, PlanPayload]]) -> swim.Glossary:
+        """Refuse **toute** l'écriture si un programme est hors de la notation.
+
+        `payloads` associe chaque charge à son chemin de champ — `body.program` pour une
+        saisie, `body.sessions.2.program` pour une adoption — pour que le formulaire
+        surligne le bon. Une adoption n'écrit pas la moitié d'une semaine : une faute
+        quelque part et rien ne part.
+        """
+        glossary = await self.glossary(fresh=True)
+        faults: list[tuple[str, str]] = []
+        for field, payload in payloads:
+            if payload.program is None:
+                continue
+            read = swim.parse(payload.program, glossary)
+            if not read.valid:
+                faults.append((field, swim.describe_errors(read.errors)))
+        if faults:
+            message = faults[0][1] if len(faults) == 1 else " — ".join(m for _, m in faults)
+            raise SwimNotationError(message, fields=faults)
+        return glossary
+
     async def create(self, payload: PlanPayload, *, source: str = "manual") -> PlannedSession:
+        glossary = await self.check_programs([("body.program", payload)])
         row = await self._plan.append(
             self._to_row(await self._with_link(payload), session_id=new_id(), source=source)
         )
-        return self._to_schema(row)
+        return self._to_schema(row, glossary)
 
     async def _with_link(self, payload: PlanPayload) -> PlanPayload:
         """La charge utile, note enrichie du lien de la séance Cadence demandée (**D5**).
@@ -243,6 +286,7 @@ class PlanningService:
         return payload.model_copy(update={"note": f"{note} {circuit.url}".strip()})
 
     async def update(self, index: int, token: str, payload: PlanPayload) -> PlannedSession:
+        glossary = await self.check_programs([("body.program", payload)])
         rows = await self._plan.read_all(fresh=True)
         if not 0 <= index < len(rows):
             raise StorageNotFoundError("Cette séance n'est pas au planning.")
@@ -262,7 +306,7 @@ class PlanningService:
                 source=existing.source or "manual",
             ),
         )
-        return self._to_schema(row)
+        return self._to_schema(row, glossary)
 
     async def remove(self, index: int, token: str) -> None:
         await self._plan.delete_by_token(index, token)
@@ -276,10 +320,13 @@ class PlanningService:
         séance laisserait le fichier à moitié rempli si la coupure survient à la
         cinquième — un planning dont on ne saurait plus s'il a été adopté ou non.
         """
+        glossary = await self.check_programs(
+            [(f"body.sessions.{index}.program", payload) for index, payload in enumerate(payloads)]
+        )
         rows = await self._plan.extend(
             [self._to_row(payload, session_id=new_id(), source="ai") for payload in payloads]
         )
-        return AdoptionResult(created=[self._to_schema(row) for row in rows])
+        return AdoptionResult(created=[self._to_schema(row, glossary) for row in rows])
 
     # ── Écart plan / réalisé (`PLAN-06`) ──────────────
 
@@ -305,7 +352,7 @@ class PlanningService:
         start = this_week - timedelta(weeks=weeks - 1)
         end = this_week + timedelta(days=6)
 
-        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS])
+        await self._store.prefetch([PLAN, RUNS, CIRCUIT_SESSIONS, SWIM_CODES])
         planned = await self.between(start, end)
         done = await self._done_between(start, end)
 

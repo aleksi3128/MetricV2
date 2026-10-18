@@ -23,6 +23,10 @@ from tests.fake_webdav import FakeWebDav
 PLANNING = "/api/planning"
 PLAN_FILE = "Metric/planning/plan.csv"
 PLAN_HEADER = "id,date,time,kind,title,duration_min,note,source\n"
+#: Ce que l'écriture produit depuis `docs/planning-natation.md` : la colonne `program` en
+#: dernier. `PLAN_HEADER` reste celui des fichiers écrits avant, que la batterie continue
+#: de semer — c'est ce qui prouve qu'ils se relisent.
+WRITTEN_HEADER = "id,date,time,kind,title,duration_min,note,source,program\n"
 RUNS_FILE = "Metric/activity/runs.csv"
 SESSIONS_FILE = "Metric/activity/circuit_sessions.csv"
 
@@ -72,16 +76,17 @@ def cell(view: Any, day: date) -> Any:
 def test_a_planned_session_is_written_with_the_annex_columns(
     app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
 ) -> None:
-    """Colonnes et ordre de l'annexe du backlog, accents et BOM compris."""
+    """Colonnes et ordre de l'annexe du backlog, accents et BOM compris — et `program` en
+    dernier, vide hors natation."""
     plan(app_client, auth, note="Série longue, à l'aise")
 
     raw = dav.content_of(PLAN_FILE)
     header, line = raw.splitlines()[:2]
 
-    assert header == PLAN_HEADER.strip()
+    assert header == WRITTEN_HEADER.strip()
     assert dav.files[PLAN_FILE].content.startswith(b"\xef\xbb\xbf")
     assert "Haut du corps" in line
-    assert line.endswith(",manual")
+    assert line.endswith(",manual,")
 
 
 def test_a_session_without_a_time_writes_an_empty_cell(

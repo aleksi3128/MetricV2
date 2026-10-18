@@ -50,7 +50,7 @@ LINE_OCTETS = 75
 REFRESH = "PT1H"
 
 #: Libellés des natures de séance, pour le titre et les catégories.
-KIND_LABELS = {"course": "Course", "muscu": "Muscu", "autre": "Séance"}
+KIND_LABELS = {"course": "Course", "muscu": "Muscu", "natation": "Natation", "autre": "Séance"}
 
 
 def escape_text(value: str) -> str:
@@ -136,6 +136,27 @@ def _summary(session: PlannedSession) -> str:
     return title if title.lower().startswith(label.lower()) else f"{label} · {title}"
 
 
+def _description(session: PlannedSession) -> str:
+    """La note, et pour une natation le programme **lu** et son total.
+
+    C'est l'évènement qu'on ouvre au bord du bassin, téléphone dans le sac : il doit
+    suffire, sans passer par Metric (`docs/planning-natation.md` §4.1). Le programme y est
+    dans sa forme réécrite — `8×100`, pas `8x100` — et le total n'y figure que s'il a été
+    lu sans faute.
+    """
+    parts: list[str] = []
+    program = session.swim
+    if program is not None and program.lines:
+        parts.append("\n".join(line.text for line in program.lines))
+        if program.total_m is not None:
+            parts.append(f"Total : {program.total_m} m")
+    elif session.program:
+        parts.append(session.program)
+    if session.note:
+        parts.append(session.note)
+    return "\n\n".join(parts)
+
+
 def event_lines(session: PlannedSession, *, stamp: datetime, tz: ZoneInfo) -> list[str]:
     """Un `VEVENT` (§3.6.1)."""
     lines = ["BEGIN:VEVENT"]
@@ -162,8 +183,9 @@ def event_lines(session: PlannedSession, *, stamp: datetime, tz: ZoneInfo) -> li
         # inventer une heure de fin serait inventer une donnée.
 
     lines += _property("SUMMARY", escape_text(_summary(session)))
-    if session.note:
-        lines += _property("DESCRIPTION", escape_text(session.note))
+    description = _description(session)
+    if description:
+        lines += _property("DESCRIPTION", escape_text(description))
     if session.workout_url:
         # `URL` est une propriété standard d'un `VEVENT` (§3.8.4.6), et les calendriers
         # l'affichent en lien ouvrable. Conséquence concrète : une séance prévue s'ouvre

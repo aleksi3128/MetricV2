@@ -19,13 +19,14 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.validation import DurationMin, Label, Note, PlannedDate
+from app.domains.planning.swim import MAX_CHARS, SwimProgram
 
-#: Les trois natures planifiables. Fermée côté API alors que le fichier tolère n'importe
-#: quoi : le fichier doit survivre à un tableur, une saisie n'a pas cette excuse.
-Kind = Literal["course", "muscu", "autre"]
+#: Les natures planifiables. Fermée côté API alors que le fichier tolère n'importe quoi :
+#: le fichier doit survivre à un tableur, une saisie n'a pas cette excuse.
+Kind = Literal["course", "muscu", "natation", "autre"]
 
 #: `HH:MM` sur 24 heures. Le même motif que `supplements`, pour la même raison : c'est ce
 #: qui se trie et ce qui se lit sans ambiguïté dans un tableur.
@@ -65,8 +66,26 @@ class PlanPayload(BaseModel):
     #: c'est le serveur qui fabrique l'adresse. Une URL écrite par un modèle est du texte
     #: non vérifié, et le suffixe `x` du format s'y perd en silence.
     circuit_id: str | None = Field(default=None, max_length=40)
+    #: Le programme d'une séance de natation, dans la notation (`docs/planning-natation.md`
+    #: §2). **Lu par le service, pas ici** : le glossaire vit dans un fichier, et un sigle
+    #: ajouté en Réglages doit être reconnu. Ici, seulement la borne et la nature.
+    program: str | None = Field(default=None, max_length=MAX_CHARS)
 
     _blank_time = field_validator("time", mode="before")(_empty_time_is_none)
+
+    @field_validator("program", mode="before")
+    @classmethod
+    def _blank_program(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    @model_validator(mode="after")
+    def _program_is_for_swimming(self) -> PlanPayload:
+        if self.program is not None and self.kind != "natation":
+            raise ValueError("Un programme de nage ne va qu'avec une séance de natation.")
+        return self
 
 
 class PlannedSession(BaseModel):
@@ -95,6 +114,13 @@ class PlannedSession(BaseModel):
     #: circuit. Renommer une séance ne touche pas la note déjà écrite. En contrepartie,
     #: supprimer le circuit ne casse rien — une URL Cadence porte la séance entière.
     workout_url: str | None = None
+    #: Le programme tel qu'il a été écrit — ce que le formulaire de correction recharge.
+    program: str | None = None
+    #: Le programme **lu** : lignes réécrites, total, ventilations. `null` hors natation.
+    #:
+    #: Lu à chaque affichage et non stocké : un sigle renommé en Réglages se voit aussitôt,
+    #: et le total ne peut pas diverger du texte dont il vient.
+    swim: SwimProgram | None = None
 
 
 class DoneActivity(BaseModel):
@@ -215,6 +241,7 @@ class ProposedSession(BaseModel):
     title: str
     duration_min: float
     note: str | None = None
+    program: str | None = None
     #: Motif du choix, en une phrase : « dos non travaillé depuis 12 jours ».
     #: Affiché, jamais écrit dans le fichier — c'est un argument, pas une donnée.
     reason: str | None = None
@@ -271,3 +298,48 @@ class SubscriptionInfo(BaseModel):
     #: Adresse d'abonnement, clé comprise. `null` tant qu'aucune clé n'est configurée.
     url: str | None = None
     message: str
+
+
+# ── La notation de nage (`docs/planning-natation.md`) ─
+
+
+class SwimParseRequest(BaseModel):
+    """Un programme à lire, sans rien écrire — l'aperçu du formulaire."""
+
+    program: str = Field(default="", max_length=MAX_CHARS)
+
+
+SwimCategory = Literal["stroke", "pace", "option"]
+
+
+class SwimCodeEntry(BaseModel):
+    """Un sigle du glossaire en vigueur.
+
+    `id` et `token` désignent la ligne de `swim_codes.csv` **s'il y en a une** : un sigle
+    de base jamais renommé n'en a pas, et se renomme par un `POST`.
+    """
+
+    code: str
+    label: str
+    category: SwimCategory
+    base: bool
+    #: Le libellé livré, pour un sigle de base. Ce que « rétablir » remet.
+    default_label: str | None = None
+    id: int | None = None
+    token: str | None = None
+    #: Employé par au moins une séance prévue — sa suppression sera refusée.
+    used: bool = False
+
+
+class SwimCodePayload(BaseModel):
+    """Un sigle à ajouter, ou le libellé d'un sigle de base à renommer."""
+
+    code: str = Field(min_length=1, max_length=8)
+    label: Label
+    category: SwimCategory = "option"
+
+
+class SwimGlossaryView(BaseModel):
+    """Le glossaire en vigueur, par catégorie puis dans l'ordre de la base."""
+
+    codes: list[SwimCodeEntry]

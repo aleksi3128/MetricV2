@@ -99,16 +99,19 @@ def plan(client: TestClient, auth: dict[str, str], **fields: Any) -> Any:
 def test_a_planned_session_carries_the_link_in_its_note(
     app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, linked: None
 ) -> None:
-    """Aucune colonne nouvelle : le raccourci est assumé, et c'est la note qui porte."""
+    """Aucune colonne pour le lien : le raccourci est assumé, et c'est la note qui porte.
+
+    `program` est venue depuis, avec la natation (`docs/planning-natation.md` §4.1) — elle
+    porte un programme de nage, pas un lien, et reste vide ici."""
     circuit = make_circuit(app_client, auth)
 
     response = plan(app_client, auth, circuit_id=circuit["circuit_id"])
 
     assert response.status_code == 201, response.text
     assert circuit["url"] in response.json()["note"]
-    assert dav.content_of(PLAN_FILE).splitlines()[0] == (
-        "id,date,time,kind,title,duration_min,note,source"
-    )
+    header, line = dav.content_of(PLAN_FILE).splitlines()[:2]
+    assert header == "id,date,time,kind,title,duration_min,note,source,program"
+    assert line.endswith(",")
 
 
 def test_the_server_extracts_the_link_so_the_screen_does_not(

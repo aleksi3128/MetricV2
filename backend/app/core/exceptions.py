@@ -30,10 +30,15 @@ class MetricError(Exception):
         *,
         detail: str | None = None,
         headers: dict[str, str] | None = None,
+        fields: list[tuple[str, str]] | None = None,
     ) -> None:
         self.message = message or type(self).message
         self.detail = detail
         self.headers = headers
+        #: `(champ, raison)`, rendus comme ceux d'une validation Pydantic. Pour un refus
+        #: qui ne peut se décider qu'au service — parce qu'il dépend d'un fichier — mais qui
+        #: désigne quand même un champ du formulaire à surligner.
+        self.fields = fields
         super().__init__(self.message)
 
     def __str__(self) -> str:
@@ -107,6 +112,28 @@ class ValidationFailedError(MetricError):
     code = "validation_error"
     status_code = 422
     message = "Les données envoyées sont invalides."
+
+
+class SwimNotationError(ValidationFailedError):
+    """Un programme de nage hors de la notation (`docs/planning-natation.md` §2).
+
+    Un code à part, et non `validation_error` : le refus dépend du glossaire, que Pydantic
+    ne voit pas, et l'assistant s'en sert pour relancer le modèle avec la liste des fautes.
+    """
+
+    code = "swim_notation_invalid"
+    message = "Le programme n'est pas dans la notation."
+
+
+class SwimCodeInUseError(MetricError):
+    """Un sigle qu'une séance prévue emploie ne se supprime pas (§3).
+
+    Sans cette garde, une séance passée perdrait son total sans que rien ne dise pourquoi.
+    """
+
+    code = "swim_code_in_use"
+    status_code = 409
+    message = "Ce sigle est employé par une séance prévue."
 
 
 class NotFoundError(MetricError):

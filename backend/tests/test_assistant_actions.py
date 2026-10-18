@@ -471,7 +471,7 @@ def test_a_constrained_field_shows_its_allowed_values() -> None:
 
     plan = catalogue()["plan.add"].describe
 
-    assert '"course" | "muscu" | "autre"' in plan
+    assert '"course" | "muscu" | "natation" | "autre"' in plan
     assert '"AAAA-MM-JJ"' in plan
     assert '"HH:MM"' in plan
 

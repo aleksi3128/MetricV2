@@ -37,6 +37,7 @@ from app.core.deps import SettingsDep, StoreDep
 from app.core.exceptions import NotFoundError
 from app.domains.ai.deps import AiServiceDep
 from app.domains.planning import ical
+from app.domains.planning.glossary import SwimCodeService
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionPayload,
@@ -47,8 +48,12 @@ from app.domains.planning.schemas import (
     Proposal,
     ProposalRequest,
     SubscriptionInfo,
+    SwimCodePayload,
+    SwimGlossaryView,
+    SwimParseRequest,
 )
 from app.domains.planning.service import DEFAULT_ADHERENCE_WEEKS, PlanningService
+from app.domains.planning.swim import SwimProgram
 from app.storage.errors import StorageConflictError
 from app.storage.files import FileStore
 
@@ -127,6 +132,51 @@ async def remove(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> No
 async def adherence(store: StoreDep, weeks: Weeks = DEFAULT_ADHERENCE_WEEKS) -> AdherenceView:
     """Séances prévues contre séances effectuées, et taux de respect (`PLAN-06`)."""
     return await PlanningService(store).adherence(weeks=weeks)
+
+
+# ── La notation de nage (`docs/planning-natation.md`) ─
+
+
+@router.post("/swim/parse", response_model=SwimProgram, summary="Lire un programme de nage")
+async def parse_swim(payload: SwimParseRequest, store: StoreDep) -> SwimProgram:
+    """Lit un programme **sans rien écrire**, pour l'aperçu du formulaire.
+
+    Répond `200` même sur un programme fautif : c'est une lecture, et ses fautes sont la
+    réponse. Le refus en `422` est réservé à l'écriture.
+    """
+    return await PlanningService(store).parse(payload.program)
+
+
+@router.get("/swim/codes", response_model=SwimGlossaryView, summary="Le glossaire de nage")
+async def read_codes(store: StoreDep) -> SwimGlossaryView:
+    return await SwimCodeService(store).view()
+
+
+@router.post(
+    "/swim/codes",
+    response_model=SwimGlossaryView,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ajouter un sigle, ou renommer un sigle de base",
+)
+async def create_code(payload: SwimCodePayload, store: StoreDep) -> SwimGlossaryView:
+    return await SwimCodeService(store).create(payload)
+
+
+@router.patch("/swim/codes/{row_id}", response_model=SwimGlossaryView, summary="Modifier un sigle")
+async def update_code(
+    row_id: RowId, payload: SwimCodePayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimGlossaryView:
+    return await SwimCodeService(store).update(row_id, _token(if_match), payload)
+
+
+@router.delete(
+    "/swim/codes/{row_id}",
+    response_model=SwimGlossaryView,
+    summary="Retirer un sigle, ou rendre son libellé à un sigle de base",
+)
+async def remove_code(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> SwimGlossaryView:
+    """`409 swim_code_in_use` si une séance prévue emploie ce sigle."""
+    return await SwimCodeService(store).remove(row_id, _token(if_match))
 
 
 # ── Proposition assistée (`PLAN-03`, `PLAN-04`) ───────
