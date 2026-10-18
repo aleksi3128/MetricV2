@@ -41,6 +41,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Le catalogue alimentaire — ce qu'on mange, ses quantités, et l'écriture au catalogue | [`docs/catalogue-alimentaire.md`](docs/catalogue-alimentaire.md) |
 | La saisie d'un repas, deuxième version — trois modes, et l'aliment qui compte | [`docs/saisie-repas-v2.md`](docs/saisie-repas-v2.md) |
 | Sortir l'app pour le public — l'audit UX/UI, ce qui bloque et le plan en sept lots | [`docs/sortie-publique.md`](docs/sortie-publique.md) |
+| La natation au planning — notation `CR EF R15`, glossaire, fil de l'assistant, import `.fit` piscine | [`docs/planning-natation.md`](docs/planning-natation.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
