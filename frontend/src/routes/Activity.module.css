@@ -1156,3 +1156,86 @@
   font-size: var(--t-body);
   text-wrap: pretty;
 }
+
+/* ── La natation (`docs/natation-activite.md` §4) ───── */
+
+/* Les quatre dernières semaines, en mètres : quatre lignes et non un graphique — quatre
+   valeurs se lisent, une échelle n'apprendrait rien de plus. */
+.swimWeeks {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--s3);
+}
+
+.swimWeek {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.swimWeek:first-child {
+  border-top: none;
+}
+
+.swimWeekDay {
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+}
+
+.swimWeekValue {
+  font-family: var(--mono);
+  font-size: var(--t-sub);
+  color: var(--ink);
+}
+
+.swimList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* La ligne entière est la cible : un appui ouvre la séance. */
+.swimRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--s3) var(--s4);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.swimRowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.swimRowValues {
+  font-family: var(--mono);
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+}
+
+.swimRowFlag {
+  font-size: var(--t-meta);
+  color: var(--recover);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .swimRow:hover {
+    border-color: var(--signal);
+  }
+}

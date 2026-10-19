@@ -1,5 +1,5 @@
 /**
- * L'historique fusionné des courses et des séances tabata.
+ * L'historique fusionné des courses, des séances tabata et des natations.
  *
  * Ce n'était pas une liste mais un tableau de six colonnes — illisible à 390 px, et une
  * ligne de tableau ne se tire pas au doigt. Les colonnes reviennent en grille dès qu'il y
@@ -18,7 +18,7 @@
 import { Card, Chip, Empty, Skeleton, SwipeRow } from '@/components/ui';
 import type { ActivityItem, ActivityOverview } from '@/features/activity/api';
 import { cx } from '@/lib/cx';
-import { duration, km, pace, plural, shortDate } from '@/lib/format';
+import { duration, km, meters, pace, plural, shortDate } from '@/lib/format';
 
 import styles from '../Activity.module.css';
 
@@ -33,6 +33,7 @@ import styles from '../Activity.module.css';
 function removalLabel(row: ActivityItem): string {
   const day = shortDate(row.date);
   if (row.kind === 'run') return `Supprimer la course du ${day}`;
+  if (row.kind === 'swim') return `Supprimer la natation du ${day} et ses tours`;
   return `Supprimer la séance « ${row.label} » du ${day} et ses séries`;
 }
 
@@ -73,7 +74,11 @@ function HistoryRow({
         {/* Le tiret est une **colonne vide**, pas une information. Il tient sa place
             tant qu'il y a des colonnes à aligner ; sur une fiche à 390 px, il ne
             laisserait qu'un trait orphelin sous la date. */}
-        {row.distance_km !== null ? (
+        {/* Une natation se dit en mètres : `0,70 km` pour un bassin se lirait comme une
+            erreur d'unité. */}
+        {row.kind === 'swim' && row.distance_m !== null ? (
+          <span className={styles.histNum}>{meters(row.distance_m)}</span>
+        ) : row.distance_km !== null ? (
           <span className={styles.histNum}>{km(row.distance_km)}</span>
         ) : (
           <span className={cx(styles.histNum, styles.histNone)}>—</span>
@@ -91,6 +96,13 @@ function HistoryRow({
             `/activite/seances`. Une puce qui ouvrirait une feuille vide serait pire que
             son absence. */}
         <div className={styles.histActions}>
+          {/* Une natation s'ouvre dans sa feuille — ses lignes, ses tours, et pour une
+              saisie, de quoi la corriger. */}
+          {row.kind === 'swim' && (
+            <Chip aria-label={`Voir la natation du ${shortDate(row.date)}`} onClick={onOpen}>
+              détail
+            </Chip>
+          )}
           {row.kind === 'run' && (
             <>
               {/* « détail » et non « ouvrir » : une course mène à sa page de paliers. */}

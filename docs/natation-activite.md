@@ -67,3 +67,28 @@ additionner des mètres nagés à des kilomètres courus ne veut rien dire.
 2. Écran : bouton, feuille, page, historique — tests d'écran, puis **regarder** sur la
    vraie API en mémoire, deux thèmes, trois largeurs ; la feuille nouvelle entre dans
    `audit-surfaces.mjs`.
+
+---
+
+## 6. Ce qui a été livré
+
+Le 19 octobre 2026, en deux commits — le serveur, puis l'écran.
+
+- **Le module de notation a quitté `planning/`** pour `app/core/swim_notation.py`. L'activité
+  en avait besoin à son tour, et le paquet `planning` exécute son routeur dès qu'on y touche :
+  le cycle d'import était certain. La ligne nagée y devient `SwimDoneLine`, et dit elle-même
+  si elle est un titre de section — l'écran n'a pas à lire la notation pour la dessiner.
+- **Le champ de programme est sorti du formulaire du planning** (`ProgramField.tsx`) : la
+  saisie d'une natation le réemploie, puces, aperçu et glossaire compris.
+- **La feuille d'une natation est celle du planning**, ouverte depuis `/activite`,
+  `/activite/natations` et le planning. Elle montre les tours d'une importée, le programme
+  d'une saisie, et un bouton « Corriger » quand l'écran qui l'ouvre sait corriger.
+- L'historique supprime une natation d'un glissement, sous `If-Match`, comme une course.
+
+**Vérifié** : `make check` vert (2 145 tests backend, 747 tests d'écran) ; `audit-mobile`
+sur `/activite` et `/activite/natations` sans défaut ; `audit-surfaces` — la feuille de
+saisie entre dans sa table, sans défaut à 402, 390 et 360 px ; parcours regardé sur la vraie
+API en mémoire, dans les deux thèmes.
+
+**Pas fait** : la répartition du tableau de bord colore la natation comme le tabata
+(`effort`) — la charte n'a que quatre teintes, et la barre porte son libellé.

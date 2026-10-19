@@ -90,7 +90,12 @@ def program_lines(program: SwimProgram) -> list[SwimDoneLine]:
     """
     return [
         SwimDoneLine(
-            text=line.text, distance_m=line.distance_m, laps=[], suspect=False, detected=False
+            text=line.text,
+            distance_m=line.distance_m,
+            laps=[],
+            suspect=False,
+            detected=False,
+            section=line.kind == "section",
         )
         for line in program.lines
     ]
@@ -146,6 +151,10 @@ class SwimService:
     async def rows(self) -> list[SwimRow]:
         """Les lignes brutes — pour les comptes, qui n'ont besoin ni des tours ni des lignes."""
         return [row.model for row in await self._repo.read_all()]
+
+    async def records(self) -> list[Row[SwimRow]]:
+        """Les lignes avec leur position et leur jeton — pour l'historique, qui en supprime."""
+        return await self._repo.read_all()
 
     async def between(self, start: date, end: date) -> list[Swim]:
         """Les natations d'une plage, bornes comprises, dans l'ordre du jour."""

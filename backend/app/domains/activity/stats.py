@@ -116,7 +116,8 @@ class ActivityStats:
         """
         runs = await self._runs.all()
         done = await self._tabata.all()
-        swim_rows = await self._swims.rows()
+        swim_records = await self._swims.records()
+        swim_rows = [row.model for row in swim_records]
 
         current = week_start(today)
         history = _sessions_of(done) + _swims_of(swim_rows)
@@ -128,7 +129,7 @@ class ActivityStats:
             days=self._days(minutes, current),
             weeks=self._weeks(minutes, sessions, current),
             neglected=self._neglected(await self._tabata.sets(), today),
-            history=self._history(runs, done, swim_rows)[:limit],
+            history=self._history(runs, done, swim_records)[:limit],
             total=len(runs) + len(done) + len(swim_rows),
         )
 
@@ -381,7 +382,7 @@ class ActivityStats:
     def _history(
         runs: list[Row[RunRow]],
         done: Sequence[Row[CircuitSessionRow]],
-        swims: Sequence[SwimRow] = (),
+        swims: Sequence[Row[SwimRow]] = (),
     ) -> list[ActivityItem]:
         items: list[ActivityItem] = []
 
@@ -422,14 +423,15 @@ class ActivityStats:
                 )
             )
 
-        for swim in swims:
+        for record in swims:
+            swim = record.model
             items.append(
                 ActivityItem(
                     kind="swim",
-                    # Une natation s'ouvre par son identifiant stable, pas par sa position :
-                    # la feuille qui la montre est celle du planning, qui la lit ainsi.
-                    id=0,
-                    token="",
+                    # La position et le jeton pour la supprimer d'un glissement, comme une
+                    # course ; l'identifiant stable pour l'ouvrir dans sa feuille.
+                    id=record.index,
+                    token=record.token,
                     date=swim.date,
                     label="Natation",
                     duration_min=round(swim.duration_s / 60, 1),

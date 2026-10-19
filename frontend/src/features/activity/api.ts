@@ -515,8 +515,8 @@ export interface ActivityItem {
    * musculation saisie à la main : celle-ci n'existe plus. Le mot du fil est resté celui
    * de l'historique fusionné, où il distingue « ce qui n'est pas une course ».
    */
-  kind: 'run' | 'workout';
-  /** La position de la ligne dans son fichier — `runs.csv` ou `circuit_sessions.csv`. */
+  kind: 'run' | 'workout' | 'swim';
+  /** La position de la ligne dans son fichier — `runs.csv`, `circuit_sessions.csv` ou `swims.csv`. */
   id: number;
   token: string;
   date: string;
@@ -528,6 +528,9 @@ export interface ActivityItem {
   /** Les **rounds** d'une séance tabata. Zéro sur une course, qui n'en a pas. */
   entries: number;
   source: string;
+  /** Une natation : ses mètres, et l'identifiant stable qui ouvre sa feuille. */
+  distance_m: number | null;
+  swim_id: string | null;
 }
 
 export interface DayVolume {
@@ -887,6 +890,21 @@ export const activityApi = {
     return request<SwimDetail>('/api/activity/swims/fit', { method: 'POST', form });
   },
   swim: (swimId: string) => request<SwimDetail>(`/api/activity/swims/${swimId}`),
+  /** Les natations, importées et saisies, et les mètres des quatre dernières semaines. */
+  swims: () => request<SwimList>('/api/activity/swims'),
+  /**
+   * Saisit une natation **dans la notation** (`docs/natation-activite.md`). La distance
+   * n'est pas envoyée : c'est le total que le serveur lit dans le programme.
+   */
+  createSwim: (payload: SwimPayload) =>
+    request<SwimDetail>('/api/activity/swims', { method: 'POST', body: payload }),
+  /** Corrige une natation **saisie** — une importée se corrige au tour. */
+  updateSwim: (id: number, token: string, payload: SwimPayload) =>
+    request<SwimDetail>(`/api/activity/swims/${String(id)}`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body: payload,
+    }),
   /** Corrige la nage d'un tour. `null` rend la lecture de la montre. */
   correctSwimLap: (id: number, token: string, stroke: string | null) =>
     request<SwimDetail>(`/api/activity/swims/laps/${String(id)}`, {
@@ -1016,4 +1034,33 @@ export interface SwimDetail {
   suspect_laps: number;
   lines: SwimLine[];
   laps: SwimLap[];
+  /** `fit` ou `manual`. Une natation saisie se corrige d'un bloc ; une importée, au tour. */
+  source: string;
+  /** Le programme tel qu'il a été tapé, pour une natation saisie. */
+  program: string | null;
+  note: string | null;
+}
+
+/** Une natation dans une liste — la même, sans ses tours. */
+export type Swim = Omit<SwimDetail, 'laps'>;
+
+export interface SwimWeek {
+  week: string;
+  distance_m: number;
+  sessions: number;
+}
+
+export interface SwimList {
+  swims: Swim[];
+  /** Les quatre dernières semaines, la plus récente en dernier — calculées au serveur. */
+  weeks: SwimWeek[];
+}
+
+export interface SwimPayload {
+  date: string;
+  start: string | null;
+  duration_min: string;
+  program: string;
+  pool_m: number;
+  note: string | null;
 }

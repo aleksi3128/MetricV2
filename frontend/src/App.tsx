@@ -8,6 +8,7 @@ import { Compose } from '@/routes/activity/Compose';
 import { Loads } from '@/routes/activity/Loads';
 import { Run } from '@/routes/activity/Run';
 import { Runs } from '@/routes/activity/Runs';
+import { Swims } from '@/routes/activity/Swims';
 import { Assiduity } from '@/routes/Assiduity';
 import { Assistant } from '@/routes/Assistant';
 import { Body } from '@/routes/Body';
@@ -65,6 +66,7 @@ export function App() {
             s'en tenir à la première aurait rendu les paliers de toutes les courses
             précédentes invisibles, c'est-à-dire écrits pour rien. */}
         <Route path="/activite/courses" element={<Runs />} />
+        <Route path="/activite/natations" element={<Swims />} />
         <Route path="/activite/course" element={<Run />} />
         <Route path="/activite/course/:id" element={<Run />} />
         <Route path="/planning" element={<Planning />} />

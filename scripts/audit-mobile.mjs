@@ -77,6 +77,8 @@ const PRIVATE_ROUTES = [
   // saisie série par série (phase 5 de `docs/refonte-activite.md`).
   ['/activite/seances', 'activite-seances'],
   ['/activite/charges', 'activite-charges'],
+  // Les natations, importées et saisies (`docs/natation-activite.md`).
+  ['/activite/natations', 'activite-natations'],
   // La composition assistée. Elle est mesurée **vide** : sa proposition demande un
   // appel à un modèle, et un audit qui en déclenche un à chaque passage taperait un
   // service externe pour une mesure de gabarit. L'état vide est aussi le premier que

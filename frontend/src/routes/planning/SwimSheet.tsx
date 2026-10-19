@@ -106,7 +106,19 @@ function LapRow({
   );
 }
 
-export function SwimSheet({ swimId, onClose }: { swimId: string | null; onClose: () => void }) {
+export function SwimSheet({
+  swimId,
+  onClose,
+  onEdit,
+}: {
+  swimId: string | null;
+  onClose: () => void;
+  /**
+   * Corriger une natation **saisie** : l'écran qui ouvre la feuille fournit le formulaire.
+   * Absent — au planning —, le bouton ne s'affiche pas ; une importée se corrige au tour.
+   */
+  onEdit?: ((swim: SwimDetail) => void) | undefined;
+}) {
   const client = useQueryClient();
   const { notify } = useToast();
   const [armed, setArmed] = useState(false);
@@ -186,16 +198,35 @@ export function SwimSheet({ swimId, onClose }: { swimId: string | null; onClose:
 
           <SwimDoneView lines={data.lines} />
 
-          <h4 className={styles.sheetHeading}>Tour par tour</h4>
-          <p className={styles.note}>
-            « lu » : la nage que la montre a cru voir. Touche un tour pour la confirmer ou la
-            corriger.
-          </p>
-          <ol className={styles.laps}>
-            {data.laps.map((lap) => (
-              <LapRow key={lap.id} lap={lap} strokes={strokes} onSaved={refresh} />
-            ))}
-          </ol>
+          {data.note !== null && <p className={styles.note}>{data.note}</p>}
+
+          {/* Une natation **saisie** n'a pas de tours : elle se corrige d'un bloc, par le
+              formulaire qui l'a écrite. Une importée, elle, se corrige au tour. */}
+          {data.source === 'manual' && onEdit !== undefined && (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                onEdit(data);
+              }}
+            >
+              Corriger la séance
+            </Button>
+          )}
+
+          {data.laps.length > 0 && (
+            <>
+              <h4 className={styles.sheetHeading}>Tour par tour</h4>
+              <p className={styles.note}>
+                « lu » : la nage que la montre a cru voir. Touche un tour pour la confirmer ou la
+                corriger.
+              </p>
+              <ol className={styles.laps}>
+                {data.laps.map((lap) => (
+                  <LapRow key={lap.id} lap={lap} strokes={strokes} onSaved={refresh} />
+                ))}
+              </ol>
+            </>
+          )}
 
           {/* Deux appuis pour détruire : le projet n'a aucune annulation, et la séance part
               avec ses tours et son fichier. */}

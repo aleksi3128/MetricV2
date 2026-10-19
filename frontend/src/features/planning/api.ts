@@ -61,6 +61,8 @@ export interface SwimLine {
   suspect: boolean;
   /** La nage écrite n'est qu'une lecture de la montre, que personne n'a confirmée. */
   detected: boolean;
+  /** Un titre de section d'une natation saisie — dit par le serveur, jamais deviné ici. */
+  section: boolean;
 }
 
 export type SwimCategory = 'stroke' | 'pace' | 'option';

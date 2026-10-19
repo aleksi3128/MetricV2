@@ -20,7 +20,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button, Card, CardHead, LinkButton, PageHead, Rule } from '@/components/ui';
-import { activityApi, type ActivityItem } from '@/features/activity/api';
+import { activityApi, type ActivityItem, type SwimDetail } from '@/features/activity/api';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -30,6 +30,8 @@ import { useToast } from '@/lib/toast';
 import styles from './Activity.module.css';
 import { ActivitySheet, type SheetTarget } from './activity/ActivitySheet';
 import { NewActivitySheet } from './activity/NewActivitySheet';
+import { SwimEntrySheet } from './activity/SwimEntrySheet';
+import { SwimSheet } from './planning/SwimSheet';
 import { AppleImport } from './activity/AppleImport';
 import { CircuitsSection } from './activity/Circuits.section';
 import { History } from './activity/History';
@@ -50,6 +52,10 @@ export function Activity() {
    * confondre obligerait l'une des deux à porter les compromis de l'autre.
    */
   const [creating, setCreating] = useState(false);
+  /** La saisie d'une natation — vierge, ou rouverte sur une natation saisie à corriger. */
+  const [swimEntry, setSwimEntry] = useState<{ editing: SwimDetail | null } | null>(null);
+  /** La natation ouverte dans sa feuille, par son identifiant stable. */
+  const [swimOpened, setSwimOpened] = useState<string | null>(null);
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.activity.overview(),
@@ -67,7 +73,9 @@ export function Activity() {
     mutationFn: (item: ActivityItem) =>
       item.kind === 'run'
         ? activityApi.deleteRun(item.id, item.token)
-        : activityApi.deleteSession(item.id, item.token),
+        : item.kind === 'swim'
+          ? activityApi.deleteSwim(item.id, item.token)
+          : activityApi.deleteSession(item.id, item.token),
     onSuccess: () => {
       invalidate();
       notify('Activité supprimée.', 'signal');
@@ -91,6 +99,7 @@ export function Activity() {
         actions={
           <>
             <LinkButton to="/activite/courses">Courses</LinkButton>
+            <LinkButton to="/activite/natations">Natation</LinkButton>
             {/* Pas de lien vers `/activite/seances` ici : la section juste en dessous en
                 porte un, au pied de ses cartes, et deux portes vers la même page dans le
                 même écran font hésiter au lieu d'aider. */}
@@ -107,15 +116,18 @@ export function Activity() {
       {/* **Le seul geste manuel qui reste.** Une séance se déclare depuis sa carte, en un
           appui ; une course, elle, porte des chiffres que personne d'autre ne connaît —
           temps, allure, distance — et il faut bien un formulaire pour les recueillir. */}
-      <Rule>Course</Rule>
+      <Rule>Course et natation</Rule>
       <Card>
         <CardHead>
           <div>
             <h3>Sortie</h3>
             <p className={styles.note}>
-              La capture d’une montre, ou les quatre chiffres à la main.
+              Le fichier ou la capture d’une montre, ou les chiffres à la main. Une natation s’écrit
+              dans la notation — 400 CR EF.
             </p>
           </div>
+          {/* Deux boutons et non un choix à l'ouverture : une course n'a pas à payer un
+              appui de plus parce que la natation est arrivée. */}
           <div className={styles.headActions}>
             <Button
               variant="primary"
@@ -125,6 +137,14 @@ export function Activity() {
               }}
             >
               Enregistrer une course
+            </Button>
+            <Button
+              disabled={today === undefined}
+              onClick={() => {
+                setSwimEntry({ editing: null });
+              }}
+            >
+              Enregistrer une natation
             </Button>
           </div>
         </CardHead>
@@ -137,9 +157,13 @@ export function Activity() {
         error={error}
         removing={remove.isPending}
         onOpen={(row) => {
-          // Le détail d'une course est une page, avec ses paliers et sa dérive. Une
-          // séance n'en a pas : elle dit ce que Cadence a joué, et l'historique le dit
-          // déjà en entier.
+          // Une natation s'ouvre dans sa feuille ; le détail d'une course est une page,
+          // avec ses paliers et sa dérive. Une séance n'en a pas : elle dit ce que Cadence
+          // a joué, et l'historique le dit déjà en entier.
+          if (row.kind === 'swim') {
+            setSwimOpened(row.swim_id);
+            return;
+          }
           void navigate(`/activite/course/${String(row.id)}`);
         }}
         onEdit={(row) => {
@@ -159,6 +183,30 @@ export function Activity() {
           <Rule>Import</Rule>
           <AppleImport today={today} />
         </>
+      )}
+
+      <SwimSheet
+        swimId={swimOpened}
+        onClose={() => {
+          setSwimOpened(null);
+        }}
+        onEdit={(swim) => {
+          setSwimOpened(null);
+          setSwimEntry({ editing: swim });
+        }}
+      />
+
+      {/* Remontée à chaque ouverture, comme l'assistant de course : ses champs repartent
+          de la natation visée, ou de rien. */}
+      {swimEntry !== null && today !== undefined && (
+        <SwimEntrySheet
+          open
+          today={today}
+          editing={swimEntry.editing}
+          onClose={() => {
+            setSwimEntry(null);
+          }}
+        />
       )}
 
       {/* L'assistant est remonté à chaque ouverture : ses étapes repartent du début,

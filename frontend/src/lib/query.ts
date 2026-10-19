@@ -30,6 +30,8 @@ export const keys = {
   },
   activity: {
     all: () => ['activity'] as const,
+    /** Les natations et leurs semaines (`docs/natation-activite.md`). */
+    swims: () => ['activity', 'swims'] as const,
     overview: () => ['activity', 'overview'] as const,
     progress: () => ['activity', 'progress'] as const,
     runs: () => ['activity', 'runs'] as const,

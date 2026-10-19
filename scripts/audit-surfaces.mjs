@@ -72,6 +72,10 @@ const SURFACES = [
   // demandent de remplir des champs, ce que ce script s'interdit — il ouvre et il mesure,
   // il ne saisit rien.
   ['/activite', 'Enregistrer une course', 'assistant de course'],
+  // Enregistrer une natation (`docs/natation-activite.md`) : le fichier, puis la saisie
+  // dans la notation — champ de programme, puces, glossaire replié. « Enregistrer » n'est
+  // pas appuyé : ce serait écrire.
+  ['/activite', 'Enregistrer une natation', 'enregistrer une natation'],
   ['/assistant', 'Mémoire', 'carnet de l’assistant'],
   ['/assistant', 'Discussions', 'fil de l’assistant'],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici

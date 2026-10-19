@@ -76,7 +76,10 @@ export function SwimDoneView({ lines }: { lines: SwimLine[] }) {
   return (
     <ol className={styles.lines} aria-label="Séance nagée">
       {lines.map((line) => (
-        <li key={`${line.laps.join('-')}-${line.text}`} className={styles.block}>
+        <li
+          key={`${line.laps.join('-')}-${line.text}`}
+          className={line.section ? styles.section : styles.block}
+        >
           {line.text}
           {line.suspect && <span className={styles.flag}>douteux</span>}
           {line.detected && <span className={styles.flagSoft}>nage lue</span>}

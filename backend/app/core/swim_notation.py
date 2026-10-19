@@ -200,6 +200,9 @@ class SwimDoneLine(BaseModel):
     suspect: bool
     #: La nage écrite n'est qu'une lecture de la montre, que personne n'a confirmée.
     detected: bool
+    #: Un titre de section — « Corps : » —, pour une natation saisie. Dit par le serveur :
+    #: l'écran n'a pas à reconnaître la notation pour savoir comment dessiner la ligne.
+    section: bool = False
 
 
 class SwimError(BaseModel):

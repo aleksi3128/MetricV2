@@ -142,8 +142,16 @@ function monthView(overrides: Partial<MonthView> = {}, swum = true): MonthView {
                     laps: [3, 5, 7, 9],
                     suspect: false,
                     detected: true,
+                    section: false,
                   },
-                  { text: '75 CR R40', distance_m: 75, laps: [11], suspect: true, detected: false },
+                  {
+                    text: '75 CR R40',
+                    distance_m: 75,
+                    laps: [11],
+                    suspect: true,
+                    detected: false,
+                    section: false,
+                  },
                 ],
                 suspect_laps: 1,
               },
@@ -225,8 +233,18 @@ const SWIM_DETAIL: SwimDetail = {
   calories: 320,
   pace_100_s: 154,
   suspect_laps: 1,
+  source: 'fit',
+  program: null,
+  note: null,
   lines: [
-    { text: '4×50 CR R~40', distance_m: 200, laps: [3, 5, 7, 9], suspect: false, detected: true },
+    {
+      text: '4×50 CR R~40',
+      distance_m: 200,
+      laps: [3, 5, 7, 9],
+      suspect: false,
+      detected: true,
+      section: false,
+    },
   ],
   laps: [
     {

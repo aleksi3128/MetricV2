@@ -66,6 +66,7 @@ def test_a_typed_swim_takes_its_distance_from_the_program(
         "8×50 CR SP R30",
         "100 DOS RC",
     ]
+    assert [line["section"] for line in swim["lines"]] == [True, False, False, False]
     assert swim["laps"] == []
     # Pas d'allure sans tours : la durée compte les repos, l'allure en serait fausse.
     assert swim["pace_100_s"] is None
