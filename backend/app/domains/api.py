@@ -34,6 +34,7 @@ from app.domains import (
     morning,
     notifications,
     nutrition,
+    pain,
     planning,
     supplements,
 )
@@ -47,6 +48,7 @@ protected_router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)]
 
 for domain in (
     body,
+    pain,
     morning,
     coach,
     activity,
@@ -72,6 +74,7 @@ PROTECTED_PREFIXES = tuple(
     f"/api{domain.router.prefix}"
     for domain in (
         body,
+        pain,
         activity,
         hydration,
         supplements,

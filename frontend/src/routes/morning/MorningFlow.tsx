@@ -29,6 +29,7 @@ import { longDate, num } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 
 import { RateRun } from '../activity/run/Rate';
+import { PainForm } from '../body/PainForm';
 import { CoachCard } from '../coach/CoachCard';
 import { MorningContext } from './context';
 import styles from './MorningFlow.module.css';
@@ -120,7 +121,8 @@ function MorningSheet({ flow, onClose }: { flow: MorningFlow; onClose: () => voi
       open
       onClose={onClose}
       title="Bonjour"
-      lede={`${longDate(flow.today)} — quatre écrans, et ta journée est prête.`}
+      // Le nombre suit les étapes reçues : un matin de suivi de douleur en compte cinq.
+      lede={`${longDate(flow.today)} — ${String(flow.steps.length)} écrans, et ta journée est prête.`}
     >
       <div className={styles.flow}>
         <Steps steps={flow.steps.map((step) => step.title)} current={Math.max(0, index)} />
@@ -131,6 +133,17 @@ function MorningSheet({ flow, onClose }: { flow: MorningFlow; onClose: () => voi
             onSaved={() => advance()}
             onSkip={() => {
               pass.mutate('night');
+            }}
+          />
+        )}
+        {current === 'pain' && (
+          <Pain
+            flow={flow}
+            onSaved={() => {
+              void advance();
+            }}
+            onSkip={() => {
+              pass.mutate('pain');
             }}
           />
         )}
@@ -181,6 +194,41 @@ function MorningSheet({ flow, onClose }: { flow: MorningFlow; onClose: () => voi
         )}
       </div>
     </Sheet>
+  );
+}
+
+// ── La douleur ────────────────────────────────────────
+
+/**
+ * Le suivi d'une douleur ouverte (`docs/douleurs.md`, D7) : une à la fois, la première
+ * dont le relevé du jour manque. Après l'écriture, le serveur dit où reprendre — sur la
+ * suivante s'il en reste une, sur la pesée sinon.
+ */
+function Pain({
+  flow,
+  onSaved,
+  onSkip,
+}: {
+  flow: MorningFlow;
+  onSaved: () => void;
+  onSkip: () => void;
+}) {
+  const episode = flow.pain.find((item) => item.due_today);
+  if (episode === undefined) return null;
+  return (
+    <section className={styles.step} aria-label="Ta douleur">
+      <p className={styles.lead}>{episode.text}</p>
+      <PainForm
+        key={episode.pain_id}
+        today={flow.today}
+        source="morning"
+        episode={episode}
+        onDone={onSaved}
+      />
+      <Button variant="quiet" onClick={onSkip}>
+        Passer
+      </Button>
+    </section>
   );
 }
 

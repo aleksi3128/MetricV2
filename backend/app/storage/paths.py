@@ -15,6 +15,8 @@ MEASUREMENTS = "body/measurements.csv"
 #: FC de repos et VFC du matin (`docs/coach-course.md`, **C3**) — des mesures, rangées avec
 #: les pesées parce que c'est ce qu'elles sont : un relevé du corps au réveil.
 MORNING = "body/morning.csv"
+#: Les relevés de douleur (`docs/douleurs.md` §2) — des mesures du corps, comme les matins.
+PAIN = "body/pain.csv"
 
 #: L'état du parcours du matin — étapes passées, « Pas ce matin » (`docs/coach-course.md`
 #: §5). Un état et non une mesure : il ne dit que ce que les données ne savent pas.

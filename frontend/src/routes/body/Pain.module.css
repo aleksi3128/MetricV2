@@ -1,0 +1,122 @@
+/* Les douleurs (`docs/douleurs.md`) : la section de `/corps` et le formulaire de relevé,
+   que l'import et le parcours du matin réemploient. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink);
+}
+
+.label {
+  margin: var(--s2) 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.hint {
+  margin: 0;
+  color: var(--ink-low);
+  font-size: var(--t-sub);
+}
+
+/* Onze pastilles, 0 à 10 : deux rangées de six plutôt qu'une bande qui défile — la même
+   raison que l'effort perçu, où dix pastilles en ligne passaient sous le plancher. */
+.scale {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(var(--tap), 1fr));
+  gap: var(--s2);
+}
+
+.scale > button {
+  min-width: 0;
+  justify-content: center;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.error {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}
+
+.submit {
+  min-height: var(--tap-lg);
+}
+
+/* ── La section ─────────────────────────────────────── */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.episode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.episodeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+/* Un `h3` : la police condensée et les capitales viennent de `base.css`. */
+.place {
+  margin: 0;
+}
+
+.text {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.reports {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Le résumé en haut, la date dessous : côte à côte, à 360 px, « 6/10 · le lendemain ·
+   vive » se cassait sur trois lignes. Trouvé en regardant la page. */
+.report {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--tap);
+  padding: var(--s2);
+  font-size: var(--t-sub);
+}
+
+.reports > li {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.reportDate {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}

@@ -10,10 +10,11 @@ from pydantic import BaseModel, Field
 from app.domains.activity.schemas import Run
 from app.domains.body.schemas import MorningView, WeightEntry
 from app.domains.coach.schemas import CoachView
+from app.domains.pain.schemas import EpisodeView
 from app.domains.planning.schemas import PlannedSession
 from app.domains.supplements.schemas import ChecklistItem
 
-StepKey = Literal["night", "weight", "session", "day"]
+StepKey = Literal["night", "pain", "weight", "session", "day"]
 
 
 class FlowStep(BaseModel):
@@ -60,6 +61,9 @@ class MorningFlow(BaseModel):
     resume: StepKey | None = None
     steps: list[FlowStep]
     night: MorningView
+    #: Les douleurs à suivre ce matin (`docs/douleurs.md`, D7) : ouvertes avant aujourd'hui,
+    #: et celles déjà notées ce matin, pour que l'étape ne disparaisse pas sous le doigt.
+    pain: list[EpisodeView] = Field(default_factory=list)
     weight: WeightStep
     session: SessionStep
     day: DayStep

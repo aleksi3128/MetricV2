@@ -213,8 +213,16 @@ describe('ajouter une sortie par un .fit', () => {
     expect(onClose).not.toHaveBeenCalled();
     await userEvent.click(within(scale).getByRole('button', { name: '7' }));
 
+    // Puis la douleur (`docs/douleurs.md`, D1) : « non » s'écrit pour la sortie et ferme.
+    await userEvent.click(await screen.findByRole('button', { name: 'Non' }));
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
+    });
+    const declared = mock.mock.calls.find(([url]) => String(url).includes('/api/pain/none'));
+    const body = (declared?.[1] as RequestInit | undefined)?.body;
+    expect(typeof body === 'string' ? (JSON.parse(body) as unknown) : null).toEqual({
+      date: IMPORTED.date,
+      run_id: IMPORTED.run_id,
     });
     const rated = mock.mock.calls.find(([url]) => String(url).includes('/rpe'));
     const init = rated?.[1] as RequestInit | undefined;
@@ -233,9 +241,14 @@ describe('ajouter une sortie par un .fit', () => {
 
     await chooseFit();
     await userEvent.click(await screen.findByRole('button', { name: 'Plus tard' }));
+    // L'effort passé, la douleur est quand même demandée ; on peut la passer aussi.
+    expect(onClose).not.toHaveBeenCalled();
+    await screen.findByText('Une douleur pendant ou après cette sortie ?');
+    await userEvent.click(screen.getByRole('button', { name: 'Plus tard' }));
 
     expect(onClose).toHaveBeenCalled();
     expect(calls.some((url) => url.includes('/rpe'))).toBe(false);
+    expect(calls.some((url) => url.includes('/api/pain/none'))).toBe(false);
   });
 
   it('affiche le refus du serveur dans la feuille, pas en toast', async () => {

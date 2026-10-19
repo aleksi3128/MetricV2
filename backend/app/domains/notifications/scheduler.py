@@ -47,6 +47,7 @@ from app.domains.notifications.push import PushSender
 from app.domains.notifications.reminders import (
     EVE,
     LEAD,
+    PAIN_FOLLOW_UP,
     PRAISE_CAP,
     DaySnapshot,
     ReminderKind,
@@ -137,6 +138,7 @@ class ReminderScheduler:
         # **L'annonce de la veille suit le réglage des rappels de séance** : qui les a coupés
         # ne veut pas non plus qu'on lui annonce demain (`docs/coach-course.md` §7).
         slots[ReminderKind.TOMORROW_RUN] = (EVE,) if slots.get(ReminderKind.WORKOUT) else ()
+        slots[ReminderKind.PAIN] = (PAIN_FOLLOW_UP,)
         if not any(slots.values()):
             return []
 
@@ -331,6 +333,18 @@ class ReminderScheduler:
             workouts_planned=len(prevues),
             workouts_logged=len(runs) + len(sessions),
             tomorrow_run=await self._tomorrow_run(day),
+            pain_due=await self._pain_due(day),
+        )
+
+    async def _pain_due(self, day: date) -> tuple[str, ...]:
+        """Les douleurs ouvertes avant aujourd'hui dont le suivi du jour manque."""
+        from app.domains.pain.rules import SIDE_WORDS
+        from app.domains.pain.service import PainService
+
+        return tuple(
+            " ".join(part for part in (item.zone, SIDE_WORDS.get(item.side, "")) if part)
+            for item in await PainService(self._store).episodes(day)
+            if item.due_today and item.opened < day
         )
 
     async def _tomorrow_run(self, day: date) -> str:

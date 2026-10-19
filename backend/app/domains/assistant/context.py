@@ -225,6 +225,15 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
         f"Forme du matin : {readiness.text}",
         f"Charge de course : {summary.ratio_text} {summary.distribution_text}",
     ]
+    # Les douleurs ouvertes, dans la phrase de l'écran : le modèle les répète, il ne les
+    # juge pas — la réponse graduée est une règle (`docs/douleurs.md` §3).
+    from app.domains.pain.service import PainService
+
+    opened = [item for item in await PainService(store).episodes(today) if item.status != "closed"]
+    lines.extend(
+        [f"Douleur ouverte depuis le {item.opened:%d/%m/%Y} : {item.text}" for item in opened]
+        or ["Douleur ouverte : aucune notée"]
+    )
     if summary.last_hard is not None:
         lines.append(f"Dernière séance de course dure : le {summary.last_hard:%d/%m/%Y}")
     from app.domains.coach.service import CoachService

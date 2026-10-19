@@ -28,6 +28,7 @@ import { delta, kg, num, plural, shortDate } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { PainSection } from './body/Pain';
 import { useOpenMorning } from './morning/context';
 import styles from './Body.module.css';
 
@@ -558,6 +559,8 @@ export function Body() {
           <MeasurementPanel />
         </div>
       </div>
+
+      <PainSection />
     </div>
   );
 }

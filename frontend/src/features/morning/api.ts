@@ -8,11 +8,12 @@
 import type { Run } from '@/features/activity/api';
 import type { MorningView, WeightEntry } from '@/features/body/api';
 import type { CoachView } from '@/features/coach/api';
+import type { PainEpisode } from '@/features/pain/api';
 import type { PlannedSession } from '@/features/planning/api';
 import type { ChecklistItem } from '@/features/routine/api';
 import { request } from '@/lib/api';
 
-export type StepKey = 'night' | 'weight' | 'session' | 'day';
+export type StepKey = 'night' | 'pain' | 'weight' | 'session' | 'day';
 
 export interface FlowStep {
   key: StepKey;
@@ -28,6 +29,8 @@ export interface MorningFlow {
   resume: StepKey | null;
   steps: FlowStep[];
   night: MorningView;
+  /** Les douleurs à suivre ce matin (`docs/douleurs.md`, D7) ; vide, l'étape n'existe pas. */
+  pain: PainEpisode[];
   weight: { today: WeightEntry | null; last: WeightEntry | null };
   session: { planned: PlannedSession[]; coach: CoachView | null };
   day: {

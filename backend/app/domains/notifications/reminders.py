@@ -114,11 +114,16 @@ DESTINATIONS: dict[str, str] = {
     "workout_soon": "/activite",
     "praise": "/activite",
     "tomorrow_run": "/planning",
+    "pain": "/corps",
 }
 
 #: L'heure de l'annonce de la veille : assez tôt pour préparer ses affaires, assez tard pour
 #: que la journée soit faite.
 EVE = time(20, 30)
+
+#: Le suivi d'une douleur, quand le parcours du matin ne l'a pas noté (`docs/douleurs.md`,
+#: D7) : la matinée lui est laissée, et midi précède encore la séance du soir.
+PAIN_FOLLOW_UP = time(12, 0)
 
 #: Combien de félicitations par semaine glissante, au plus (**N5**).
 #:
@@ -195,6 +200,10 @@ class ReminderKind(StrEnum):
     #: La séance que le coach propose pour demain, la veille au soir (`docs/coach-course.md`
     #: §7, **C8**). Une annonce, comme `WORKOUT_SOON` : elle dit ce qui vient.
     TOMORROW_RUN = "tomorrow_run"
+    #: Une douleur ouverte dont le suivi du jour n'est pas noté (`docs/douleurs.md`, D7).
+    #: Il ne dépend d'aucun réglage : la sécurité passe avant le plan, et un suivi qui se
+    #: couperait avec les rappels de suppléments laisserait le coach juger sur la veille.
+    PAIN = "pain"
 
 
 @dataclass(frozen=True)
@@ -242,6 +251,9 @@ class DaySnapshot:
     #: La séance proposée pour demain, en une phrase construite par l'appelant — vide sans
     #: proposition pour demain.
     tomorrow_run: str = ""
+    #: Les douleurs ouvertes dont le suivi du jour n'est pas noté, nommées — « Achille
+    #: droit ». Vide quand tout est noté, ou qu'aucune n'est ouverte.
+    pain_due: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -451,6 +463,17 @@ def compose(checkpoint: Checkpoint, snapshot: DaySnapshot) -> Reminder | None:
                 return None
             return Reminder(kind=kind, title="Demain", body=snapshot.tomorrow_run)
 
+        case ReminderKind.PAIN:
+            if not snapshot.pain_due:
+                return None
+            # « pas encore noté » et non « comment va ta douleur ? » : la question
+            # supposerait qu'elle est encore là, et l'application n'en sait rien.
+            return Reminder(
+                kind=kind,
+                title="Douleur",
+                body=f"Suivi pas encore noté aujourd'hui : {_enumerate(snapshot.pain_due)}.",
+            )
+
         case ReminderKind.WORKOUT:
             # Aucune séance prévue : aucun rappel. C'est `HEAT-12` — attendu seulement si
             # un déclencheur est vrai — et c'est ce qui empêche le rappel du jour de repos.
@@ -559,6 +582,7 @@ __all__ = [
     "GAP_SHARE",
     "GRACE",
     "LEAD",
+    "PAIN_FOLLOW_UP",
     "PRAISE_CAP",
     "SPACING",
     "Checkpoint",

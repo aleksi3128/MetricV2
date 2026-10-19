@@ -53,6 +53,7 @@ import { fileSize, reduceImage } from '@/lib/image';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { PainCheck } from '../body/PainCheck';
 import { RateRun } from './run/Rate';
 import styles from '../Activity.module.css';
 import { useInvalidateActivity } from './shared';
@@ -140,6 +141,8 @@ function RunWizard({
   /** La sortie qu'un `.fit` vient d'écrire : la feuille demande alors son effort perçu
    *  (`docs/coach-course.md`, **C10**), deux appuis, avant de se refermer. */
   const [imported, setImported] = useState<Run | null>(null);
+  /** L'effort perçu donné ou passé : la feuille demande alors la douleur. */
+  const [rated, setRated] = useState(false);
 
   const save = useMutation({
     mutationFn: () =>
@@ -172,6 +175,11 @@ function RunWizard({
   };
 
   if (imported !== null) {
+    // Après l'effort perçu, la douleur (`docs/douleurs.md`, D1) — même passé, l'effort ne
+    // dispense pas de la question : c'est elle qui protège la séance suivante.
+    if (rated) {
+      return <PainCheck run={imported} today={today} onDone={onDone} />;
+    }
     return (
       <div className={styles.form}>
         <p className={styles.imported}>
@@ -179,12 +187,17 @@ function RunWizard({
         </p>
         <RateRun
           run={imported}
-          onRated={(rated) => {
-            notify(`Effort perçu noté : ${String(rated.rpe)}/10.`, 'effort');
-            onDone();
+          onRated={(updated) => {
+            notify(`Effort perçu noté : ${String(updated.rpe)}/10.`, 'effort');
+            setRated(true);
           }}
         />
-        <Button variant="quiet" onClick={onDone}>
+        <Button
+          variant="quiet"
+          onClick={() => {
+            setRated(true);
+          }}
+        >
           Plus tard
         </Button>
       </div>

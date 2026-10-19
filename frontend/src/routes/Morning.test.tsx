@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MorningFlow } from '@/features/morning/api';
+import type { MorningFlow, StepKey } from '@/features/morning/api';
 import { createQueryClient } from '@/lib/query';
 
 import { MorningFlowProvider } from './morning/MorningFlow';
@@ -33,8 +33,13 @@ const READINESS = {
 
 function flow(overrides: Partial<MorningFlow> = {}): MorningFlow {
   const resume = overrides.resume === undefined ? 'night' : overrides.resume;
-  const order = ['night', 'weight', 'session', 'day'] as const;
-  const titles = { night: 'Ta nuit', weight: 'Pesée', session: 'Ta séance', day: 'Ta journée' };
+  const order: readonly StepKey[] = ['night', 'weight', 'session', 'day'];
+  const titles: Record<string, string> = {
+    night: 'Ta nuit',
+    weight: 'Pesée',
+    session: 'Ta séance',
+    day: 'Ta journée',
+  };
   return {
     today: '2026-09-20',
     due: true,
@@ -43,10 +48,11 @@ function flow(overrides: Partial<MorningFlow> = {}): MorningFlow {
     resume,
     steps: order.map((key) => ({
       key,
-      title: titles[key],
+      title: titles[key] ?? key,
       done: resume === null ? true : order.indexOf(key) < order.indexOf(resume),
     })),
     night: { today: '2026-09-20', entry: null, readiness: READINESS, recent: [] },
+    pain: [],
     weight: {
       today: null,
       last: {
@@ -119,6 +125,55 @@ function renderApp() {
 }
 
 describe('le parcours du matin', () => {
+  it('suit une douleur ouverte avant la pesée, sur la phrase du serveur', async () => {
+    const episode = {
+      pain_id: 'p1',
+      zone: 'Achille',
+      side: 'right' as const,
+      place: '(Achille, droit)',
+      title: 'Achille · droit',
+      baseline: 1,
+      opened: '2026-09-19',
+      last_intensity: 3,
+      last_date: '2026-09-19',
+      status: 'adapt' as const,
+      text: 'Gêne (Achille, droit), 3/10 pour une base à 1.',
+      closed_on: null,
+      due_today: true,
+      reports: [],
+    };
+    const base = flow({ resume: 'pain' });
+    current = {
+      ...base,
+      pain: [episode],
+      steps: [
+        { key: 'night', title: 'Ta nuit', done: true },
+        { key: 'pain', title: 'Ta douleur', done: false },
+        ...base.steps.filter((step) => step.key !== 'night'),
+      ],
+    };
+    renderApp();
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('Étape 2 sur 5 · Ta douleur')).toBeInTheDocument();
+    expect(within(sheet).getByText(episode.text)).toBeInTheDocument();
+
+    const intensity = within(sheet).getByRole('group', { name: 'Intensité, de 0 à 10' });
+    await userEvent.click(within(intensity).getByRole('button', { name: '1' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Le lendemain' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Raideur' }));
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Noter le suivi' }));
+
+    await waitFor(() => {
+      expect(posted.find((item) => item.url.endsWith('/api/pain'))?.body).toMatchObject({
+        date: '2026-09-20',
+        pain_id: 'p1',
+        intensity: 1,
+        source: 'morning',
+      });
+    });
+  });
+
   it('s’ouvre de lui-même quand le serveur le dit dû, sur l’étape qu’il désigne', async () => {
     renderApp();
 

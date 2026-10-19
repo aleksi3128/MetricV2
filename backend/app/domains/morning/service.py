@@ -19,6 +19,7 @@ from app.domains.morning.schemas import (
     StepKey,
     WeightStep,
 )
+from app.domains.pain.schemas import EpisodeView
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
 from app.storage.paths import MORNING_FLOW
@@ -31,6 +32,9 @@ CLOSES = time(12, 0)
 #: qui décide si la séance du jour tient.
 STEPS: tuple[tuple[StepKey, str], ...] = (
     ("night", "Ta nuit"),
+    # Le suivi d'une douleur passe avant la pesée : c'est lui qui décide si la course tient,
+    # comme la nuit. L'étape n'existe que les matins où un suivi est dû.
+    ("pain", "Ta douleur"),
     ("weight", "Pesée"),
     ("session", "Ta séance"),
     ("day", "Ta journée"),
@@ -55,17 +59,23 @@ class MorningFlowService:
         snoozed = bool(state and state.model.snoozed)
 
         night = await MorningService(self._store).view(today=day)
+        pain = await self._pain(day)
         weight = await self._weight(day)
         session = await self._session(day)
         rest_of_day = await self._day(day)
 
         done: dict[StepKey, bool] = {
             "night": night.entry is not None or "night" in passed,
+            "pain": all(not item.due_today for item in pain) or "pain" in passed,
             "weight": weight.today is not None or "weight" in passed,
             "session": "session" in passed,
             "day": "day" in passed,
         }
-        steps = [FlowStep(key=key, title=title, done=done[key]) for key, title in STEPS]
+        steps = [
+            FlowStep(key=key, title=title, done=done[key])
+            for key, title in STEPS
+            if key != "pain" or pain
+        ]
         resume = next((step.key for step in steps if not step.done), None)
         opened = window_open(moment)
         return MorningFlow(
@@ -76,6 +86,7 @@ class MorningFlowService:
             resume=resume,
             steps=steps,
             night=night,
+            pain=pain,
             weight=weight,
             session=session,
             day=rest_of_day,
@@ -125,6 +136,15 @@ class MorningFlowService:
             await self._repo.replace_by_token(state.index, state.token, updated)
 
     # ── Ce que chaque étape montre ────────────────────
+
+    async def _pain(self, day: date) -> list[EpisodeView]:
+        from app.domains.pain.service import PainService
+
+        return [
+            item
+            for item in await PainService(self._store).episodes(day)
+            if item.opened < day and (item.status != "closed" or item.last_date == day)
+        ]
 
     async def _weight(self, day: date) -> WeightStep:
         entries = await WeightService(self._store).entries()

@@ -79,6 +79,16 @@ const MEASUREMENT_VIEW = {
   total: 0,
 };
 
+/** La section Douleurs vit en bas de l'écran ; vide ici, elle a son propre fichier. */
+const PAIN_VIEW = {
+  today: '2026-07-21',
+  open: [],
+  closed: [],
+  none: [],
+  zones: [],
+  baselines: {},
+};
+
 function stubApi(overrides: Partial<Record<string, Response>> = {}) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
@@ -89,6 +99,7 @@ function stubApi(overrides: Partial<Record<string, Response>> = {}) {
     }
     if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
     if (url.includes('/body/weight')) return Promise.resolve(json(200, WEIGHT_VIEW));
+    if (url.includes('/api/pain')) return Promise.resolve(json(200, PAIN_VIEW));
     return Promise.resolve(json(200, {}));
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -215,6 +226,7 @@ describe('écran Corps', () => {
         );
       }
       if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
+      if (url.includes('/api/pain')) return Promise.resolve(json(200, PAIN_VIEW));
       return Promise.resolve(json(200, WEIGHT_VIEW));
     });
     renderBody();

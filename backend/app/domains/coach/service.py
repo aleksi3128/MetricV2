@@ -73,9 +73,11 @@ class CoachService:
         from app.domains.activity.service import CircuitSessionService, RunService
         from app.domains.activity.trends import RunTrendsService
         from app.domains.body.service import MorningService
+        from app.domains.pain.service import PainService
         from app.domains.planning.service import PlanningService
 
         sessions = await RunTrendsService(self._store).sessions(today)
+        pain, pain_text = await PainService(self._store).level(today)
         readiness = await MorningService(self._store).readiness(today)
         sets = await CircuitSessionService(self._store).sets()
         planned = await PlanningService(self._store).between(today, today + timedelta(days=8))
@@ -106,6 +108,8 @@ class CoachService:
             measured_max=measured,
             efforts=await runs.best_efforts(),
             long_decoupling=long_decoupling,
+            pain=pain,
+            pain_text=pain_text,
         )
 
     # ── Proposer ──────────────────────────────────────
@@ -222,6 +226,25 @@ class CoachService:
                 "Tu as couru la veille : pas de course aujourd'hui. Jamais deux jours d'affilée.",
             )
 
+        # Une douleur ouverte réévalue la proposition déjà faite, comme la forme du matin et
+        # sans rappeler le modèle : c'est le « séance suivante remplacée » de CA-09
+        # (`docs/douleurs.md` §4).
+        from app.domains.pain.service import PainService
+
+        pain, pain_text = await PainService(self._store).level(today)
+        if pain == "stop" and kind != "rest":
+            return self._rest_view(
+                row,
+                today,
+                pain_text,
+                rationale="Une douleur passe avant le plan : la course reprend quand elle est "
+                "revenue à sa base.",
+            )
+        if pain == "adapt" and kind in catalog.HARD:
+            kind = "easy"
+            reps = rep_min = None
+            adjusted = f"Allégée pour ta douleur. {pain_text}"
+
         if row.date == today and kind in catalog.HARD:
             readiness = await MorningService(self._store).readiness(today)
             if readiness.status in ("lighten", "rest"):
@@ -260,7 +283,14 @@ class CoachService:
         eve = day - timedelta(days=frame.REST_AFTER_RUN_DAYS)
         return any(row.model.date == eve for row in await RunService(self._store).all())
 
-    def _rest_view(self, row: RecommendationRow, today: date, why: str) -> CoachView:
+    def _rest_view(
+        self,
+        row: RecommendationRow,
+        today: date,
+        why: str,
+        *,
+        rationale: str = "Le repos entre deux sorties fait partie de l'entraînement.",
+    ) -> CoachView:
         """La séance devenue jour sans course. Rien à guider, rien à caler au planning."""
         return CoachView(
             id=row.id,
@@ -273,7 +303,7 @@ class CoachService:
             source="rules",
             # La raison est **au-dessus**, dans `adjusted` ; répéter la même phrase ici la
             # faisait lire deux fois. Celle-ci dit ce que l'autre ne dit pas.
-            rationale="Le repos entre deux sorties fait partie de l'entraînement.",
+            rationale=rationale,
             steps=[],
             frame=[part for part in row.frame.split(" | ") if part],
             adjusted=why,

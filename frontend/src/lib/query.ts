@@ -27,6 +27,8 @@ export const keys = {
     measurements: () => ['body', 'measurements'] as const,
     /** FC de repos, VFC et forme du jour (`docs/coach-course.md`, **C3**). */
     morning: () => ['body', 'morning'] as const,
+    /** Les douleurs, leurs épisodes et leur réponse graduée (`docs/douleurs.md`). */
+    pain: () => ['body', 'pain'] as const,
   },
   activity: {
     all: () => ['activity'] as const,

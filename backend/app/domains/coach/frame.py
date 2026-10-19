@@ -71,6 +71,9 @@ class State:
     efforts: Mapping[int, float] = field(default_factory=dict)
     #: Découplage des sorties d'au moins une heure, sur 28 jours.
     long_decoupling: Sequence[float] = ()
+    #: L'épisode de douleur ouvert le plus sévère (`docs/douleurs.md` §4) et sa phrase.
+    pain: str = "none"
+    pain_text: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -166,6 +169,12 @@ def build(state: State) -> Frame:
     if state.readiness in ("lighten", "rest") and slots and slots[0].day == today:
         easy_only = True
         reasons.append("La forme de ce matin allège la séance du jour.")
+    # Une douleur ouverte passe avant le plan (principe 5 du cahier) : adaptée, elle laisse
+    # du facile sans hausse de volume ; à l'arrêt, elle ne laisse que le repos.
+    pain_stop = state.pain == "stop"
+    if state.pain in ("adapt", "stop"):
+        easy_only = hold = True
+        reasons.append(state.pain_text)
 
     recent = [item for item in past if item.day >= today - timedelta(days=HOLD_WINDOW_DAYS)]
     longest = max((item.duration_min for item in recent), default=0.0)
@@ -197,6 +206,9 @@ def build(state: State) -> Frame:
         allowed += ["progressive", "tempo", "threshold", "intervals", "hills"]
         if test_due:
             allowed.append("test")
+
+    if pain_stop:
+        allowed = ["rest"]
 
     if state.legs_days:
         reasons.append("Pas de séance dure le lendemain d'une séance de jambes.")
@@ -252,6 +264,8 @@ def check(frame: Frame, choice: Choice) -> str | None:
 def default_choice(frame: Frame) -> Choice:
     """Le choix des règles seules : quand le modèle manque, ou sort deux fois du cadre."""
     first = frame.slots[0]
+    if frame.allowed == ("rest",):
+        return Choice("rest", first.day, 0)
     for slot in frame.slots:
         ceiling = min(frame.max_duration, slot.duration_min or frame.max_duration)
         hard_ok = (

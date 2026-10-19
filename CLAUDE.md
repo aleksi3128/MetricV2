@@ -43,6 +43,8 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Sortir l'app pour le public — l'audit UX/UI, ce qui bloque et le plan en sept lots | [`docs/sortie-publique.md`](docs/sortie-publique.md) |
 | La natation au planning — notation `CR EF R15`, glossaire, fil de l'assistant, import `.fit` piscine | [`docs/planning-natation.md`](docs/planning-natation.md) |
 | La natation comme activité — saisie notée, page Natation, où elle compte | [`docs/natation-activite.md`](docs/natation-activite.md) |
+| Le cahier des charges RunFurther porté dans Metric — l'écart, les décisions, onze lots | [`docs/runfurther-dans-metric.md`](docs/runfurther-dans-metric.md) |
+| Les douleurs — relevé après séance, suivi du matin, réponse graduée, prise sur le coach | [`docs/douleurs.md`](docs/douleurs.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -176,8 +178,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (255 fichiers), 2 145 tests backend
-               # prettier, eslint, tsc, 747 tests d'écran
+make check     # ruff, ruff format, mypy (262 fichiers), 2 169 tests backend
+               # prettier, eslint, tsc, 756 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.
