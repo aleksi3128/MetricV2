@@ -21,9 +21,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.core.swim_notation import MAX_CHARS, SwimDoneLine, SwimProgram
 from app.core.validation import DurationMin, Label, Note, PlannedDate
-from app.domains.activity.swim_schemas import SwimLine
-from app.domains.planning.swim import MAX_CHARS, SwimProgram
 
 #: Les natures planifiables. Fermée côté API alors que le fichier tolère n'importe quoi :
 #: le fichier doit survivre à un tableur, une saisie n'a pas cette excuse.
@@ -145,7 +144,7 @@ class DoneActivity(BaseModel):
     #: le panneau du jour pose à côté du programme prévu.
     swim_id: str | None = None
     distance_m: float | None = None
-    lines: list[SwimLine] = Field(default_factory=list)
+    lines: list[SwimDoneLine] = Field(default_factory=list)
     suspect_laps: int = 0
 
 

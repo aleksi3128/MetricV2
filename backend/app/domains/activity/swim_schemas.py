@@ -10,7 +10,10 @@ from __future__ import annotations
 import datetime as dt
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.swim_notation import MAX_CHARS, SwimDoneLine
+from app.core.validation import DurationMin, Note, PastDate
 
 
 class SwimLap(BaseModel):
@@ -34,18 +37,6 @@ class SwimLap(BaseModel):
     suspect: bool = False
 
 
-class SwimLine(BaseModel):
-    """Une ligne de la séance réécrite dans la notation : `4×50 CR R~40`."""
-
-    text: str
-    distance_m: int
-    #: Les rangs (`seq`) des tours regroupés, pour aller corriger le bon.
-    laps: list[int]
-    suspect: bool
-    #: La nage écrite n'est qu'une lecture de la montre, que personne n'a confirmée.
-    detected: bool
-
-
 class Swim(BaseModel):
     """Une natation en piscine, telle qu'elle s'affiche dans une liste ou un calendrier."""
 
@@ -67,7 +58,13 @@ class Swim(BaseModel):
     pace_100_s: float | None = None
     #: Tours marqués douteux. Le dire à côté du total, c'est dire que le total est fragile.
     suspect_laps: int = 0
-    lines: list[SwimLine] = Field(default_factory=list)
+    lines: list[SwimDoneLine] = Field(default_factory=list)
+    #: `fit` ou `manual`. Une natation saisie se corrige d'un bloc ; une importée, au tour.
+    source: str = "fit"
+    #: Le programme tel qu'il a été tapé, pour une natation saisie — ce que la correction
+    #: recharge. `null` pour une importée.
+    program: str | None = None
+    note: str | None = None
 
 
 class SwimDetail(Swim):
@@ -82,5 +79,40 @@ class SwimStrokePayload(BaseModel):
     stroke: str | None = Field(default=None, max_length=8)
 
 
+class SwimPayload(BaseModel):
+    """Une natation **saisie**, dans la notation (`docs/natation-activite.md` §2).
+
+    La distance n'est pas un champ : elle est le total du programme, lu par le serveur. La
+    demander en plus, c'était ouvrir la porte à deux chiffres qui ne s'accordent pas.
+    """
+
+    date: PastDate
+    start: dt.time | None = None
+    duration_min: DurationMin
+    program: str = Field(min_length=1, max_length=MAX_CHARS)
+    #: 25 ou 50 m. Il ne change rien au total — un `8×50` fait 400 m partout —, mais il
+    #: dit où l'on a nagé, comme une natation importée le dit.
+    pool_m: float = Field(default=25, ge=25, le=50)
+    note: Note | None = None
+
+    @field_validator("note", mode="before")
+    @classmethod
+    def _blank_note(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
+
+
+class SwimWeek(BaseModel):
+    """Mètres nagés d'une semaine, datée au lundi."""
+
+    week: dt.date
+    distance_m: int
+    sessions: int
+
+
 class SwimList(BaseModel):
     swims: list[Swim]
+    #: Les quatre dernières semaines, la plus récente en dernier — **calculées ici**,
+    #: jamais additionnées par l'écran.
+    weeks: list[SwimWeek] = Field(default_factory=list)

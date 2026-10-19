@@ -244,7 +244,7 @@ def test_a_delete_takes_the_laps_then_the_file(
     assert response.status_code == 204
     assert swim["swim_id"] not in dav.content_of(LAPS_FILE)
     assert not any(path.endswith(".fit") for path in dav.files)
-    assert app_client.get(f"{ACTIVITY}/swims", headers=auth).json() == {"swims": []}
+    assert app_client.get(f"{ACTIVITY}/swims", headers=auth).json()["swims"] == []
 
 
 # ── Le planning (§6.4, D15) ───────────────────────────

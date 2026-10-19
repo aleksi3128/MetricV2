@@ -357,14 +357,23 @@ class DashboardService:
         « séance », et sept sources nommées par `AGG-03` ne se renomment pas parce que
         leur source de données a bougé. La renommer casserait `SOURCE_LABELS` côté écran
         et l'entrée `entry_count` de l'assiduité, pour ne rien dire de plus.
+
+        **Une natation est une séance**, et ses jours rejoignent cette clé
+        (`docs/natation-activite.md` §3) plutôt qu'une huitième : le taux de suivi compte
+        des domaines renseignés, et la natation n'en est pas un nouveau — c'est
+        l'entraînement, consigné autrement.
         """
+        from app.domains.activity.swims import SwimService
+
         hydration = await HydrationService(self._store).daily_volumes()
+        swum = {row.date for row in await SwimService(self._store).rows()}
 
         return {
             "weight": {day for day, _ in await WeightService(self._store).points()},
             "measurements": await MeasurementService(self._store).days(),
             "runs": {row.model.date for row in await RunService(self._store).all()},
-            "workouts": {row.model.date for row in await CircuitSessionService(self._store).all()},
+            "workouts": {row.model.date for row in await CircuitSessionService(self._store).all()}
+            | swum,
             "meals": await NutritionService(self._store).meal_days(),
             "hydration": {day for day, volume in hydration.items() if volume > 0},
             "supplements": await SupplementService(self._store).intake_days(),

@@ -51,7 +51,12 @@ from app.domains.activity.service import (
     RunService,
 )
 from app.domains.activity.stats import ActivityStats
-from app.domains.activity.swim_schemas import SwimDetail, SwimList, SwimStrokePayload
+from app.domains.activity.swim_schemas import (
+    SwimDetail,
+    SwimList,
+    SwimPayload,
+    SwimStrokePayload,
+)
 from app.domains.activity.swims import SwimService
 from app.domains.activity.trends import RunTrendsService
 from app.domains.activity.weather import WeatherDep
@@ -113,9 +118,22 @@ async def create_run(payload: RunPayload, store: StoreDep) -> Run:
 # ── La natation en piscine (`docs/planning-natation.md` §6) ─
 
 
-@router.get("/swims", response_model=SwimList, summary="Les natations importées")
+@router.get("/swims", response_model=SwimList, summary="Les natations, et leurs semaines")
 async def list_swims(store: StoreDep) -> SwimList:
-    return SwimList(swims=await SwimService(store).all())
+    """Les natations, importées et saisies, et les mètres des quatre dernières semaines."""
+    return await SwimService(store).overview()
+
+
+@router.post(
+    "/swims",
+    response_model=SwimDetail,
+    status_code=status.HTTP_201_CREATED,
+    summary="Saisir une natation dans la notation",
+)
+async def create_swim(payload: SwimPayload, store: StoreDep) -> SwimDetail:
+    """La distance est le total du programme, lu par le serveur (`docs/natation-activite.md`).
+    Un programme hors notation rend `422 swim_notation_invalid`, ligne par ligne."""
+    return await SwimService(store).create(payload)
 
 
 @router.post(
@@ -149,6 +167,14 @@ async def read_swim(
     swim_id: Annotated[str, Path(min_length=1, max_length=32)], store: StoreDep
 ) -> SwimDetail:
     return await SwimService(store).detail(swim_id)
+
+
+@router.patch("/swims/{row_id}", response_model=SwimDetail, summary="Corriger une natation saisie")
+async def update_swim(
+    row_id: RowId, payload: SwimPayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimDetail:
+    """Une natation **saisie** seulement : une importée se corrige au tour."""
+    return await SwimService(store).update(row_id, _token(if_match), payload)
 
 
 @router.delete(

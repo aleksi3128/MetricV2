@@ -27,6 +27,7 @@ from datetime import date, datetime
 from app.core.dates import local_day_of
 from app.core.parsing import pace_min_per_km
 from app.domains.activity.service import CircuitSessionService, RunService
+from app.domains.activity.swims import SwimService
 from app.domains.aggregates.service import DashboardService
 from app.domains.hydration.service import HydrationService
 from app.domains.supplements.service import SupplementService
@@ -117,6 +118,18 @@ async def _duration(store: FileStore, filter_: str) -> dict[date, float]:
         per_day[run.model.date] += run.model.duration_min
     for session in await CircuitSessionService(store).all():
         per_day[session.model.date] += session.model.duration_min
+    # Les natations aussi, au chrono — comme une course (`docs/natation-activite.md` §3).
+    for swim in await SwimService(store).rows():
+        per_day[swim.date] += swim.duration_s / 60
+    return dict(per_day)
+
+
+async def _swims(store: FileStore, filter_: str) -> dict[date, float]:
+    """Mètres nagés, importés ou saisis."""
+    del filter_
+    per_day: defaultdict[date, float] = defaultdict(float)
+    for swim in await SwimService(store).rows():
+        per_day[swim.date] += swim.distance_m
     return dict(per_day)
 
 
@@ -224,7 +237,33 @@ async def _duration_detail(store: FileStore, filter_: str, day: date) -> list[Da
         for row in await CircuitSessionService(store).all()
         if row.model.date == day
     ]
+    items += [
+        DayDetail(
+            label="Natation",
+            value=round(swim.duration_s / 60, 1),
+            unit="min",
+            duration_min=round(swim.duration_s / 60, 1),
+            note=swim.note or None,
+        )
+        for swim in await SwimService(store).rows()
+        if swim.date == day
+    ]
     return items
+
+
+async def _swims_detail(store: FileStore, filter_: str, day: date) -> list[DayDetail]:
+    del filter_
+    return [
+        DayDetail(
+            label="Natation",
+            value=swim.distance_m,
+            unit="m",
+            duration_min=round(swim.duration_s / 60, 1),
+            note=swim.note or None,
+        )
+        for swim in await SwimService(store).rows()
+        if swim.date == day
+    ]
 
 
 async def _supplement_detail(store: FileStore, filter_: str, day: date) -> list[DayDetail]:
@@ -331,7 +370,16 @@ SOURCES: dict[str, Source] = {
             filter_label=None,
             load=_duration,
             explain=_duration_detail,
-            paths=(paths.RUNS, paths.CIRCUIT_SESSIONS),
+            paths=(paths.RUNS, paths.CIRCUIT_SESSIONS, paths.SWIMS),
+        ),
+        Source(
+            key="activity.swims",
+            label="Distance nagée",
+            unit="m",
+            filter_label=None,
+            load=_swims,
+            explain=_swims_detail,
+            paths=(paths.SWIMS,),
         ),
         Source(
             key="supplement.intake",
@@ -365,6 +413,7 @@ SOURCES: dict[str, Source] = {
                 paths.MEASUREMENTS,
                 paths.RUNS,
                 paths.CIRCUIT_SESSIONS,
+                paths.SWIMS,
                 paths.MEALS,
                 paths.HYDRATION_LOG,
                 paths.SUPPLEMENT_LOG,

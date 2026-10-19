@@ -240,6 +240,7 @@ def test_the_source_catalogue_is_published(app_client: TestClient, auth: dict[st
         "activity.muscle_group",
         "activity.runs",
         "activity.duration",
+        "activity.swims",
         "supplement.intake",
         "hydration.intake",
         "entry_count",

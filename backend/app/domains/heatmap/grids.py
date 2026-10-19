@@ -60,16 +60,24 @@ from app.storage.paths import (
     HEATMAP_OFF_DAYS,
     HEATMAP_TRACKS,
     RUNS,
+    SWIMS,
 )
 
 #: Déclencheur reconnu par la cadence `conditional` : « les jours où j'ai bougé ».
 TRIGGER_WORKOUT = "workout"
 
 #: Fichiers que toute grille ouvre, quelle que soit sa source : la piste elle-même, son
-#: journal de cadences, ses plages neutralisées. `RUNS` et `CIRCUIT_SESSIONS` s'y ajoutent
+#: journal de cadences, ses plages neutralisées. `RUNS`, `CIRCUIT_SESSIONS` et `SWIMS` s'y ajoutent
 #: parce qu'une cadence `conditional` y cherche ses déclencheurs (`HEAT-12`) — et qu'on ne
 #: sait qu'après avoir lu le journal si l'une d'elles en est une.
-COMMON_PATHS = (HEATMAP_TRACKS, HEATMAP_CADENCES, HEATMAP_OFF_DAYS, RUNS, CIRCUIT_SESSIONS)
+COMMON_PATHS = (
+    HEATMAP_TRACKS,
+    HEATMAP_CADENCES,
+    HEATMAP_OFF_DAYS,
+    RUNS,
+    CIRCUIT_SESSIONS,
+    SWIMS,
+)
 
 
 def _dependencies(tracks: Iterable[TrackRow]) -> set[str]:
@@ -332,6 +340,11 @@ class GridService:
         # fichier de cadences** de l'utilisateur, et la renommer invaliderait en silence
         # chaque cadence conditionnelle déjà réglée — le sens sûr est de ne pas y toucher.
         days |= {row.model.date for row in await CircuitSessionService(self._store).all()}
+        # Une natation aussi : « j'ai bougé » ne demande pas de quelle façon
+        # (`docs/natation-activite.md` §3).
+        from app.domains.activity.swims import SwimService
+
+        days |= {row.date for row in await SwimService(self._store).rows()}
         return days
 
 

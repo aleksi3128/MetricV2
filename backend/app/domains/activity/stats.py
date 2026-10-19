@@ -15,7 +15,7 @@ from datetime import date, timedelta
 
 from app.core.dates import week_start
 from app.core.parsing import pace_min_per_km
-from app.domains.activity.models import CircuitSessionRow, MuscleGroup, RunRow
+from app.domains.activity.models import CircuitSessionRow, MuscleGroup, RunRow, SwimRow
 from app.domains.activity.schemas import (
     ActivityItem,
     ActivityOverview,
@@ -30,6 +30,7 @@ from app.domains.activity.service import (
     CircuitSessionService,
     RunService,
 )
+from app.domains.activity.swims import SwimService
 from app.storage.csv_repo import Row
 from app.storage.files import FileStore
 
@@ -62,6 +63,16 @@ def _sessions_of(rows: Sequence[Row[CircuitSessionRow]]) -> list[_Session]:
     return [_Session(date=row.model.date, duration_min=row.model.duration_min) for row in rows]
 
 
+def _swims_of(rows: Sequence[SwimRow]) -> list[_Session]:
+    """Les natations, réduites à ce qui compte dans un total — comme un tabata.
+
+    Le temps **au chrono**, repos compris : c'est le temps passé à l'entraînement, celui
+    que les minutes de la semaine additionnent pour une course comme pour un circuit
+    (`docs/natation-activite.md` §3).
+    """
+    return [_Session(date=row.date, duration_min=row.duration_s / 60) for row in rows]
+
+
 def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
@@ -72,6 +83,13 @@ class ActivityStats:
     def __init__(self, store: FileStore) -> None:
         self._runs = RunService(store)
         self._tabata = CircuitSessionService(store)
+        self._swims = SwimService(store)
+
+    async def _sessions(self) -> tuple[list[_Session], list[_Session]]:
+        """Les séances qui comptent comme des séances : tabatas, puis natations."""
+        tabata = _sessions_of(await self._tabata.all())
+        swims = _swims_of(await self._swims.rows())
+        return tabata, swims
 
     @staticmethod
     def _per_day(
@@ -98,9 +116,10 @@ class ActivityStats:
         """
         runs = await self._runs.all()
         done = await self._tabata.all()
+        swim_rows = await self._swims.rows()
 
         current = week_start(today)
-        history = _sessions_of(done)
+        history = _sessions_of(done) + _swims_of(swim_rows)
         minutes, sessions = self._per_day(runs, history)
 
         return ActivityOverview(
@@ -109,8 +128,8 @@ class ActivityStats:
             days=self._days(minutes, current),
             weeks=self._weeks(minutes, sessions, current),
             neglected=self._neglected(await self._tabata.sets(), today),
-            history=self._history(runs, done)[:limit],
-            total=len(runs) + len(done),
+            history=self._history(runs, done, swim_rows)[:limit],
+            total=len(runs) + len(done) + len(swim_rows),
         )
 
     # ── Totaux d'entraînement (`AGG-02`) ──────────────
@@ -134,22 +153,26 @@ class ActivityStats:
         source, pas l'historique qui a été touché.
         """
         runs = await self._runs.all()
-        sessions_rows = await self._tabata.all()
-        tabata = _sessions_of(sessions_rows)
+        tabata, swims = await self._sessions()
+        everything = tabata + swims
 
         current = week_start(today)
-        minutes, sessions = self._per_day(runs, tabata)
+        minutes, sessions = self._per_day(runs, everything)
 
         return TrainingTotals(
-            sessions_total=len(runs) + len(tabata),
+            sessions_total=len(runs) + len(everything),
             minutes_total=_round(sum(minutes.values())) or 0,
-            week=self._week_totals(runs, tabata, current),
+            week=self._week_totals(runs, everything, current),
             weeks=self._weeks(minutes, sessions, current),
-            split=self._split(runs, tabata),
+            split=self._split(runs, tabata, swims),
         )
 
     @staticmethod
-    def _split(runs: Sequence[Row[RunRow]], tabata: Sequence[_Session]) -> list[TrainingSplit]:
+    def _split(
+        runs: Sequence[Row[RunRow]],
+        tabata: Sequence[_Session],
+        swims: Sequence[_Session] = (),
+    ) -> list[TrainingSplit]:
         """Répartition course / tabata (`AGG-02`).
 
         **Deux parts et non trois.** Les trois d'avant — course, musculation, autre —
@@ -162,7 +185,7 @@ class ActivityStats:
         La part disparaît quand elle est vide, comme avant : une semaine sans course ne
         montre pas une barre à zéro.
         """
-        total = len(runs) + len(tabata)
+        total = len(runs) + len(tabata) + len(swims)
         parts: tuple[tuple[str, str, int, float], ...] = (
             (
                 "run",
@@ -175,6 +198,14 @@ class ActivityStats:
                 "Tabata",
                 len(tabata),
                 sum(item.duration_min for item in tabata),
+            ),
+            # La troisième part, et elle a de quoi se remplir : une natation importée ou
+            # saisie (`docs/natation-activite.md` §3). Vide, elle disparaît comme les autres.
+            (
+                "swim",
+                "Natation",
+                len(swims),
+                sum(item.duration_min for item in swims),
             ),
         )
 
@@ -194,7 +225,8 @@ class ActivityStats:
 
     async def weekly_minutes(self) -> list[tuple[date, float]]:
         """Minutes d'activité par semaine ISO, datées au lundi."""
-        minutes, _ = self._per_day(await self._runs.all(), _sessions_of(await self._tabata.all()))
+        tabata, swims = await self._sessions()
+        minutes, _ = self._per_day(await self._runs.all(), tabata + swims)
         return self._by_week(minutes)
 
     async def weekly_sessions(self) -> list[tuple[date, float]]:
@@ -205,7 +237,8 @@ class ActivityStats:
         du registre, donc aussi bien les séries génériques (`AGG-04`) qu'un objectif de
         régularité (`GOAL-04`).
         """
-        _, sessions = self._per_day(await self._runs.all(), _sessions_of(await self._tabata.all()))
+        tabata, swims = await self._sessions()
+        _, sessions = self._per_day(await self._runs.all(), tabata + swims)
         return self._by_week({day: float(count) for day, count in sessions.items()})
 
     async def weekly_distance(self) -> list[tuple[date, float]]:
@@ -348,6 +381,7 @@ class ActivityStats:
     def _history(
         runs: list[Row[RunRow]],
         done: Sequence[Row[CircuitSessionRow]],
+        swims: Sequence[SwimRow] = (),
     ) -> list[ActivityItem]:
         items: list[ActivityItem] = []
 
@@ -385,6 +419,23 @@ class ActivityStats:
                     rpe=session.rpe,
                     entries=session.rounds,
                     source=session.source,
+                )
+            )
+
+        for swim in swims:
+            items.append(
+                ActivityItem(
+                    kind="swim",
+                    # Une natation s'ouvre par son identifiant stable, pas par sa position :
+                    # la feuille qui la montre est celle du planning, qui la lit ainsi.
+                    id=0,
+                    token="",
+                    date=swim.date,
+                    label="Natation",
+                    duration_min=round(swim.duration_s / 60, 1),
+                    distance_m=swim.distance_m,
+                    swim_id=swim.swim_id,
+                    source=swim.source,
                 )
             )
 

@@ -15,8 +15,9 @@ from zoneinfo import ZoneInfo
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core import swim_notation as swim
 from app.core.dates import today_local
-from app.domains.planning import ical, swim
+from app.domains.planning import ical
 from app.domains.planning.schemas import PlannedSession
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider

@@ -455,11 +455,12 @@ class CircuitSessionSetRow(CsvModel):
 
 
 class SwimRow(CsvModel):
-    """Une natation en piscine, importée de la montre. `activity/swims.csv`.
+    """Une natation en piscine. `activity/swims.csv`.
 
-    Famille *mesure*, comme `runs.csv` : une ligne sans date ne se relit pas. Tout vient du
-    `.fit` (`docs/planning-natation.md` §6.3) — rien ne se saisit à la main ici, et c'est
-    ce qui permet de garder la distance **de la montre** même quand un tour est douteux.
+    Famille *mesure*, comme `runs.csv` : une ligne sans date ne se relit pas. Deux
+    origines : le `.fit` (`docs/planning-natation.md` §6.3), dont la distance est **celle de
+    la montre** même quand un tour est douteux ; et la saisie dans la notation
+    (`docs/natation-activite.md`), dont la distance est le total que le serveur a lu.
     """
 
     #: Identifiant stable : les tours s'y rattachent.
@@ -477,7 +478,12 @@ class SwimRow(CsvModel):
     strokes: int | None = None
     calories: int | None = None
     fit_path: str = ""
+    #: `fit` pour une natation importée, `manual` pour une natation saisie.
     source: str = "fit"
+    #: La séance saisie, dans la notation du planning (`docs/natation-activite.md` §2).
+    #: Vide pour une natation importée, dont ce sont les tours qui disent la séance.
+    program: str = ""
+    note: str = ""
 
 
 class SwimLapRow(CsvModel):

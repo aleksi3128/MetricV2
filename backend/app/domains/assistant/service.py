@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import ValidationError
 
+from app.core import swim_notation as swim
 from app.core.dates import local_moment, now_local, today_local
 from app.core.exceptions import AiUnreadableError, MetricError, ValidationFailedError
 from app.domains.ai.service import AiService, DeltaReporter
@@ -81,7 +82,6 @@ from app.domains.assistant.schemas import (
     ThreadSummary,
     UndoRef,
 )
-from app.domains.planning import swim
 from app.domains.planning.schemas import ProposedSession
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError

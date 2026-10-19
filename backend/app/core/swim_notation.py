@@ -185,6 +185,23 @@ class SwimLine(BaseModel):
     distance_m: int = 0
 
 
+class SwimDoneLine(BaseModel):
+    """Une ligne de séance **nagée**, réécrite dans la notation : `4×50 CR R~40`.
+
+    Ici et non chez l'activité : le planning la montre à côté du programme prévu, et la
+    forme d'une ligne réécrite appartient à la notation, pas à l'un de ses deux lecteurs.
+    """
+
+    text: str
+    distance_m: int
+    #: Les rangs (`seq`) des tours regroupés, pour aller corriger le bon. Vide pour une
+    #: natation saisie, qui n'a pas de tours.
+    laps: list[int]
+    suspect: bool
+    #: La nage écrite n'est qu'une lecture de la montre, que personne n'a confirmée.
+    detected: bool
+
+
 class SwimError(BaseModel):
     """Une faute, sur une ligne précise."""
 

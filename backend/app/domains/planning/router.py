@@ -35,6 +35,7 @@ from app.config import ICAL_SECRET_MIN_LENGTH, Settings
 from app.core.dates import now_local, today_local
 from app.core.deps import SettingsDep, StoreDep
 from app.core.exceptions import NotFoundError
+from app.core.swim_notation import SwimProgram
 from app.domains.ai.deps import AiServiceDep
 from app.domains.planning import ical
 from app.domains.planning.glossary import SwimCodeService
@@ -53,7 +54,6 @@ from app.domains.planning.schemas import (
     SwimParseRequest,
 )
 from app.domains.planning.service import DEFAULT_ADHERENCE_WEEKS, PlanningService
-from app.domains.planning.swim import SwimProgram
 from app.storage.errors import StorageConflictError
 from app.storage.files import FileStore
 

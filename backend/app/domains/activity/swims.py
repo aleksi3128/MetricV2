@@ -16,9 +16,11 @@ coupée en deux, une nage mal lue — est **signalé**, et se corrige au tour.
 from __future__ import annotations
 
 import secrets
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
-from app.core.exceptions import ValidationFailedError
+from app.core.dates import today_local, week_start
+from app.core.exceptions import SwimNotationError, ValidationFailedError
+from app.core.swim_notation import Glossary, SwimDoneLine, SwimProgram, describe_errors, parse
 from app.domains.activity import fit, swim_fit
 from app.domains.activity.fit import FitError
 from app.domains.activity.models import SwimLapRow, SwimRow
@@ -26,13 +28,15 @@ from app.domains.activity.swim_schemas import (
     Swim,
     SwimDetail,
     SwimLap,
-    SwimLine,
+    SwimList,
+    SwimPayload,
     SwimStrokePayload,
+    SwimWeek,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageConflictError, StorageNotFoundError
 from app.storage.files import FileStore
-from app.storage.paths import SWIM_LAPS, SWIMS
+from app.storage.paths import SWIM_CODES, SWIM_LAPS, SWIMS
 
 
 def new_id() -> str:
@@ -50,11 +54,11 @@ def _view(lap: SwimLapRow) -> swim_fit.LapView:
     )
 
 
-def lines_of(laps: list[SwimLapRow]) -> list[SwimLine]:
+def lines_of(laps: list[SwimLapRow]) -> list[SwimDoneLine]:
     """La séance réécrite dans la notation, tours rangés dans l'ordre de la montre."""
     ordered = sorted(laps, key=lambda lap: lap.seq)
     return [
-        SwimLine(
+        SwimDoneLine(
             text=line.text,
             distance_m=line.distance_m,
             laps=[ordered[index].seq for index in line.laps],
@@ -67,11 +71,29 @@ def lines_of(laps: list[SwimLapRow]) -> list[SwimLine]:
 
 def _pace(laps: list[SwimLapRow], distance_m: float) -> float | None:
     """Le temps **nagé** au 100 m : les tours de nage, moins les longueurs de repos qu'ils
-    contiennent. Le chrono entier dirait une allure que les repos ralentissent."""
+    contiennent. Le chrono entier dirait une allure que les repos ralentissent.
+
+    `None` sans tours — une natation saisie n'en a pas, et sa durée compte les repos :
+    l'allure qu'on en tirerait serait celle d'une séance, pas d'une nage.
+    """
     swum = sum(lap.duration_s - lap.idle_s for lap in laps if lap.kind == "swim")
     if distance_m <= 0 or swum <= 0:
         return None
     return round(swum / distance_m * 100, 1)
+
+
+def program_lines(program: SwimProgram) -> list[SwimDoneLine]:
+    """Une natation **saisie**, dans la même forme qu'une importée : des lignes.
+
+    L'écran ne distingue pas les deux origines ; il affiche des lignes. Une saisie n'a ni
+    tour douteux ni nage « lue » — c'est l'utilisateur qui l'a écrite.
+    """
+    return [
+        SwimDoneLine(
+            text=line.text, distance_m=line.distance_m, laps=[], suspect=False, detected=False
+        )
+        for line in program.lines
+    ]
 
 
 class SwimService:
@@ -83,9 +105,15 @@ class SwimService:
     # ── Lecture ───────────────────────────────────────
 
     @staticmethod
-    def _to_schema(row: Row[SwimRow], laps: list[SwimLapRow]) -> Swim:
+    def _to_schema(
+        row: Row[SwimRow], laps: list[SwimLapRow], glossary: Glossary | None = None
+    ) -> Swim:
         model = row.model
         own = [lap for lap in laps if lap.swim_id == model.swim_id]
+        program = model.program.strip()
+        # Une saisie se relit à chaque affichage, comme un programme prévu : un libellé
+        # renommé en Réglages se voit aussitôt.
+        lines = program_lines(parse(program, glossary)) if program and not own else lines_of(own)
         return Swim(
             id=row.index,
             token=row.token,
@@ -102,24 +130,57 @@ class SwimService:
             calories=model.calories,
             pace_100_s=_pace(own, model.distance_m),
             suspect_laps=sum(1 for lap in own if lap.suspect),
-            lines=lines_of(own),
+            lines=lines,
+            source=model.source or "fit",
+            program=program or None,
+            note=model.note.strip() or None,
         )
+
+    async def _glossary(self) -> Glossary:
+        from app.domains.planning.glossary import glossary_from
+        from app.domains.planning.models import SwimCodeRow
+
+        codes: CsvRepository[SwimCodeRow] = CsvRepository(self._store, SWIM_CODES, SwimCodeRow)
+        return glossary_from(await codes.read_all())
+
+    async def rows(self) -> list[SwimRow]:
+        """Les lignes brutes — pour les comptes, qui n'ont besoin ni des tours ni des lignes."""
+        return [row.model for row in await self._repo.read_all()]
 
     async def between(self, start: date, end: date) -> list[Swim]:
         """Les natations d'une plage, bornes comprises, dans l'ordre du jour."""
-        await self._store.prefetch([SWIMS, SWIM_LAPS])
+        await self._store.prefetch([SWIMS, SWIM_LAPS, SWIM_CODES])
         rows = [row for row in await self._repo.read_all() if start <= row.model.date <= end]
         if not rows:
             return []
         laps = [lap.model for lap in await self._laps.read_all()]
-        swims = [self._to_schema(row, laps) for row in rows]
+        glossary = await self._glossary()
+        swims = [self._to_schema(row, laps, glossary) for row in rows]
         return sorted(swims, key=lambda item: (item.date, item.start or time()))
 
     async def all(self) -> list[Swim]:
-        await self._store.prefetch([SWIMS, SWIM_LAPS])
+        await self._store.prefetch([SWIMS, SWIM_LAPS, SWIM_CODES])
         laps = [lap.model for lap in await self._laps.read_all()]
-        swims = [self._to_schema(row, laps) for row in await self._repo.read_all()]
+        glossary = await self._glossary()
+        swims = [self._to_schema(row, laps, glossary) for row in await self._repo.read_all()]
         return sorted(swims, key=lambda item: (item.date, item.start or time()), reverse=True)
+
+    async def overview(self, *, today: date | None = None, weeks: int = 4) -> SwimList:
+        """La liste, et les mètres des dernières semaines — **calculés ici**."""
+        current = week_start(today or today_local())
+        swims = await self.all()
+        totals: list[SwimWeek] = []
+        for offset in range(weeks - 1, -1, -1):
+            monday = current - timedelta(weeks=offset)
+            inside = [item for item in swims if monday <= item.date < monday + timedelta(days=7)]
+            totals.append(
+                SwimWeek(
+                    week=monday,
+                    distance_m=round(sum(item.distance_m for item in inside)),
+                    sessions=len(inside),
+                )
+            )
+        return SwimList(swims=swims, weeks=totals)
 
     async def detail(self, swim_id: str, *, fresh: bool = False) -> SwimDetail:
         await self._store.prefetch([SWIMS, SWIM_LAPS])
@@ -131,7 +192,7 @@ class SwimService:
                 for lap in await self._laps.read_all(fresh=fresh)
                 if lap.model.swim_id == swim_id
             ]
-            summary = self._to_schema(row, [lap.model for lap in lap_rows])
+            summary = self._to_schema(row, [lap.model for lap in lap_rows], await self._glossary())
             return SwimDetail(
                 **summary.model_dump(),
                 laps=[
@@ -222,6 +283,58 @@ class SwimService:
                     "déjà importée."
                 )
 
+    # ── Saisie dans la notation (`docs/natation-activite.md`) ─
+
+    async def _read_program(self, payload: SwimPayload) -> SwimProgram:
+        """Le programme lu, ou le refus ligne par ligne. Un programme sans aucun bloc est
+        refusé aussi : une natation saisie sans distance n'aurait rien à compter."""
+        read = parse(payload.program, await self._glossary())
+        if not read.valid:
+            message = describe_errors(read.errors)
+            raise SwimNotationError(message, fields=[("body.program", message)])
+        if read.total_m is None:
+            message = "Le programme ne porte aucun bloc : écris au moins une ligne nagée."
+            raise SwimNotationError(message, fields=[("body.program", message)])
+        return read
+
+    def _manual_row(self, payload: SwimPayload, read: SwimProgram, swim_id: str) -> SwimRow:
+        return SwimRow(
+            swim_id=swim_id,
+            date=payload.date,
+            start=payload.start,
+            pool_m=payload.pool_m,
+            # Le total lu, **rangé** avec la séance : le fichier se lit sans outil, et les
+            # comptes de la semaine n'ont pas à relire chaque programme.
+            distance_m=float(read.total_m or 0),
+            duration_s=round(payload.duration_min * 60, 1),
+            source="manual",
+            program=payload.program.strip(),
+            note=payload.note or "",
+        )
+
+    async def create(self, payload: SwimPayload) -> SwimDetail:
+        read = await self._read_program(payload)
+        swim_id = new_id()
+        await self._repo.append(self._manual_row(payload, read, swim_id))
+        return await self.detail(swim_id, fresh=True)
+
+    async def update(self, index: int, token: str, payload: SwimPayload) -> SwimDetail:
+        """Corrige une natation **saisie**. Une importée ne se corrige qu'au tour : sa
+        distance est une mesure de la montre, et la réécrire d'un bloc l'effacerait."""
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette natation n'existe plus.")
+        existing = rows[index].model
+        if existing.source != "manual":
+            raise ValidationFailedError(
+                "Une natation importée se corrige tour par tour, pas d'un bloc."
+            )
+        read = await self._read_program(payload)
+        await self._repo.replace_by_token(
+            index, token, self._manual_row(payload, read, existing.swim_id)
+        )
+        return await self.detail(existing.swim_id, fresh=True)
+
     # ── Correction d'un tour (D13) ────────────────────
 
     async def correct_lap(self, index: int, token: str, payload: SwimStrokePayload) -> SwimDetail:
@@ -275,4 +388,4 @@ class SwimService:
                 return
 
 
-__all__ = ["SwimService", "lines_of"]
+__all__ = ["SwimService", "lines_of", "program_lines"]

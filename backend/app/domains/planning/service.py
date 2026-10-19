@@ -19,13 +19,13 @@ import secrets as secrets_module
 from collections import defaultdict
 from datetime import date, timedelta
 
+from app.core import swim_notation as swim
 from app.core.dates import today_local, week_start
 from app.core.exceptions import AiUnreadableError, SwimNotationError
 from app.domains.activity import circuit_link
 from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
-from app.domains.planning import swim
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
 from app.domains.planning.glossary import glossary_from
 from app.domains.planning.models import PlanRow, SwimCodeRow, normalise_kind

@@ -959,9 +959,9 @@ class Exercise(BaseModel):
 
 
 class ActivityItem(BaseModel):
-    """Ligne de l'historique fusionné courses + séances (`ACT-13`)."""
+    """Ligne de l'historique fusionné courses + séances + natations (`ACT-13`)."""
 
-    kind: str = Field(description="« run » ou « workout »")
+    kind: str = Field(description="« run », « workout » ou « swim »")
     id: int
     token: str
     date: date
@@ -974,6 +974,10 @@ class ActivityItem(BaseModel):
     #: ligne doit pouvoir dire ce qu'elle emporte **avant** que le geste ne s'arme.
     entries: int = 0
     source: str
+    #: Une natation : ses mètres, et l'identifiant **stable** qui l'ouvre. `id` et `token`
+    #: n'y servent pas — elle se corrige et se supprime depuis sa propre feuille.
+    distance_m: float | None = None
+    swim_id: str | None = None
 
 
 class DayVolume(BaseModel):

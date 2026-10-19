@@ -19,13 +19,7 @@ from __future__ import annotations
 import secrets as secrets_module
 
 from app.core.exceptions import SwimCodeInUseError, ValidationFailedError
-from app.domains.planning.models import SWIM_CATEGORIES, PlanRow, SwimCodeRow
-from app.domains.planning.schemas import (
-    SwimCodeEntry,
-    SwimCodePayload,
-    SwimGlossaryView,
-)
-from app.domains.planning.swim import (
+from app.core.swim_notation import (
     BASE_CODES,
     Category,
     Glossary,
@@ -33,6 +27,12 @@ from app.domains.planning.swim import (
     code_problem,
     normalise_code,
     uses,
+)
+from app.domains.planning.models import SWIM_CATEGORIES, PlanRow, SwimCodeRow
+from app.domains.planning.schemas import (
+    SwimCodeEntry,
+    SwimCodePayload,
+    SwimGlossaryView,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError

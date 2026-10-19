@@ -31,9 +31,9 @@ from statistics import median
 
 import fitdecode
 
+from app.core.swim_notation import format_clock
 from app.domains.activity import fit
 from app.domains.activity.fit import FitError
-from app.domains.planning.swim import format_clock
 
 #: Ce que `swim_stroke` vaut dans le profil FIT, rendu dans la notation du planning.
 #: `drill` est un éducatif ; `mixed` n'est pas une nage, c'est l'aveu que le tour en

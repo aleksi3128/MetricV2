@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.domains.planning.swim import (
+from app.core.swim_notation import (
     Glossary,
     SwimCode,
     code_problem,
