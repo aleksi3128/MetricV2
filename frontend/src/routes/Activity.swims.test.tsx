@@ -39,6 +39,7 @@ const TYPED: SwimDetail = {
   calories: null,
   pace_100_s: null,
   suspect_laps: 0,
+  rpe: null,
   lines: [
     {
       text: '200 CR EF',

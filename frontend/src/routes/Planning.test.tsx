@@ -102,6 +102,7 @@ function monthView(overrides: Partial<MonthView> = {}, swum = true): MonthView {
             distance_m: null,
             lines: [],
             suspect_laps: 0,
+            rpe: null,
           },
         ],
       };
@@ -154,6 +155,7 @@ function monthView(overrides: Partial<MonthView> = {}, swum = true): MonthView {
                   },
                 ],
                 suspect_laps: 1,
+                rpe: null,
               },
             ]
           : [],
@@ -233,6 +235,7 @@ const SWIM_DETAIL: SwimDetail = {
   calories: 320,
   pace_100_s: 154,
   suspect_laps: 1,
+  rpe: null,
   source: 'fit',
   program: null,
   note: null,

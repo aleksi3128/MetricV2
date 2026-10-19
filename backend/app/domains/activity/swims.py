@@ -135,6 +135,7 @@ class SwimService:
             calories=model.calories,
             pace_100_s=_pace(own, model.distance_m),
             suspect_laps=sum(1 for lap in own if lap.suspect),
+            rpe=model.rpe,
             lines=lines,
             source=model.source or "fit",
             program=program or None,
@@ -339,10 +340,20 @@ class SwimService:
                 "Une natation importée se corrige tour par tour, pas d'un bloc."
             )
         read = await self._read_program(payload)
-        await self._repo.replace_by_token(
-            index, token, self._manual_row(payload, read, existing.swim_id)
-        )
+        # L'effort perçu se note à part (`set_rpe`) : corriger le programme ne l'efface pas.
+        replacement = self._manual_row(payload, read, existing.swim_id)
+        replacement.rpe = existing.rpe
+        await self._repo.replace_by_token(index, token, replacement)
         return await self.detail(existing.swim_id, fresh=True)
+
+    async def set_rpe(self, index: int, token: str, rpe: int | None) -> SwimDetail:
+        """L'effort perçu seul, sous `If-Match` : une note est une correction de la ligne."""
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette natation n'existe plus.")
+        current = rows[index].model
+        await self._repo.replace_by_token(index, token, current.model_copy(update={"rpe": rpe}))
+        return await self.detail(current.swim_id, fresh=True)
 
     # ── Correction d'un tour (D13) ────────────────────
 

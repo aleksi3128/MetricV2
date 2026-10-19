@@ -17,6 +17,8 @@ from app.core.dates import now_local
 from app.core.deps import StoreDep
 from app.core.validation import today_local
 from app.domains.activity.models import MuscleGroup
+from app.domains.activity.other_schemas import Other, OtherList, OtherPayload
+from app.domains.activity.others import OtherService
 from app.domains.activity.schemas import (
     ActivityOverview,
     Circuit,
@@ -118,6 +120,49 @@ async def create_run(payload: RunPayload, store: StoreDep) -> Run:
 # ── La natation en piscine (`docs/planning-natation.md` §6) ─
 
 
+@router.get("/others", response_model=OtherList, summary="Les sorties vélo, marche, randonnée")
+async def list_others(store: StoreDep) -> OtherList:
+    return await OtherService(store).all()
+
+
+@router.post(
+    "/others",
+    response_model=Other,
+    status_code=status.HTTP_201_CREATED,
+    summary="Saisir une sortie vélo, marche ou randonnée",
+)
+async def create_other(payload: OtherPayload, store: StoreDep) -> Other:
+    return await OtherService(store).create(payload)
+
+
+@router.post(
+    "/others/fit",
+    response_model=Other,
+    status_code=status.HTTP_201_CREATED,
+    summary="Importer une sortie vélo, marche ou randonnée depuis un fichier .fit",
+)
+async def import_other_fit(store: StoreDep, file: Annotated[UploadFile, File()]) -> Other:
+    """Le résumé seul : ces sorties comptent dans la charge, elles ne s'analysent pas
+    (`docs/charge-multisport.md`, D8)."""
+    data = await file.read()
+    await file.close()
+    return await OtherService(store).create_from_fit(data)
+
+
+@router.put("/others/{row_id}/rpe", response_model=Other, summary="Noter l'effort d'une sortie")
+async def set_other_rpe(
+    row_id: RowId, payload: RunRpePayload, store: StoreDep, if_match: IfMatch = None
+) -> Other:
+    return await OtherService(store).set_rpe(row_id, _token(if_match), payload.rpe)
+
+
+@router.delete(
+    "/others/{row_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Supprimer une sortie"
+)
+async def delete_other(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
+    await OtherService(store).delete(row_id, _token(if_match))
+
+
 @router.get("/swims", response_model=SwimList, summary="Les natations, et leurs semaines")
 async def list_swims(store: StoreDep) -> SwimList:
     """Les natations, importées et saisies, et les mètres des quatre dernières semaines."""
@@ -175,6 +220,15 @@ async def update_swim(
 ) -> SwimDetail:
     """Une natation **saisie** seulement : une importée se corrige au tour."""
     return await SwimService(store).update(row_id, _token(if_match), payload)
+
+
+@router.put("/swims/{row_id}/rpe", response_model=SwimDetail, summary="Noter l'effort d'une nage")
+async def set_swim_rpe(
+    row_id: RowId, payload: RunRpePayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimDetail:
+    """L'effort perçu seul : c'est lui qui fait compter la nage dans la charge globale
+    (`docs/charge-multisport.md`, D9)."""
+    return await SwimService(store).set_rpe(row_id, _token(if_match), payload.rpe)
 
 
 @router.delete(

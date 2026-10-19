@@ -515,7 +515,7 @@ export interface ActivityItem {
    * musculation saisie à la main : celle-ci n'existe plus. Le mot du fil est resté celui
    * de l'historique fusionné, où il distingue « ce qui n'est pas une course ».
    */
-  kind: 'run' | 'workout' | 'swim';
+  kind: 'run' | 'workout' | 'swim' | 'other';
   /** La position de la ligne dans son fichier — `runs.csv`, `circuit_sessions.csv` ou `swims.csv`. */
   id: number;
   token: string;
@@ -917,6 +917,35 @@ export const activityApi = {
       method: 'DELETE',
       headers: guard(token),
     }),
+  /** L'effort perçu d'une nage, sous `If-Match` — ce qui la fait compter dans la charge. */
+  setSwimRpe: (id: number, token: string, rpe: number | null) =>
+    request<SwimDetail>(`/api/activity/swims/${String(id)}/rpe`, {
+      method: 'PUT',
+      headers: guard(token),
+      body: { rpe },
+    }),
+
+  /** Vélo, marche, randonnée (`docs/charge-multisport.md`, D8) : comptés, pas analysés. */
+  others: () => request<OtherList>('/api/activity/others'),
+  createOther: (payload: OtherPayload) =>
+    request<Other>('/api/activity/others', { method: 'POST', body: payload }),
+  /** Appelé quand l'import de course répond `fit_is_other`, comme pour la nage. */
+  importOtherFit: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<Other>('/api/activity/others/fit', { method: 'POST', form });
+  },
+  setOtherRpe: (id: number, token: string, rpe: number | null) =>
+    request<Other>(`/api/activity/others/${String(id)}/rpe`, {
+      method: 'PUT',
+      headers: guard(token),
+      body: { rpe },
+    }),
+  deleteOther: (id: number, token: string) =>
+    request<undefined>(`/api/activity/others/${String(id)}`, {
+      method: 'DELETE',
+      headers: guard(token),
+    }),
   /** L'analyse, relue depuis le `.fit` rangé : la page s'affiche sans l'attendre. */
   runAnalysis: (id: number) => request<RunAnalysis>(`/api/activity/runs/${id}/analysis`),
   /** Recalcule efforts et paliers de chaque `.fit` rangé. Rejouable sans rien doubler. */
@@ -1032,6 +1061,8 @@ export interface SwimDetail {
   /** Temps **nagé** au 100 m, repos exclus — calculé par le serveur. */
   pace_100_s: number | null;
   suspect_laps: number;
+  /** Effort perçu 1–10, noté à part (`docs/charge-multisport.md`, D9). */
+  rpe: number | null;
   lines: SwimLine[];
   laps: SwimLap[];
   /** `fit` ou `manual`. Une natation saisie se corrige d'un bloc ; une importée, au tour. */
@@ -1063,4 +1094,38 @@ export interface SwimPayload {
   program: string;
   pool_m: number;
   note: string | null;
+}
+
+export type OtherSport = 'vélo' | 'marche' | 'randonnée';
+
+/** Une sortie à vélo, à pied ou en randonnée. */
+export interface Other {
+  id: number;
+  token: string;
+  other_id: string;
+  date: string;
+  start: string | null;
+  sport: OtherSport;
+  duration_min: number;
+  distance_km: number | null;
+  avg_hr: number | null;
+  max_hr: number | null;
+  elevation_m: number | null;
+  calories: number | null;
+  rpe: number | null;
+  source: string;
+  note: string | null;
+}
+
+export interface OtherList {
+  others: Other[];
+}
+
+export interface OtherPayload {
+  date: string;
+  sport: OtherSport;
+  duration_min: number;
+  distance_km?: number | null;
+  avg_hr?: number | null;
+  note?: string | null;
 }

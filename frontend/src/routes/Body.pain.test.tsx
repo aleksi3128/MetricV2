@@ -198,7 +198,9 @@ describe('la section Douleurs', () => {
 describe('la question à la fin d’un import', () => {
   it('écrit le « non » pour la sortie, en un appui', async () => {
     const done = vi.fn();
-    renderWith(<PainCheck run={RUN} today="2026-10-19" onDone={done} />);
+    renderWith(
+      <PainCheck date={RUN.date} activityId={RUN.run_id} today="2026-10-19" onDone={done} />,
+    );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Non' }));
 
@@ -213,7 +215,9 @@ describe('la question à la fin d’un import', () => {
 
   it('« Plus tard » n’écrit rien', async () => {
     const done = vi.fn();
-    renderWith(<PainCheck run={RUN} today="2026-10-19" onDone={done} />);
+    renderWith(
+      <PainCheck date={RUN.date} activityId={RUN.run_id} today="2026-10-19" onDone={done} />,
+    );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Plus tard' }));
 
@@ -222,7 +226,9 @@ describe('la question à la fin d’un import', () => {
   });
 
   it('« Oui » ouvre le relevé, rattaché à la sortie', async () => {
-    renderWith(<PainCheck run={RUN} today="2026-10-19" onDone={vi.fn()} />);
+    renderWith(
+      <PainCheck date={RUN.date} activityId={RUN.run_id} today="2026-10-19" onDone={vi.fn()} />,
+    );
 
     await userEvent.click(await screen.findByRole('button', { name: 'Oui' }));
 

@@ -62,6 +62,15 @@ MAX_BYTES = 8 * 1024 * 1024
 #: fausserait les trois d'un coup, sans qu'aucun écran ne le dise.
 RUN_SPORTS = frozenset({"running", "trail_running"})
 
+#: Les sports qui comptent dans la charge globale sans être des courses
+#: (`docs/charge-multisport.md`, D8), et le mot qui les nomme dans `others.csv`.
+OTHER_SPORTS: dict[str, str] = {
+    "cycling": "vélo",
+    "e_biking": "vélo",
+    "walking": "marche",
+    "hiking": "randonnée",
+}
+
 #: Tolérance des gardes de cohérence des laps. 2 % laisse passer l'arrondi d'une montre qui
 #: relève au décimètre, et rejette une somme qui vaut le double de la course.
 LAP_TOLERANCE = 0.02
@@ -124,6 +133,16 @@ class FitIsSwimError(FitError):
     """
 
     code = "fit_is_swim"
+
+
+class FitIsOtherError(FitError):
+    """Un `.fit` de vélo, de marche ou de randonnée envoyé à l'import de course.
+
+    Même raison que `FitIsSwimError` : l'écran réaiguille le fichier vers l'import des
+    autres sports, sur le code (`docs/charge-multisport.md`, D8).
+    """
+
+    code = "fit_is_other"
 
 
 # ── Ce qu'un fichier rend ─────────────────────────────
@@ -364,6 +383,8 @@ def _check_sport(session: dict[str, object]) -> None:
     sport = session.get("sport")
     if sport == "swimming":
         raise FitIsSwimError("Ce fichier décrit une natation, pas une course à pied.")
+    if isinstance(sport, str) and sport in OTHER_SPORTS:
+        raise FitIsOtherError(f"Ce fichier décrit une sortie « {OTHER_SPORTS[sport]} ».")
     if isinstance(sport, str) and sport not in RUN_SPORTS:
         label = sport.replace("_", " ")
         raise FitError(f"Ce fichier décrit une sortie « {label} », pas une course à pied.")

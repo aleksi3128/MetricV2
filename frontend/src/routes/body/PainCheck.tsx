@@ -10,7 +10,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Button, Skeleton } from '@/components/ui';
-import type { Run } from '@/features/activity/api';
 import { painApi } from '@/features/pain/api';
 import { ApiError } from '@/lib/api';
 import { keys } from '@/lib/query';
@@ -20,7 +19,18 @@ import styles from './Pain.module.css';
 import { PainForm } from './PainForm';
 import { useInvalidatePain } from './shared';
 
-export function PainCheck({ run, today, onDone }: { run: Run; today: string; onDone: () => void }) {
+export function PainCheck({
+  date,
+  activityId,
+  today,
+  onDone,
+}: {
+  /** Le jour de la séance, et son identifiant **stable** — `run_id`, `other_id`. */
+  date: string;
+  activityId: string;
+  today: string;
+  onDone: () => void;
+}) {
   const [answer, setAnswer] = useState<'ask' | 'yes'>('ask');
   const invalidate = useInvalidatePain();
   const { notify } = useToast();
@@ -29,7 +39,7 @@ export function PainCheck({ run, today, onDone }: { run: Run; today: string; onD
   const view = useQuery({ queryKey: keys.body.pain(), queryFn: () => painApi.view() });
 
   const none = useMutation({
-    mutationFn: () => painApi.none(run.date, run.run_id),
+    mutationFn: () => painApi.none(date, activityId),
     onSuccess: () => {
       invalidate();
       onDone();
@@ -43,7 +53,7 @@ export function PainCheck({ run, today, onDone }: { run: Run; today: string; onD
       <PainForm
         today={today}
         source="import"
-        runId={run.run_id}
+        runId={activityId}
         zones={view.data?.zones}
         baselines={view.data?.baselines}
         onDone={(saved) => {
@@ -56,7 +66,7 @@ export function PainCheck({ run, today, onDone }: { run: Run; today: string; onD
 
   return (
     <div className={styles.form}>
-      <p className={styles.lead}>Une douleur pendant ou après cette sortie ?</p>
+      <p className={styles.lead}>Une douleur pendant ou après cette séance ?</p>
       <div className={styles.actions}>
         <Button
           variant="primary"

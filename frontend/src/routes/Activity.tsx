@@ -31,6 +31,7 @@ import styles from './Activity.module.css';
 import { ActivitySheet, type SheetTarget } from './activity/ActivitySheet';
 import { NewActivitySheet } from './activity/NewActivitySheet';
 import { SwimEntrySheet } from './activity/SwimEntrySheet';
+import { OtherSheet } from './activity/OtherSheet';
 import { SwimSheet } from './planning/SwimSheet';
 import { AppleImport } from './activity/AppleImport';
 import { CircuitsSection } from './activity/Circuits.section';
@@ -56,6 +57,8 @@ export function Activity() {
   const [swimEntry, setSwimEntry] = useState<{ editing: SwimDetail | null } | null>(null);
   /** La natation ouverte dans sa feuille, par son identifiant stable. */
   const [swimOpened, setSwimOpened] = useState<string | null>(null);
+  /** Une sortie vélo ou marche ouverte pour noter son effort (`docs/charge-multisport.md`). */
+  const [otherOpened, setOtherOpened] = useState<ActivityItem | null>(null);
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.activity.overview(),
@@ -75,7 +78,9 @@ export function Activity() {
         ? activityApi.deleteRun(item.id, item.token)
         : item.kind === 'swim'
           ? activityApi.deleteSwim(item.id, item.token)
-          : activityApi.deleteSession(item.id, item.token),
+          : item.kind === 'other'
+            ? activityApi.deleteOther(item.id, item.token)
+            : activityApi.deleteSession(item.id, item.token),
     onSuccess: () => {
       invalidate();
       notify('Activité supprimée.', 'signal');
@@ -164,6 +169,10 @@ export function Activity() {
             setSwimOpened(row.swim_id);
             return;
           }
+          if (row.kind === 'other') {
+            setOtherOpened(row);
+            return;
+          }
           void navigate(`/activite/course/${String(row.id)}`);
         }}
         onEdit={(row) => {
@@ -184,6 +193,13 @@ export function Activity() {
           <AppleImport today={today} />
         </>
       )}
+
+      <OtherSheet
+        item={otherOpened}
+        onClose={() => {
+          setOtherOpened(null);
+        }}
+      />
 
       <SwimSheet
         swimId={swimOpened}

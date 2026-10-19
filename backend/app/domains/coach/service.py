@@ -78,6 +78,11 @@ class CoachService:
 
         sessions = await RunTrendsService(self._store).sessions(today)
         pain, pain_text = await PainService(self._store).level(today)
+        from app.domains.training.service import TrainingService
+
+        training = TrainingService(self._store)
+        overall = await training.summary(today)
+        jumps = [item.text for item in await training.findings(today)]
         readiness = await MorningService(self._store).readiness(today)
         sets = await CircuitSessionService(self._store).sets()
         planned = await PlanningService(self._store).between(today, today + timedelta(days=8))
@@ -110,6 +115,9 @@ class CoachService:
             long_decoupling=long_decoupling,
             pain=pain,
             pain_text=pain_text,
+            global_ratio=overall.ratio,
+            global_ratio_text=overall.ratio_text,
+            volume_jumps=jumps,
         )
 
     # ── Proposer ──────────────────────────────────────

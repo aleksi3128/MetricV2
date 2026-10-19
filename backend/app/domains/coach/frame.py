@@ -43,6 +43,8 @@ HOLD_WINDOW_DAYS = 28
 SPEED_EXPONENT = 1.06
 ENDURANCE_EXPONENT = 1.12
 LONG_RUN_MIN = 60
+#: Le rapport tous sports au-delà duquel on ne fait que du facile — celui de `banister.py`.
+RATIO_GLOBAL_EASY_ONLY = 1.5
 DECOUPLING_LIMIT = 5.0
 
 
@@ -74,6 +76,12 @@ class State:
     #: L'épisode de douleur ouvert le plus sévère (`docs/douleurs.md` §4) et sa phrase.
     pain: str = "none"
     pain_text: str = ""
+    #: Le rapport aigu/chronique **tous sports** et sa phrase (`docs/charge-multisport.md`,
+    #: D11) : la course seule ne voyait pas une semaine de natation et de circuits.
+    global_ratio: float | None = None
+    global_ratio_text: str = ""
+    #: Les sauts de volume de la dernière sortie (`training/volume.py`), en phrases.
+    volume_jumps: Sequence[str] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +179,13 @@ def build(state: State) -> Frame:
         reasons.append("La forme de ce matin allège la séance du jour.")
     # Une douleur ouverte passe avant le plan (principe 5 du cahier) : adaptée, elle laisse
     # du facile sans hausse de volume ; à l'arrêt, elle ne laisse que le repos.
+    if state.global_ratio is not None and state.global_ratio >= RATIO_GLOBAL_EASY_ONLY:
+        easy_only = True
+        reasons.append(state.global_ratio_text)
+    if state.volume_jumps:
+        hold = True
+        reasons.extend(state.volume_jumps)
+        reasons.append("Après un saut de volume, pas de nouvelle hausse.")
     pain_stop = state.pain == "stop"
     if state.pain in ("adapt", "stop"):
         easy_only = hold = True

@@ -190,6 +190,62 @@ async function chooseFit(): Promise<void> {
 }
 
 describe('ajouter une sortie par un .fit', () => {
+  it('réaiguille un vélo sur son code, puis demande l’effort et la douleur', async () => {
+    const ride = {
+      id: 0,
+      token: 'tv',
+      other_id: 'v1',
+      date: '2026-09-11',
+      start: '07:00:00',
+      sport: 'vélo',
+      duration_min: 62,
+      distance_km: 21.4,
+      avg_hr: 128,
+      max_hr: 151,
+      elevation_m: 180,
+      calories: 640,
+      rpe: null,
+      source: 'fit',
+      note: null,
+    };
+    const mock = stub((url) => {
+      if (url.includes('/api/ai/status')) return json(200, { enabled: true, message: 'ok' });
+      if (url.includes('/api/activity/runs/fit')) {
+        return json(422, {
+          code: 'fit_is_other',
+          message: 'Ce fichier décrit une sortie « vélo ».',
+        });
+      }
+      if (url.includes('/api/activity/others/fit')) return json(201, ride);
+      if (url.includes('/others/0/rpe')) return json(200, { ...ride, rpe: 4 });
+      return json(200, {});
+    });
+    const { onClose } = renderSheet();
+
+    await chooseFit();
+    expect(await screen.findByText(/Sortie importée : vélo, 21,4 km/)).toBeInTheDocument();
+    // Le refus du serveur ne s'affiche pas : c'était un aiguillage.
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    const scale = screen.getByRole('group', { name: 'Effort perçu, de 1 à 10' });
+    await userEvent.click(within(scale).getByRole('button', { name: '4' }));
+    const rated = mock.mock.calls.find(([url]) => String(url).includes('/others/0/rpe'));
+    expect(new Headers((rated?.[1] as RequestInit | undefined)?.headers).get('If-Match')).toBe(
+      'tv',
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Non' }));
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    const declared = mock.mock.calls.find(([url]) => String(url).includes('/api/pain/none'));
+    const body = (declared?.[1] as RequestInit | undefined)?.body;
+    expect(typeof body === 'string' ? (JSON.parse(body) as unknown) : null).toEqual({
+      date: '2026-09-11',
+      run_id: 'v1',
+    });
+  });
+
   it('écrit la course sans passer par le formulaire, puis demande l’effort perçu', async () => {
     const mock = stub((url) => {
       if (url.includes('/api/ai/status')) return json(200, { enabled: true, message: 'ok' });
@@ -243,7 +299,7 @@ describe('ajouter une sortie par un .fit', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Plus tard' }));
     // L'effort passé, la douleur est quand même demandée ; on peut la passer aussi.
     expect(onClose).not.toHaveBeenCalled();
-    await screen.findByText('Une douleur pendant ou après cette sortie ?');
+    await screen.findByText('Une douleur pendant ou après cette séance ?');
     await userEvent.click(screen.getByRole('button', { name: 'Plus tard' }));
 
     expect(onClose).toHaveBeenCalled();

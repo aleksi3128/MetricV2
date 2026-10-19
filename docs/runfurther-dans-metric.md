@@ -108,7 +108,7 @@ qu'il doit d'abord protéger.
 |---|---|---|---|---|
 | **R0** | Prototypes des deux paris restants : Garmin non officiel (lire une activité, créer un entraînement), transcription vocale française. Push et WebDAV sont **déjà prouvés** dans Metric | P0 | Les deux marchent, ou le plan B est écrit | S |
 | **R1** ✅ | Domaine `pain` : relevé de douleur après séance (texte d'abord), relance à J+1, réponse **graduée** par règles pures et non forçables (Silbernagel), aucun diagnostic — [`douleurs.md`](douleurs.md) | MED-01, 02, 05, 06 | CA-09 | M |
-| **R2** | Charge multisport : RPE sur toute séance, sRPE, CTL/ATL/TSB (Banister), rapport aigu/chronique en moyennes exponentielles, monotonie et contrainte (Foster), progression sur 1 et 2 semaines (Nielsen). Import vélo et marche | ANA-04, MSP-01, 02 | CA-02 | L |
+| **R2** ✅ | Charge multisport : RPE sur toute séance, sRPE, CTL/ATL/TSB (Banister), rapport aigu/chronique en moyennes exponentielles, monotonie et contrainte (Foster), progression sur 1 et 2 semaines (Nielsen). Import vélo et marche — [`charge-multisport.md`](charge-multisport.md) | ANA-04, MSP-01, 02 | CA-02 | L |
 | **R3** | Notifications v3 : trois priorités, heures calmes, critique qui traverse, relances du soir et report, alertes de charge et de douleur | NOT-02→06 | CA-06 | M |
 | **R4** | Patterns de douleur : douleur × allure, volume, chaussure, terrain, côté — sur le moteur de `correlations.py` ; alerte quand un pattern apparaît | MED-04, ANA-05 | CA-01 | M |
 | **R5** | Objectifs de course A/B/C, plan **périodisé** calculé par règles (phases, plafonds Nielsen, 80/20 Seiler, affûtage Bosquet) ; le modèle choisit **dans** le cadre, comme le coach du matin. Notation course | PLN-02, 05, 08 | CA-05, CA-07 | L |

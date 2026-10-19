@@ -69,6 +69,9 @@ RUN_WEATHER = "activity/run_weather.csv"
 #: (`docs/planning-natation.md` §6.3). Le fichier lui-même est rangé avec ceux des courses,
 #: sous `RUN_FITS` : un `.fit` est un `.fit`, et un seul dossier se sauvegarde d'un geste.
 SWIMS = "activity/swims.csv"
+#: Le vélo, la marche, la randonnée (`docs/charge-multisport.md`, D8) : comptés dans la charge
+#: globale, pas analysés. Leurs `.fit` vont sous `RUN_FITS`, comme ceux de la nage.
+OTHERS = "activity/others.csv"
 SWIM_LAPS = "activity/swim_laps.csv"
 
 

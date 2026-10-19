@@ -37,9 +37,32 @@ function rpeWord(rpe: number): string {
 }
 
 export function RateRun({ run, onRated }: { run: Run; onRated?: (run: Run) => void }) {
+  return (
+    <RateEffort
+      current={run.rpe}
+      rate={(rpe) => activityApi.setRunRpe(run.id, run.token, rpe)}
+      onRated={onRated}
+    />
+  );
+}
+
+/**
+ * La même échelle pour tout ce qui se note — une course, une nage, une sortie à vélo
+ * (`docs/charge-multisport.md`) : trois échelles finiraient par ne plus dire la même chose.
+ * L'appelant dit **quoi** écrire ; ce composant dit comment le demander.
+ */
+export function RateEffort<T>({
+  current,
+  rate: write,
+  onRated,
+}: {
+  current: number | null;
+  rate: (rpe: number) => Promise<T>;
+  onRated?: ((saved: T) => void) | undefined;
+}) {
   const invalidate = useInvalidateActivity();
   const rate = useMutation({
-    mutationFn: (rpe: number) => activityApi.setRunRpe(run.id, run.token, rpe),
+    mutationFn: write,
     onSuccess: (updated) => {
       invalidate();
       onRated?.(updated);
@@ -47,7 +70,7 @@ export function RateRun({ run, onRated }: { run: Run; onRated?: (run: Run) => vo
   });
   // Après un échec, l'échelle revient à la note enregistrée : afficher celle qu'on a
   // tentée laisserait croire qu'elle l'est.
-  const shown = rate.isError ? run.rpe : (rate.variables ?? run.rpe);
+  const shown = rate.isError ? current : (rate.variables ?? current);
 
   return (
     <div className={styles.rate}>

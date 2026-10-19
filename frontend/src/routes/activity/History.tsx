@@ -34,6 +34,7 @@ function removalLabel(row: ActivityItem): string {
   const day = shortDate(row.date);
   if (row.kind === 'run') return `Supprimer la course du ${day}`;
   if (row.kind === 'swim') return `Supprimer la natation du ${day} et ses tours`;
+  if (row.kind === 'other') return `Supprimer la sortie ${row.label.toLowerCase()} du ${day}`;
   return `Supprimer la séance « ${row.label} » du ${day} et ses séries`;
 }
 
@@ -101,6 +102,16 @@ function HistoryRow({
           {row.kind === 'swim' && (
             <Chip aria-label={`Voir la natation du ${shortDate(row.date)}`} onClick={onOpen}>
               détail
+            </Chip>
+          )}
+          {/* Vélo, marche : rien à analyser, l'effort perçu seul à donner — et il se voit
+              tant qu'il manque, puisque c'est lui qui fait compter la sortie. */}
+          {row.kind === 'other' && (
+            <Chip
+              aria-label={`Effort de la sortie ${row.label.toLowerCase()} du ${shortDate(row.date)}`}
+              onClick={onOpen}
+            >
+              {row.rpe === null ? 'noter' : `effort ${String(row.rpe)}`}
             </Chip>
           )}
           {row.kind === 'run' && (

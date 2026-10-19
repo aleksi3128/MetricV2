@@ -37,6 +37,7 @@ from app.domains import (
     pain,
     planning,
     supplements,
+    training,
 )
 
 #: Routes accessibles sans jeton.
@@ -65,6 +66,7 @@ for domain in (
     assistant,
     notifications,
     app_settings,
+    training,
 ):
     protected_router.include_router(domain.router)
 
@@ -89,5 +91,6 @@ PROTECTED_PREFIXES = tuple(
         assistant,
         notifications,
         app_settings,
+        training,
     )
 )

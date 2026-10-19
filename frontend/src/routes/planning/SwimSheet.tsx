@@ -20,6 +20,7 @@ import { dayMonth, hoursMinutes, meters, swimClock } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { RateEffort } from '../activity/run/Rate';
 import styles from '../Planning.module.css';
 import { SwimDoneView } from './SwimProgram';
 
@@ -197,6 +198,15 @@ export function SwimSheet({
           )}
 
           <SwimDoneView lines={data.lines} />
+
+          {/* L'effort perçu : sans lui, la nage ne compte pas dans la charge globale
+              (`docs/charge-multisport.md`, D9). */}
+          <h4 className={styles.sheetHeading}>Effort perçu</h4>
+          <RateEffort
+            current={data.rpe}
+            rate={(rpe) => activityApi.setSwimRpe(data.id, data.token, rpe)}
+            onRated={refresh}
+          />
 
           {data.note !== null && <p className={styles.note}>{data.note}</p>}
 

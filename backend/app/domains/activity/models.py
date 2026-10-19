@@ -484,6 +484,9 @@ class SwimRow(CsvModel):
     #: Vide pour une natation importée, dont ce sont les tours qui disent la séance.
     program: str = ""
     note: str = ""
+    #: Effort perçu 1–10, noté comme une course (`docs/charge-multisport.md`, D9) : c'est
+    #: lui qui fait entrer la nage dans la charge globale.
+    rpe: int | None = None
 
 
 class SwimLapRow(CsvModel):
@@ -509,3 +512,31 @@ class SwimLapRow(CsvModel):
     avg_hr: int | None = None
     max_hr: int | None = None
     suspect: bool = False
+
+
+class OtherRow(CsvModel):
+    """Une sortie à vélo, à pied ou en randonnée. `activity/others.csv`.
+
+    Famille *mesure*, comme `runs.csv` et `swims.csv`. Comptée dans la charge globale
+    (`docs/charge-multisport.md`, D8), jamais dans les distances de course : `runs.csv`
+    nourrit les records et les bandes de distance, et un vélo y fausserait les trois.
+    """
+
+    #: Identifiant stable — la douleur d'une sortie s'y rattache.
+    other_id: str
+    date: date
+    start: time | None = None
+    #: `vélo`, `marche` ou `randonnée`.
+    sport: str = "marche"
+    duration_min: float
+    distance_km: float | None = None
+    avg_hr: int | None = None
+    max_hr: int | None = None
+    elevation_m: int | None = None
+    calories: int | None = None
+    #: Effort perçu 1–10 : sans lui, la sortie ne compte pas dans la charge globale.
+    rpe: int | None = None
+    fit_path: str = ""
+    #: `fit` ou `manual`.
+    source: str = "manual"
+    note: str = ""

@@ -44,7 +44,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { Button, Field, Sheet, Stepper } from '@/components/ui';
-import { activityApi, type Run, type SwimDetail } from '@/features/activity/api';
+import { activityApi, type Other, type Run, type SwimDetail } from '@/features/activity/api';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
@@ -54,7 +54,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import { PainCheck } from '../body/PainCheck';
-import { RateRun } from './run/Rate';
+import { RateEffort, RateRun } from './run/Rate';
 import styles from '../Activity.module.css';
 import { useInvalidateActivity } from './shared';
 
@@ -143,6 +143,8 @@ function RunWizard({
   const [imported, setImported] = useState<Run | null>(null);
   /** L'effort perçu donné ou passé : la feuille demande alors la douleur. */
   const [rated, setRated] = useState(false);
+  /** Une sortie vélo ou marche qu'un `.fit` vient d'écrire : même suite qu'une course. */
+  const [other, setOther] = useState<Other | null>(null);
 
   const save = useMutation({
     mutationFn: () =>
@@ -174,11 +176,51 @@ function RunWizard({
     if (name === 'pace_min_km') setEdited('pace');
   };
 
+  if (other !== null) {
+    if (rated) {
+      return (
+        <PainCheck date={other.date} activityId={other.other_id} today={today} onDone={onDone} />
+      );
+    }
+    return (
+      <div className={styles.form}>
+        <p className={styles.imported}>
+          Sortie importée : {other.sport}
+          {other.distance_km !== null ? `, ${num(other.distance_km, 1)} km` : ''}. Comment l’as-tu
+          ressentie ?
+        </p>
+        <RateEffort
+          current={other.rpe}
+          rate={(rpe) => activityApi.setOtherRpe(other.id, other.token, rpe)}
+          onRated={(updated) => {
+            notify(`Effort perçu noté : ${String(updated.rpe)}/10.`, 'effort');
+            setRated(true);
+          }}
+        />
+        <Button
+          variant="quiet"
+          onClick={() => {
+            setRated(true);
+          }}
+        >
+          Plus tard
+        </Button>
+      </div>
+    );
+  }
+
   if (imported !== null) {
     // Après l'effort perçu, la douleur (`docs/douleurs.md`, D1) — même passé, l'effort ne
     // dispense pas de la question : c'est elle qui protège la séance suivante.
     if (rated) {
-      return <PainCheck run={imported} today={today} onDone={onDone} />;
+      return (
+        <PainCheck
+          date={imported.date}
+          activityId={imported.run_id}
+          today={today}
+          onDone={onDone}
+        />
+      );
     }
     return (
       <div className={styles.form}>
@@ -229,6 +271,11 @@ function RunWizard({
           notify(`Natation importée : ${meters(swim.distance_m)}.`, 'effort');
           onDone();
           void navigate(`/planning?jour=${swim.date}`);
+        }}
+        onOtherImported={(other) => {
+          invalidate();
+          notify(`Sortie importée : ${other.sport}.`, 'effort');
+          setOther(other);
         }}
         onRead={(draft) => {
           setFields((current) => ({
@@ -409,6 +456,7 @@ function AppleStep({
   onBack,
   onImported,
   onSwimImported,
+  onOtherImported,
 }: {
   today: string;
   enabled: boolean;
@@ -418,6 +466,8 @@ function AppleStep({
   onImported: (run: Run) => void;
   /** Le fichier était une natation : le serveur l'a dit par son code, et elle est importée. */
   onSwimImported: (swim: SwimDetail) => void;
+  /** Du vélo, de la marche, une randonnée : même réaiguillage, sur `fit_is_other`. */
+  onOtherImported: (other: Other) => void;
 }) {
   const { notify } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -472,6 +522,16 @@ function AppleStep({
     },
   });
 
+  const importOther = useMutation({
+    mutationFn: (chosen: File) => activityApi.importOtherFit(chosen),
+    onSuccess: onOtherImported,
+    onError: (caught: unknown) => {
+      setRefused(
+        caught instanceof ApiError ? caught.message : 'Ce fichier .fit n’a pas pu être lu.',
+      );
+    },
+  });
+
   const importFit = useMutation({
     mutationFn: (chosen: File) => activityApi.importFit(chosen),
     onSuccess: onImported,
@@ -480,6 +540,10 @@ function AppleStep({
       // l'import de la nage sans que l'utilisateur ait à savoir qu'il y en a deux.
       if (caught instanceof ApiError && caught.code === 'fit_is_swim') {
         importSwim.mutate(chosen);
+        return;
+      }
+      if (caught instanceof ApiError && caught.code === 'fit_is_other') {
+        importOther.mutate(chosen);
         return;
       }
       setRefused(
@@ -513,7 +577,7 @@ function AppleStep({
         }}
       />
       <label htmlFor="run-fit" className={styles.drop}>
-        {importFit.isPending || importSwim.isPending
+        {importFit.isPending || importSwim.isPending || importOther.isPending
           ? 'lecture du fichier…'
           : 'importer un fichier .fit'}
       </label>

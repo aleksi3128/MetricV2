@@ -123,7 +123,11 @@ def test_a_truncated_file_says_so_instead_of_failing() -> None:
 def test_a_ride_is_refused_in_so_many_words() -> None:
     """`runs.csv` nourrit les bandes de distance, le volume mensuel et les records des
     rappels. Y écrire une sortie vélo fausserait les trois sans qu'aucun écran ne le dise."""
-    with pytest.raises(fit.FitError, match="cycling"):
+    with pytest.raises(fit.FitError, match="rowing"):
+        fit.read(run_file(start=yesterday_at(), sport="rowing"))
+    # Le vélo, lui, a désormais sa place — `others.csv` (`docs/charge-multisport.md`, D8) —
+    # mais jamais dans `runs.csv` : il est refusé ici par un code qui le réaiguille.
+    with pytest.raises(fit.FitIsOtherError, match="vélo"):
         fit.read(run_file(start=yesterday_at(), sport="cycling"))
 
     # Un sport **absent** passe : certains exports n'écrivent pas le champ, et refuser sur
@@ -296,11 +300,13 @@ def test_two_outings_on_the_same_day_both_pass(
 def test_a_ride_is_refused_with_a_french_message(
     app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
 ) -> None:
-    response = import_fit(app_client, auth, run_file(start=yesterday_at(), sport="cycling"))
+    response = import_fit(app_client, auth, run_file(start=yesterday_at(), sport="rowing"))
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
     assert "course à pied" in response.json()["message"]
+    ride = import_fit(app_client, auth, run_file(start=yesterday_at(), sport="cycling"))
+    assert ride.json()["code"] == "fit_is_other"
     # Rien n'est monté sur le stockage : le fichier est refusé avant d'être rangé.
     assert not [path for path in dav.files if path.startswith("Metric/activity/fit/")]
 

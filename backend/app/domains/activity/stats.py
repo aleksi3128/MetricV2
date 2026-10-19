@@ -15,7 +15,14 @@ from datetime import date, timedelta
 
 from app.core.dates import week_start
 from app.core.parsing import pace_min_per_km
-from app.domains.activity.models import CircuitSessionRow, MuscleGroup, RunRow, SwimRow
+from app.domains.activity.models import (
+    CircuitSessionRow,
+    MuscleGroup,
+    OtherRow,
+    RunRow,
+    SwimRow,
+)
+from app.domains.activity.others import OtherService
 from app.domains.activity.schemas import (
     ActivityItem,
     ActivityOverview,
@@ -73,6 +80,12 @@ def _swims_of(rows: Sequence[SwimRow]) -> list[_Session]:
     return [_Session(date=row.date, duration_min=row.duration_s / 60) for row in rows]
 
 
+def _others_of(rows: Sequence[OtherRow]) -> list[_Session]:
+    """Le vélo et la marche comptent dans les minutes de la semaine, comme une nage
+    (MSP-01) — jamais dans ses kilomètres, qui restent ceux de la course."""
+    return [_Session(date=row.date, duration_min=row.duration_min) for row in rows]
+
+
 def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
 
@@ -84,6 +97,7 @@ class ActivityStats:
         self._runs = RunService(store)
         self._tabata = CircuitSessionService(store)
         self._swims = SwimService(store)
+        self._others = OtherService(store)
 
     async def _sessions(self) -> tuple[list[_Session], list[_Session]]:
         """Les séances qui comptent comme des séances : tabatas, puis natations."""
@@ -118,9 +132,14 @@ class ActivityStats:
         done = await self._tabata.all()
         swim_records = await self._swims.records()
         swim_rows = [row.model for row in swim_records]
+        other_records = await self._others.records()
 
         current = week_start(today)
-        history = _sessions_of(done) + _swims_of(swim_rows)
+        history = (
+            _sessions_of(done)
+            + _swims_of(swim_rows)
+            + _others_of([row.model for row in other_records])
+        )
         minutes, sessions = self._per_day(runs, history)
 
         return ActivityOverview(
@@ -129,8 +148,8 @@ class ActivityStats:
             days=self._days(minutes, current),
             weeks=self._weeks(minutes, sessions, current),
             neglected=self._neglected(await self._tabata.sets(), today),
-            history=self._history(runs, done, swim_records)[:limit],
-            total=len(runs) + len(done) + len(swim_rows),
+            history=self._history(runs, done, swim_records, other_records)[:limit],
+            total=len(runs) + len(done) + len(swim_rows) + len(other_records),
         )
 
     # ── Totaux d'entraînement (`AGG-02`) ──────────────
@@ -383,6 +402,7 @@ class ActivityStats:
         runs: list[Row[RunRow]],
         done: Sequence[Row[CircuitSessionRow]],
         swims: Sequence[Row[SwimRow]] = (),
+        others: Sequence[Row[OtherRow]] = (),
     ) -> list[ActivityItem]:
         items: list[ActivityItem] = []
 
@@ -438,6 +458,22 @@ class ActivityStats:
                     distance_m=swim.distance_m,
                     swim_id=swim.swim_id,
                     source=swim.source,
+                )
+            )
+
+        for entry in others:
+            other = entry.model
+            items.append(
+                ActivityItem(
+                    kind="other",
+                    id=entry.index,
+                    token=entry.token,
+                    date=other.date,
+                    label=other.sport.capitalize(),
+                    duration_min=other.duration_min,
+                    distance_km=other.distance_km,
+                    rpe=other.rpe,
+                    source=other.source,
                 )
             )
 

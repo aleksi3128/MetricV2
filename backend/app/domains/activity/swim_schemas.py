@@ -58,6 +58,8 @@ class Swim(BaseModel):
     pace_100_s: float | None = None
     #: Tours marqués douteux. Le dire à côté du total, c'est dire que le total est fragile.
     suspect_laps: int = 0
+    #: Effort perçu 1–10 — absent tant qu'il n'est pas noté.
+    rpe: int | None = None
     lines: list[SwimDoneLine] = Field(default_factory=list)
     #: `fit` ou `manual`. Une natation saisie se corrige d'un bloc ; une importée, au tour.
     source: str = "fit"

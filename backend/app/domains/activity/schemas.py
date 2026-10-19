@@ -961,7 +961,7 @@ class Exercise(BaseModel):
 class ActivityItem(BaseModel):
     """Ligne de l'historique fusionné courses + séances + natations (`ACT-13`)."""
 
-    kind: str = Field(description="« run », « workout » ou « swim »")
+    kind: str = Field(description="« run », « workout », « swim » ou « other »")
     id: int
     token: str
     date: date
