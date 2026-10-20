@@ -29,6 +29,7 @@ import { NavLink, useNavigate } from 'react-router';
 import { Sheet, SheetGroup, SheetRow } from '@/components/ui';
 import {
   IconActivity,
+  IconBook,
   IconCalendar,
   IconFlag,
   IconChat,
@@ -71,6 +72,7 @@ const MORE = [
     entries: [
       { to: '/corps', label: 'Poids & mensurations', icon: IconScale },
       { to: '/routine', label: 'Hydratation & suppléments', icon: IconDroplet },
+      { to: '/dossier', label: 'Dossier médical', icon: IconBook },
     ],
   },
   {

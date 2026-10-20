@@ -96,6 +96,9 @@ export const keys = {
     screen: () => ['heatmap', 'grid', 'all'] as const,
     day: (track: string, day: string) => ['heatmap', 'day', track, day] as const,
   },
+  medical: {
+    all: () => ['medical'] as const,
+  },
   sync: {
     all: () => ['sync'] as const,
   },

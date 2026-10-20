@@ -97,6 +97,11 @@ class Settings(BaseSettings):
     # consultable, modifiable et téléchargeable sous jeton.
     ical_secret: str = ""
 
+    # ── Dossier médical (`docs/dossier-medical.md`) ──
+    # 32 octets en base64, produits par « make medical-key ». Vide : le dossier est fermé.
+    # **Jamais** sur Nextcloud : c'est ce qui fait que le dossier y est illisible.
+    medical_key: str = ""
+
     # ── Garmin Connect, voie non officielle (`docs/synchro-garmin.md`) ──
     # Vides : la synchro est hors service et l'import `.fit` reste la voie (CA-08).
     garmin_email: str = ""

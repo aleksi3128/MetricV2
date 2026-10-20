@@ -254,6 +254,33 @@ class ProductLookupUnavailableError(MetricError):
 # ── Notifications push (`NOT-01`) ─────────────────────
 
 
+class MedicalNotConfiguredError(MetricError):
+    """Aucune clé de chiffrement du dossier médical (`docs/dossier-medical.md`, D3).
+
+    Le dossier est **fermé**, pas dégradé : rien ne s'écrit en clair en attendant une clé.
+    Le message dit comment la produire.
+    """
+
+    code = "medical_not_configured"
+    status_code = 503
+    message = (
+        "Le dossier médical est fermé : il est chiffré, et aucune clé n'est configurée. "
+        "Génère-la avec « make medical-key », renseigne MEDICAL_KEY, et garde-la sur papier — "
+        "perdue, elle rend le dossier illisible."
+    )
+
+
+class MedicalKeyError(MetricError):
+    """Une entrée qui ne s'ouvre pas avec la clé configurée — clé changée, ou ligne abîmée."""
+
+    code = "medical_key_mismatch"
+    status_code = 500
+    message = (
+        "Une entrée du dossier ne s'ouvre pas avec la clé configurée. La clé a-t-elle "
+        "changé ? Rien n'a été modifié."
+    )
+
+
 class PushNotConfiguredError(MetricError):
     """Aucune paire de clés VAPID en configuration (`NOT-01`).
 

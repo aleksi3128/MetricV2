@@ -154,6 +154,11 @@ class ReplanService:
 
     # ── Lire et répondre ──────────────────────────────
 
+    async def recent(self, count: int = 5) -> list[tuple[ChangeRow, PlanChange]]:
+        """Les dernières décisions du coach, réponses comprises — sa mémoire (COA-03)."""
+        rows = [row.model for row in await self._journal.read_all()]
+        return [(row, self.view(row)) for row in rows[-count:]][::-1]
+
     async def pending(self) -> list[PlanChange]:
         return [
             self.view(row.model)

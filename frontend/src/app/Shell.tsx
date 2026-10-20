@@ -47,6 +47,7 @@ const NAV = [
   { to: '/routine', label: 'Routine', end: false },
   { to: '/objectif', label: 'Objectif', end: false },
   { to: '/corps', label: 'Corps', end: false },
+  { to: '/dossier', label: 'Dossier', end: false },
   { to: '/planning', label: 'Planning', end: false },
   { to: '/plan', label: 'Plan', end: false },
   { to: '/assiduite', label: 'Assiduité', end: false },

@@ -1,0 +1,88 @@
+/* Le dossier médical (`docs/dossier-medical.md`). Mobile d'abord ; aucune couleur en dur. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-top: var(--s2);
+}
+
+/* Le même libellé que celui d'un `Field` : « Nature » voisine « Titre » et « Date ». */
+.label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+/*
+ * Une nature et ses entrées. La règle y est première, et `.rule:first-child` lui ôte sa
+ * marge haute : sans la lui rendre, l'intertitre collait à la carte d'au-dessus et
+ * flottait loin de la sienne.
+ */
+.group > :global(.rule:first-child) {
+  margin-top: var(--s4);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list > li {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s2);
+  min-height: var(--tap);
+  justify-content: center;
+}
+
+.meta {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.details {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.error {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.finish {
+  min-height: var(--tap-lg);
+}

@@ -9,7 +9,7 @@ UVICORN := backend/.venv/bin/uvicorn
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-api setup-web console dev dev-lan dev-api dev-web preview \
         check check-api check-web test test-api test-web eval fmt fmt-check build fonts \
-        check-storage hash-password vapid-keys update clean
+        check-storage hash-password vapid-keys medical-key update clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -124,6 +124,9 @@ hash-password: ## Generate the Argon2id hash to paste into .env (AUTH-08)
 
 vapid-keys: ## Generate the Web Push key pair to paste into .env (NOT-01)
 	cd backend && .venv/bin/python -m app.scripts.vapid_keys
+
+medical-key: ## Generate the medical record encryption key to paste into .env (MED-03)
+	cd backend && .venv/bin/python -m app.scripts.medical_key
 
 # ── Deployment ─────────────────────────────────────
 #

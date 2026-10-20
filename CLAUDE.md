@@ -52,6 +52,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | L'agenda iCloud lu par son lien ICS, le placement, et le coach qui replanifie — et le « non » qui défait | [`docs/agenda-replanification.md`](docs/agenda-replanification.md) |
 | La synchro Garmin (voie non officielle), la santé de la nuit, et les doublons entre sources | [`docs/synchro-garmin.md`](docs/synchro-garmin.md) |
 | La voix — dicter à l'assistant, écouter ses réponses, une douleur dite à voix haute | [`docs/voix.md`](docs/voix.md) |
+| Le dossier médical chiffré — la clé hors de Nextcloud, la dictée proposée, ce que le coach en lit | [`docs/dossier-medical.md`](docs/dossier-medical.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -185,8 +186,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (307 fichiers), 2 264 tests backend
-               # prettier, eslint, tsc, 776 tests d'écran
+make check     # ruff, ruff format, mypy (316 fichiers), 2 275 tests backend
+               # prettier, eslint, tsc, 780 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

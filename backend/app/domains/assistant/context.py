@@ -234,6 +234,30 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
         [f"Douleur ouverte depuis le {item.opened:%d/%m/%Y} : {item.text}" for item in opened]
         or ["Douleur ouverte : aucune notée"]
     )
+    # Le dossier médical, **en titres seulement** et de quatre natures (`docs/dossier-
+    # medical.md`, D7) : le minimum utile, jamais les détails ni les praticiens. Fermé —
+    # sans clé —, il ne dit rien, et ne fait pas tomber le reste.
+    from app.config import get_settings
+    from app.core.exceptions import MedicalKeyError, MedicalNotConfiguredError
+    from app.domains.medical.service import MedicalService
+
+    try:
+        dossier = await MedicalService(store, get_settings().medical_key).coach_lines()
+    except (MedicalNotConfiguredError, MedicalKeyError):
+        dossier = []
+    lines.extend(f"Dossier médical : {line}" for line in dossier)
+
+    # Les décisions passées du coach, et ce qui y a été répondu (COA-03, D8).
+    from app.domains.planning.replanning import ReplanService
+
+    answers = {"pending": "sans réponse", "accepted": "acceptée", "refused": "refusée, défaite"}
+    lines.extend(
+        f"Décision du coach du {row.created:%d/%m} : {view.summary} — {view.reason} "
+        f"({answers.get(view.status, view.status)})"
+        for row, view in await ReplanService(store).recent()
+        if row.created is not None
+    )
+
     # Les patterns établis (`docs/patterns-douleur.md`) : observés, jamais une cause.
     lines.extend(
         f"Pattern de douleur observé : {finding.text}"

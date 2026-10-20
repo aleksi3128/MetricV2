@@ -28,6 +28,9 @@ dependencies = [
   # Seul `WebPusher.encode` est appelé, qui ne fait aucune I/O ; l'envoi passe par httpx2
   # comme tout le reste, pour ne pas bloquer la boucle d'événements sur `requests`.
   "pywebpush>=2.0",
+  # Le dossier médical est scellé en AES-GCM (`docs/dossier-medical.md`) : importé
+  # directement, il est déclaré, même si `pywebpush` l'apportait déjà.
+  "cryptography>=42",
   # Décodage des fichiers `.fit` d'une sortie course (`docs/import-fit.md`, **F4**). Le
   # dépôt évite les dépendances, et l'exception se justifie autrement que pour
   # `pywebpush` : le format n'est pas dangereux à mal lire, il est **vaste** — un profil

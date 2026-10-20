@@ -17,6 +17,8 @@ MEASUREMENTS = "body/measurements.csv"
 MORNING = "body/morning.csv"
 #: Les relevés de douleur (`docs/douleurs.md` §2) — des mesures du corps, comme les matins.
 PAIN = "body/pain.csv"
+#: Le dossier médical, chaque entrée scellée (`docs/dossier-medical.md` §2).
+MEDICAL = "medical/entries.csv"
 #: La nuit et la journée vues par la montre : sommeil, stress, Body Battery
 #: (`docs/synchro-garmin.md`, D5). La FC de repos et la VFC restent dans `MORNING`.
 HEALTH = "body/health.csv"

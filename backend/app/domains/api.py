@@ -32,6 +32,7 @@ from app.domains import (
     heatmap,
     hydration,
     imports,
+    medical,
     morning,
     notifications,
     nutrition,
@@ -76,6 +77,7 @@ for domain in (
     training,
     races,
     sync,
+    medical,
 ):
     protected_router.include_router(domain.router)
 
@@ -104,5 +106,6 @@ PROTECTED_PREFIXES = tuple(
         training,
         races,
         sync,
+        medical,
     )
 )

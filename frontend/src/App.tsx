@@ -13,6 +13,7 @@ import { Assiduity } from '@/routes/Assiduity';
 import { Assistant } from '@/routes/Assistant';
 import { Body } from '@/routes/Body';
 import { Dashboard } from '@/routes/Dashboard';
+import { Dossier } from '@/routes/Dossier';
 import { Goals } from '@/routes/Goals';
 import { KitchenSink } from '@/routes/KitchenSink';
 import { Login } from '@/routes/Login';
@@ -49,6 +50,7 @@ export function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/corps" element={<Body />} />
+        <Route path="/dossier" element={<Dossier />} />
         <Route path="/activite" element={<Activity />} />
         {/* Les sous-pages d'Activité, et non des replis sans adresse. Elles n'entrent
             ni dans `NAV` ni dans `MORE` : on y arrive par un bouton de leur page mère,
