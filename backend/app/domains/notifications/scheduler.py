@@ -73,6 +73,9 @@ from app.domains.nutrition.service import NutritionService
 from app.domains.supplements.service import SupplementService
 from app.storage.files import FileStore
 
+#: Une passe de replanification toutes les quinze minutes au plus.
+REPLAN_EVERY = timedelta(minutes=15)
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,6 +118,9 @@ class ReminderScheduler:
         #: Signe le lien de report des relances du soir. Vide, la notification n'offre pas
         #: le report — il reste dans la feuille du soir (`docs/notifications-v3.md`, D6).
         self._secret = secret
+        #: La dernière passe de replanification : une toutes les quinze minutes suffit
+        #: (`docs/agenda-replanification.md` §4), l'agenda n'étant relu qu'à ce rythme.
+        self._replanned: datetime | None = None
         self._sender = sender
         self._now = now
         self._sleep = sleep
@@ -145,6 +151,7 @@ class ReminderScheduler:
 
         await self._alerts(service, moment)
         calm = quiet(moment, settings.quiet_start, settings.quiet_end)
+        await self._replan(service, moment, calm)
         if not calm:
             await self._evening(service, moment, settings)
         if calm:
@@ -262,6 +269,38 @@ class ReminderScheduler:
             )
             await service.record_escalation("alert", moment=moment, key=alert.key)
             logger.info("alerte %s envoyée", alert.key)
+
+    async def _replan(self, service: NotificationService, moment: datetime, calm: bool) -> None:
+        """Le coach modifie seul, et le dit (PLN-04). Une modification de **demain** est
+        critique (NOT-05) et passe les heures calmes ; les autres attendent le point du soir
+        si la nuit les a produites."""
+        if self._replanned is not None and moment - self._replanned < REPLAN_EVERY:
+            return
+        self._replanned = moment
+        from app.domains.planning.replanning import ReplanService
+
+        try:
+            applied = await ReplanService(self._store).run(moment)
+        except Exception:
+            logger.exception("replanification : passe impossible")
+            return
+        tomorrow = moment.date() + timedelta(days=1)
+        for entry in applied:
+            view = ReplanService.view(entry)
+            critical = view.date == tomorrow
+            if calm and not critical:
+                continue
+            await service.deliver(
+                self._sender,
+                {
+                    "title": "Séance de demain modifiée" if critical else "Planning modifié",
+                    "body": f"{view.summary}. {view.reason}",
+                    "tag": f"change-{entry.key}",
+                    "url": "/plan",
+                    "renotify": "1",
+                },
+            )
+            await service.record_escalation("alert", moment=moment, key=f"change:{entry.key}")
 
     async def _evening(
         self, service: NotificationService, moment: datetime, settings: EveningSettings

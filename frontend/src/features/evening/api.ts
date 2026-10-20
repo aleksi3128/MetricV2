@@ -5,6 +5,7 @@
  * ce que dit la journée. L'écran affiche et transmet les réponses.
  */
 
+import type { PlanChange } from '@/features/planning/api';
 import { request } from '@/lib/api';
 
 export interface DebriefItem {
@@ -35,6 +36,8 @@ export interface EveningFlow {
   debrief: DebriefItem[];
   pain: PainQuestion | null;
   tomorrow_lines: string[];
+  /** Ce que le coach a changé et qui attend un oui ou un non (PLN-04). */
+  changes: PlanChange[];
 }
 
 export const eveningApi = {

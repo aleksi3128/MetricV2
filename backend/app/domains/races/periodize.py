@@ -152,7 +152,7 @@ def build(
             "Monter plus vite exposerait aux blessures du débutant (Nielsen 2014)."
         )
     summary = (
-        f"{total} semaine{'s' if total > 1 else ''} jusqu'à {race_name} : de {_km(start_km)} à "
+        f"{total} semaine{'s' if total > 1 else ''} jusqu'à {race_name}\u00a0: de {_km(start_km)} à "
         f"{_km(peak)} km par semaine, puis {taper_weeks} semaine{'s' if taper_weeks > 1 else ''} "
         "d'affûtage."
     )

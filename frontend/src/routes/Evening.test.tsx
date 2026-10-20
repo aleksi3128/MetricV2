@@ -44,6 +44,7 @@ function flow(overrides: Partial<EveningFlow> = {}): EveningFlow {
     ],
     pain: { date: '2026-10-19', activity_id: 'r7', label: 'Course' },
     tomorrow_lines: ['Endurance fondamentale, 40 min — proposée par le coach.'],
+    changes: [],
     ...overrides,
   };
 }
@@ -113,8 +114,8 @@ describe('le point du soir', () => {
     ).toBeInTheDocument();
   });
 
-  it('ne s’ouvre pas de lui-même hors de sa fenêtre, mais s’ouvre depuis une relance', async () => {
-    current = flow({ due: false, window_open: false });
+  it('ne s’ouvre pas de lui-même quand il n’est pas dû, mais s’ouvre depuis une relance', async () => {
+    current = flow({ due: false, window_open: true });
     renderApp('/?soir=1');
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
@@ -160,5 +161,18 @@ describe('le point du soir', () => {
       expect(posted.map((item) => item.url)).toContain('/api/evening/snooze');
     });
     expect(posted.map((item) => item.url)).not.toContain('/api/evening/done');
+  });
+});
+
+describe('un lien de relance périmé', () => {
+  it('n’ouvre rien hors de la fenêtre du soir — le lendemain matin, par exemple', async () => {
+    current = flow({ due: false, window_open: false });
+    renderApp('/?soir=1');
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalled();
+    });
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

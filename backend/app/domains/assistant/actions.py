@@ -41,6 +41,7 @@ prise.
 
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -49,6 +50,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from app.core.exceptions import ValidationFailedError
 from app.storage.files import FileStore
 
 if TYPE_CHECKING:  # pragma: no cover - annotations seulement, jamais exécuté
@@ -303,6 +305,19 @@ class DeleteByRowArgs(BaseModel):
     token: str = Field(min_length=1, max_length=128)
 
 
+class MovePlanArgs(BaseModel):
+    """« On décale ? » (COA-05) : une séance prévue, un nouveau jour, une heure facultative.
+
+    Le jeton est exigé comme pour une suppression. La nature, le titre, la durée et la note
+    restent ceux de la séance : décaler n'est pas réécrire.
+    """
+
+    row_id: int = Field(ge=0)
+    token: str = Field(min_length=1, max_length=128)
+    date: dt.date
+    time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
 # ── Ce que chaque action fait ─────────────────────────
 
 
@@ -462,6 +477,33 @@ async def _delete_plan(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
     return Outcome(summary="Séance prévue retirée du planning.")
 
 
+async def _move_plan(store: FileStore, payload: MovePlanArgs) -> Outcome:
+    from app.domains.planning.schemas import PlanPayload
+    from app.domains.planning.service import PlanningService
+
+    service = PlanningService(store)
+    current = next(
+        (item for item in await service.all_sessions() if item.id == payload.row_id), None
+    )
+    if current is None:
+        raise ValidationFailedError("Cette séance n'est plus au planning.")
+    moved = await service.update(
+        payload.row_id,
+        payload.token,
+        PlanPayload(
+            date=payload.date,
+            time=payload.time,
+            kind=current.kind,
+            title=current.title,
+            duration_min=current.duration_min,
+            note=current.note,
+            program=current.program,
+        ),
+    )
+    when = f" à {moved.time}" if moved.time else ""
+    return Outcome(summary=f"{moved.title} décalée au {moved.date:%d/%m}{when}.")
+
+
 async def _delete_run(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
     from app.domains.activity.service import (
         RunService,
@@ -601,6 +643,15 @@ def catalogue() -> dict[str, ActionSpec]:
             "supprimer une course",
             DeleteByRowArgs,
             _delete_run,
+        ),
+        _spec(
+            "plan.move",
+            Level.CHANGE,
+            "décaler une séance prévue à un autre jour — « je suis crevé, on décale ? ». "
+            "Jamais deux jours de course d'affilée : choisis un jour qui le respecte",
+            MovePlanArgs,
+            _move_plan,
+            scopes=EVERYWHERE,
         ),
         _spec(
             "plan.delete",

@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.domains.coach.schemas import CoachView
-from app.domains.planning.schemas import PlannedSession
+from app.domains.planning.schemas import PlanChange, PlannedSession
 
 
 class DebriefItem(BaseModel):
@@ -50,6 +50,8 @@ class EveningFlow(BaseModel):
     tomorrow: list[PlannedSession] = Field(default_factory=list)
     #: Demain, en lignes rédigées ici : la séance du coach, puis le reste du planning.
     tomorrow_lines: list[str] = Field(default_factory=list)
+    #: Ce que le coach a changé au planning et qui attend un oui ou un non (PLN-04).
+    changes: list[PlanChange] = Field(default_factory=list)
 
 
 class SnoozePayload(BaseModel):

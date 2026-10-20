@@ -159,6 +159,10 @@ class PlanningService:
         ]
         return sorted(sessions, key=lambda item: (item.date, item.time or ""))
 
+    async def all_sessions(self) -> list[PlannedSession]:
+        """Toutes les séances, relues — pour qui va en modifier une (`plan.move`)."""
+        return await self._rows(fresh=True)
+
     async def between(self, start: date, end: date) -> list[PlannedSession]:
         """Séances prévues dans une plage, bornes comprises."""
         return [session for session in await self._rows() if start <= session.date <= end]

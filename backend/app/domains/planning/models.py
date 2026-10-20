@@ -25,7 +25,7 @@ pas ce qu'on ne comprend pas.
 
 from __future__ import annotations
 
-from app.storage.model import CsvDate, CsvModel, CsvNumber
+from app.storage.model import CsvDate, CsvDateTime, CsvModel, CsvNumber
 
 #: Natures de séance planifiables (`PLAN-02`). Contrairement au `type` d'une séance
 #: réalisée, qui reste libre (`ACT-03`), celle-ci est **fermée** : elle sert à comparer
@@ -96,3 +96,23 @@ class SwimCodeRow(CsvModel):
     #: celle du code, qu'aucune ligne ne déplace.
     category: str = "option"
     source: str = "manual"
+
+
+class ChangeRow(CsvModel):
+    """Une modification du coach au planning. `planning/changes.csv`.
+
+    `before` et `after` portent la séance en JSON — date, heure, nature, titre, durée,
+    note. `before` est ce qui permet le « non » : il restaure la séance telle qu'elle était,
+    et seulement si elle est encore telle que le coach l'a laissée (`after`).
+    """
+
+    key: str = ""
+    session_id: str = ""
+    #: `move`, `lighten`, `rest` ou `drop`.
+    action: str = ""
+    before: str = ""
+    after: str = ""
+    reason: str = ""
+    created: CsvDateTime = None
+    #: `pending`, `accepted` ou `refused`.
+    status: str = "pending"

@@ -23,6 +23,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 
 import { RateEffort } from '../activity/run/Rate';
 import { PainCheck } from '../body/PainCheck';
+import { Changes } from '../planning/Changes';
 import styles from './EveningFlow.module.css';
 
 export function EveningFlowProvider({ children }: { children: ReactNode }) {
@@ -49,7 +50,19 @@ export function EveningFlowProvider({ children }: { children: ReactNode }) {
     };
   }, [client]);
 
-  const shown = data !== undefined && (fromLink || (data.due && !dismissed));
+  // Un lien de relance n'ouvre la feuille que **dans la fenêtre du soir**. Ouvert le
+  // lendemain matin, il superposait le point de la veille au parcours du matin — trouvé en
+  // regardant la page. Hors fenêtre, il est périmé : le paramètre s'efface, rien ne s'ouvre.
+  const linkOpens = fromLink && data?.window_open === true;
+  const stale = fromLink && data !== undefined && !data.window_open;
+  useEffect(() => {
+    if (!stale) return;
+    const rest = new URLSearchParams(location.search);
+    rest.delete('soir');
+    const query = rest.toString();
+    void navigate(`${location.pathname}${query ? `?${query}` : ''}`, { replace: true });
+  }, [stale, location.pathname, location.search, navigate]);
+  const shown = data !== undefined && (linkOpens || (data.due && !dismissed));
 
   return (
     <>
@@ -135,6 +148,13 @@ function EveningSheet({ flow, onClose }: { flow: EveningFlow; onClose: () => voi
               onDone={refresh}
               later={false}
             />
+          </section>
+        )}
+
+        {flow.changes.length > 0 && (
+          <section className={styles.section} aria-label="Ce que le coach a changé">
+            <h3 className={styles.heading}>Ce que j’ai changé</h3>
+            <Changes changes={flow.changes} />
           </section>
         )}
 

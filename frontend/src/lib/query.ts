@@ -106,6 +106,9 @@ export const keys = {
     all: () => ['planning'] as const,
     month: (month: string) => ['planning', 'month', month] as const,
     adherence: () => ['planning', 'adherence'] as const,
+    /** Ce que le coach a changé et qui attend une réponse (`docs/agenda-replanification.md`). */
+    changes: () => ['planning', 'changes'] as const,
+    agenda: () => ['planning', 'agenda'] as const,
     /** Adresse d'abonnement (`PLAN-05`) — elle vient d'un réglage serveur, elle ne
      *  change pas en cours de session. */
     subscription: () => ['planning', 'subscription'] as const,

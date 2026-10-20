@@ -34,16 +34,21 @@ from fastapi import APIRouter, Header, Path, Query, Request, Response, status
 from app.config import ICAL_SECRET_MIN_LENGTH, Settings
 from app.core.dates import now_local, today_local
 from app.core.deps import SettingsDep, StoreDep
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import NotFoundError, ValidationFailedError
 from app.core.swim_notation import SwimProgram
 from app.domains.ai.deps import AiServiceDep
-from app.domains.planning import ical
+from app.domains.planning import agenda, ical
 from app.domains.planning.glossary import SwimCodeService
+from app.domains.planning.replanning import ReplanService
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionPayload,
     AdoptionResult,
+    AgendaPayload,
+    AgendaView,
+    ChangeDecision,
     MonthView,
+    PlanChange,
     PlannedSession,
     PlanPayload,
     Proposal,
@@ -126,6 +131,79 @@ async def update(
 )
 async def remove(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> None:
     await PlanningService(store).remove(row_id, _token(if_match))
+
+
+# ── L'agenda et la replanification (`docs/agenda-replanification.md`) ──
+
+
+@router.get("/agenda", response_model=AgendaView, summary="L'agenda lu, sans son lien")
+async def read_agenda(store: StoreDep) -> AgendaView:
+    return await _agenda_view(store)
+
+
+@router.patch("/agenda", response_model=AgendaView, summary="Régler le lien de l'agenda")
+async def update_agenda(payload: AgendaPayload, store: StoreDep) -> AgendaView:
+    """Le lien est rangé dans `settings.csv` ; vide, il est oublié. Il n'est jamais renvoyé."""
+    from app.domains.app_settings.service import SettingsService
+
+    settings = SettingsService(store)
+    url = agenda.normalise(payload.url)
+    if url and not url.lower().startswith("https://"):
+        raise ValidationFailedError(
+            "Le lien d'un agenda commence par https:// ou webcal://.",
+            fields=[("body.url", "lien invalide")],
+        )
+    await settings.update_keys({agenda.SETTING_KEY: url}, await settings.token())
+    agenda.forget()
+    return await _agenda_view(store)
+
+
+async def _agenda_view(store: FileStore) -> AgendaView:
+    from datetime import timedelta
+
+    from app.domains.app_settings.service import SettingsService
+
+    url = (await SettingsService(store).all()).get(agenda.SETTING_KEY, "").strip()
+    if not url:
+        return AgendaView(configured=False)
+    today = today_local()
+    try:
+        reading = await agenda.read(url, today, today + timedelta(days=6))
+    except Exception as error:
+        message = str(error) if isinstance(error, agenda.AgendaError) else "L'agenda ne répond pas."
+        return AgendaView(configured=True, hint=agenda.hint(url), error=message)
+    return AgendaView(
+        configured=True,
+        hint=agenda.hint(url),
+        events=len(reading.busy),
+        unsupported=reading.unsupported,
+    )
+
+
+@router.get("/changes", response_model=list[PlanChange], summary="Ce que le coach a changé")
+async def read_changes(store: StoreDep) -> list[PlanChange]:
+    return await ReplanService(store).pending()
+
+
+@router.post(
+    "/changes/{key}", response_model=list[PlanChange], summary="Répondre à une modification"
+)
+async def decide_change(
+    key: Annotated[str, Path(min_length=3, max_length=160)],
+    payload: ChangeDecision,
+    store: StoreDep,
+) -> list[PlanChange]:
+    """Oui : elle tient. Non : la séance revient telle qu'elle était — sauf si elle a été
+    retouchée depuis."""
+    return await ReplanService(store).decide(key, payload.accept)
+
+
+@router.post("/replan", response_model=list[PlanChange], summary="Replanifier maintenant")
+async def replan_now(store: StoreDep) -> list[PlanChange]:
+    """La passe de l'ordonnanceur, à la demande. Rend ce qui attend une réponse."""
+    service = ReplanService(store)
+    await service.run(now_local())
+    return await service.pending()
 
 
 @router.get("/adherence", response_model=AdherenceView, summary="Écart plan / réalisé")

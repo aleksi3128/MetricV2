@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 from app.domains.coach.schemas import CoachView
 from app.domains.evening.models import EveningRow
 from app.domains.evening.schemas import DebriefItem, EveningFlow, PainQuestion
+from app.domains.planning.replanning import ReplanService
 from app.domains.planning.schemas import PlannedSession
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
@@ -100,6 +101,7 @@ class EveningService:
             coach=coach,
             tomorrow=tomorrow,
             tomorrow_lines=_tomorrow_lines(coach, tomorrow),
+            changes=await ReplanService(self._store).pending(),
         )
 
     async def _debrief(self, day: date) -> list[DebriefItem]:

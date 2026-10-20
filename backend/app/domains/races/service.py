@@ -13,6 +13,7 @@ from typing import cast
 
 from app.core.dates import today_local
 from app.core.exceptions import NotFoundError
+from app.domains.planning import agenda, ics, placement
 from app.domains.races import conflicts, periodize
 from app.domains.races.catalog import SPECS
 from app.domains.races.models import DecisionRow, RaceRow
@@ -173,23 +174,53 @@ class RaceService:
         planning = PlanningService(self._store)
         removed = await planning.clear_plan(day)
         weeks = len(built.weeks)
-        payloads = [
-            PlanPayload(
-                date=session.day,
-                kind="course",
-                title=session.title[:80],
-                duration_min=session.minutes,
-                note=(
-                    f"{session.notation} — plan {row.model.name}, semaine {index + 1}/{weeks}, "
-                    f"{week.phase}."
-                ),
-            )
-            for index, week in enumerate(built.weeks)
-            for session in week.sessions
-            if session.day >= day
-        ]
+        busy = await self._busy(day, built)
+        placed: list[date] = []
+        payloads: list[PlanPayload] = []
+        for index, week in enumerate(built.weeks):
+            for session in week.sessions:
+                if session.day < day:
+                    continue
+                when, at = session.day, None
+                if busy is not None and not session.race:
+                    # L'agenda décide de l'heure, et du jour s'il le faut — jamais collé à
+                    # une autre sortie, jamais la veille de la course (D5).
+                    forbidden = {d + timedelta(days=delta) for d in placed for delta in (-1, 0, 1)}
+                    forbidden.add(row.model.date - timedelta(days=1) if row.model.date else day)
+                    spot = placement.place(
+                        session.day, session.minutes, busy, forbidden=forbidden, earliest=day
+                    )
+                    if spot is not None:
+                        when, at = spot[0], spot[1].strftime("%H:%M")
+                placed.append(when)
+                payloads.append(
+                    PlanPayload(
+                        date=when,
+                        time=at,
+                        kind="course",
+                        title=session.title[:80],
+                        duration_min=session.minutes,
+                        note=(
+                            f"{session.notation} — plan {row.model.name}, semaine "
+                            f"{index + 1}/{weeks}, {week.phase}."
+                        ),
+                    )
+                )
         created = await planning.place_plan(payloads)
         return PlacedView(created=created, removed=removed)
+
+    async def _busy(self, today: date, built: periodize.Plan) -> list[ics.Busy] | None:
+        """L'agenda sur la durée du plan, ou rien s'il n'est pas réglé ou ne répond pas."""
+        from app.domains.app_settings.service import SettingsService
+
+        url = (await SettingsService(self._store).all()).get(agenda.SETTING_KEY, "").strip()
+        if not url or not built.weeks:
+            return None
+        try:
+            reading = await agenda.read(url, today, built.weeks[-1].start + timedelta(days=7))
+        except Exception:
+            return None
+        return reading.busy
 
     async def clear(self, today: date | None = None) -> PlacedView:
         from app.domains.planning.service import PlanningService

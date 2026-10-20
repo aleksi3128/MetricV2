@@ -124,9 +124,9 @@ ils disent maintenant le nouveau.
 
 #### Laissé, et pourquoi
 
-- **Un lien de relance ouvert le matin superpose deux feuilles** — le point du soir et le
-  parcours du matin, dû à cette heure. Le cas demande d'ouvrir une relance de la veille au
-  réveil ; il est noté, pas traité.
+- ~~Un lien de relance ouvert le matin superpose deux feuilles~~ — **réglé avec R6** : le
+  cas s'est produit en regardant la page, et un lien de relance n'ouvre plus la feuille que
+  dans la fenêtre du soir ; hors fenêtre, il s'efface sans rien ouvrir.
 - **iOS n'affiche pas les actions** d'une notification web : le report y passe par la
   feuille. Rien n'a été essayé sur un vrai téléphone.
 - **Le débrief à l'arrivée d'une activité** (D8) attend la synchronisation de R7.

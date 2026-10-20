@@ -357,3 +357,36 @@ class SwimGlossaryView(BaseModel):
     """Le glossaire en vigueur, par catégorie puis dans l'ordre de la base."""
 
     codes: list[SwimCodeEntry]
+
+
+class PlanChange(BaseModel):
+    """Ce que le coach a changé, tel qu'on le montre et qu'on y répond (`docs/agenda-replanification.md`)."""
+
+    key: str
+    action: Literal["move", "lighten", "rest", "drop"]
+    #: « Seuil — mar. 20/10 → jeu. 22/10 », rédigé ici.
+    summary: str
+    reason: str
+    #: Le jour concerné après la modification — le jour d'avant pour une séance retirée.
+    date: dt.date
+    status: Literal["pending", "accepted", "refused"]
+
+
+class ChangeDecision(BaseModel):
+    accept: bool
+
+
+class AgendaView(BaseModel):
+    configured: bool
+    #: L'hôte et la fin du lien — jamais le lien entier, qui est un secret.
+    hint: str | None = None
+    events: int = 0
+    #: Les événements à règle de répétition non dépliée (mensuelle, annuelle…).
+    unsupported: int = 0
+    error: str | None = None
+
+
+class AgendaPayload(BaseModel):
+    """Le lien ICS, ou vide pour l'oublier."""
+
+    url: str = Field(default="", max_length=600)

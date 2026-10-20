@@ -132,6 +132,9 @@ SUPPLEMENT_SCHEDULE = "supplements/schedule.csv"
 SUPPLEMENT_LOG = "supplements/intake_log.csv"
 
 PLAN = "planning/plan.csv"
+#: Ce que le coach a changé au planning, l'état d'avant compris — c'est lui qui permet le
+#: « non » (`docs/agenda-replanification.md` §2).
+PLAN_CHANGES = "planning/changes.csv"
 #: Le glossaire de nage — ses ajouts et ses libellés renommés (`docs/planning-natation.md`
 #: §3). La base vit dans le code : un fichier absent la rend, il ne la perd pas.
 SWIM_CODES = "planning/swim_codes.csv"

@@ -204,7 +204,37 @@ function ifMatch(token: string): Record<string, string> {
   return { 'If-Match': token };
 }
 
+/** Ce que le coach a changé au planning (`docs/agenda-replanification.md`). */
+export interface PlanChange {
+  key: string;
+  action: 'move' | 'lighten' | 'rest' | 'drop';
+  /** « Seuil — mar. 20/10 → jeu. 22/10 », rédigé par le serveur. */
+  summary: string;
+  reason: string;
+  date: string;
+  status: 'pending' | 'accepted' | 'refused';
+}
+
+/** L'agenda lu — jamais son lien, qui est un secret. */
+export interface AgendaView {
+  configured: boolean;
+  hint: string | null;
+  events: number;
+  unsupported: number;
+  error: string | null;
+}
+
 export const planningApi = {
+  agenda: () => request<AgendaView>('/api/planning/agenda'),
+  setAgenda: (url: string) =>
+    request<AgendaView>('/api/planning/agenda', { method: 'PATCH', body: { url } }),
+  changes: () => request<PlanChange[]>('/api/planning/changes'),
+  decideChange: (key: string, accept: boolean) =>
+    request<PlanChange[]>(`/api/planning/changes/${encodeURIComponent(key)}`, {
+      method: 'POST',
+      body: { accept },
+    }),
+  replan: () => request<PlanChange[]>('/api/planning/replan', { method: 'POST' }),
   month: (month: string) => request<MonthView>('/api/planning/month', { query: { month } }),
 
   adherence: (weeks = 8) => request<AdherenceView>('/api/planning/adherence', { query: { weeks } }),
