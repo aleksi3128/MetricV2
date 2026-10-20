@@ -30,6 +30,7 @@ import { Sheet, SheetGroup, SheetRow } from '@/components/ui';
 import {
   IconActivity,
   IconCalendar,
+  IconFlag,
   IconChat,
   IconDroplet,
   IconExit,
@@ -78,6 +79,7 @@ const MORE = [
       { to: '/nutrition', label: 'Nutrition', icon: IconNutrition },
       { to: '/objectif', label: 'Objectif', icon: IconTarget },
       { to: '/planning', label: 'Planning', icon: IconCalendar },
+      { to: '/plan', label: 'Plan de course', icon: IconFlag },
     ],
   },
   {

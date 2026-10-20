@@ -96,6 +96,12 @@ export const keys = {
     screen: () => ['heatmap', 'grid', 'all'] as const,
     day: (track: string, day: string) => ['heatmap', 'day', track, day] as const,
   },
+  races: {
+    all: () => ['races'] as const,
+    /** Les courses visées et leurs conflits (`docs/plan-course.md`). */
+    list: () => ['races', 'list'] as const,
+    plan: (raceId: string) => ['races', 'plan', raceId] as const,
+  },
   planning: {
     all: () => ['planning'] as const,
     month: (month: string) => ['planning', 'month', month] as const,

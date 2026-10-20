@@ -1,0 +1,105 @@
+/*
+ * Le plan de course (`docs/plan-course.md`). Mobile d'abord ; aucune couleur en dur.
+ */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.text {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.warning {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.race {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: var(--tap);
+  justify-content: center;
+  padding: var(--s2);
+}
+
+.raceHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.meta {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list > li {
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.label {
+  margin: var(--s2) 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+.week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3) 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.session {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notation {
+  font-family: var(--mono);
+  font-size: var(--t-sub);
+  color: var(--ink);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.finish {
+  min-height: var(--tap-lg);
+}

@@ -18,6 +18,7 @@ import { KitchenSink } from '@/routes/KitchenSink';
 import { Login } from '@/routes/Login';
 import { Nutrition } from '@/routes/Nutrition';
 import { Catalog } from '@/routes/nutrition/Catalog';
+import { Plan } from '@/routes/Plan';
 import { Planning } from '@/routes/Planning';
 import { Routine } from '@/routes/Routine';
 import { Settings } from '@/routes/Settings';
@@ -70,6 +71,7 @@ export function App() {
         <Route path="/activite/course" element={<Run />} />
         <Route path="/activite/course/:id" element={<Run />} />
         <Route path="/planning" element={<Planning />} />
+        <Route path="/plan" element={<Plan />} />
         <Route path="/objectif" element={<Goals />} />
         {/* Sans entrée de navigation : la barre demandait déjà 806 px pour 695
             disponibles. On y arrive depuis le tableau de bord et l'écran Objectif. */}

@@ -143,6 +143,9 @@ export function DayPanel({
                 <div className="spread">
                   <strong>{session.title}</strong>
                   {session.source === 'ai' && <Badge tone="signal">proposée</Badge>}
+                  {/* Posée par le plan d'une course (`docs/plan-course.md`) : calculée par
+                      règles, pas proposée par un modèle — d'où un autre mot que « proposée ». */}
+                  {session.source === 'plan' && <Badge tone="effort">plan</Badge>}
                 </div>
                 <span className={styles.meta}>{sessionLine(session)}</span>
 

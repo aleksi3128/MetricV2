@@ -129,6 +129,16 @@ export function IconTarget(props: IconProps) {
   );
 }
 
+/** Plan de course — le drapeau d'arrivée. */
+export function IconFlag(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M5.5 20.5v-16" />
+      <path d="M5.5 4.5h11l-2.5 4 2.5 4h-11" />
+    </Svg>
+  );
+}
+
 /** Assiduité — la grille annuelle, en quatre cellules. */
 export function IconGrid(props: IconProps) {
   return (

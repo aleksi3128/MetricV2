@@ -379,6 +379,29 @@ class PlanningService:
         )
         return AdoptionResult(created=[self._to_schema(row, glossary) for row in rows])
 
+    # ── Le plan d'une course (`docs/plan-course.md`, D10) ──
+
+    async def place_plan(self, payloads: list[PlanPayload]) -> int:
+        """Pose les séances d'un plan **en une écriture**, marquées `plan`."""
+        rows = await self._plan.extend(
+            [self._to_row(payload, session_id=new_id(), source="plan") for payload in payloads]
+        )
+        return len(rows)
+
+    async def clear_plan(self, since: date) -> int:
+        """Retire les séances `plan` **à venir**. Le passé reste : il dit ce qui était prévu
+        le jour où on l'a couru, et l'écart au réalisé (`PLAN-06`) s'y lit."""
+        return await self._plan.remove_where(
+            lambda row: row.source == "plan" and row.date is not None and row.date >= since
+        )
+
+    async def planned_count(self, since: date) -> int:
+        return sum(
+            1
+            for row in await self._plan.read_all()
+            if row.model.source == "plan" and row.model.date is not None and row.model.date >= since
+        )
+
     # ── Écart plan / réalisé (`PLAN-06`) ──────────────
 
     async def adherence(
