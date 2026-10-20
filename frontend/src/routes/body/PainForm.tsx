@@ -13,19 +13,22 @@
  */
 
 import { useMutation } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 
-import { Button, Chip, Field } from '@/components/ui';
+import { AiBlock, Button, Chip, Field } from '@/components/ui';
 import {
   painApi,
   type PainEpisode,
+  type PainProposal,
   type PainKind,
   type PainMoment,
   type PainSide,
   type PainSource,
 } from '@/features/pain/api';
+import { useAiStatus } from '@/features/ai/useAiStatus';
 import { ApiError } from '@/lib/api';
+import { dictate, dictationSupported } from '@/lib/voice';
 
 import styles from './Pain.module.css';
 import { useInvalidatePain } from './shared';
@@ -132,6 +135,7 @@ export function PainForm({
   onDone: (episode: PainEpisode) => void;
 }) {
   const invalidate = useInvalidatePain();
+  const ai = useAiStatus();
   const following = episode !== undefined;
   const [day, setDay] = useState<string | null>(null);
   const [zone, setZone] = useState('');
@@ -142,6 +146,49 @@ export function PainForm({
   const [kind, setKind] = useState<PainKind | null>(null);
   const [limp, setLimp] = useState(false);
   const [missing, setMissing] = useState<string | null>(null);
+  // La douleur dite à voix haute (`docs/voix.md`, D7) : la phrase, puis la proposition du
+  // modèle dans un `AiBlock`. Rien n'est posé dans le relevé sans « Reprendre ».
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState('');
+  const [proposal, setProposal] = useState<PainProposal | null>(null);
+  const stop = useRef<(() => void) | null>(null);
+  const parse = useMutation({
+    mutationFn: (text: string) => painApi.parse(text),
+    onSuccess: setProposal,
+  });
+
+  function toggleDictation(): void {
+    if (listening) {
+      stop.current?.();
+      return;
+    }
+    setProposal(null);
+    setHeard('');
+    setListening(true);
+    stop.current = dictate({
+      onText: setHeard,
+      onDone: (text) => {
+        setListening(false);
+        stop.current = null;
+        if (text.trim().length >= 3) parse.mutate(text);
+      },
+      onError: (message) => {
+        setListening(false);
+        setMissing(message);
+      },
+    });
+  }
+
+  function adopt(item: PainProposal): void {
+    if (!following && item.zone !== null) setZone(item.zone);
+    if (!following && item.side !== null) setSide(item.side);
+    if (item.intensity !== null) setIntensity(item.intensity);
+    if (!following && item.baseline !== null) setBaseline(item.baseline);
+    if (item.moment !== null) setMoment(item.moment);
+    if (item.kind !== null) setKind(item.kind);
+    if (item.limp !== null) setLimp(item.limp);
+    setProposal(null);
+  }
 
   const save = useMutation({
     mutationFn: () =>
@@ -190,6 +237,55 @@ export function PainForm({
 
   return (
     <form className={styles.form} onSubmit={submit} noValidate>
+      {/* La phrase dictée est lue par le modèle : sans assistance, dicter ne mènerait à
+          rien d'autre qu'un refus — le bouton n'apparaît pas (vu en capture). */}
+      {dictationSupported() && ai.enabled && (
+        <div className={styles.choices}>
+          <Button
+            variant={listening ? 'primary' : 'ghost'}
+            aria-pressed={listening}
+            busy={parse.isPending}
+            onClick={toggleDictation}
+          >
+            {listening ? 'Terminer' : 'Dicter'}
+          </Button>
+        </div>
+      )}
+      {(listening || heard !== '') && proposal === null && (
+        <p className={styles.hint}>{heard === '' ? 'Je t’écoute…' : `« ${heard} »`}</p>
+      )}
+      {parse.error !== null && (
+        <p className={styles.error} role="alert">
+          {parse.error instanceof ApiError ? parse.error.message : 'La lecture a échoué.'}
+        </p>
+      )}
+      {proposal !== null && (
+        <AiBlock
+          tag="Proposé"
+          actions={
+            <>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  adopt(proposal);
+                }}
+              >
+                Reprendre dans le relevé
+              </Button>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  setProposal(null);
+                }}
+              >
+                Écarter
+              </Button>
+            </>
+          }
+        >
+          {proposal.summary}
+        </AiBlock>
+      )}
       {dated && (
         <Field
           label="Date"

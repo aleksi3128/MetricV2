@@ -44,7 +44,8 @@ import {
   SheetGroup,
   SheetRow,
 } from '@/components/ui';
-import { IconBook, IconThreads } from '@/components/ui/icons';
+import { IconBook, IconMic, IconThreads } from '@/components/ui/icons';
+import { dictate, dictationSupported, speak } from '@/lib/voice';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { assistantApi, type MemoryEntry } from '@/features/assistant/api';
 import { ApiError } from '@/lib/api';
@@ -628,6 +629,48 @@ export function Assistant() {
     following.current = true;
   }
 
+  // ── La voix (`docs/voix.md`) ──
+  // Un message dicté part de lui-même à la fin de la dictée (D4), et sa réponse est lue :
+  // c'est ce qui fait de la dictée un message vocal plutôt qu'un clavier de plus.
+  const [listening, setListening] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const stopDictation = useRef<(() => void) | null>(null);
+  const spoken = useRef<string | null>(null);
+  const canDictate = dictationSupported();
+
+  function toggleDictation(): void {
+    if (listening) {
+      stopDictation.current?.();
+      return;
+    }
+    setVoiceError(null);
+    setListening(true);
+    stopDictation.current = dictate({
+      onText: setQuestion,
+      onDone: (text) => {
+        setListening(false);
+        stopDictation.current = null;
+        if (text.trim() === '' || !conversation.send(text)) return;
+        spoken.current = text;
+        setQuestion('');
+        following.current = true;
+      },
+      onError: (message) => {
+        setListening(false);
+        setVoiceError(message);
+      },
+    });
+  }
+
+  const lastQuestion = shown.at(-1)?.question;
+  const lastReply = shown.at(-1)?.reply ?? '';
+  useEffect(() => {
+    if (spoken.current === null || inFlight !== null) return;
+    if (lastQuestion !== spoken.current || lastReply === '') return;
+    spoken.current = null;
+    speak(lastReply);
+  }, [lastQuestion, lastReply, inFlight]);
+
   return (
     <div className={styles.screen}>
       <header className={styles.bar}>
@@ -742,6 +785,18 @@ export function Assistant() {
             }
           }}
         />
+        {canDictate && usable && (
+          <Button
+            variant={listening ? 'primary' : 'ghost'}
+            className={styles.send}
+            aria-label={listening ? 'Arrêter la dictée' : 'Dicter ta question'}
+            aria-pressed={listening}
+            disabled={inFlight !== null}
+            onClick={toggleDictation}
+          >
+            <IconMic size={20} />
+          </Button>
+        )}
         <Button
           type="submit"
           variant="primary"
@@ -753,6 +808,12 @@ export function Assistant() {
           ↑
         </Button>
       </form>
+
+      {voiceError !== null && (
+        <p className={styles.voiceError} role="alert">
+          {voiceError}
+        </p>
+      )}
 
       <ThreadSheet
         open={threadsOpen}

@@ -12,12 +12,16 @@ from fastapi import APIRouter, Header, Path, status
 
 from app.core.dates import today_local
 from app.core.deps import StoreDep
+from app.domains.ai.deps import AiServiceDep
+from app.domains.pain import dictation
 from app.domains.pain.schemas import (
     EpisodeView,
     NoPainPayload,
     PainEntry,
     PainPayload,
+    PainProposal,
     PainView,
+    ParsePayload,
     PatternsView,
 )
 from app.domains.pain.service import PainService
@@ -59,6 +63,18 @@ async def read_patterns(store: StoreDep) -> PatternsView:
 )
 async def create_pain(payload: PainPayload, store: StoreDep) -> EpisodeView:
     return await PainService(store).create(payload)
+
+
+@router.post(
+    "/parse", response_model=PainProposal, summary="Structurer une douleur dite à voix haute"
+)
+async def parse_pain(payload: ParsePayload, ai: AiServiceDep) -> PainProposal:
+    """Une **proposition** (`docs/voix.md`, D7) : rien n'est écrit — l'écran la montre, et
+    l'utilisateur l'enregistre ou non. Sans clé, `503` et un code du catalogue."""
+    raw = await ai.ask_json(
+        instruction=dictation.INSTRUCTION, prompt=dictation.prompt(payload.text), max_tokens=300
+    )
+    return dictation.read(raw)
 
 
 @router.post(

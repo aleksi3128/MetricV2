@@ -31,6 +31,7 @@ import { cx } from '@/lib/cx';
 import { hoursMinutes, longDate, plural } from '@/lib/format';
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
+import { speak, speechSupported } from '@/lib/voice';
 
 import { CircuitCard } from '../activity/CircuitCard';
 import { SwimProgramView } from '../planning/SwimProgram';
@@ -472,6 +473,17 @@ export function TurnView({
           >
             {copied ? 'Copié' : 'Copier'}
           </Chip>
+          {/* La réponse lue à voix haute, d'une voix de l'appareil (`docs/voix.md`, D5). */}
+          {speechSupported() && (
+            <Chip
+              aria-label="Écouter la réponse"
+              onClick={() => {
+                speak(turn.reply);
+              }}
+            >
+              Écouter
+            </Chip>
+          )}
         </div>
       )}
 

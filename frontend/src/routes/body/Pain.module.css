@@ -5,6 +5,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--s3);
+  /* Détaché du titre qui le précède : « Dicter » collait à « Nouvelle douleur ». */
+  margin-top: var(--s2);
 }
 
 .lead {

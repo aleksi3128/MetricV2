@@ -114,7 +114,7 @@ qu'il doit d'abord protéger.
 | **R5** ✅ | Objectifs de course A/B/C, plan **périodisé** calculé par règles (phases, plafonds Nielsen, 80/20 Seiler, affûtage Bosquet) ; le modèle choisit **dans** le cadre, comme le coach du matin. Notation course — [`plan-course.md`](plan-course.md) | PLN-02, 05, 08 | CA-05, CA-07 | L |
 | **R6** ✅ | Agenda iCloud en lecture, placement dans les créneaux libres ; replanification automatique, notifiée avec sa justification et son principe, oui/non — [`agenda-replanification.md`](agenda-replanification.md) | PLN-03, 04, COA-05 | — | L |
 | **R7** ✅ | Synchro Garmin automatique et santé quotidienne ; dédoublonnage entre sources ; débrief lancé à l'arrivée — [`synchro-garmin.md`](synchro-garmin.md) | ANA-01, 02, NOT-04 | CA-03, CA-08 | L — **dépend de R0** |
-| **R8** | Voix : dictée dans l'assistant et le relevé de douleur, réponse parlée, ton du coach | COA-01→04 | — | M — **dépend de R0** |
+| **R8** ✅ | Voix : dictée dans l'assistant et le relevé de douleur, réponse parlée, ton du coach — [`voix.md`](voix.md) | COA-01→04 | — | M — **dépend de R0** |
 | **R9** | Dossier médical chiffré, dicté et structuré, validé avant écriture ; mémoire du coach étendue | MED-03, COA-03 | — | M |
 | **R10** | Tableau de bord : vue « aujourd'hui », CTL/ATL/TSB, 80/20 tous sports, frise des douleurs sur la charge ; respect de la séance prévue | DSH-02→05, ANA-03 | CA-04 | M |
 | **R11** | Exploitation et sécurité : passkey, `make status`/`doctor`/`sync`/`backup`, export complet, plafond de dépense IA et voix | §5, §6 | — | M |

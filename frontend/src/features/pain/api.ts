@@ -109,7 +109,22 @@ export interface PatternsView {
   unanswered: UnansweredRun[];
 }
 
+/** Ce que le modèle a compris d'une douleur dite à voix haute — une proposition (`docs/voix.md`). */
+export interface PainProposal {
+  zone: string | null;
+  side: PainSide | null;
+  intensity: number | null;
+  baseline: number | null;
+  moment: PainMoment | null;
+  kind: PainKind | null;
+  limp: boolean | null;
+  /** « J'ai compris : … », rédigé par le serveur. */
+  summary: string;
+}
+
 export const painApi = {
+  parse: (text: string) =>
+    request<PainProposal>('/api/pain/parse', { method: 'POST', body: { text } }),
   view: () => request<PainView>('/api/pain'),
   patterns: () => request<PatternsView>('/api/pain/patterns'),
   create: (payload: PainPayload) =>

@@ -136,3 +136,26 @@ class UnansweredRun(BaseModel):
 class PatternsView(BaseModel):
     zones: list[ZonePatternView] = Field(default_factory=list)
     unanswered: list[UnansweredRun] = Field(default_factory=list)
+
+
+class ParsePayload(BaseModel):
+    """Ce qui a été dit, transcrit par le navigateur (`docs/voix.md`, D7)."""
+
+    text: str = Field(min_length=3, max_length=1000)
+
+
+class PainProposal(BaseModel):
+    """Ce que le modèle a compris d'une douleur dite à voix haute — une **proposition**.
+
+    Chaque champ est relu contre ses bornes ; ce qui est absent ou hors bornes reste vide,
+    et le formulaire le demandera. `summary` est rédigé par le serveur.
+    """
+
+    zone: str | None = None
+    side: Side | None = None
+    intensity: int | None = None
+    baseline: int | None = None
+    moment: Moment | None = None
+    kind: Kind | None = None
+    limp: bool | None = None
+    summary: str
