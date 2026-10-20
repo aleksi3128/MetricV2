@@ -80,6 +80,17 @@ const ABSENT = {
   thread_id: null,
 };
 
+/** La carte « Forme » (`docs/accueil-et-charge.md`) : ses trois lectures, vides. */
+function shape(url: string): Promise<Response> | null {
+  if (url.includes('/notifications/alerts')) return Promise.resolve(json(200, []));
+  if (url.includes('/api/body/health')) return Promise.resolve(json(200, { days: [] }));
+  if (url.includes('/api/training'))
+    return Promise.resolve(
+      json(200, { form_text: 'Pas encore de forme.', ratio_text: 'Pas de rapport.' }),
+    );
+  return null;
+}
+
 function stub(dashboard: unknown = DASHBOARD, brief: unknown = ABSENT, ai: unknown = AI_ON) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
@@ -93,7 +104,7 @@ function stub(dashboard: unknown = DASHBOARD, brief: unknown = ABSENT, ai: unkno
     // que la carte soit là, et de `brief` absent, qui est l'état d'une installation neuve.
     if (url.includes('/ai/status')) return Promise.resolve(json(200, ai));
     if (url.includes('/api/brief')) return Promise.resolve(json(200, brief));
-    return Promise.resolve(json(200, {}));
+    return shape(url) ?? Promise.resolve(json(200, {}));
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
@@ -270,7 +281,7 @@ describe('la lecture du jour', () => {
           return Promise.resolve(
             json(503, { code: 'ai_unavailable', message: 'Aucun modèle n’a répondu.' }),
           );
-        return Promise.resolve(json(200, {}));
+        return shape(url) ?? Promise.resolve(json(200, {}));
       }),
     );
     renderDashboard(client);

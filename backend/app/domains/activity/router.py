@@ -64,6 +64,7 @@ from app.domains.activity.trends import RunTrendsService
 from app.domains.activity.weather import WeatherDep
 from app.domains.ai.deps import AiProviderDep, AiServiceDep
 from app.domains.ai.service import AiProvider
+from app.domains.coach.schemas import AdherenceView
 from app.domains.coach.service import IN_PROGRESS
 from app.storage.errors import StorageConflictError
 from app.storage.files import FileStore
@@ -384,6 +385,19 @@ async def read_run_splits(row_id: RowId, store: StoreDep) -> RunDetail:
     erreur : ne pas avoir de détail n'est pas un défaut de la course.
     """
     return await RunService(store).detail(row_id)
+
+
+@router.get(
+    "/runs/{row_id}/adherence",
+    response_model=AdherenceView,
+    summary="La sortie contre la séance prévue ce jour-là",
+)
+async def read_run_adherence(row_id: RowId, store: StoreDep) -> AdherenceView:
+    """CA-04 : « 5 km sur 5 dans la plage ». `planned: false` quand rien n'était prévu —
+    une réponse, pas une erreur (`docs/accueil-et-charge.md`, D7–D9)."""
+    from app.domains.coach.service import CoachService
+
+    return await CoachService(store).adherence(row_id)
 
 
 @router.get(

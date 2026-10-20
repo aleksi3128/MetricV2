@@ -68,6 +68,7 @@ import { keys } from '@/lib/query';
 
 import { Aim } from './dashboard/Aim';
 import { Brief } from './dashboard/Brief';
+import { Shape } from './dashboard/Shape';
 import { Today } from './dashboard/Today';
 import styles from './Dashboard.module.css';
 
@@ -301,6 +302,8 @@ export function Dashboard() {
       <Brief />
 
       <Today data={data} />
+
+      <Shape />
 
       <Aim data={data} />
 

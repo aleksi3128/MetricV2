@@ -93,3 +93,21 @@ class AcceptPayload(BaseModel):
     #: l'annotation dans la classe, où `date` vaut déjà `None`.
     date: dt.date | None = None
     time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
+class AdherenceView(BaseModel):
+    """Ce que valait une sortie par rapport à la séance prévue ce jour-là (CA-04)."""
+
+    #: Faux quand rien n'était prévu ce jour-là : la sortie ne se compare à rien.
+    planned: bool = False
+    #: `coach` : la séance acceptée, avec ses plages. `plan` : une séance du planning, sa
+    #: durée seule.
+    source: Literal["coach", "plan"] | None = None
+    title: str | None = None
+    judged_km: int = 0
+    in_range_km: int = 0
+    basis: Literal["pace", "hr"] | None = None
+    target: str | None = None
+    text: str = ""
+    #: Les plages sont rebâties depuis les zones **d'aujourd'hui** : à dire sous le chiffre.
+    caveat: str | None = None

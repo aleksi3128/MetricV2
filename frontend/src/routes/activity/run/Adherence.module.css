@@ -1,0 +1,22 @@
+/* La sortie contre la séance prévue (`docs/accueil-et-charge.md`, D7–D9). */
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.text {
+  margin: var(--s2) 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.caveat {
+  margin: var(--s2) 0 0;
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}

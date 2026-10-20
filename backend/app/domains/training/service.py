@@ -11,8 +11,14 @@ from __future__ import annotations
 from datetime import date
 
 from app.core.dates import today_local
-from app.domains.training import banister, volume
-from app.domains.training.schemas import Finding, LoadPoint, LoadWeek, TrainingView
+from app.domains.training import banister, intensity, volume
+from app.domains.training.schemas import (
+    Finding,
+    IntensityView,
+    LoadPoint,
+    LoadWeek,
+    TrainingView,
+)
 from app.storage.files import FileStore
 from app.storage.paths import CIRCUIT_SESSIONS, OTHERS, RUNS, SWIMS
 
@@ -53,6 +59,28 @@ class TrainingService:
             for row in await RunService(self._store).all()
         ]
 
+    async def split(self, today: date, sessions: list[banister.Session]) -> intensity.Intensity:
+        """Les courses par leurs zones (`RunTrendsService`, la lecture de la page Course),
+        les autres séances par leur effort perçu."""
+        from app.domains.activity.trends import RunTrendsService
+
+        items = [
+            intensity.Item(
+                day=run.day,
+                minutes=run.duration_min,
+                zone_seconds=run.zone_seconds,
+                pace_zone=run.pace_zone,
+                rpe=run.rpe,
+            )
+            for run in await RunTrendsService(self._store).sessions(today)
+        ]
+        items += [
+            intensity.Item(day=item.day, minutes=item.minutes, rpe=item.rpe)
+            for item in sessions
+            if item.sport != "course"
+        ]
+        return intensity.split(today, items)
+
     async def summary(self, today: date) -> banister.Summary:
         return banister.summarize(today, await self.sessions())
 
@@ -63,8 +91,16 @@ class TrainingService:
         ]
 
     async def view(self, today: date | None = None) -> TrainingView:
+        from app.domains.pain.rules import STOP_AT
+        from app.domains.pain.service import PainService
+
         day = today or today_local()
-        summary = await self.summary(day)
+        sessions = await self.sessions()
+        summary = banister.summarize(day, sessions)
+        split = await self.split(day, sessions)
+        since = summary.series[0].day if summary.series else day
+        pains = await PainService(self._store).daily_max(since)
+        longest = max((sum(w.minutes.values()) for w in summary.weeks), default=0.0)
         return TrainingView(
             today=day,
             history_days=summary.history_days,
@@ -80,9 +116,48 @@ class TrainingService:
             unrated=summary.unrated,
             unrated_text=summary.unrated_text,
             series=[
-                LoadPoint(date=p.day, load=p.load, ctl=p.ctl, atl=p.atl, tsb=p.tsb)
+                LoadPoint(
+                    date=p.day, load=p.load, ctl=p.ctl, atl=p.atl, tsb=p.tsb, pain=pains.get(p.day)
+                )
                 for p in summary.series
             ],
-            weeks=[LoadWeek(start=w.start, minutes=w.minutes, load=w.load) for w in summary.weeks],
+            weeks=[
+                LoadWeek(
+                    start=w.start,
+                    minutes=w.minutes,
+                    load=w.load,
+                    total_min=round(sum(w.minutes.values()), 1),
+                    share=round(sum(w.minutes.values()) / longest, 3) if longest else 0.0,
+                    total_text=_week_total(w.minutes),
+                    sports_text=_week_sports(w.minutes),
+                )
+                for w in summary.weeks
+            ],
             findings=await self.findings(day),
+            intensity=IntensityView(
+                easy=split.easy,
+                moderate=split.moderate,
+                hard=split.hard,
+                target=split.target,
+                unclassified_min=split.unclassified_min,
+                text=split.text,
+            ),
+            pain_stop=STOP_AT,
+            load_domain=_domain(summary.series),
         )
+
+
+def _domain(series: list[banister.Point]) -> tuple[float, float] | None:
+    values = [value for point in series for value in (point.ctl, point.atl)]
+    return (min(values), max(values)) if values else None
+
+
+def _week_total(minutes: dict[str, float]) -> str:
+    total = sum(minutes.values())
+    return intensity.hm(total) if total > 0 else "—"
+
+
+def _week_sports(minutes: dict[str, float]) -> str:
+    """« course 2 h, vélo 1 h 10 » ; « Rien » pour une semaine vide."""
+    parts = [f"{sport} {intensity.hm(value)}" for sport, value in minutes.items() if value > 0]
+    return ", ".join(parts) if parts else "Rien"

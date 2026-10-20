@@ -252,7 +252,10 @@ def _unrated(today: date, sessions: Sequence[Session]) -> dict[str, int]:
 
 def _form_text(point: Point, history: int) -> str:
     head = (
-        f"Forme {_fr(point.ctl)}, fatigue {_fr(point.atl)}, fraîcheur {_signed(point.tsb)} "
+        # Arrondies toutes deux : « forme 71, fatigue 94,9 » lisait une précision que
+        # l'une avait et l'autre pas, sur des modèles qui n'en ont aucune au dixième.
+        f"Forme {_fr(round(point.ctl))}, fatigue {_fr(round(point.atl))}, "
+        f"fraîcheur {_signed(point.tsb)} "
         "(Banister)."
     )
     if history < CTL_DAYS:

@@ -24,6 +24,7 @@ from app.domains.coach import catalog, frame, prompt
 from app.domains.coach.models import RecommendationRow
 from app.domains.coach.schemas import (
     AcceptPayload,
+    AdherenceView,
     CoachNext,
     CoachView,
     SessionType,
@@ -399,6 +400,73 @@ class CoachService:
     async def active_view(self, today: date) -> CoachView | None:
         active = await self._active(today)
         return await self.view(active.model, today) if active else None
+
+    async def adherence(self, run_index: int) -> AdherenceView:
+        """La sortie contre la séance du coach acceptée pour son jour, sinon contre la
+        séance de course du planning (`docs/accueil-et-charge.md`, D7–D9)."""
+        from app.domains.activity.service import RunService
+        from app.domains.coach import adherence
+        from app.domains.planning.service import PlanningService
+
+        detail = await RunService(self._store).detail(run_index)
+        run = detail.run
+        if run is None:
+            return AdherenceView()
+        splits = [
+            adherence.Split(
+                duration_s=item.duration_s,
+                pace_min_km=item.pace_min_km,
+                avg_hr=item.avg_hr,
+                partial=item.partial,
+            )
+            for item in detail.splits.splits
+        ]
+        kept = [
+            row.model
+            for row in await self._repo.read_all()
+            if row.model.date == run.date and row.model.status in ("accepted", "done")
+        ]
+        if kept:
+            # Le fichier s'écrit dans l'ordre : la dernière du jour est la plus récente.
+            chosen = kept[-1]
+            refs, _ = await self.references(run.date)
+            kind: SessionType = chosen.type if chosen.type in catalog.TITLES else "easy"
+            plan = catalog.steps(
+                kind, chosen.duration_min, refs, reps=chosen.reps, rep_min=chosen.rep_min
+            )
+            judged = adherence.judge(
+                plan, splits, done_min=run.duration_min, planned_min=chosen.duration_min
+            )
+            return AdherenceView(
+                planned=True,
+                source="coach",
+                title=catalog.TITLES[kind],
+                judged_km=judged.judged_km,
+                in_range_km=judged.in_range_km,
+                basis=judged.basis,
+                target=judged.target,
+                text=judged.text,
+                caveat=(
+                    "Plages rebâties depuis tes zones d'aujourd'hui." if judged.judged_km else None
+                ),
+            )
+        planned = [
+            item
+            for item in await PlanningService(self._store).between(run.date, run.date)
+            if item.kind == "course"
+        ]
+        if not planned:
+            return AdherenceView()
+        session = planned[0]
+        minutes = round(session.duration_min)
+        return AdherenceView(
+            planned=True,
+            source="plan",
+            title=session.title,
+            text=adherence.judge(
+                [], [], done_min=run.duration_min, planned_min=minutes
+            ).duration_text,
+        )
 
 
 def _minutes(value: float) -> str:

@@ -841,6 +841,19 @@ export interface LoadPayload {
   bodyweight?: boolean;
 }
 
+/** La sortie contre la séance prévue ce jour-là (`docs/accueil-et-charge.md`, CA-04). */
+export interface RunAdherence {
+  planned: boolean;
+  source: 'coach' | 'plan' | null;
+  title: string | null;
+  judged_km: number;
+  in_range_km: number;
+  basis: 'pace' | 'hr' | null;
+  target: string | null;
+  text: string;
+  caveat: string | null;
+}
+
 export const activityApi = {
   overview: () => request<ActivityOverview>('/api/activity'),
   muscleGroups: () => request<string[]>('/api/activity/muscle-groups'),
@@ -948,6 +961,7 @@ export const activityApi = {
     }),
   /** L'analyse, relue depuis le `.fit` rangé : la page s'affiche sans l'attendre. */
   runAnalysis: (id: number) => request<RunAnalysis>(`/api/activity/runs/${id}/analysis`),
+  runAdherence: (id: number) => request<RunAdherence>(`/api/activity/runs/${id}/adherence`),
   /** Recalcule efforts et paliers de chaque `.fit` rangé. Rejouable sans rien doubler. */
   rebuildEfforts: () =>
     request<EffortRebuild>('/api/activity/runs/efforts/rebuild', { method: 'POST' }),

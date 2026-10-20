@@ -86,7 +86,10 @@ const MORE = [
   },
   {
     title: 'Regarder en arrière',
-    entries: [{ to: '/assiduite', label: 'Assiduité', icon: IconGrid }],
+    entries: [
+      { to: '/charge', label: 'Charge & forme', icon: IconActivity },
+      { to: '/assiduite', label: 'Assiduité', icon: IconGrid },
+    ],
   },
 ] as const;
 

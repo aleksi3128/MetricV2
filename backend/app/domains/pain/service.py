@@ -61,6 +61,15 @@ class PainService:
 
     # ── Lire ──────────────────────────────────────────
 
+    async def daily_max(self, since: date) -> dict[date, int]:
+        """La douleur la plus forte notée chaque jour depuis `since` — la frise de la charge."""
+        days: dict[date, int] = {}
+        for row in await self._repo.read_all():
+            model = row.model
+            if model.report == "pain" and model.date >= since:
+                days[model.date] = max(days.get(model.date, 0), model.intensity)
+        return days
+
     async def view(self, today: date | None = None) -> PainView:
         day = today or today_local()
         rows = await self._repo.read_all()

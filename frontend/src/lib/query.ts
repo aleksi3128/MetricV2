@@ -52,6 +52,8 @@ export const keys = {
     runAnalysis: (id: number) => ['activity', 'runs', id, 'analysis'] as const,
     /** Effort perçu, météo et forme du matin d'une course. */
     runConditions: (id: number) => ['activity', 'runs', id, 'conditions'] as const,
+    /** La sortie contre la séance prévue ce jour-là (CA-04). */
+    runAdherence: (id: number) => ['activity', 'runs', id, 'adherence'] as const,
     workouts: () => ['activity', 'workouts'] as const,
     workout: (id: number) => ['activity', 'workouts', id] as const,
     exercises: () => ['activity', 'exercises'] as const,
@@ -83,6 +85,11 @@ export const keys = {
   aggregates: {
     all: () => ['aggregates'] as const,
     dashboard: () => ['aggregates', 'dashboard'] as const,
+    /** La charge tous sports, les alertes ouvertes et la nuit (`docs/accueil-et-charge.md`).
+     *  Sous `aggregates` à dessein : toute écriture les invalide déjà (`CROSS_CUTTING`). */
+    training: () => ['aggregates', 'training'] as const,
+    alerts: () => ['aggregates', 'alerts'] as const,
+    night: () => ['aggregates', 'night'] as const,
     metrics: () => ['aggregates', 'metrics'] as const,
     series: (metric: string, range: string, subject?: string) =>
       ['aggregates', 'series', metric, range, subject ?? ''] as const,

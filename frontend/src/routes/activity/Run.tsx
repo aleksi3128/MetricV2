@@ -34,6 +34,7 @@ import { cx } from '@/lib/cx';
 import { duration, integer, longDate, num, pace } from '@/lib/format';
 import { keys } from '@/lib/query';
 
+import { Adherence } from './run/Adherence';
 import { Analysis } from './run/Analysis';
 import { Conditions } from './run/Conditions';
 import { Context, Splits } from './run/Splits';
@@ -260,6 +261,7 @@ export function Run() {
       ) : (
         <>
           <Summary run={run} />
+          <Adherence run={run} />
           <Conditions run={run} />
           <Share run={run} />
 

@@ -1,0 +1,64 @@
+/* La charge tous sports (`docs/accueil-et-charge.md`). Mobile d'abord ; aucune couleur en dur. */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+}
+
+.text {
+  margin: var(--s2) 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.text:first-of-type {
+  margin-top: 0;
+}
+
+.chart {
+  margin-top: var(--s4);
+}
+
+.weeks {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.weekHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s2);
+  margin-bottom: 4px;
+}
+
+.key {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+}
+
+.total {
+  font-family: var(--mono);
+  font-size: var(--t-sub);
+}
+
+.sports {
+  margin: 4px 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}

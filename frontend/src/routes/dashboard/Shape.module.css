@@ -1,0 +1,50 @@
+/* La carte « Forme » de l'accueil (`docs/accueil-et-charge.md`, D2). */
+
+.alerts {
+  list-style: none;
+  margin: 0 0 var(--s3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.alert {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--s2) var(--s3);
+  min-height: var(--tap);
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.alertHead {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 600;
+}
+
+.text {
+  margin: var(--s2) 0 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.key {
+  display: block;
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+}
+
+.more {
+  margin-top: var(--s3);
+}
