@@ -81,8 +81,37 @@ export interface PainPayload {
   source?: PainSource;
 }
 
+export interface PatternFinding {
+  factor: string;
+  /** `shown` : établi. `neutral` : « n'y joue pas », établi aussi. */
+  status: 'shown' | 'neutral';
+  text: string;
+}
+
+export interface ZonePattern {
+  key: string;
+  title: string;
+  place: string;
+  with_pain: number;
+  without: number;
+  findings: PatternFinding[];
+  pending_text: string;
+}
+
+export interface UnansweredRun {
+  run_id: string;
+  date: string;
+  detail: string;
+}
+
+export interface PatternsView {
+  zones: ZonePattern[];
+  unanswered: UnansweredRun[];
+}
+
 export const painApi = {
   view: () => request<PainView>('/api/pain'),
+  patterns: () => request<PatternsView>('/api/pain/patterns'),
   create: (payload: PainPayload) =>
     request<PainEpisode>('/api/pain', { method: 'POST', body: payload }),
   none: (date: string, runId: string) =>

@@ -10,8 +10,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Path, status
 
+from app.core.dates import today_local
 from app.core.deps import StoreDep
-from app.domains.pain.schemas import EpisodeView, NoPainPayload, PainEntry, PainPayload, PainView
+from app.domains.pain.schemas import (
+    EpisodeView,
+    NoPainPayload,
+    PainEntry,
+    PainPayload,
+    PainView,
+    PatternsView,
+)
 from app.domains.pain.service import PainService
 from app.storage.errors import StorageConflictError
 
@@ -36,6 +44,11 @@ def _token_or_conflict(token: str | None) -> str:
 @router.get("", response_model=PainView, summary="Douleurs ouvertes, refermées, et déclarations")
 async def read_pain(store: StoreDep) -> PainView:
     return await PainService(store).view()
+
+
+@router.get("/patterns", response_model=PatternsView, summary="Ce qui va avec chaque douleur")
+async def read_patterns(store: StoreDep) -> PatternsView:
+    return await PainService(store).patterns(today_local())
 
 
 @router.post(

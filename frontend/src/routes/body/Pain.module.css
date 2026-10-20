@@ -120,3 +120,19 @@
   flex-wrap: wrap;
   gap: var(--s2);
 }
+
+/* Un constat établi se lit à l'encre pleine ; le reste de la carte, en retrait. */
+.finding {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.asked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-soft);
+}

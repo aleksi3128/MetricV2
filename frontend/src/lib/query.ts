@@ -29,6 +29,8 @@ export const keys = {
     morning: () => ['body', 'morning'] as const,
     /** Les douleurs, leurs épisodes et leur réponse graduée (`docs/douleurs.md`). */
     pain: () => ['body', 'pain'] as const,
+    /** Ce qui va avec chaque douleur (`docs/patterns-douleur.md`) — sous `pain`, que toute écriture invalide. */
+    painPatterns: () => ['body', 'pain', 'patterns'] as const,
   },
   activity: {
     all: () => ['activity'] as const,

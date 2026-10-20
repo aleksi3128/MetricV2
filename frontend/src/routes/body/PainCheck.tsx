@@ -25,6 +25,7 @@ export function PainCheck({
   today,
   onDone,
   later = true,
+  question = true,
 }: {
   /** Le jour de la séance, et son identifiant **stable** — `run_id`, `other_id`. */
   date: string;
@@ -37,6 +38,8 @@ export function PainCheck({
    * part — il y est retiré.
    */
   later?: boolean | undefined;
+  /** La question elle-même — tue dans une liste dont l'en-tête la pose déjà. */
+  question?: boolean | undefined;
 }) {
   const [answer, setAnswer] = useState<'ask' | 'yes'>('ask');
   const invalidate = useInvalidatePain();
@@ -73,7 +76,7 @@ export function PainCheck({
 
   return (
     <div className={styles.form}>
-      <p className={styles.lead}>Une douleur pendant ou après cette séance ?</p>
+      {question && <p className={styles.lead}>Une douleur pendant ou après cette séance&nbsp;?</p>}
       <div className={styles.actions}>
         <Button
           variant="primary"

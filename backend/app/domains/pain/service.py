@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import secrets
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from typing import cast
 
 from app.core.dates import today_local
 from app.core.exceptions import ValidationFailedError
-from app.domains.pain import rules
+from app.domains.pain import patterns, rules
 from app.domains.pain.models import KINDS, MOMENTS, SIDES, SOURCES, PainRow
 from app.domains.pain.schemas import (
     EpisodeView,
@@ -25,8 +25,12 @@ from app.domains.pain.schemas import (
     PainEntry,
     PainPayload,
     PainView,
+    PatternFinding,
+    PatternsView,
     Side,
     Source,
+    UnansweredRun,
+    ZonePatternView,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
@@ -34,6 +38,10 @@ from app.storage.paths import PAIN
 
 #: Même longueur que les identifiants stables de l'activité (`activity/service.py`).
 ID_BYTES = 6
+
+#: Les sorties sans réponse sur la douleur, demandées sur cette fenêtre et pas plus (D7).
+UNANSWERED_DAYS = 90
+UNANSWERED_SHOWN = 15
 
 #: « pas de douleur » rendus dans la vue — de quoi relire un mois de sorties.
 RECENT_NONE = 30
@@ -48,6 +56,7 @@ MOMENT_WORDS = {
 
 class PainService:
     def __init__(self, store: FileStore) -> None:
+        self._store = store
         self._repo: CsvRepository[PainRow] = CsvRepository(store, PAIN, PainRow)
 
     # ── Lire ──────────────────────────────────────────
@@ -74,6 +83,104 @@ class PainService:
     async def episodes(self, today: date) -> list[EpisodeView]:
         """Tous les épisodes, jugés. Le plus récent d'abord."""
         return self._episodes(await self._repo.read_all(), today)
+
+    # ── Les patterns (`docs/patterns-douleur.md`) ────
+
+    async def patterns(self, today: date) -> PatternsView:
+        """Par zone, ce qui va avec la douleur ; et les sorties à renseigner (D7)."""
+        from app.domains.activity.service import RunService
+
+        runs = [row.model for row in await RunService(self._store).all() if row.model.run_id]
+        rows = [row.model for row in await self._repo.read_all()]
+        by_day: dict[date, list[str]] = defaultdict(list)
+        for run in runs:
+            by_day[run.date].append(run.run_id)
+        known = {run.run_id for run in runs}
+
+        def linked(row: PainRow) -> str | None:
+            if row.run_id:
+                return row.run_id if row.run_id in known else None
+            # D6 : une douleur saisie après coup se rattache à la sortie du jour, si elle
+            # est la seule et que la douleur est venue pendant ou après.
+            same_day = by_day.get(row.date, [])
+            if row.report == "pain" and row.moment in ("during", "after") and len(same_day) == 1:
+                return same_day[0]
+            return None
+
+        answered: set[str] = set()
+        positives: dict[tuple[str, str], set[str]] = defaultdict(set)
+        labels: dict[tuple[str, str], str] = {}
+        for row in sorted(rows, key=lambda item: item.date):
+            run_id = linked(row)
+            if run_id is None:
+                continue
+            answered.add(run_id)
+            if row.report == "pain" and row.zone.strip():
+                zone = (patterns.zone_key(row.zone), row.side)
+                positives[zone].add(run_id)
+                labels[zone] = row.zone.strip()
+
+        inputs = [
+            patterns.Run(
+                run_id=run.run_id,
+                pace=run.pace_min_km
+                or (run.duration_min / run.distance_km if run.distance_km else None),
+                distance_km=run.distance_km or None,
+                cadence=run.cadence_spm,
+                week_km=round(
+                    sum(
+                        other.distance_km
+                        for other in runs
+                        if run.date - timedelta(days=6) <= other.date <= run.date
+                    ),
+                    1,
+                ),
+            )
+            for run in runs
+        ]
+        zones: list[ZonePatternView] = []
+        for zone, painful_runs in positives.items():
+            label, side = labels[zone], zone[1]
+            place = rules.place(label, side)
+            result = patterns.analyse(
+                place,
+                f"{zone[0]}|{side}",
+                inputs,
+                {run_id: run_id in painful_runs for run_id in answered},
+            )
+            zones.append(
+                ZonePatternView(
+                    key=result.key,
+                    title=rules.title(label, side),
+                    place=place,
+                    with_pain=result.with_pain,
+                    without=result.without,
+                    findings=[
+                        PatternFinding(factor=item.factor, status=item.status, text=item.text)
+                        for item in result.findings
+                        if item.status != "pending"
+                    ],
+                    pending_text=result.pending_text,
+                )
+            )
+
+        since = today - timedelta(days=UNANSWERED_DAYS)
+        unanswered = sorted(
+            (run for run in runs if run.run_id not in answered and since <= run.date <= today),
+            key=lambda run: run.date,
+            reverse=True,
+        )[:UNANSWERED_SHOWN]
+        return PatternsView(
+            zones=sorted(zones, key=lambda item: -item.with_pain),
+            unanswered=[
+                UnansweredRun(
+                    run_id=run.run_id,
+                    date=run.date,
+                    detail=f"Course · {_minutes(run.duration_min)} · {_km(run.distance_km)}",
+                )
+                for run in unanswered
+            ],
+        )
 
     async def answered(self) -> frozenset[str]:
         """Les séances dont la douleur a été demandée — oui ou non —, par identifiant stable."""
@@ -309,3 +416,13 @@ def _baselines(rows: list[Row[PainRow]]) -> dict[str, int]:
         if row.model.baseline is not None and row.model.zone.strip():
             found[row.model.zone.strip().casefold()] = row.model.baseline
     return found
+
+
+def _minutes(value: float) -> str:
+    total = round(value)
+    hours, minutes = divmod(total, 60)
+    return f"{hours} h {minutes:02d}" if hours else f"{minutes} min"
+
+
+def _km(value: float) -> str:
+    return f"{value:.1f} km".replace(".", ",")

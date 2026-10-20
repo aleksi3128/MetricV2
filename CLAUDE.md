@@ -47,6 +47,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Les douleurs — relevé après séance, suivi du matin, réponse graduée, prise sur le coach | [`docs/douleurs.md`](docs/douleurs.md) |
 | La charge multisport — sRPE, forme et fatigue (Banister), sauts de volume, vélo et marche | [`docs/charge-multisport.md`](docs/charge-multisport.md) |
 | Le point du soir, ses relances, les heures calmes et les alertes critiques | [`docs/notifications-v3.md`](docs/notifications-v3.md) |
+| Les patterns de douleur — un seuil d'allure, de distance, de volume, éprouvé par permutation | [`docs/patterns-douleur.md`](docs/patterns-douleur.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -180,8 +181,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (280 fichiers), 2 207 tests backend
-               # prettier, eslint, tsc, 764 tests d'écran
+make check     # ruff, ruff format, mypy (282 fichiers), 2 213 tests backend
+               # prettier, eslint, tsc, 765 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

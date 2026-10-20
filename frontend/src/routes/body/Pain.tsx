@@ -20,6 +20,7 @@ import { useToast } from '@/lib/toast';
 
 import styles from './Pain.module.css';
 import { PainForm } from './PainForm';
+import { Patterns } from './Patterns';
 import { useInvalidatePain } from './shared';
 
 const STATUS: Record<PainStatus, { label: string; tone: Tone }> = {
@@ -184,6 +185,8 @@ export function PainSection() {
               </Button>
             )}
           </Card>
+
+          <Patterns today={data.today} />
 
           {closed.map((episode) => (
             <Episode key={episode.pain_id} episode={episode} today={data.today} />

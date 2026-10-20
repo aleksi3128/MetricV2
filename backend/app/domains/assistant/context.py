@@ -234,6 +234,12 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
         [f"Douleur ouverte depuis le {item.opened:%d/%m/%Y} : {item.text}" for item in opened]
         or ["Douleur ouverte : aucune notée"]
     )
+    # Les patterns établis (`docs/patterns-douleur.md`) : observés, jamais une cause.
+    lines.extend(
+        f"Pattern de douleur observé : {finding.text}"
+        for zone in (await PainService(store).patterns(today)).zones
+        for finding in zone.findings
+    )
     if summary.last_hard is not None:
         lines.append(f"Dernière séance de course dure : le {summary.last_hard:%d/%m/%Y}")
     from app.domains.coach.service import CoachService

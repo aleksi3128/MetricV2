@@ -99,6 +99,8 @@ function stubApi(overrides: Partial<Record<string, Response>> = {}) {
     }
     if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
     if (url.includes('/body/weight')) return Promise.resolve(json(200, WEIGHT_VIEW));
+    if (url.includes('/api/pain/patterns'))
+      return Promise.resolve(json(200, { zones: [], unanswered: [] }));
     if (url.includes('/api/pain')) return Promise.resolve(json(200, PAIN_VIEW));
     return Promise.resolve(json(200, {}));
   });
@@ -226,6 +228,8 @@ describe('écran Corps', () => {
         );
       }
       if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
+      if (url.includes('/api/pain/patterns'))
+        return Promise.resolve(json(200, { zones: [], unanswered: [] }));
       if (url.includes('/api/pain')) return Promise.resolve(json(200, PAIN_VIEW));
       return Promise.resolve(json(200, WEIGHT_VIEW));
     });

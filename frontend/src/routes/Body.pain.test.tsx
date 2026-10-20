@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import type { Run } from '@/features/activity/api';
-import type { PainEpisode, PainView } from '@/features/pain/api';
+import type { PainEpisode, PainView, PatternsView } from '@/features/pain/api';
 import { createQueryClient } from '@/lib/query';
 
 import { PainSection } from './body/Pain';
@@ -75,10 +75,12 @@ function view(overrides: Partial<PainView> = {}): PainView {
 }
 
 let current: PainView = view();
+let patterns: PatternsView = { zones: [], unanswered: [] };
 
 beforeEach(() => {
   posted.length = 0;
   current = view();
+  patterns = { zones: [], unanswered: [] };
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -93,6 +95,7 @@ beforeEach(() => {
         if (url.endsWith('/api/pain/none')) return Promise.resolve(json(201, {}));
         return Promise.resolve(json(201, EPISODE));
       }
+      if (url.endsWith('/api/pain/patterns')) return Promise.resolve(json(200, patterns));
       return Promise.resolve(json(200, current));
     }),
   );
@@ -191,6 +194,54 @@ describe('la section Douleurs', () => {
       kind: 'sharp',
       limp: false,
       source: 'manual',
+    });
+  });
+});
+
+describe('ce qui va avec une douleur', () => {
+  it('affiche le constat établi et ce qui n’y joue pas, puis demande les sorties sans réponse', async () => {
+    current = view({ closed: [{ ...EPISODE, status: 'closed' }] });
+    patterns = {
+      zones: [
+        {
+          key: 'bord externe pied|right',
+          title: 'Bord externe du pied · droit',
+          place: '(Bord externe du pied, droit)',
+          with_pain: 5,
+          without: 7,
+          findings: [
+            {
+              factor: 'pace',
+              status: 'shown',
+              text: 'La douleur est apparue sur 5 des 5 sorties plus rapides que 5’45/km.',
+            },
+            {
+              factor: 'cadence',
+              status: 'neutral',
+              text: 'La cadence n’y joue pas : 172 pas/min en moyenne avec douleur, 172 sans.',
+            },
+          ],
+          pending_text: '',
+        },
+      ],
+      unanswered: [{ run_id: 'r9', date: '2026-10-12', detail: 'Course · 40 min · 7,0 km' }],
+    };
+    renderWith(<PainSection />);
+
+    expect(
+      await screen.findByText(
+        'La douleur est apparue sur 5 des 5 sorties plus rapides que 5’45/km.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/La cadence n’y joue pas/)).toBeInTheDocument();
+    expect(screen.getByText('12/10/2026 · Course · 40 min · 7,0 km')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Non' }));
+    await vi.waitFor(() => {
+      expect(posted[0]).toMatchObject({
+        url: '/api/pain/none',
+        body: { date: '2026-10-12', run_id: 'r9' },
+      });
     });
   });
 });

@@ -106,3 +106,33 @@ class PainView(BaseModel):
     zones: list[str]
     #: La dernière base notée par zone, pour la **rappeler** en phrase — jamais préremplie.
     baselines: dict[str, int]
+
+
+class PatternFinding(BaseModel):
+    factor: str
+    status: Literal["shown", "neutral"]
+    text: str
+
+
+class ZonePatternView(BaseModel):
+    key: str
+    title: str
+    place: str
+    with_pain: int
+    without: int
+    findings: list[PatternFinding] = Field(default_factory=list)
+    #: Ce qui manque pour juger — vide dès qu'il y a assez de sorties renseignées.
+    pending_text: str = ""
+
+
+class UnansweredRun(BaseModel):
+    """Une sortie dont la douleur n'a jamais été demandée — à renseigner (D7)."""
+
+    run_id: str
+    date: date
+    detail: str
+
+
+class PatternsView(BaseModel):
+    zones: list[ZonePatternView] = Field(default_factory=list)
+    unanswered: list[UnansweredRun] = Field(default_factory=list)

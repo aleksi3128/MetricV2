@@ -5,7 +5,7 @@ calcule — les sauts de volume par `training`, l'arrêt d'une douleur par `pain
 et arrive ici avec une clé stable. L'ordonnanceur envoie ce qui n'a jamais été dit ;
 l'accueil (R10) affiche ce qui est ouvert.
 
-Les patterns de douleur (R4) et la séance modifiée (R6) s'ajouteront à cette liste.
+Les patterns de douleur y sont (R4) ; la séance modifiée (R6) s'y ajoutera.
 """
 
 from __future__ import annotations
@@ -69,4 +69,18 @@ async def collect(store: FileStore, today: date) -> list[AlertView]:
                     url="/corps",
                 )
             )
+    # Un pattern qui apparaît (MED-04). La clé tient à la zone et au facteur, pas au seuil :
+    # un seuil qui glisse de 5'45 à 5'40 avec une sortie de plus n'est pas un fait nouveau.
+    for zone in (await PainService(store).patterns(today)).zones:
+        for finding in zone.findings:
+            if finding.status == "shown":
+                alerts.append(
+                    AlertView(
+                        key=f"pattern:{zone.key}:{finding.factor}",
+                        priority="critical",
+                        title="Pattern de douleur",
+                        body=finding.text,
+                        url="/corps",
+                    )
+                )
     return alerts
