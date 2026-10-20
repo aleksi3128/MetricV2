@@ -97,6 +97,14 @@ class Settings(BaseSettings):
     # consultable, modifiable et téléchargeable sous jeton.
     ical_secret: str = ""
 
+    # ── Garmin Connect, voie non officielle (`docs/synchro-garmin.md`) ──
+    # Vides : la synchro est hors service et l'import `.fit` reste la voie (CA-08).
+    garmin_email: str = ""
+    garmin_password: str = ""
+    # Le dossier où la bibliothèque range ses jetons de session, pour ne pas se
+    # reconnecter à chaque passe — Garmin bloque les connexions trop fréquentes.
+    garmin_token_dir: str = ".garmin"
+
     # ── Notifications push (`NOT-01`) ─────────────────
     # Sans paire de clés, aucun abonnement n'est proposé et l'ordonnanceur ne démarre
     # pas. Le reste de l'application est intact : c'est `IA-07` appliqué au push.

@@ -51,7 +51,7 @@ class RunTrendsService:
     # ── La charge ─────────────────────────────────────
 
     async def sessions(self, today: date) -> list[load.Session]:
-        rows = await self._runs.read_all()
+        rows = [row for row in await self._runs.read_all() if not row.model.duplicate_of]
         metrics = {row.model.run_id: row.model for row in await self._metrics.read_all()}
         threshold = await self._threshold(rows, today)
         sessions: list[load.Session] = []
@@ -107,7 +107,7 @@ class RunTrendsService:
     # ── Les corrélations ──────────────────────────────
 
     async def findings(self) -> list[correlations.Finding]:
-        rows = await self._runs.read_all()
+        rows = [row for row in await self._runs.read_all() if not row.model.duplicate_of]
         metrics = {row.model.run_id: row.model for row in await self._metrics.read_all()}
         outcomes = [
             correlations.Outcome(

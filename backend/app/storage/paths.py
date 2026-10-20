@@ -17,6 +17,12 @@ MEASUREMENTS = "body/measurements.csv"
 MORNING = "body/morning.csv"
 #: Les relevés de douleur (`docs/douleurs.md` §2) — des mesures du corps, comme les matins.
 PAIN = "body/pain.csv"
+#: La nuit et la journée vues par la montre : sommeil, stress, Body Battery
+#: (`docs/synchro-garmin.md`, D5). La FC de repos et la VFC restent dans `MORNING`.
+HEALTH = "body/health.csv"
+#: Ce que la synchro Garmin a déjà importé, et son état (`docs/synchro-garmin.md` §2).
+SYNC_IMPORTED = "sync/imported.csv"
+SYNC_STATE = "sync/state.csv"
 
 #: L'état du parcours du matin — étapes passées, « Pas ce matin » (`docs/coach-course.md`
 #: §5). Un état et non une mesure : il ne dit que ce que les données ne savent pas.

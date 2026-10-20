@@ -312,14 +312,17 @@ def test_the_run_file_stays_readable_in_a_spreadsheet(
         "split_length_km,fit_path,"
         # `max_hr` après lui (`docs/analyse-course.md`), pour la même raison encore.
         "max_hr,"
-        # `rpe`, l'effort perçu (`docs/coach-course.md`, **C10**), ferme la marche.
-        "rpe"
+        # `rpe`, l'effort perçu (`docs/coach-course.md`, **C10**).
+        "rpe,"
+        # `duplicate_of` ferme la marche (`docs/synchro-garmin.md`, D6) : une sortie reçue
+        # deux fois est marquée, jamais effacée.
+        "duplicate_of"
     )
     assert lines[1].startswith("2026-07-20,8.4,44.2,5.262")
     # Une saisie au clavier porte son identifiant stable — une douleur s'y rattache
     # (`docs/douleurs.md`) —, mais ni paliers, ni bornes horaires, ni fichier, ni FC max,
     # ni effort perçu : des cellules vides, qui sont une valeur légitime et non un trou.
-    assert re.search(r"jambes lourdes,manual,[0-9a-f]{12},,,,,,,,$", lines[1])
+    assert re.search(r"jambes lourdes,manual,[0-9a-f]{12},,,,,,,,,$", lines[1])
 
 
 # ── Allure, distance et cadence (C06) ─────────────────

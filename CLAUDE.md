@@ -50,6 +50,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Les patterns de douleur — un seuil d'allure, de distance, de volume, éprouvé par permutation | [`docs/patterns-douleur.md`](docs/patterns-douleur.md) |
 | Les courses visées A/B/C, leurs conflits, et le plan périodisé jusqu'à la course | [`docs/plan-course.md`](docs/plan-course.md) |
 | L'agenda iCloud lu par son lien ICS, le placement, et le coach qui replanifie — et le « non » qui défait | [`docs/agenda-replanification.md`](docs/agenda-replanification.md) |
+| La synchro Garmin (voie non officielle), la santé de la nuit, et les doublons entre sources | [`docs/synchro-garmin.md`](docs/synchro-garmin.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -183,8 +184,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (297 fichiers), 2 248 tests backend
-               # prettier, eslint, tsc, 771 tests d'écran
+make check     # ruff, ruff format, mypy (305 fichiers), 2 258 tests backend
+               # prettier, eslint, tsc, 773 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

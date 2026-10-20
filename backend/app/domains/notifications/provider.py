@@ -75,7 +75,10 @@ class PushProvider:
         # une erreur par minute sans jamais pouvoir envoyer quoi que ce soit.
         if self._settings.storage_configured:
             self._scheduler = ReminderScheduler(
-                storage.store, self._sender, secret=self._settings.jwt_secret
+                storage.store,
+                self._sender,
+                secret=self._settings.jwt_secret,
+                settings=self._settings,
             )
             self._scheduler.start()
 

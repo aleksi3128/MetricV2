@@ -22,6 +22,7 @@ from app.domains.activity import (
     analysis,
     circuit_link,
     composer,
+    dedup,
     exercise_catalog,
     exercise_media,
     fit,
@@ -224,7 +225,48 @@ class RunService:
         )
 
     async def all(self) -> list[Row[RunRow]]:
-        return await self._repo.read_all()
+        """Les courses **comptées** : une sortie marquée en double n'y est pas (D6).
+
+        C'est la lecture de tous les agrégats — semaine, charge, coach, planning. Les
+        lectures **par position** (corriger, supprimer, noter) passent par le dépôt, qui
+        rend tout : la position d'une ligne est celle du fichier, doublons compris.
+        """
+        return [row for row in await self._repo.read_all() if not row.model.duplicate_of]
+
+    async def _dedupe(self, *days: date) -> None:
+        """Recalcule les doublons des jours touchés (`docs/synchro-garmin.md`, D6).
+
+        Recalculer le jour entier plutôt que marquer la seule ligne écrite : supprimer la
+        sortie gardée doit faire revenir celle qu'elle écartait.
+        """
+        rows = await self._repo.read_all(fresh=True)
+        for day in set(days):
+            today = [row for row in rows if row.model.date == day and row.model.run_id]
+            found = dedup.duplicates(
+                [
+                    dedup.Candidate(
+                        run_id=row.model.run_id,
+                        day=row.model.date,
+                        start=row.model.start_time,
+                        end=row.model.end_time,
+                        source=row.model.source,
+                        distance_km=row.model.distance_km,
+                    )
+                    for row in today
+                ]
+            )
+            for row in today:
+                wanted = found.get(row.model.run_id, "")
+                if row.model.duplicate_of != wanted:
+                    await self._repo.replace_by_token(
+                        row.index, row.token, row.model.model_copy(update={"duplicate_of": wanted})
+                    )
+
+    async def _fresh(self, run_id: str) -> Row[RunRow] | None:
+        return next(
+            (row for row in await self._repo.read_all(fresh=True) if row.model.run_id == run_id),
+            None,
+        )
 
     async def watch_metrics(self) -> dict[str, RunMetricsRow]:
         """Ce que la montre a mesuré, par `run_id` — pour qui lit toutes les sorties."""
@@ -263,6 +305,10 @@ class RunService:
         written = 0
         if payload.splits:
             written = len(await self._splits.extend(_split_rows(run_id, payload)))
+        await self._dedupe(payload.date)
+        # Relue après le dédoublonnage : marquée, la ligne a changé de jeton, et l'effort
+        # perçu demandé juste après partirait en conflit avec l'ancien.
+        row = await self._fresh(run_id) or row
         return self.to_schema(row, splits=written)
 
     async def update(self, index: int, token: str, payload: RunPayload) -> Run:
@@ -285,6 +331,9 @@ class RunService:
         replacement = self._to_row(payload, source, run_id, fit_path, max_hr)
         replacement.rpe = current.rpe if current else None
         row = await self._repo.replace_by_token(index, token, replacement)
+        if current is not None:
+            await self._dedupe(current.date, payload.date)
+            row = await self._fresh(run_id) or row
         return self.to_schema(row, splits=len(await self._splits_of(run_id)))
 
     async def delete(self, index: int, token: str) -> None:
@@ -306,6 +355,8 @@ class RunService:
             await self._metrics.remove_where(lambda row: row.run_id == run_id)
             await self._weather.remove_where(lambda row: row.run_id == run_id)
         await self._repo.delete_by_token(index, token)
+        if current is not None:
+            await self._dedupe(current.date)
 
         # Le `.fit` part **en dernier**, une fois la ligne effacée pour de bon. Le projet
         # n'a aucune annulation : un fichier supprimé avant une ligne qu'un conflit
@@ -317,7 +368,7 @@ class RunService:
 
     # ── Import d'un `.fit` (`docs/import-fit.md`) ─────
 
-    async def create_from_fit(self, data: bytes) -> Run:
+    async def create_from_fit(self, data: bytes, *, source: str = "fit") -> Run:
         """Décode un `.fit`, range le fichier, puis écrit la course et ses paliers.
 
         **L'écriture est directe** (**F5**), contrairement à l'import de captures qui passe
@@ -346,7 +397,7 @@ class RunService:
             fit.storage_path(relative), data, content_type="application/vnd.ant.fit"
         )
         created = await self.create(
-            _fit_payload(parsed), source="fit", fit_path=relative, max_hr=parsed.max_hr
+            _fit_payload(parsed), source=source, fit_path=relative, max_hr=parsed.max_hr
         )
         # Les efforts **après** la course, pour la raison des paliers : l'inverse laisserait
         # des lignes rattachées à un `run_id` qui n'existe nulle part. S'ils échouent, la
@@ -781,7 +832,7 @@ class RunService:
         de la distinguer d'une panne pour dire ce que coûte le prochain geste plutôt que
         d'afficher une erreur là où il n'y a qu'un début.
         """
-        rows = await self._repo.read_all()
+        rows = await self.all()
         if not rows:
             return RunDetail()
         # Le plus récent par date, et la position départage deux courses du même jour :
@@ -797,7 +848,8 @@ class RunService:
         fois par course affichée : à cinquante courses, `_splits_of` aurait relu le même
         fichier cinquante fois pour en tirer cinquante nombres.
         """
-        rows = await self._repo.read_all()
+        # Les sorties comptées seulement : un doublon fausserait les volumes et les records.
+        rows = await self.all()
         counts: dict[str, int] = {}
         stored_efforts: list[Row[RunEffortRow]] = []
         if any(row.model.run_id for row in rows):

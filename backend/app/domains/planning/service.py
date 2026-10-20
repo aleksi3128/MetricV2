@@ -220,7 +220,7 @@ class PlanningService:
         """
         done: dict[date, list[DoneActivity]] = defaultdict(list)
 
-        for run in await self._runs.read_all():
+        for run in [row for row in await self._runs.read_all() if not row.model.duplicate_of]:
             if start <= run.model.date <= end:
                 done[run.model.date].append(
                     DoneActivity(

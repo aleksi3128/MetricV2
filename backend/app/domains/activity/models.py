@@ -108,6 +108,10 @@ class RunRow(CsvModel):
     #: Face à la FC, c'est ce qui révèle la fatigue que les capteurs ne voient pas ; à 9 et
     #: plus, il fait de la sortie un effort à fond, dont la FC max vaut référence (**C4**).
     rpe: int | None = None
+    #: Le `run_id` de la sortie que celle-ci double (`docs/synchro-garmin.md`, D6). Vide
+    #: pour une sortie comptée. Une sortie écartée reste au fichier — elle peut porter une
+    #: note ou un effort que l'autre n'a pas — et revient si la gardée est supprimée.
+    duplicate_of: str = ""
 
 
 class RunSplitRow(CsvModel):

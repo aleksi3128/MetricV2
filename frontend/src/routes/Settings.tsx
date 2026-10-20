@@ -27,6 +27,7 @@ import { useTheme, type ThemeMode } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
 
 import { Profile } from './settings/Profile';
+import { GarminCard } from './settings/Garmin';
 import { Reminders } from './settings/Reminders';
 import { SwimCodes } from './settings/SwimCodes';
 import { Tracks } from './settings/Tracks';
@@ -541,6 +542,8 @@ export function Settings() {
       <SwimCodes />
 
       <Reminders />
+
+      <GarminCard />
 
       <Appearance />
 

@@ -39,6 +39,7 @@ from app.domains import (
     planning,
     races,
     supplements,
+    sync,
     training,
 )
 
@@ -74,6 +75,7 @@ for domain in (
     app_settings,
     training,
     races,
+    sync,
 ):
     protected_router.include_router(domain.router)
 
@@ -101,5 +103,6 @@ PROTECTED_PREFIXES = tuple(
         app_settings,
         training,
         races,
+        sync,
     )
 )

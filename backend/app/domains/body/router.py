@@ -19,6 +19,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header, Path, Query, status
 
 from app.core.deps import StoreDep
+from app.domains.body.health import HealthService, HealthView
 from app.domains.body.schemas import (
     MeasurementEntry,
     MeasurementPayload,
@@ -137,6 +138,12 @@ async def delete_measurements(row_id: RowId, store: StoreDep, if_match: IfMatch 
 
 
 # ── Le matin (`docs/coach-course.md`, **C3**) ─────────
+
+
+@router.get("/health", response_model=HealthView, summary="Sommeil, stress, Body Battery")
+async def read_health(store: StoreDep) -> HealthView:
+    """Ce que la montre a relevé de la nuit et de la journée (`docs/synchro-garmin.md`)."""
+    return await HealthService(store).view()
 
 
 @router.get("/morning", response_model=MorningView, summary="FC de repos, VFC et forme du jour")
