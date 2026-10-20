@@ -46,6 +46,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Le cahier des charges RunFurther porté dans Metric — l'écart, les décisions, onze lots | [`docs/runfurther-dans-metric.md`](docs/runfurther-dans-metric.md) |
 | Les douleurs — relevé après séance, suivi du matin, réponse graduée, prise sur le coach | [`docs/douleurs.md`](docs/douleurs.md) |
 | La charge multisport — sRPE, forme et fatigue (Banister), sauts de volume, vélo et marche | [`docs/charge-multisport.md`](docs/charge-multisport.md) |
+| Le point du soir, ses relances, les heures calmes et les alertes critiques | [`docs/notifications-v3.md`](docs/notifications-v3.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -179,8 +180,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (272 fichiers), 2 185 tests backend
-               # prettier, eslint, tsc, 758 tests d'écran
+make check     # ruff, ruff format, mypy (280 fichiers), 2 207 tests backend
+               # prettier, eslint, tsc, 764 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

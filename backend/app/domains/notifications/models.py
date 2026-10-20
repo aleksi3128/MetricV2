@@ -79,3 +79,7 @@ class SentRow(CsvModel):
     #: Instant exact de l'envoi, avec décalage. Sert à relire l'historique à l'œil ; la
     #: décision, elle, ne regarde que le jour.
     sent_at: CsvDateTime = None
+    #: L'identité d'une alerte — `longest:2026-10-08`, `pain-stop:a1:2026-10-18` —, vide pour
+    #: un rappel. C'est elle qui empêche de dire deux fois le même constat
+    #: (`docs/notifications-v3.md` §2).
+    key: str = ""

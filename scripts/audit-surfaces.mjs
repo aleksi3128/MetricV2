@@ -126,6 +126,11 @@ const SURFACES = [
   // on l'ouvre ici par sa porte manuelle, pour le mesurer à toute heure. Son étape dépend
   // des données du jour — la nuit sur une base vierge. « Enregistrer » n'est pas appuyé.
   ['/corps', 'Parcours du matin', 'parcours du matin'],
+  // Le point du soir (`docs/notifications-v3.md`). Il s'ouvre seul de 19 h à minuit, et
+  // par l'adresse qu'ouvre une relance : `?soir=1`. Aucun appui — un tableau vide —, on
+  // mesure la feuille telle que la relance la montre. Ni « C'est noté » ni le report ne
+  // sont appuyés : ce serait écrire.
+  ['/activite?soir=1', [], 'point du soir'],
   // Le formulaire du planning, passé en feuille avec la natation (`docs/planning-natation.md`
   // §4.2). Il s'ouvre sur une natation, donc avec le champ de programme et ses puces — la
   // rangée la plus large de la feuille. « Planifier » n'est pas réappuyé : ce serait écrire.

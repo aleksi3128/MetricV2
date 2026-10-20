@@ -17,10 +17,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request
 
+from app.core.dates import today_local
 from app.core.deps import StoreDep
 from app.core.exceptions import NotFoundError, PushNotConfiguredError
+from app.domains.notifications import alerts
 from app.domains.notifications.provider import PushProvider
 from app.domains.notifications.schemas import (
+    AlertView,
+    EscalationPayload,
     NotificationsView,
     PushStatus,
     RemindersPayload,
@@ -45,7 +49,7 @@ def get_push(request: Request) -> PushProvider:
 PushDep = Annotated[PushProvider, Depends(get_push)]
 
 
-def _status(push: PushDep) -> PushStatus:
+def _status(push: PushProvider) -> PushStatus:
     return PushStatus(
         configured=push.enabled,
         public_key=push.public_key,
@@ -61,13 +65,37 @@ async def read_notifications(store: StoreDep, push: PushDep) -> NotificationsVie
     dit ce qui manque. Les créneaux, eux, restent lisibles et modifiables — ils vivent dans
     `settings.csv` et ne dépendent d'aucune clé.
     """
-    service = NotificationService(store)
+    return await _view(NotificationService(store), push)
+
+
+async def _view(service: NotificationService, push: PushProvider) -> NotificationsView:
     return NotificationsView(
         push=_status(push),
         devices=await service.devices(),
         reminders=await service.reminders(),
+        escalation=await service.escalation_view(),
         token=await service.settings_token(),
     )
+
+
+@router.patch("/escalation", response_model=NotificationsView, summary="Régler le point du soir")
+async def update_escalation(
+    payload: EscalationPayload, store: StoreDep, push: PushDep, if_match: IfMatch = None
+) -> NotificationsView:
+    """Le point du soir et les heures calmes (`docs/notifications-v3.md`). Même garde que
+    les créneaux : `settings.csv` entier, et un `If-Match` absent est un conflit."""
+    if not if_match:
+        raise StorageConflictError(
+            "Recharge la donnée avant de la modifier.", detail="en-tête If-Match absent"
+        )
+    service = NotificationService(store)
+    await service.update_escalation(payload, if_match.strip('"'))
+    return await _view(service, push)
+
+
+@router.get("/alerts", response_model=list[AlertView], summary="Les alertes ouvertes")
+async def read_alerts(store: StoreDep) -> list[AlertView]:
+    return await alerts.collect(store, today_local())
 
 
 @router.post("/subscribe", status_code=204, summary="Abonner cet appareil")
@@ -117,12 +145,7 @@ async def update_reminders(
 
     service = NotificationService(store)
     await service.update_reminders(payload.model_dump(exclude_unset=True), if_match.strip('"'))
-    return NotificationsView(
-        push=_status(push),
-        devices=await service.devices(),
-        reminders=await service.reminders(),
-        token=await service.settings_token(),
-    )
+    return await _view(service, push)
 
 
 @router.post("/test", status_code=204, summary="Envoyer une notification d'essai")

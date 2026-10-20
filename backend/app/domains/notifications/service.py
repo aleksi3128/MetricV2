@@ -24,14 +24,17 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from app.core.dates import today_local
 from app.domains.app_settings.service import SettingsService
+from app.domains.notifications.escalation import ESCALATION_KINDS, EveningSettings
 from app.domains.notifications.models import SentRow, SubscriptionRow
 from app.domains.notifications.push import PushGoneError, PushSender
 from app.domains.notifications.reminders import Checkpoint, ReminderKind, parse_slot
 from app.domains.notifications.schemas import (
+    Escalation,
+    EscalationPayload,
     Reminders,
     SubscribedDevice,
     SubscriptionPayload,
@@ -280,9 +283,112 @@ class NotificationService:
         plafond. C'est le sens du plafond : borner ce qui part vers le téléphone, pas ce
         que cette version-ci sait nommer.
         """
-        lignes = [row.model for row in await self._sent.read_all() if row.model.date == day]
+        # Les relances du soir et les alertes ont leur propre budget
+        # (`docs/notifications-v3.md`, D1) : elles ne consomment pas celui des rappels.
+        lignes = [
+            row.model
+            for row in await self._sent.read_all()
+            if row.model.date == day and row.model.kind not in ESCALATION_KINDS
+        ]
         moments = [model.sent_at for model in lignes if model.sent_at is not None]
         return len(lignes), max(moments, default=None)
+
+    # ── Ce qui insiste (`docs/notifications-v3.md`) ───
+
+    async def escalation(self) -> EveningSettings:
+        """Les réglages du soir et des heures calmes. Illisible vaut **défaut**, et non
+        éteint comme pour un rappel : ces réglages-là existent par défaut (D7)."""
+        values = await self._settings.all()
+        default = EveningSettings()
+
+        def clock(key: str, fallback: time) -> time:
+            return parse_slot(values.get(key, "")) or fallback
+
+        def number(key: str, fallback: int, low: int, high: int) -> int:
+            try:
+                value = int(values.get(key, "") or fallback)
+            except ValueError:
+                return fallback
+            return value if low <= value <= high else fallback
+
+        end = values.get("evening_end", "")
+        return EveningSettings(
+            enabled=values.get("evening_enabled", "true").strip().lower() != "false",
+            start=clock("evening_start", default.start),
+            end=parse_slot(end) if end.strip() else None,
+            interval=timedelta(minutes=number("evening_interval_min", 3, 1, 60)),
+            snooze=timedelta(minutes=number("evening_snooze_min", 30, 5, 240)),
+            cap=number("evening_cap", default.cap, 1, 300),
+            quiet_start=clock("quiet_start", default.quiet_start),
+            quiet_end=clock("quiet_end", default.quiet_end),
+        )
+
+    async def escalation_view(self) -> Escalation:
+        current = await self.escalation()
+        return Escalation(
+            enabled=current.enabled,
+            start=f"{current.start:%H:%M}",
+            end=f"{current.end:%H:%M}" if current.end is not None else None,
+            interval_min=int(current.interval.total_seconds() // 60),
+            snooze_min=int(current.snooze.total_seconds() // 60),
+            cap=current.cap,
+            quiet_start=f"{current.quiet_start:%H:%M}",
+            quiet_end=f"{current.quiet_end:%H:%M}",
+        )
+
+    async def update_escalation(self, payload: EscalationPayload, token: str) -> None:
+        changes = payload.model_dump(exclude_unset=True)
+        keys = {
+            "enabled": "evening_enabled",
+            "start": "evening_start",
+            "end": "evening_end",
+            "interval_min": "evening_interval_min",
+            "snooze_min": "evening_snooze_min",
+            "cap": "evening_cap",
+            "quiet_start": "quiet_start",
+            "quiet_end": "quiet_end",
+        }
+        await self._settings.update_keys(
+            {
+                keys[name]: (
+                    ("true" if value else "false")
+                    if isinstance(value, bool)
+                    else ""
+                    if value is None
+                    else str(value)
+                )
+                for name, value in changes.items()
+            },
+            token,
+        )
+
+    async def evening_sent(self, day: date) -> tuple[int, datetime | None]:
+        """Les relances du soir déjà parties ce jour-là, et la dernière."""
+        moments = [
+            row.model.sent_at
+            for row in await self._sent.read_all()
+            if row.model.date == day and row.model.kind == "evening"
+        ]
+        return len(moments), max((m for m in moments if m is not None), default=None)
+
+    async def alerted(self) -> frozenset[str]:
+        """Les clés d'alerte déjà dites, depuis toujours : un constat ne se répète pas."""
+        return frozenset(
+            row.model.key
+            for row in await self._sent.read_all()
+            if row.model.kind == "alert" and row.model.key
+        )
+
+    async def record_escalation(self, kind: str, *, moment: datetime, key: str = "") -> None:
+        await self._sent.append(
+            SentRow(
+                date=moment.date(),
+                kind=kind,
+                slot=f"{moment:%H:%M}",
+                sent_at=moment,
+                key=key,
+            )
+        )
 
     async def praised_since(self, first: date) -> int:
         """Combien de félicitations sont parties depuis ce jour-là, bornes comprises.

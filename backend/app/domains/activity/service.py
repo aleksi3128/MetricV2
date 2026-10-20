@@ -253,10 +253,11 @@ class RunService:
         orphelins rattachés à un `run_id` qui n'existe nulle part, c'est-à-dire un fichier
         que rien ne vient jamais nettoyer.
         """
-        # Une sortie importée reçoit son identifiant **même sans paliers** — un
-        # enregistrement troué n'en a pas. Ses meilleurs efforts s'y rattachent, et ils
-        # n'auraient sinon rien à quoi se rattacher.
-        run_id = new_id() if payload.splits or fit_path else ""
+        # Toute course reçoit son identifiant stable, saisie comprise : une douleur et le
+        # débrief du soir s'y rattachent (`docs/douleurs.md`, `docs/notifications-v3.md`),
+        # et la position d'une ligne se décale à la première suppression. Une sortie
+        # importée en avait déjà besoin pour ses paliers et ses meilleurs efforts.
+        run_id = new_id()
         row = await self._repo.append(self._to_row(payload, source, run_id, fit_path, max_hr))
 
         written = 0

@@ -1,0 +1,55 @@
+/*
+ * Le point du soir (`docs/notifications-v3.md`). Le pendant du parcours du matin : une
+ * feuille, des sections qu'on parcourt au pouce, le geste qui termine à `--tap-lg`.
+ */
+
+.flow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.heading {
+  margin: 0;
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink-mid);
+  text-wrap: pretty;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.itemHead {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.detail {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.finish {
+  min-height: var(--tap-lg);
+}
+
+.error {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}

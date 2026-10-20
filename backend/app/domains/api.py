@@ -27,6 +27,7 @@ from app.domains import (
     body,
     brief,
     coach,
+    evening,
     goals,
     heatmap,
     hydration,
@@ -43,6 +44,9 @@ from app.domains import (
 #: Routes accessibles sans jeton.
 public_router = APIRouter(prefix="/api")
 public_router.include_router(auth.router)
+# Le report signé d'une relance du soir : le service worker n'a pas de jeton
+# (`docs/notifications-v3.md`, D6). La signature tient lieu de garde.
+public_router.include_router(evening.public_router)
 
 #: Routes de données, jeton obligatoire (`AUTH-05`).
 protected_router = APIRouter(prefix="/api", dependencies=[Depends(require_auth)])
@@ -51,6 +55,7 @@ for domain in (
     body,
     pain,
     morning,
+    evening,
     coach,
     activity,
     hydration,
@@ -77,6 +82,7 @@ PROTECTED_PREFIXES = tuple(
     for domain in (
         body,
         pain,
+        evening,
         activity,
         hydration,
         supplements,

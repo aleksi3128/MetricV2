@@ -195,6 +195,16 @@ export const NOTIFICATIONS: NotificationsView = {
   },
   devices: [],
   reminders: { supplements: null, hydration: null, meals: null, workout: null, protein: null },
+  escalation: {
+    enabled: true,
+    start: '19:00',
+    end: null,
+    interval_min: 3,
+    snooze_min: 30,
+    cap: 100,
+    quiet_start: '00:00',
+    quiet_end: '07:00',
+  },
   token: 'jeton-reglages',
 };
 
@@ -209,6 +219,16 @@ export const NOTIFICATIONS_READY: NotificationsView = {
   },
   devices: [{ id: 'app1', created: '2026-08-01', label: 'iPhone', hint: 'ppareil-1' }],
   reminders: { supplements: '20:00', hydration: null, meals: null, workout: null, protein: null },
+  escalation: {
+    enabled: true,
+    start: '19:00',
+    end: null,
+    interval_min: 3,
+    snooze_min: 30,
+    cap: 100,
+    quiet_start: '00:00',
+    quiet_end: '07:00',
+  },
   token: 'jeton-reglages',
 };
 

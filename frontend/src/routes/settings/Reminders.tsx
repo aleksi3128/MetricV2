@@ -20,6 +20,7 @@ import {
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { EscalationCard } from './Escalation';
 import styles from './Reminders.module.css';
 
 /**
@@ -417,6 +418,8 @@ export function Reminders() {
           )}
         </div>
       </form>
+
+      <EscalationCard view={data} onSaved={refresh} />
     </>
   );
 }

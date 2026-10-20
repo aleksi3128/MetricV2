@@ -24,12 +24,19 @@ export function PainCheck({
   activityId,
   today,
   onDone,
+  later = true,
 }: {
   /** Le jour de la séance, et son identifiant **stable** — `run_id`, `other_id`. */
   date: string;
   activityId: string;
   today: string;
   onDone: () => void;
+  /**
+   * « Plus tard » n'a de sens que là où quelque chose redemandera : la fin d'un import,
+   * que le point du soir reprend. Dans le point du soir lui-même, il ne mènerait nulle
+   * part — il y est retiré.
+   */
+  later?: boolean | undefined;
 }) {
   const [answer, setAnswer] = useState<'ask' | 'yes'>('ask');
   const invalidate = useInvalidatePain();
@@ -84,9 +91,11 @@ export function PainCheck({
         >
           Oui
         </Button>
-        <Button variant="quiet" onClick={onDone}>
-          Plus tard
-        </Button>
+        {later && (
+          <Button variant="quiet" onClick={onDone}>
+            Plus tard
+          </Button>
+        )}
       </div>
       {none.error !== null && (
         <p className={styles.error} role="alert">

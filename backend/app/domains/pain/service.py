@@ -75,6 +75,12 @@ class PainService:
         """Tous les épisodes, jugés. Le plus récent d'abord."""
         return self._episodes(await self._repo.read_all(), today)
 
+    async def answered(self) -> frozenset[str]:
+        """Les séances dont la douleur a été demandée — oui ou non —, par identifiant stable."""
+        return frozenset(
+            row.model.run_id for row in await self._repo.read_all() if row.model.run_id
+        )
+
     async def level(self, today: date) -> tuple[rules.Level, str]:
         """Ce que le coach doit en faire (`docs/douleurs.md` §4)."""
         rows = await self._repo.read_all()

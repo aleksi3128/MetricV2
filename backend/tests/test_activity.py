@@ -6,6 +6,7 @@ plus ce qui lui est propre : normalisation des formats, semaines ISO, purge en c
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from typing import Any
 
@@ -315,10 +316,10 @@ def test_the_run_file_stays_readable_in_a_spreadsheet(
         "rpe"
     )
     assert lines[1].startswith("2026-07-20,8.4,44.2,5.262")
-    # Une saisie au clavier ne porte ni identifiant stable, ni paliers, ni bornes
-    # horaires, ni fichier, ni FC max, ni effort perçu : des cellules vides, qui sont une
-    # valeur légitime et non un trou.
-    assert lines[1].endswith("jambes lourdes,manual,,,,,,,,,")
+    # Une saisie au clavier porte son identifiant stable — une douleur s'y rattache
+    # (`docs/douleurs.md`) —, mais ni paliers, ni bornes horaires, ni fichier, ni FC max,
+    # ni effort perçu : des cellules vides, qui sont une valeur légitime et non un trou.
+    assert re.search(r"jambes lourdes,manual,[0-9a-f]{12},,,,,,,,$", lines[1])
 
 
 # ── Allure, distance et cadence (C06) ─────────────────

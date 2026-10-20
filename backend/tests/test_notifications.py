@@ -496,7 +496,10 @@ class TestOrdonnanceur:
     @staticmethod
     def _seed_reminders(dav: FakeWebDav, **slots: str) -> None:
         lignes = "\n".join(f"reminders_{name},{value}" for name, value in slots.items())
-        dav.seed(SETTINGS, f"key,value\n{lignes}\n")
+        # Le point du soir (`docs/notifications-v3.md`) est activé par défaut et relance
+        # dès 19 h : ces cas portent sur les rappels, il est éteint ici et a ses propres
+        # cas dans `test_evening.py`.
+        dav.seed(SETTINGS, f"key,value\nevening_enabled,false\n{lignes}\n")
 
     @staticmethod
     def _seed_subscription(dav: FakeWebDav) -> None:
@@ -759,7 +762,7 @@ class TestBudgetOrdonnanceur:
 
     def _seed_reminders(self, dav: FakeWebDav, **slots: str) -> None:
         lignes = "".join(f"reminders_{kind},{slot}\n" for kind, slot in slots.items())
-        dav.seed(SETTINGS, f"key,value\n{lignes}")
+        dav.seed(SETTINGS, f"key,value\nevening_enabled,false\n{lignes}")
 
     def _seed_subscription(self, dav: FakeWebDav) -> None:
         from tests.conftest import TEST_AUTH, TEST_P256DH
@@ -931,7 +934,7 @@ class TestSeanceDepuisLePlanning:
         self, store: FileStore, push_sender: PushSender, dav: FakeWebDav, webpush: FakeWebPush
     ) -> None:
         """**Aucune clé `reminders_*` n'est posée** : le déclencheur vient du planning."""
-        dav.seed(SETTINGS, "key,value\n")
+        dav.seed(SETTINGS, "key,value\nevening_enabled,false\n")
         self._seed_subscription(dav)
         self._seed_plan(dav, "18:00")
 
@@ -943,7 +946,7 @@ class TestSeanceDepuisLePlanning:
     def test_rien_ne_part_avant_le_quart_dheure(
         self, store: FileStore, push_sender: PushSender, dav: FakeWebDav, webpush: FakeWebPush
     ) -> None:
-        dav.seed(SETTINGS, "key,value\n")
+        dav.seed(SETTINGS, "key,value\nevening_enabled,false\n")
         self._seed_subscription(dav)
         self._seed_plan(dav, "18:00")
 
@@ -957,7 +960,7 @@ class TestSeanceDepuisLePlanning:
         """L'heure est facultative dans `plan.csv`, et c'est courant. Sans elle, il n'y a
         pas de « quinze minutes avant » — la séance ne compte que dans le rappel de fin de
         journée."""
-        dav.seed(SETTINGS, "key,value\n")
+        dav.seed(SETTINGS, "key,value\nevening_enabled,false\n")
         self._seed_subscription(dav)
         self._seed_plan(dav, "")
 

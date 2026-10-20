@@ -465,7 +465,9 @@ def test_a_keyboard_run_has_no_splits_and_that_is_not_a_defect(
 
     body = store_client.get("/api/activity/runs/latest", headers=auth).json()
 
-    assert body["run"]["run_id"] == ""
+    # L'identifiant stable existe — une douleur s'y rattache (`docs/douleurs.md`) —, les
+    # paliers, eux, n'existent pas, et ce n'est pas un défaut.
+    assert len(body["run"]["run_id"]) == 12
     assert body["splits"]["splits"] == []
     assert body["splits"]["drift_s_per_km"] is None
 

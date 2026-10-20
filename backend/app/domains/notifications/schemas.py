@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -112,12 +112,50 @@ class SubscribedDevice(BaseModel):
     hint: str
 
 
+class Escalation(BaseModel):
+    """Le point du soir et les heures calmes (`docs/notifications-v3.md`)."""
+
+    enabled: bool
+    start: str
+    #: `null` : minuit.
+    end: str | None = None
+    interval_min: int
+    snooze_min: int
+    cap: int
+    quiet_start: str
+    quiet_end: str
+
+
+class EscalationPayload(BaseModel):
+    """Un champ omis reste à sa valeur."""
+
+    enabled: bool | None = None
+    start: Slot | None = None
+    end: Slot | None = None
+    interval_min: int | None = Field(default=None, ge=1, le=60)
+    snooze_min: int | None = Field(default=None, ge=5, le=240)
+    cap: int | None = Field(default=None, ge=1, le=300)
+    quiet_start: Slot | None = None
+    quiet_end: Slot | None = None
+
+
+class AlertView(BaseModel):
+    """Une alerte ouverte, déjà rédigée par son domaine."""
+
+    key: str
+    priority: Literal["critical", "normal", "info"]
+    title: str
+    body: str
+    url: str
+
+
 class NotificationsView(BaseModel):
     """Réponse unique de la section « Rappels » de `/reglages`."""
 
     push: PushStatus
     devices: list[SubscribedDevice]
     reminders: Reminders
+    escalation: Escalation
     #: Garde anti-conflit du fichier de réglages (`STO-05`), à renvoyer en « If-Match ».
     #: C'est bien celui de `settings.csv` : les créneaux y vivent, pas dans un fichier à
     #: eux (`NOT-03`).

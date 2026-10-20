@@ -139,6 +139,11 @@ export const keys = {
     /** État de l'assistance (`IA-07`) — lu une fois, il ne change pas en cours de session. */
     status: () => ['ai', 'status'] as const,
   },
+  evening: {
+    all: () => ['evening'] as const,
+    /** Le point du soir : dû ou non, et son contenu (`docs/notifications-v3.md`). */
+    flow: () => ['evening', 'flow'] as const,
+  },
   morning: {
     all: () => ['morning'] as const,
     /** Le parcours du matin : dû ou non, et où reprendre. */

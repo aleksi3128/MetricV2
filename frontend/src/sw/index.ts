@@ -123,6 +123,20 @@ interface PushPayload {
   body?: string;
   tag?: string;
   url?: string;
+  /** `'1'` : une relance qui remplace la précédente **et** revibre (`docs/notifications-v3.md`, D5). */
+  renotify?: string;
+  /** Le report signé d'une relance du soir, et son libellé (D6). */
+  snooze_url?: string;
+  snooze_label?: string;
+}
+
+/**
+ * Les options que `lib.dom` ne type pas encore partout. `actions` n'est d'ailleurs **pas**
+ * affiché par iOS : le report y passe par la feuille du soir, dans l'application.
+ */
+interface RichOptions extends NotificationOptions {
+  renotify?: boolean;
+  actions?: { action: string; title: string }[];
 }
 
 /**
@@ -151,23 +165,34 @@ function read(data: PushEvent['data']): PushPayload {
 
 worker.addEventListener('push', (event) => {
   const payload = read(event.data);
-  event.waitUntil(
-    worker.registration.showNotification(payload.title ?? REPLI.title, {
-      body: payload.body ?? REPLI.body,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      // Le `tag` remplace une notification du même type au lieu de l'empiler : deux
-      // rappels de suppléments à deux jours d'intervalle ne doivent pas laisser deux
-      // lignes dans le centre de notifications.
-      tag: payload.tag ?? 'metric',
-      data: { url: payload.url ?? '/' },
-    }),
-  );
+  const options: RichOptions = {
+    body: payload.body ?? REPLI.body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    // Le `tag` remplace une notification du même type au lieu de l'empiler : deux
+    // rappels de suppléments à deux jours d'intervalle ne doivent pas laisser deux
+    // lignes dans le centre de notifications.
+    tag: payload.tag ?? 'metric',
+    renotify: payload.renotify === '1',
+    actions:
+      payload.snooze_url !== undefined
+        ? [{ action: 'snooze', title: payload.snooze_label ?? 'Plus tard' }]
+        : [],
+    data: { url: payload.url ?? '/', snooze: payload.snooze_url },
+  };
+  event.waitUntil(worker.registration.showNotification(payload.title ?? REPLI.title, options));
 });
 
 worker.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = (event.notification.data as { url?: string } | undefined)?.url ?? '/';
+  const data = event.notification.data as { url?: string; snooze?: string } | undefined;
+  // « Rappelle-moi dans 30 min » : le lien est signé, il part sans jeton de session et
+  // sans ouvrir l'application — c'est tout son intérêt.
+  if (event.action === 'snooze' && data?.snooze) {
+    event.waitUntil(fetch(data.snooze, { method: 'POST' }).then(() => undefined));
+    return;
+  }
+  const target = data?.url ?? '/';
 
   event.waitUntil(
     worker.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

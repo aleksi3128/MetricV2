@@ -43,6 +43,16 @@ from datetime import date, datetime, time, timedelta
 from app.core.dates import now_local
 from app.domains.activity.service import CircuitSessionService, RunService
 from app.domains.hydration.service import HydrationService
+from app.domains.notifications import alerts
+from app.domains.notifications.escalation import (
+    EVENING_TAG,
+    EveningSettings,
+    EveningState,
+    compose_evening,
+    evening_due,
+    in_evening,
+    quiet,
+)
 from app.domains.notifications.push import PushSender
 from app.domains.notifications.reminders import (
     EVE,
@@ -99,8 +109,12 @@ class ReminderScheduler:
         now: Callable[[], datetime] = now_local,
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         interval: float = INTERVAL,
+        secret: str = "",
     ) -> None:
         self._store = store
+        #: Signe le lien de report des relances du soir. Vide, la notification n'offre pas
+        #: le report — il reste dans la feuille du soir (`docs/notifications-v3.md`, D6).
+        self._secret = secret
         self._sender = sender
         self._now = now
         self._sleep = sleep
@@ -119,9 +133,25 @@ class ReminderScheduler:
     # ── Une passe ─────────────────────────────────────
 
     async def tick(self) -> list[ReminderKind]:
-        """Une passe. Rend les types effectivement envoyés."""
+        """Une passe. Rend les types de **rappel** effectivement envoyés.
+
+        Trois temps, dans cet ordre (`docs/notifications-v3.md` §4) : les alertes
+        critiques, qui passent les heures calmes ; la relance du soir ; les rappels. Les deux
+        premiers ont leur propre budget et ne consomment pas celui des rappels.
+        """
         service = NotificationService(self._store)
         moment = self._now()
+        settings = await service.escalation()
+
+        await self._alerts(service, moment)
+        calm = quiet(moment, settings.quiet_start, settings.quiet_end)
+        if not calm:
+            await self._evening(service, moment, settings)
+        if calm:
+            # Les heures calmes taisent tout ce qui n'est pas critique. Un rappel repoussé
+            # ne revient pas : à 7 h, la `GRACE` d'un créneau de nuit est dépassée — c'est
+            # voulu, on ne rattrape pas la nuit.
+            return []
 
         slots = dict(await self._slots(service))
         # **Les séances viennent du planning, pas des réglages** (**N3**) : leur heure est
@@ -202,6 +232,74 @@ class ReminderScheduler:
             )
 
         return envoyes
+
+    # ── Ce qui insiste (`docs/notifications-v3.md`) ───
+
+    async def _alerts(self, service: NotificationService, moment: datetime) -> None:
+        """Les alertes critiques jamais dites. Elles passent les heures calmes (NOT-06)."""
+        try:
+            ouvertes = await alerts.collect(self._store, moment.date())
+        except Exception:
+            # Une alerte qui ne se calcule pas ne doit pas faire taire les rappels.
+            logger.exception("alertes : calcul impossible")
+            return
+        if not ouvertes:
+            return
+        dites = await service.alerted()
+        for alert in ouvertes:
+            if alert.key in dites:
+                continue
+            await service.deliver(
+                self._sender,
+                {
+                    "title": alert.title,
+                    "body": alert.body,
+                    # Un `tag` par alerte : deux constats différents restent deux lignes.
+                    "tag": f"alert-{alert.key}",
+                    "url": alert.url,
+                    "renotify": "1",
+                },
+            )
+            await service.record_escalation("alert", moment=moment, key=alert.key)
+            logger.info("alerte %s envoyée", alert.key)
+
+    async def _evening(
+        self, service: NotificationService, moment: datetime, settings: EveningSettings
+    ) -> None:
+        if not settings.enabled or not in_evening(moment, settings):
+            return
+        from app.domains.evening.service import EveningService, signature
+
+        row = await EveningService(self._store).state(moment.date())
+        sent, last = await service.evening_sent(moment.date())
+        snoozed = row.model.snoozed_until if row else None
+        if snoozed is not None and snoozed.tzinfo is None:
+            snoozed = snoozed.replace(tzinfo=moment.tzinfo)
+        state = EveningState(
+            done=bool(row and row.model.done), snoozed_until=snoozed, sent=sent, last=last
+        )
+        if not evening_due(moment, settings, state):
+            return
+        title, body = compose_evening(sent)
+        payload = {
+            "title": title,
+            "body": body,
+            # Toutes les relances partagent le même `tag` : elles se remplacent au lieu de
+            # s'empiler, et `renotify` refait vibrer (D5).
+            "tag": EVENING_TAG,
+            "url": "/?soir=1",
+            "renotify": "1",
+        }
+        if self._secret:
+            day = moment.date()
+            payload["snooze_url"] = (
+                f"/api/public/evening/snooze?day={day.isoformat()}&sig={signature(self._secret, day)}"
+            )
+            payload["snooze_label"] = (
+                f"Rappelle-moi dans {int(settings.snooze.total_seconds() // 60)} min"
+            )
+        await service.deliver(self._sender, payload)
+        await service.record_escalation("evening", moment=moment)
 
     # ── Lectures ──────────────────────────────────────
 

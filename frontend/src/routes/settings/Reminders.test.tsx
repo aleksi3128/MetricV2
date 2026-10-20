@@ -257,3 +257,26 @@ describe('section Rappels', () => {
     expect(screen.queryByText('éteint')).not.toBeInTheDocument();
   });
 });
+
+describe('le point du soir et les heures calmes', () => {
+  it('annonce qu’il est activé par défaut, et se coupe sous If-Match', async () => {
+    stub();
+    renderSection();
+
+    expect(await screen.findByText('activé')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Couper le point du soir' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le point du soir' }));
+
+    await waitFor(() => {
+      expect(written()).toBeDefined();
+    });
+    const call = written();
+    expect(call?.url).toBe('/api/notifications/escalation');
+    expect(new Headers(call?.init?.headers).get('If-Match')).toBe('jeton-reglages');
+    const body = call?.init?.body;
+    expect(typeof body === 'string' ? (JSON.parse(body) as unknown) : null).toMatchObject({
+      enabled: false,
+      end: null,
+    });
+  });
+});

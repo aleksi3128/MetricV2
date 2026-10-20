@@ -74,7 +74,9 @@ class PushProvider:
         # Sans stockage, l'ordonnanceur n'aurait aucun fichier à lire : il journaliserait
         # une erreur par minute sans jamais pouvoir envoyer quoi que ce soit.
         if self._settings.storage_configured:
-            self._scheduler = ReminderScheduler(storage.store, self._sender)
+            self._scheduler = ReminderScheduler(
+                storage.store, self._sender, secret=self._settings.jwt_secret
+            )
             self._scheduler.start()
 
     def use(self, sender: PushSender) -> None:

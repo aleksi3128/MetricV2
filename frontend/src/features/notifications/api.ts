@@ -44,8 +44,33 @@ export interface NotificationsView {
   push: PushStatus;
   devices: SubscribedDevice[];
   reminders: Reminders;
+  escalation: Escalation;
   /** À renvoyer en « If-Match » : les créneaux vivent dans `settings.csv` (`STO-05`). */
   token: string;
+}
+
+/** Le point du soir et les heures calmes (`docs/notifications-v3.md`). */
+export interface Escalation {
+  enabled: boolean;
+  start: string;
+  /** `null` : minuit. */
+  end: string | null;
+  interval_min: number;
+  snooze_min: number;
+  cap: number;
+  quiet_start: string;
+  quiet_end: string;
+}
+
+export type EscalationPayload = Partial<Escalation>;
+
+/** Une alerte ouverte, rédigée par son domaine. */
+export interface Alert {
+  key: string;
+  priority: 'critical' | 'normal' | 'info';
+  title: string;
+  body: string;
+  url: string;
 }
 
 /**
@@ -82,6 +107,14 @@ export const notificationsApi = {
       body: payload,
       headers: { 'If-Match': token },
     }),
+
+  updateEscalation: (payload: EscalationPayload, token: string) =>
+    request<NotificationsView>('/api/notifications/escalation', {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'If-Match': token },
+    }),
+  alerts: () => request<Alert[]>('/api/notifications/alerts'),
 
   /** Envoie une notification d'essai à tous les appareils abonnés. */
   test: () => request<undefined>('/api/notifications/test', { method: 'POST' }),

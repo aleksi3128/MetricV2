@@ -26,6 +26,8 @@ PUBLIC_PATHS = {
     "/api/redoc",
     "/api/openapi.json",
     "/api/auth/login",
+    # Le report d'une relance du soir, sous signature (`docs/notifications-v3.md`, D6).
+    "/api/public/evening/snooze",
 }
 
 

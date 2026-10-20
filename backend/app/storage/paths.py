@@ -21,6 +21,8 @@ PAIN = "body/pain.csv"
 #: L'état du parcours du matin — étapes passées, « Pas ce matin » (`docs/coach-course.md`
 #: §5). Un état et non une mesure : il ne dit que ce que les données ne savent pas.
 MORNING_FLOW = "routine/morning_flow.csv"
+#: L'état du point du soir — fait, reporté jusqu'à quand (`docs/notifications-v3.md` §2).
+EVENING = "routine/evening.csv"
 
 #: Les propositions du coach, une active à la fois et l'historique gardé
 #: (`docs/coach-course.md` §7) — ce qui permettra de juger le coach sur ce qu'il a proposé.
