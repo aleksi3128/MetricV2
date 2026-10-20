@@ -106,9 +106,6 @@ export const keys = {
   medical: {
     all: () => ['medical'] as const,
   },
-  sync: {
-    all: () => ['sync'] as const,
-  },
   races: {
     all: () => ['races'] as const,
     /** Les courses visées et leurs conflits (`docs/plan-course.md`). */

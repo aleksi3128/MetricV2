@@ -106,3 +106,13 @@ Deux conséquences du dédoublonnage, à connaître :
 - **Aucun écran ne montre encore la nuit** (sommeil, stress, Body Battery) : l'API la sert,
   l'accueil de R10 l'affichera.
 
+
+### Pas d'accès au compte (20 octobre 2026)
+
+**R0 est tranché : l'utilisateur ne donne pas accès à son compte Garmin.** L'import du
+`.fit` reste la seule voie, comme CA-08 le garantissait. La carte « Garmin » quitte les
+réglages, et l'accueil ne promet plus une nuit « qui arrive avec la synchro » : elle ne
+s'affiche que si elle existe. Le connecteur, la passe de l'ordonnanceur et `make sync`
+restent dans le dépôt, **inertes** sans identifiants — l'ordonnanceur se tait déjà quand ils
+manquent. Le dédoublonnage (D6) sert toujours : deux `.fit` de la même sortie, ou un `.fit`
+et une capture Apple.

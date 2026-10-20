@@ -80,17 +80,15 @@ function Night() {
   });
   if (isPending) return <Skeleton lines={1} />;
   if (error) return <p className={styles.text}>{failure(error, 'Nuit illisible.')}</p>;
+  // Sans accès au compte Garmin (`docs/planifier-une-seance.md`, D13), aucune nuit
+  // n'arrive d'elle-même : la ligne ne s'affiche que s'il y en a une, sans promettre une
+  // synchro qui ne viendra pas.
   const last = data.days[0];
+  if (last === undefined) return null;
   return (
     <p className={styles.text}>
-      {last === undefined ? (
-        'Pas de nuit reçue : elle arrive avec la synchro Garmin.'
-      ) : (
-        <>
-          <span className={styles.key}>Relevé du {dayMonth(last.date)}</span>
-          {last.text}
-        </>
-      )}
+      <span className={styles.key}>Relevé du {dayMonth(last.date)}</span>
+      {last.text}
     </p>
   );
 }

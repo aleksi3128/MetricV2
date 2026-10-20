@@ -106,7 +106,7 @@ qu'il doit d'abord protéger.
 
 | Lot | Contenu | Exigences | Critère | Taille |
 |---|---|---|---|---|
-| **R0** | Prototypes des deux paris restants : Garmin non officiel (lire une activité, créer un entraînement), transcription vocale française. Push et WebDAV sont **déjà prouvés** dans Metric | P0 | Les deux marchent, ou le plan B est écrit | S |
+| **R0** | Prototypes des deux paris restants : Garmin non officiel (lire une activité, créer un entraînement), transcription vocale française. Push et WebDAV sont **déjà prouvés** dans Metric. **Garmin tranché le 20/10 : pas d'accès au compte, le `.fit` reste la voie** ([`planifier-une-seance.md`](planifier-une-seance.md), D13) | P0 | Les deux marchent, ou le plan B est écrit | S |
 | **R1** ✅ | Domaine `pain` : relevé de douleur après séance (texte d'abord), relance à J+1, réponse **graduée** par règles pures et non forçables (Silbernagel), aucun diagnostic — [`douleurs.md`](douleurs.md) | MED-01, 02, 05, 06 | CA-09 | M |
 | **R2** ✅ | Charge multisport : RPE sur toute séance, sRPE, CTL/ATL/TSB (Banister), rapport aigu/chronique en moyennes exponentielles, monotonie et contrainte (Foster), progression sur 1 et 2 semaines (Nielsen). Import vélo et marche — [`charge-multisport.md`](charge-multisport.md) | ANA-04, MSP-01, 02 | CA-02 | L |
 | **R3** ✅ | Notifications v3 : trois priorités, heures calmes, critique qui traverse, relances du soir et report, alertes de charge et de douleur — [`notifications-v3.md`](notifications-v3.md) | NOT-02→06 | CA-06 | M |

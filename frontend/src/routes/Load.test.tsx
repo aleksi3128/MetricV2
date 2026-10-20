@@ -140,9 +140,8 @@ describe('la carte « Forme » de l’accueil', () => {
     expect(link).toHaveAttribute('href', '/corps');
     expect(within(link).getByText('critique')).toBeInTheDocument();
     expect(await screen.findByText(TRAINING.form_text)).toBeInTheDocument();
-    expect(
-      await screen.findByText('Pas de nuit reçue : elle arrive avec la synchro Garmin.'),
-    ).toBeInTheDocument();
+    // Sans nuit reçue, rien : pas de promesse d'une synchro Garmin qui ne viendra pas.
+    expect(screen.queryByText(/synchro Garmin/)).not.toBeInTheDocument();
   });
 
   it('une lecture en panne n’emporte pas les deux autres', async () => {
