@@ -117,7 +117,7 @@ qu'il doit d'abord protéger.
 | **R8** ✅ | Voix : dictée dans l'assistant et le relevé de douleur, réponse parlée, ton du coach — [`voix.md`](voix.md) | COA-01→04 | — | M — **dépend de R0** |
 | **R9** ✅ | Dossier médical chiffré, dicté et structuré, validé avant écriture ; mémoire du coach étendue — [`dossier-medical.md`](dossier-medical.md) | MED-03, COA-03 | — | M |
 | **R10** ✅ | Tableau de bord : vue « aujourd'hui », CTL/ATL/TSB, 80/20 tous sports, frise des douleurs sur la charge ; respect de la séance prévue — [`accueil-et-charge.md`](accueil-et-charge.md) | DSH-02→05, ANA-03 | CA-04 | M |
-| **R11** | Exploitation et sécurité : passkey, `make status`/`doctor`/`sync`/`backup`, export complet, plafond de dépense IA et voix | §5, §6 | — | M |
+| **R11** ✅ | Exploitation et sécurité : passkey, `make status`/`doctor`/`sync`/`backup`, export complet, plafond de dépense IA et voix — [`exploitation-securite.md`](exploitation-securite.md) | §5, §6 | — | M |
 
 Le **MVP du cahier** est atteint à la fin de R11. Les exigences **S** et **C** (§2 tableau,
 dernière ligne) viennent ensuite, dans l'ordre du cahier.

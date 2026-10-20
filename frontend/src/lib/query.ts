@@ -177,6 +177,12 @@ export const keys = {
     all: () => ['coach'] as const,
     next: () => ['coach', 'next'] as const,
   },
+  /** Sécurité et données (`docs/exploitation-securite.md`). */
+  account: {
+    all: () => ['account'] as const,
+    view: () => ['account', 'view'] as const,
+    passkeys: () => ['account', 'passkeys'] as const,
+  },
   notifications: {
     all: () => ['notifications'] as const,
     /** État du push, appareils abonnés et créneaux, en une requête (`NOT-01`, `NOT-03`). */

@@ -57,6 +57,17 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
     if (url.includes('/api/notifications')) return Promise.resolve(json(200, NOTIFICATIONS));
     // La section « Natation » lit le glossaire ; ces cas ne portent pas sur elle.
     if (url.includes('/api/planning/swim/codes')) return Promise.resolve(json(200, { codes: [] }));
+    // Sécurité et données (`docs/exploitation-securite.md`) : passkey fermée, rien d'utilisé.
+    if (url.includes('/api/passkey'))
+      return Promise.resolve(json(200, { configured: false, items: [] }));
+    if (url.includes('/api/account'))
+      return Promise.resolve(
+        json(200, {
+          today: '2026-10-20',
+          usage: { share: null, text: 'Aucun appel au modèle ce mois-ci.' },
+          backup: { last: null, daily: false, text: 'Aucune sauvegarde encore.' },
+        }),
+      );
     return Promise.resolve(json(200, SETTINGS));
   });
   vi.stubGlobal('fetch', fetchMock);

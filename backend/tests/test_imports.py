@@ -192,11 +192,11 @@ def test_analyzing_a_screenshot_writes_nothing(
 ) -> None:
     """`IMP-01` : l'endpoint analyse seulement."""
     openrouter.say('{"kind": "run", "date": "Hier", "distance": "8,40 KM", "duration": "44:12"}')
-    before = dict(dav.files)
+    before = dav.user_files()
 
     analyze(ai_app_client, auth)
 
-    assert dict(dav.files) == before
+    assert dav.user_files() == before
 
 
 def test_a_chatty_answer_is_still_read(

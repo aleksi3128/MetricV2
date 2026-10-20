@@ -58,6 +58,17 @@ class FakeWebDav:
         self.files[path.strip("/")] = StoredFile(content=raw, etag=etag)
         return etag
 
+    def user_files(self) -> dict[str, object]:
+        """Les fichiers **de l'utilisateur** : tout, sauf le compteur du plafond IA.
+
+        Une analyse par le modèle n'écrit rien de ses données — c'est le contrat des
+        propositions —, mais chaque appel est compté dans `ai/usage.csv`
+        (`docs/exploitation-securite.md`, D9). Les tests « n'écrit rien » comparent ceci.
+        """
+        return {
+            path: value for path, value in self.files.items() if not path.endswith("ai/usage.csv")
+        }
+
     def content_of(self, path: str) -> str:
         """Contenu texte d'un fichier, BOM retiré."""
         return self.files[path.strip("/")].content.decode("utf-8-sig")
@@ -144,6 +155,16 @@ class FakeWebDav:
         await self._respond(send, 201 if stored is None else 204, headers=self._etag(etag))
 
     async def _delete(self, send: Send, path: str, _h: dict[str, str], _b: bytes) -> None:
+        if path in self.collections:
+            # Comme Nextcloud : supprimer un dossier emporte tout ce qu'il contient.
+            prefix = f"{path}/"
+            self.collections = {
+                c for c in self.collections if c != path and not c.startswith(prefix)
+            }
+            for name in [f for f in self.files if f.startswith(prefix)]:
+                del self.files[name]
+            await self._respond(send, 204)
+            return
         if self.files.pop(path, None) is None:
             await self._respond(send, 404)
             return

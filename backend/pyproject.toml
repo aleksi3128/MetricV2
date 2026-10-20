@@ -38,6 +38,9 @@ dependencies = [
   # entrelacés là où un autre en écrit un. Un décodeur maison lirait Strava et pas
   # Garmin, et on ne le saurait qu'au premier fichier qui ne s'ouvre pas.
   "fitdecode>=0.11",
+  # La passkey (`docs/exploitation-securite.md`, D1) : la vérification WebAuthn, pour
+  # la même raison que `pywebpush` — une erreur cryptographique maison ne se voit pas.
+  "webauthn>=2.2",
 ]
 
 [project.optional-dependencies]

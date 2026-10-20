@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_model: str = ""
+    #: Plafond de dépense mensuel sur l'IA, en dollars ; alerte à 80 %, assistance
+    #: fermée à 100 % (`docs/exploitation-securite.md`, D9). 0 : pas de plafond.
+    ai_monthly_budget_usd: float = 5.0
+    #: Une copie datée de toutes les données chaque nuit, sur Nextcloud (D6). Coupée par
+    #: défaut : elle écrit chaque nuit dans le Nextcloud de l'utilisateur.
+    backup_daily: bool = False
 
     # ── Base produits (`NUT-13`) ──────────────────────
     # Aucune clé : Open Food Facts sert la lecture en accès libre, contre un `User-Agent`
@@ -109,6 +115,16 @@ class Settings(BaseSettings):
     # Le dossier où la bibliothèque range ses jetons de session, pour ne pas se
     # reconnecter à chaque passe — Garmin bloque les connexions trop fréquentes.
     garmin_token_dir: str = ".garmin"
+
+    # ── Passkey (`docs/exploitation-securite.md`, D1–D3) ──
+    # L'identifiant de la partie de confiance est le **nom de domaine** de l'application
+    # (`metric.exemple.fr`), et l'origine son adresse complète (`https://metric.exemple.fr`).
+    # Vides : la passkey est fermée, le mot de passe marche.
+    passkey_rp_id: str = ""
+    passkey_origin: str = ""
+    #: Les clés publiques, **sur le disque du serveur** : se connecter ne dépend pas de
+    #: Nextcloud (D2).
+    passkey_dir: str = ".passkeys"
 
     # ── Notifications push (`NOT-01`) ─────────────────
     # Sans paire de clés, aucun abonnement n'est proposé et l'ordonnanceur ne démarre
@@ -144,6 +160,10 @@ class Settings(BaseSettings):
         croirait avoir posé une protection. Mieux vaut ne rien publier et le dire.
         """
         return len(self.ical_secret.strip()) >= ICAL_SECRET_MIN_LENGTH
+
+    @property
+    def passkey_configured(self) -> bool:
+        return bool(self.passkey_rp_id.strip() and self.passkey_origin.strip())
 
     @property
     def push_enabled(self) -> bool:

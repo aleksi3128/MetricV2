@@ -33,6 +33,7 @@ from app.core.throttle import LoginThrottle
 from app.domains.activity.weather import WeatherProvider
 from app.domains.ai.service import AiProvider
 from app.domains.api import protected_router, public_router
+from app.domains.backup.scheduler import BackupScheduler
 from app.domains.brief.scheduler import BriefScheduler
 from app.domains.heatmap.cache import GridCache
 from app.domains.notifications.provider import PushProvider
@@ -108,8 +109,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             briefs = BriefScheduler(provider.store, ai.service)
             briefs.start()
 
+        # La sauvegarde de nuit, **sur demande** (`docs/exploitation-securite.md`, D6).
+        backups: BackupScheduler | None = None
+        if settings.backup_daily and settings.storage_configured:
+            backups = BackupScheduler(lambda: provider.store)
+            backups.start()
+
         app.state.storage = provider
         app.state.ai = ai
+        # Le compteur du plafond IA lit le magasin **au moment de l'appel** : le fournisseur
+        # de stockage peut en changer (`docs/exploitation-securite.md`, D9).
+        ai.meter.bind(lambda: provider.store)
         app.state.push = push
         app.state.products = products
         app.state.weather = weather
@@ -127,6 +137,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             # les arrêter après lui les ferait échouer sur un client déjà refermé.
             if briefs is not None:
                 await briefs.stop()
+            if backups is not None:
+                await backups.stop()
             await push.stop()
             await products.stop()
             await weather.stop()

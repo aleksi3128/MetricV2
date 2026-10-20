@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.deps import require_auth
 from app.domains import (
+    account,
     activity,
     aggregates,
     ai,
@@ -28,6 +29,7 @@ from app.domains import (
     brief,
     coach,
     evening,
+    export,
     goals,
     heatmap,
     hydration,
@@ -37,6 +39,7 @@ from app.domains import (
     notifications,
     nutrition,
     pain,
+    passkey,
     planning,
     races,
     supplements,
@@ -47,6 +50,8 @@ from app.domains import (
 #: Routes accessibles sans jeton.
 public_router = APIRouter(prefix="/api")
 public_router.include_router(auth.router)
+# Entrer avec une passkey : avant d'avoir un jeton, par définition (`docs/exploitation-securite.md`).
+public_router.include_router(passkey.public_router)
 # Le report signé d'une relance du soir : le service worker n'a pas de jeton
 # (`docs/notifications-v3.md`, D6). La signature tient lieu de garde.
 public_router.include_router(evening.public_router)
@@ -78,6 +83,9 @@ for domain in (
     races,
     sync,
     medical,
+    export,
+    account,
+    passkey,
 ):
     protected_router.include_router(domain.router)
 
@@ -107,5 +115,8 @@ PROTECTED_PREFIXES = tuple(
         races,
         sync,
         medical,
+        export,
+        account,
+        passkey,
     )
 )

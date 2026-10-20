@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Request
 
 from app.core.dates import today_local
-from app.core.deps import StoreDep
+from app.core.deps import SettingsDep, StoreDep
 from app.core.exceptions import NotFoundError, PushNotConfiguredError
 from app.domains.notifications import alerts
 from app.domains.notifications.provider import PushProvider
@@ -94,8 +94,8 @@ async def update_escalation(
 
 
 @router.get("/alerts", response_model=list[AlertView], summary="Les alertes ouvertes")
-async def read_alerts(store: StoreDep) -> list[AlertView]:
-    return await alerts.collect(store, today_local())
+async def read_alerts(store: StoreDep, settings: SettingsDep) -> list[AlertView]:
+    return await alerts.collect(store, today_local(), budget=settings.ai_monthly_budget_usd)
 
 
 @router.post("/subscribe", status_code=204, summary="Abonner cet appareil")

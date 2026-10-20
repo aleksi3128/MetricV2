@@ -28,7 +28,8 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from app.config import Settings
-from app.core.exceptions import AiQuotaError, AiUnavailableError
+from app.core.dates import today_local
+from app.core.exceptions import AiBudgetError, AiQuotaError, AiUnavailableError
 from app.domains.ai.client import (
     EXTRACTION_TEMPERATURE,
     ModelInfo,
@@ -37,6 +38,7 @@ from app.domains.ai.client import (
     OpenRouterClient,
 )
 from app.domains.ai.extract import ReplyStream, first_json_object
+from app.domains.ai.usage import Meter, Usage
 
 #: Durée de mémorisation du catalogue (`IA-02`).
 CATALOGUE_TTL = 3600.0
@@ -115,10 +117,21 @@ class AiService:
         catalogue: ModelCatalogue,
         *,
         preferred: str = "",
+        meter: Meter | None = None,
     ) -> None:
         self._client = client
         self._catalogue = catalogue
         self._preferred = preferred.strip()
+        self._meter = meter
+
+    async def _guard(self) -> None:
+        """Le plafond du mois (`docs/exploitation-securite.md`, D9) : atteint, rien ne part."""
+        if self._meter is not None and not await self._meter.allowed():
+            raise AiBudgetError
+
+    async def _count(self, usage: Usage) -> None:
+        if self._meter is not None:
+            await self._meter.record(usage)
 
     async def candidates(self, *, vision: bool) -> list[ModelInfo]:
         """Modèles à tenter, dans l'ordre, le modèle configuré en tête (`IA-01`).
@@ -172,6 +185,7 @@ class AiService:
         extraction, et le champ y coûte la variété des réponses. Le défaut est ici et non
         chez l'appelant pour que le passage à `None` reste une décision qui se lit.
         """
+        await self._guard()
         models = await self.candidates(vision=bool(images))
         if not models:
             raise AiUnavailableError(
@@ -185,7 +199,7 @@ class AiService:
         for model in models[:MAX_ATTEMPTS]:
             attempted += 1
             try:
-                raw = await self._client.complete(
+                raw, usage = await self._client.complete_with_usage(
                     model.id,
                     instruction=instruction,
                     prompt=prompt,
@@ -198,6 +212,7 @@ class AiService:
             except ModelUnusableError:
                 quota_only = False
                 continue
+            await self._count(usage)
 
             parsed = first_json_object(raw)
             if parsed is not None:
@@ -240,6 +255,7 @@ class AiService:
         `assured` et `limit` vont à `ReplyStream` : voir sa docstring pour ce qu'ils
         garantissent, et §7.1 du plan de coaching pour pourquoi ils existent.
         """
+        await self._guard()
         models = await self.candidates(vision=False)
         if not models:
             raise AiUnavailableError(
@@ -278,6 +294,9 @@ class AiService:
                     await on_delta("", True)
                 continue
 
+            # Un flux ne rend pas son bloc `usage` ici : l'appel est compté, ses jetons
+            # non. Le coût d'un modèle gratuit est nul de toute façon (D9).
+            await self._count(Usage())
             parsed = first_json_object("".join(raw))
             if parsed is not None:
                 return parsed
@@ -306,6 +325,9 @@ class AiProvider:
         self._settings = settings
         self._client: OpenRouterClient | None = None
         self._catalogue: ModelCatalogue | None = None
+        #: Un seul compteur pour toute la vie du processus : le service est recréé à
+        #: chaque accès, le plafond ne doit pas l'être.
+        self.meter = Meter(lambda: settings.ai_monthly_budget_usd, today_local)
 
     @property
     def enabled(self) -> bool:
@@ -341,7 +363,12 @@ class AiProvider:
         """Service prêt à l'emploi, ou `AiUnavailableError` si aucune clé (`IA-07`)."""
         if self._client is None or self._catalogue is None:
             raise AiUnavailableError(self.message)
-        return AiService(self._client, self._catalogue, preferred=self._settings.openrouter_model)
+        return AiService(
+            self._client,
+            self._catalogue,
+            preferred=self._settings.openrouter_model,
+            meter=self.meter,
+        )
 
     @property
     def catalogue(self) -> ModelCatalogue:

@@ -59,12 +59,12 @@ def test_composing_writes_absolutely_nothing(
     laquelle cette route ne touche pas au stockage.
     """
     openrouter.say(json.dumps(ANSWER))
-    before = dict(dav.files)
+    before = dav.user_files()
 
     response = compose(ai_app_client, auth, wish="bras 30 min")
 
     assert response.status_code == 200, response.text
-    assert dict(dav.files) == before
+    assert dav.user_files() == before
 
 
 def test_a_proposal_comes_back_whole_and_adjustable(

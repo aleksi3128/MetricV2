@@ -54,6 +54,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | La voix — dicter à l'assistant, écouter ses réponses, une douleur dite à voix haute | [`docs/voix.md`](docs/voix.md) |
 | Le dossier médical chiffré — la clé hors de Nextcloud, la dictée proposée, ce que le coach en lit | [`docs/dossier-medical.md`](docs/dossier-medical.md) |
 | L'accueil « Forme », l'écran `/charge` — facile tous sports, frise des douleurs — et le respect au kilomètre de la séance prévue | [`docs/accueil-et-charge.md`](docs/accueil-et-charge.md) |
+| La passkey (mot de passe en secours), l'export complet, la sauvegarde datée, le plafond IA, `make status/doctor/sync/backup` | [`docs/exploitation-securite.md`](docs/exploitation-securite.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -187,8 +188,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (319 fichiers), 2 283 tests backend
-               # prettier, eslint, tsc, 786 tests d'écran
+make check     # ruff, ruff format, mypy (338 fichiers), 2 293 tests backend
+               # prettier, eslint, tsc, 790 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

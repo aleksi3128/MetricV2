@@ -20,7 +20,7 @@ from app.storage.files import FileStore
 RETURN_WINDOW_DAYS = 60
 
 
-async def collect(store: FileStore, today: date) -> list[AlertView]:
+async def collect(store: FileStore, today: date, *, budget: float = 0.0) -> list[AlertView]:
     from app.domains.pain.service import PainService
     from app.domains.training.service import TrainingService
 
@@ -83,4 +83,20 @@ async def collect(store: FileStore, today: date) -> list[AlertView]:
                         url="/corps",
                     )
                 )
+    # Le plafond de dépense IA (`docs/exploitation-securite.md`, D9) : une alerte à 80 %,
+    # une par mois. Elle ne se lève pas tant que les modèles sont gratuits.
+    from app.domains.ai.usage import ALERT_SHARE, UsageService
+
+    if budget > 0:
+        usage = await UsageService(store).view(today, budget)
+        if usage.share is not None and usage.share >= ALERT_SHARE:
+            alerts.append(
+                AlertView(
+                    key=f"budget:{usage.month}:80",
+                    priority="normal",
+                    title="Plafond IA à 80 %",
+                    body=usage.text,
+                    url="/reglages",
+                )
+            )
     return alerts

@@ -30,6 +30,8 @@ from typing import Any
 
 import httpx2
 
+from app.domains.ai.usage import Usage
+
 #: Un appel vision sur un modèle gratuit met couramment dix à trente secondes. Le délai de
 #: lecture est donc large — mais borné : au-delà, l'écran attendrait sans rien dire, et
 #: `IA-07` promet que l'IA n'immobilise jamais l'application.
@@ -268,11 +270,38 @@ class OpenRouterClient:
             extra=extra,
         )
 
+        text, _ = await self._post(model, body)
+        return text
+
+    async def complete_with_usage(
+        self,
+        model: str,
+        *,
+        instruction: str,
+        prompt: str,
+        images: Sequence[str] = (),
+        max_tokens: int = 900,
+        temperature: float | None = EXTRACTION_TEMPERATURE,
+    ) -> tuple[str, Usage]:
+        """`complete`, plus le bloc `usage` de la réponse — ce que le plafond compte
+        (`docs/exploitation-securite.md`, D9)."""
+        body = self.build_body(
+            model,
+            instruction=instruction,
+            prompt=prompt,
+            images=images,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return await self._post(model, body)
+
+    async def _post(self, model: str, body: dict[str, Any]) -> tuple[str, Usage]:
         try:
             response = await self._client.post("/chat/completions", json=body)
         except httpx2.HTTPError as exc:
             raise ModelUnusableError(f"{model} injoignable : {exc}") from exc
-        return self._read(model, response)
+        text = self._read(model, response)
+        return text, Usage.read(response.json())
 
     def build_body(
         self,

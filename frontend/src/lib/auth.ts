@@ -8,6 +8,8 @@
 
 import { createContext, useContext } from 'react';
 
+import type { SessionResponse } from '@/lib/api';
+
 export type AuthState =
   /** Jeton présent, en cours de validation auprès du serveur. */
   | { status: 'loading' }
@@ -19,6 +21,8 @@ export interface AuthContextValue {
   state: AuthState;
   /** Ouvre une session. Laisse remonter `ApiError` pour que le formulaire l'affiche. */
   login: (username: string, password: string) => Promise<void>;
+  /** Adopte une session déjà ouverte — celle qu'une passkey vient de rendre. */
+  adopt: (session: SessionResponse) => void;
   logout: () => Promise<void>;
 }
 

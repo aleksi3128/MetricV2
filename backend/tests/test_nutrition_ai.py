@@ -132,11 +132,11 @@ def test_analyzing_writes_absolutely_nothing(
 ) -> None:
     """`NUT-04` : proposé, jamais imposé. Ni ligne de repas, ni photo rangée."""
     openrouter.say('{"protein_g": 38, "calories": 520}')
-    files_before = dict(dav.files)
+    files_before = dav.user_files()
 
     analyze(ai_app_client, auth)
 
-    assert dict(dav.files) == files_before
+    assert dav.user_files() == files_before
 
 
 def test_the_photo_reaches_the_model_reduced_and_in_jpeg(

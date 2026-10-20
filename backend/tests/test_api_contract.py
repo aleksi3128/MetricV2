@@ -26,6 +26,9 @@ PUBLIC_PATHS = {
     "/api/redoc",
     "/api/openapi.json",
     "/api/auth/login",
+    # Entrer avec une passkey : avant d'avoir un jeton (`docs/exploitation-securite.md`).
+    "/api/auth/passkey",
+    "/api/auth/passkey/options",
     # Le report d'une relance du soir, sous signature (`docs/notifications-v3.md`, D6).
     "/api/public/evening/snooze",
 }

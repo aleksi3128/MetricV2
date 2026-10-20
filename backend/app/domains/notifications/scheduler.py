@@ -253,7 +253,8 @@ class ReminderScheduler:
     async def _alerts(self, service: NotificationService, moment: datetime) -> None:
         """Les alertes critiques jamais dites. Elles passent les heures calmes (NOT-06)."""
         try:
-            ouvertes = await alerts.collect(self._store, moment.date())
+            budget = self._settings.ai_monthly_budget_usd if self._settings else 0.0
+            ouvertes = await alerts.collect(self._store, moment.date(), budget=budget)
         except Exception:
             # Une alerte qui ne se calcule pas ne doit pas faire taire les rappels.
             logger.exception("alertes : calcul impossible")

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { api, onSessionExpired, tokenStore } from '@/lib/api';
+import { api, onSessionExpired, tokenStore, type SessionResponse } from '@/lib/api';
 import { AuthContext, type AuthState } from '@/lib/auth';
 import { useToast } from '@/lib/toast';
 
@@ -56,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: 'authenticated', username: session.username });
   }, []);
 
+  const adopt = useCallback((session: SessionResponse) => {
+    tokenStore.write(session.access_token);
+    setState({ status: 'authenticated', username: session.username });
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await api.logout();
@@ -67,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: 'anonymous' });
   }, []);
 
-  const value = useMemo(() => ({ state, login, logout }), [state, login, logout]);
+  const value = useMemo(() => ({ state, login, adopt, logout }), [state, login, adopt, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

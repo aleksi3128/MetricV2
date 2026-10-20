@@ -1,10 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { Navigate, useLocation } from 'react-router';
 
 import { Button, Card, Field } from '@/components/ui';
+import { passkeyApi } from '@/features/account/api';
 import { ApiError, NetworkError } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { passkeySupported, signWithPasskey } from '@/lib/passkey';
 
 import styles from './Login.module.css';
 
@@ -22,6 +25,54 @@ interface LocationState {
  * * `too_many_attempts` — attendre, ce n'est pas une erreur de saisie ;
  * * `auth_not_configured` — rien à ressaisir, c'est le serveur qu'il faut configurer.
  */
+/**
+ * Entrer avec une passkey (`docs/exploitation-securite.md`, D1).
+ *
+ * Offerte **seulement** quand le navigateur sait ce qu'est une passkey et que le serveur en
+ * a une : un bouton qui mènerait à « aucune passkey enregistrée » serait une porte peinte
+ * sur le mur. Le mot de passe, au-dessus, reste la porte qui marche toujours.
+ */
+function PasskeyEntry() {
+  const { adopt } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const { data } = useQuery({
+    queryKey: ['passkey', 'available'],
+    queryFn: passkeyApi.available,
+    enabled: passkeySupported(),
+    retry: false,
+  });
+  if (!passkeySupported() || data?.available !== true) return null;
+
+  async function enter() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const options = await passkeyApi.loginOptions();
+      adopt(await passkeyApi.login(await signWithPasskey(options)));
+    } catch (caught) {
+      setMessage(
+        caught instanceof ApiError ? caught.message : 'La passkey n’a pas abouti. Réessaie.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={styles.passkey}>
+      {message !== null && (
+        <p className={styles.error} role="alert">
+          {message}
+        </p>
+      )}
+      <Button variant="ghost" busy={busy} onClick={() => void enter()}>
+        Entrer avec une passkey
+      </Button>
+    </div>
+  );
+}
+
 export function Login() {
   const { state, login } = useAuth();
   const location = useLocation();
@@ -112,6 +163,7 @@ export function Login() {
               {busy ? 'Vérification…' : 'Ouvrir la session'}
             </Button>
           </form>
+          <PasskeyEntry />
         </Card>
 
         <p className={styles.footer}>

@@ -29,6 +29,7 @@ import { useToast } from '@/lib/toast';
 import { Profile } from './settings/Profile';
 import { GarminCard } from './settings/Garmin';
 import { Reminders } from './settings/Reminders';
+import { Security } from './settings/Security';
 import { SwimCodes } from './settings/SwimCodes';
 import { Tracks } from './settings/Tracks';
 
@@ -544,6 +545,8 @@ export function Settings() {
       <Reminders />
 
       <GarminCard />
+
+      <Security />
 
       <Appearance />
 

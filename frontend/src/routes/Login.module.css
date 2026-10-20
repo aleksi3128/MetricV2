@@ -57,3 +57,14 @@
   letter-spacing: 0.08em;
   text-align: center;
 }
+
+/* L'entrée par passkey, sous le formulaire : elle ne s'affiche que quand elle mène
+   quelque part (`docs/exploitation-securite.md`, D1). */
+.passkey {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-top: var(--s4);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line-soft);
+}

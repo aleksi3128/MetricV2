@@ -189,6 +189,36 @@ class AiQuotaError(MetricError):
     message = "Quota des modèles gratuits épuisé. Réessaie plus tard."
 
 
+class PasskeyNotConfiguredError(MetricError):
+    """`PASSKEY_RP_ID` ou `PASSKEY_ORIGIN` vide (`docs/exploitation-securite.md`, D3)."""
+
+    code = "passkey_not_configured"
+    status_code = 503
+    message = (
+        "La passkey n'est pas configurée sur le serveur : renseigne PASSKEY_RP_ID et "
+        "PASSKEY_ORIGIN. Le mot de passe reste la porte d'entrée."
+    )
+
+
+class PasskeyRefusedError(MetricError):
+    """La passkey présentée ne correspond à rien, ou sa signature ne tient pas."""
+
+    code = "passkey_refused"
+    status_code = 401
+    message = "Cette passkey n'a pas été reconnue. Le mot de passe reste possible."
+
+
+class AiBudgetError(MetricError):
+    """Le plafond de dépense du mois est atteint (`docs/exploitation-securite.md`, D9)."""
+
+    code = "ai_budget_exhausted"
+    status_code = 503
+    message = (
+        "Le plafond de dépense IA du mois est atteint : l'assistance reprend le mois "
+        "prochain. La saisie manuelle reste possible."
+    )
+
+
 class AiUnreadableError(MetricError):
     """Le modèle a répondu, mais rien d'exploitable n'en est sorti (`IMP-06`, `PLAN-03`).
 
