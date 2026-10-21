@@ -384,6 +384,13 @@ function stub(
     if (url.includes('/api/planning/swim/parse')) {
       return Promise.resolve(json(200, options.parsed ?? READ_PROGRAM));
     }
+    // La muscu par ses circuits, et la course par ses séances-types
+    // (`docs/planifier-une-seance.md`, D5, D12) : rien d'enregistré ici.
+    if (url.includes('/api/activity/circuits')) {
+      return Promise.resolve(json(200, { circuits: [], linkable: false }));
+    }
+    if (url.includes('/api/planning/run/templates')) return Promise.resolve(json(200, []));
+    if (url.includes('/api/planning/run/coach')) return Promise.resolve(json(200, null));
     if (url.includes('/api/planning/swim/codes')) {
       return Promise.resolve(json(200, { codes: CODES }));
     }

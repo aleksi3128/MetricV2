@@ -33,6 +33,19 @@ const READ: RunProgram = {
   summary: '5,4 km · 31 min',
 };
 
+const TEMPLATES = [
+  { type: 'easy', title: 'Footing en endurance', notation: "45' EF", duration_min: 45 },
+  {
+    type: 'threshold',
+    title: 'Fractionné au seuil',
+    notation: "15' EF + 3 × 8' T r2' + 10' RC",
+    duration_min: 55,
+  },
+];
+
+let coach: unknown = null;
+let circuits: unknown = { circuits: [], linkable: true };
+
 const sent: { url: string; body: unknown }[] = [];
 
 function json(status: number, body: unknown): Response {
@@ -41,6 +54,8 @@ function json(status: number, body: unknown): Response {
 
 beforeEach(() => {
   sent.length = 0;
+  coach = null;
+  circuits = { circuits: [], linkable: true };
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -48,6 +63,9 @@ beforeEach(() => {
       const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : null;
       sent.push({ url, body });
       if (url.includes('/run/parse')) return Promise.resolve(json(200, READ));
+      if (url.includes('/run/coach')) return Promise.resolve(json(200, coach));
+      if (url.includes('/run/templates')) return Promise.resolve(json(200, TEMPLATES));
+      if (url.includes('/activity/circuits')) return Promise.resolve(json(200, circuits));
       return Promise.resolve(json(201, {}));
     }),
   );
@@ -124,5 +142,86 @@ describe('planifier une course', () => {
     });
     const posted = sent.find((call) => call.url.endsWith('/api/planning/sessions'));
     expect(posted?.body).toMatchObject({ kind: 'muscu', distance_km: null, program: null });
+  });
+
+  it('une séance-type écrit sa notation, et la durée repart à vide', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Course' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Fractionné au seuil' }));
+
+    expect(within(sheet).getByLabelText('Séance')).toHaveValue("15' EF + 3 × 8' T r2' + 10' RC");
+    expect(within(sheet).getByLabelText('Titre')).toHaveValue('Fractionné au seuil');
+    expect(within(sheet).getByLabelText('Durée (min)')).toHaveValue('');
+  });
+
+  it('reprend la séance du coach quand il en a une pour ce jour, et seulement alors', async () => {
+    const user = userEvent.setup();
+    coach = { title: 'Tempo', notation: "15' EF + 25' Z3 + 10' RC", duration_min: 50 };
+    renderSheet();
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Course' }));
+    await user.click(
+      await within(sheet).findByRole('button', { name: 'Reprendre la séance du coach — Tempo' }),
+    );
+    expect(within(sheet).getByLabelText('Séance')).toHaveValue("15' EF + 25' Z3 + 10' RC");
+  });
+
+  it('le constructeur écrit un groupe répété, sans rien calculer', async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Course' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Construire au doigt' }));
+
+    await user.click(within(sheet).getByRole('button', { name: 'Répétitions : augmenter' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Répétitions : augmenter' }));
+    await user.type(within(sheet).getByLabelText('Bloc 1 — quantité'), '1');
+    await user.click(
+      within(within(sheet).getByRole('group', { name: 'Unité du bloc 1' })).getByRole('button', {
+        name: 'km',
+      }),
+    );
+    await user.type(within(sheet).getAllByLabelText('Allure (/km)')[0] as HTMLElement, "6'00");
+    await user.click(within(sheet).getByRole('button', { name: 'Ajouter un bloc au groupe' }));
+    await user.type(within(sheet).getByLabelText('Bloc 2 — quantité'), '80');
+    await user.click(
+      within(within(sheet).getByRole('group', { name: 'Unité du bloc 2' })).getByRole('button', {
+        name: 'm',
+      }),
+    );
+    await user.click(
+      within(within(sheet).getByRole('group', { name: 'Sigle du bloc 2' })).getByRole('button', {
+        name: 'LD',
+      }),
+    );
+    await user.type(within(sheet).getAllByLabelText('Allure (/km)')[1] as HTMLElement, "3'30");
+    await user.click(within(sheet).getByRole('button', { name: 'Écrire la séance' }));
+
+    expect(within(sheet).getByLabelText('Séance')).toHaveValue("3 × (1 km 6'00 + 80 m LD 3'30)");
+  });
+
+  it('la muscu prend un circuit Cadence : titre, durée et circuit envoyé', async () => {
+    const user = userEvent.setup();
+    circuits = {
+      linkable: true,
+      circuits: [
+        { circuit_id: 'c9', name: 'Haut du corps', estimated_duration_min: 37.6, exact: true },
+      ],
+    };
+    renderSheet();
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Muscu' }));
+    await user.click(await within(sheet).findByRole('button', { name: 'Haut du corps' }));
+    expect(within(sheet).getByLabelText('Titre')).toHaveValue('Haut du corps');
+    expect(within(sheet).getByLabelText('Durée (min)')).toHaveValue('38');
+
+    await user.click(within(sheet).getByRole('button', { name: 'Planifier' }));
+    await waitFor(() => {
+      expect(sent.some((call) => call.url.endsWith('/api/planning/sessions'))).toBe(true);
+    });
+    const posted = sent.find((call) => call.url.endsWith('/api/planning/sessions'));
+    expect(posted?.body).toMatchObject({ kind: 'muscu', circuit_id: 'c9', duration_min: 38 });
   });
 });

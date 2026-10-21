@@ -185,3 +185,57 @@ def test_a_program_is_refused_on_strength_training(
         headers=auth,
     )
     assert response.status_code == 422
+
+
+# ── Partir d'un type, ou du coach (D5–D6) ─────────────
+
+
+def test_every_template_is_written_from_the_coach_and_reads_clean() -> None:
+    from app.domains.planning import run_templates
+
+    found = {item.type: item for item in run_templates.templates(None)}
+    assert found["threshold"].notation == "15' EF + 3 × 8' T r2' + 10' RC"
+    # Les côtes n'ont pas d'allure au catalogue : un effort perçu, pas une zone de plat.
+    assert "RPE8" in found["hills"].notation
+    for item in found.values():
+        assert rn.parse(item.notation, REFS).valid, item.notation
+
+
+def test_the_templates_follow_the_duration_asked(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    response = store_client.get(
+        f"{PLANNING}/run/templates", params={"duration_min": 60}, headers=auth
+    )
+    assert response.status_code == 200
+    easy = next(item for item in response.json() if item["type"] == "easy")
+    assert easy == {
+        "type": "easy",
+        "title": "Footing en endurance",
+        "notation": "60' EF",
+        "duration_min": 60,
+    }
+
+
+def test_the_coach_session_is_taken_back_for_its_day_only(
+    store_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    day = today_local() + timedelta(days=1)
+    dav.collections.update({"Metric", "Metric/coach"})
+    dav.seed(
+        "Metric/coach/recommendations.csv",
+        "id,created,run_id,date,time,type,duration_min,reps,rep_min,rationale,source,status,"
+        "plan_session_id,frame\n"
+        f"c1,{today_local()}T20:00:00,,{day},,threshold,55,3,8.0,Seuil.,rules,proposed,,\n",
+    )
+    taken = store_client.get(
+        f"{PLANNING}/run/coach", params={"date": day.isoformat()}, headers=auth
+    ).json()
+    assert taken["title"] == "Fractionné au seuil — 3 × 8 min"
+    assert taken["notation"] == "15' EF + 3 × 8' T r2' + 10' RC"
+
+    other = store_client.get(
+        f"{PLANNING}/run/coach", params={"date": today_local().isoformat()}, headers=auth
+    )
+    assert other.status_code == 200
+    assert other.json() is None

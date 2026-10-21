@@ -231,6 +231,23 @@ export interface PlanFormValues {
   distance_km?: string | null;
   goal_time?: string | null;
   rpe_goal?: number | null;
+  /** Le circuit Cadence choisi pour une muscu (D12). */
+  circuit_id?: string | null;
+}
+
+/** Une séance-type, écrite en notation depuis le catalogue du coach (D5). */
+export interface RunTemplate {
+  type: string;
+  title: string;
+  notation: string;
+  duration_min: number;
+}
+
+/** La séance du coach pour un jour, en notation (D6). */
+export interface CoachSession {
+  title: string;
+  notation: string;
+  duration_min: number;
 }
 
 /** Ce qui part au serveur : la nature choisie, les nombres en nombres, le vide en `null`. */
@@ -245,6 +262,8 @@ export interface PlanBody {
   distance_km?: number | null;
   goal_time?: string | null;
   rpe_goal?: number | null;
+  /** Le circuit Cadence choisi : le serveur pose son lien dans la note (D12). */
+  circuit_id?: string | null;
 }
 
 /** Garde anti-conflit : le jeton lu est celui qu'on renvoie (`STO-05`). */
@@ -318,6 +337,12 @@ export const planningApi = {
   /** Lit un programme **sans rien écrire** — l'aperçu du formulaire. */
   parseSwim: (program: string) =>
     request<SwimProgram>('/api/planning/swim/parse', { method: 'POST', body: { program } }),
+  runTemplates: (durationMin: number | null) =>
+    request<RunTemplate[]>('/api/planning/run/templates', {
+      query: durationMin === null ? {} : { duration_min: String(durationMin) },
+    }),
+  runCoach: (day: string) =>
+    request<CoachSession | null>('/api/planning/run/coach', { query: { date: day } }),
   parseRun: (program: string) =>
     request<RunProgram>('/api/planning/run/parse', { method: 'POST', body: { program } }),
 

@@ -107,3 +107,28 @@ exactement ce que ton premier exemple, `80m Sl 3"30'`, aurait donné.
 - **Les cases de la grille du mois font 39 px à 360 px**, sous le plancher de 44 : défaut
   de la grille existante, hors de cette étape.
 - Les puces de nature défilent à 360 px, comme avant.
+
+### Étape 3 — au doigt, par type, depuis le coach, et la muscu (21 octobre 2026)
+
+Trois façons de partir, qui **écrivent toutes la notation** : la séance-type (footing,
+sortie longue, récupération, progressif, tempo, seuil, fractionné, côtes) traduite des
+étapes du catalogue du coach (`planning/run_templates.py`) ; « Reprendre la séance du
+coach », offert seulement quand il en a une pour le jour choisi ; et le constructeur au
+doigt, des groupes répétés de plusieurs blocs, qui assemble le texte sans rien calculer.
+La muscu se choisit parmi les circuits Cadence : titre, durée et lien posés d'un appui.
+
+Les côtes s'écrivent avec un effort perçu (`8 × 1' RPE8 r1'30`) et non une zone : le
+catalogue ne leur donne ni allure ni FC, et une allure de plat n'y aurait aucun sens. Leur
+distance reste donc inconnue, et l'aperçu le dit.
+
+#### Ce que le passage à l'écran a trouvé
+
+- **Le constructeur débordait la feuille à 360 px** : un `fieldset` prend la largeur de son
+  contenu. `min-width: 0`.
+- **La ligne « 3 × : » de l'aperçu s'affichait dans une boîte** : le constructeur avait
+  repris le nom de classe `.group` de l'aperçu. Renommé.
+
+#### Ce que les tests ont trouvé
+
+- La doublure du planning renvoyait un objet quelconque pour les circuits, et le choix de
+  la muscu plantait : elle connaît maintenant les trois nouvelles adresses.

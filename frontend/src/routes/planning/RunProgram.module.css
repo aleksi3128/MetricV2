@@ -101,3 +101,42 @@
   margin: var(--s2) 0 0;
   padding-left: var(--s4);
 }
+
+.builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* Un groupe du constructeur. `min-width: 0` : un `fieldset` prend par défaut la largeur
+   de son contenu, et débordait la feuille à 360 px. */
+.groupBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line-soft);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.starters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}

@@ -20,10 +20,11 @@
  * ou la faute.
  */
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Button, Chip, ChipStrip, Field, Sheet, Stepper } from '@/components/ui';
+import { activityApi } from '@/features/activity/api';
 import {
   planningApi,
   type PlanBody,
@@ -31,10 +32,12 @@ import {
   type PlannedSession,
 } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
+import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Planning.module.css';
 import { ProgramField } from './ProgramField';
+import { RunBuilder } from './RunBuilder';
 import { RunProgramField } from './RunProgram';
 import own from './RunProgram.module.css';
 import { KIND_OPTIONS, useInvalidatePlanning } from './shared';
@@ -61,7 +64,130 @@ function bodyOf(values: PlanFormValues & { kind: NonNullable<PlanFormValues['kin
     distance_km: running ? decimal(values.distance_km) : null,
     goal_time: running ? values.goal_time || null : null,
     rpe_goal: running ? (values.rpe_goal ?? null) : null,
+    circuit_id: values.kind === 'muscu' ? (values.circuit_id ?? null) : null,
   };
+}
+
+/**
+ * Partir de quelque chose (D4–D6) : la séance du coach pour ce jour, une séance-type, ou
+ * le constructeur au doigt. Les trois **écrivent la notation** dans le champ ; c'est le
+ * serveur qui la lit, comme si elle avait été tapée.
+ */
+function RunStarters({
+  values,
+  onPatch,
+}: {
+  values: PlanFormValues;
+  onPatch: (change: Partial<PlanFormValues>) => void;
+}) {
+  const [building, setBuilding] = useState(false);
+  const duration = values.duration_min.trim() === '' ? null : Number(values.duration_min);
+  const coach = useQuery({
+    queryKey: keys.planning.runCoach(values.date),
+    queryFn: () => planningApi.runCoach(values.date),
+    enabled: values.date !== '',
+  });
+  const types = useQuery({
+    queryKey: keys.planning.runTemplates(duration),
+    queryFn: () => planningApi.runTemplates(duration),
+  });
+
+  function write(notation: string, title: string): void {
+    // Le titre n'est posé que s'il est vide : ce qu'on a tapé ne s'écrase pas. La durée
+    // repart à vide — le serveur la déduira de la séance.
+    onPatch({
+      program: notation,
+      duration_min: '',
+      ...(values.title.trim() === '' ? { title } : {}),
+    });
+  }
+
+  return (
+    <div className={own.starters}>
+      {coach.data && (
+        <Button
+          variant="ghost"
+          onClick={() => {
+            if (coach.data) write(coach.data.notation, coach.data.title);
+          }}
+        >
+          Reprendre la séance du coach — {coach.data.title}
+        </Button>
+      )}
+      {types.data && (
+        <ChipStrip label="Partir d’une séance-type">
+          {types.data.map((item) => (
+            <Chip
+              key={item.type}
+              onClick={() => {
+                write(item.notation, item.title);
+              }}
+            >
+              {item.title}
+            </Chip>
+          ))}
+        </ChipStrip>
+      )}
+      <Button
+        variant="quiet"
+        aria-expanded={building}
+        onClick={() => {
+          setBuilding(!building);
+        }}
+      >
+        {building ? 'Fermer le constructeur' : 'Construire au doigt'}
+      </Button>
+      {building && (
+        <RunBuilder
+          onWrite={(notation) => {
+            write(notation, '');
+            setBuilding(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** La muscu par ses circuits Cadence (D12) : titre, durée et lien posés d'un appui. */
+function CircuitPicker({
+  values,
+  onPatch,
+}: {
+  values: PlanFormValues;
+  onPatch: (change: Partial<PlanFormValues>) => void;
+}) {
+  const { data } = useQuery({ queryKey: keys.activity.circuits(), queryFn: activityApi.circuits });
+  if (data === undefined) return null;
+  if (data.circuits.length === 0) {
+    return <p className={own.summary}>Aucun circuit enregistré : le titre se tape à la main.</p>;
+  }
+  return (
+    <div className={own.starters}>
+      <ChipStrip label="Mes circuits Cadence">
+        {data.circuits.map((circuit) => (
+          <Chip
+            key={circuit.circuit_id}
+            selected={values.circuit_id === circuit.circuit_id}
+            onClick={() => {
+              onPatch({
+                circuit_id: circuit.circuit_id,
+                title: circuit.name,
+                duration_min: String(Math.round(circuit.estimated_duration_min)),
+              });
+            }}
+          >
+            {circuit.name}
+          </Chip>
+        ))}
+      </ChipStrip>
+      {!data.linkable && (
+        <p className={own.summary}>
+          Sans adresse Cadence réglée, la séance n’aura pas de lien « Ouvrir dans Cadence ».
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function PlanSheet({
@@ -107,6 +233,11 @@ export function PlanSheet({
   function set<K extends keyof PlanFormValues>(key: K, value: PlanFormValues[K]): void {
     if (values === null) return;
     onChange({ ...values, [key]: value });
+  }
+
+  function patch(change: Partial<PlanFormValues>): void {
+    if (values === null) return;
+    onChange({ ...values, ...change });
   }
 
   return (
@@ -187,6 +318,10 @@ export function PlanSheet({
               set('title', event.target.value);
             }}
           />
+
+          {running && <RunStarters values={values} onPatch={patch} />}
+
+          {values.kind === 'muscu' && <CircuitPicker values={values} onPatch={patch} />}
 
           {running && (
             <RunProgramField

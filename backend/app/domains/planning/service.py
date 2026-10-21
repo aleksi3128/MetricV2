@@ -32,7 +32,7 @@ from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
 from app.domains.coach.catalog import References
-from app.domains.planning import run_notation
+from app.domains.planning import run_notation, run_templates
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
 from app.domains.planning.glossary import glossary_from
 from app.domains.planning.models import PlanRow, SwimCodeRow, normalise_kind
@@ -133,6 +133,21 @@ class PlanningService:
 
         refs, _ = await CoachService(self._store).references(today_local())
         return refs
+
+    async def coach_session(self, day: date) -> run_templates.CoachSession | None:
+        """La séance que le coach propose pour ce jour, écrite en notation (D6)."""
+        from app.domains.coach.service import CoachService
+
+        current = (await CoachService(self._store).next(today_local())).current
+        if current is None or current.date != day or current.type == "rest":
+            return None
+        if current.type not in run_templates.TYPES:
+            return None
+        return run_templates.CoachSession(
+            title=current.title,
+            notation=run_templates.notation_of(current.type, current.steps),
+            duration_min=current.duration_min,
+        )
 
     async def parse_run(self, program: str) -> run_notation.RunProgram:
         """Lit une séance de course sans rien écrire — l'aperçu du formulaire."""

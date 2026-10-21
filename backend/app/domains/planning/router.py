@@ -41,6 +41,7 @@ from app.domains.planning import agenda, ical
 from app.domains.planning.glossary import SwimCodeService
 from app.domains.planning.replanning import ReplanService
 from app.domains.planning.run_notation import RunProgram
+from app.domains.planning.run_templates import CoachSession, RunTemplate, templates
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionPayload,
@@ -215,6 +216,29 @@ async def adherence(store: StoreDep, weeks: Weeks = DEFAULT_ADHERENCE_WEEKS) -> 
 
 
 # ── La notation de nage (`docs/planning-natation.md`) ─
+
+
+@router.get(
+    "/run/templates", response_model=list[RunTemplate], summary="Les séances-types de course"
+)
+def run_templates_list(
+    duration_min: Annotated[int | None, Query(ge=5, le=300)] = None,
+) -> list[RunTemplate]:
+    """Footing, sortie longue, seuil, fractionné… écrits en notation depuis le catalogue du
+    coach (`docs/planifier-une-seance.md`, D5), pour la durée donnée."""
+    return templates(duration_min)
+
+
+@router.get(
+    "/run/coach",
+    response_model=CoachSession | None,
+    summary="La séance du coach pour un jour, en notation",
+)
+async def run_coach(
+    day: Annotated[date, Query(alias="date")], store: StoreDep
+) -> CoachSession | None:
+    """`null` quand le coach n'a rien pour ce jour : une réponse, pas une erreur (D6)."""
+    return await PlanningService(store).coach_session(day)
 
 
 @router.post("/run/parse", response_model=RunProgram, summary="Lire une séance de course")
