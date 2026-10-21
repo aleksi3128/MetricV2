@@ -58,6 +58,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | La passkey (mot de passe en secours), l'export complet, la sauvegarde datée, le plafond IA, `make status/doctor/sync/backup` | [`docs/exploitation-securite.md`](docs/exploitation-securite.md) |
 | Planifier une séance, deuxième version — la notation de course lue par le serveur, les garde-fous, la montre, le respect bloc par bloc | [`docs/planifier-une-seance.md`](docs/planifier-une-seance.md) |
 | Corriger une natation importée — un tour en distance, temps et nage, la fusion, le retrait, les réglages, la réécriture en notation | [`docs/natation-corriger.md`](docs/natation-corriger.md) |
+| Les correctifs de l'audit du 17 octobre — les arbitrages, fiche par fiche, ce qui attend | [`docs/correctifs-audit.md`](docs/correctifs-audit.md) |
 
 [`docs/charte-runfurther/`](docs/charte-runfurther/LISEZMOI.md) est la **référence** des
 couleurs, de la typographie et des formes. [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html),
