@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exceptions import MetricError, ValidationFailedError
+from app.core.validation_fr import translate
 
 logger = logging.getLogger("metric.errors")
 
@@ -107,7 +108,9 @@ async def handle_validation_error(request: Request, exc: Exception) -> JSONRespo
     fields = [
         FieldError(
             field=".".join(str(part) for part in error["loc"]) or "?",
-            message=str(error.get("msg", "valeur invalide")),
+            # En français par le type de l'erreur, jamais en recopiant l'anglais de
+            # Pydantic (audit du 17 octobre, fiche 11) : le client affiche tel quel.
+            message=translate(error),
         )
         for error in exc.errors()
     ]
