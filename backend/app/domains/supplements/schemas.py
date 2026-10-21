@@ -52,6 +52,10 @@ class Supplement(BaseModel):
     frequency: str
     #: Formulation française de la cadence, calculée par le serveur.
     cadence_label: str
+    #: La cadence décomposée — type et paramètres —, pour qu'un formulaire de correction
+    #: se remplisse sans relire la forme sérialisée (audit du 17 octobre, fiche 08).
+    cadence_type: str
+    cadence_params: dict[str, int | str]
     active: bool
     created: date | None = None
 

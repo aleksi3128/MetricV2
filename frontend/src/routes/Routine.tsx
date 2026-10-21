@@ -16,6 +16,12 @@ import {
   Skeleton,
   Sparkline,
   Stat,
+  SwipeRow,
+  CadencePicker,
+  CADENCE_KINDS,
+  cadenceDraft,
+  serializeCadence,
+  type CadenceDraft,
 } from '@/components/ui';
 import {
   routineApi,
@@ -154,22 +160,23 @@ function Hydration() {
         </div>
       )}
 
+      {/* Deux appuis pour retirer une prise (fiche 12) : le ✕ de 44 px au bord de la ligne
+          supprimait au premier, et le projet n'a aucune annulation. */}
       {data && data.today.length > 0 && (
         <div className={styles.intakes}>
           {data.today.map((intake) => (
-            <span className={styles.intake} key={intake.id}>
-              {time(intake.datetime)} · {integer(intake.volume_ml)} ml
-              <button
-                type="button"
-                className={styles.remove}
-                aria-label={`Supprimer la prise de ${time(intake.datetime)}`}
-                onClick={() => {
-                  undrink.mutate({ id: intake.id, token: intake.token });
-                }}
-              >
-                ✕
-              </button>
-            </span>
+            <SwipeRow
+              key={intake.id}
+              actionLabel={`Supprimer la prise de ${time(intake.datetime)}`}
+              busy={undrink.isPending}
+              onAction={() => {
+                undrink.mutate({ id: intake.id, token: intake.token });
+              }}
+            >
+              <span className={styles.intake}>
+                {time(intake.datetime)} · {integer(intake.volume_ml)} ml
+              </span>
+            </SwipeRow>
           ))}
         </div>
       )}
@@ -319,13 +326,14 @@ function Checklist() {
 
 // ── Planning ──────────────────────────────────────────
 
-const CADENCES = [
-  { value: 'daily', label: 'tous les jours' },
-  { value: 'window:min_count=1;window_days=2', label: 'un jour sur deux' },
-  { value: 'window:min_count=1;window_days=3', label: 'un jour sur trois' },
-  { value: 'per_week:count=3', label: '3 fois par semaine' },
-  { value: 'none', label: 'sans attente' },
-] as const;
+/**
+ * Les formes de cadence d'un complément. « Les jours d'entraînement » n'en est pas : la
+ * checklist ne sait pas l'évaluer, et le proposer promettrait un rappel qui ne vient pas.
+ */
+const SUPPLEMENT_CADENCES = CADENCE_KINDS.filter((kind) => kind.value !== 'conditional');
+
+const EMPTY_FIELDS = { name: '', dose: '', unit: 'g', time: '08:00' };
+const DAILY: CadenceDraft = { kind: 'daily', count: '1', windowDays: '2' };
 
 function Schedule() {
   const invalidate = useInvalidateRoutine();
@@ -340,29 +348,47 @@ function Schedule() {
     queryFn: routineApi.schedule,
   });
 
-  const [fields, setFields] = useState({
-    name: '',
-    dose: '',
-    unit: 'g',
-    time: '08:00',
-    frequency: 'daily',
-  });
+  const [fields, setFields] = useState(EMPTY_FIELDS);
+  const [cadence, setCadence] = useState<CadenceDraft>(DAILY);
+  /**
+   * La ligne en cours de correction (audit du 17 octobre, fiche 08). La route `PATCH`
+   * existait sans qu'aucun écran l'appelle : changer une cadence obligeait à retirer puis
+   * recréer, ce qui changeait le `schedule_id` et détachait l'historique des prises.
+   */
+  const [editing, setEditing] = useState<Supplement | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
 
-  const add = useMutation({
-    mutationFn: () =>
-      routineApi.addSupplement({
+  function reset(): void {
+    setFields(EMPTY_FIELDS);
+    setCadence(DAILY);
+    setEditing(null);
+    setError(null);
+  }
+
+  function edit(item: Supplement): void {
+    setEditing(item);
+    setFields({ name: item.name, dose: String(item.dose), unit: item.unit, time: item.time });
+    setCadence(cadenceDraft(item.cadence_type, item.cadence_params));
+    setError(null);
+  }
+
+  const save = useMutation({
+    mutationFn: () => {
+      const payload = {
         name: fields.name,
         dose: Number.parseFloat(fields.dose.replace(',', '.')),
         unit: fields.unit,
         time: fields.time,
-        frequency: fields.frequency,
-      }),
+        frequency: serializeCadence(cadence),
+      };
+      return editing
+        ? routineApi.updateSupplement(editing.id, editing.token, payload)
+        : routineApi.addSupplement(payload);
+    },
     onSuccess: () => {
       invalidate();
-      notify('Supplément ajouté au planning.', 'effort');
-      setFields((current) => ({ ...current, name: '', dose: '' }));
-      setError(null);
+      notify(editing ? 'Planning corrigé.' : 'Supplément ajouté au planning.', 'effort');
+      reset();
     },
     onError: (caught: unknown) => {
       setError(caught instanceof ApiError ? caught : null);
@@ -398,38 +424,50 @@ function Schedule() {
         </Empty>
       )}
 
+      {/* Deux appuis pour retirer (fiche 12) : le ✕ supprimait au premier, sans annulation
+          possible. Retirer garde l'historique, mais pas la ligne — ni sa cadence. */}
       {(schedule ?? []).map((item) => (
-        <div className={styles.scheduleRow} key={item.schedule_id}>
-          <span>
-            {item.name}
-            <span className={styles.moment}>
-              {num(item.dose, 1)} {item.unit} · {item.time}
+        <SwipeRow
+          key={item.schedule_id}
+          actionLabel={`Retirer ${item.name} du planning`}
+          busy={remove.isPending}
+          onAction={() => {
+            remove.mutate(item);
+          }}
+        >
+          <div className={styles.scheduleRow}>
+            <span>
+              {item.name}
+              <span className={styles.moment}>
+                {num(item.dose, 1)} {item.unit} · {item.time}
+              </span>
+              <br />
+              <span className={styles.cadence}>{item.cadence_label}</span>
             </span>
-            <br />
-            <span className={styles.cadence}>{item.cadence_label}</span>
-          </span>
-          <button
-            type="button"
-            className={styles.remove}
-            aria-label={`Retirer ${item.name} du planning`}
-            onClick={() => {
-              remove.mutate(item);
-            }}
-          >
-            ✕
-          </button>
-        </div>
+            <Button
+              variant="quiet"
+              aria-label={`Modifier ${item.name}`}
+              onClick={() => {
+                edit(item);
+              }}
+            >
+              Modifier
+            </Button>
+          </div>
+        </SwipeRow>
       ))}
 
       <form
         className={styles.form}
         onSubmit={(event) => {
           event.preventDefault();
-          add.mutate();
+          save.mutate();
         }}
         noValidate
       >
-        {error !== null && (
+        {editing !== null && <p className={styles.note}>Correction de « {editing.name} »</p>}
+
+        {error !== null && error.fields.length === 0 && (
           <p className={styles.error} role="alert">
             {error.message}
           </p>
@@ -470,37 +508,32 @@ function Schedule() {
           </div>
         </div>
 
-        <div className={styles.pair}>
-          <Field label="Moment" type="time" value={fields.time} onChange={set('time')} />
-          <Field
-            label="Cadence"
-            list="supplement-cadences"
-            value={
-              CADENCES.find((item) => item.value === fields.frequency)?.label ?? fields.frequency
-            }
-            onChange={(event) => {
-              const match = CADENCES.find((item) => item.label === event.target.value);
-              setFields((current) => ({
-                ...current,
-                frequency: match?.value ?? event.target.value,
-              }));
-            }}
-          />
-          <datalist id="supplement-cadences">
-            {CADENCES.map((item) => (
-              <option value={item.label} key={item.value} />
-            ))}
-          </datalist>
-        </div>
+        <Field label="Moment" type="time" value={fields.time} onChange={set('time')} />
 
-        <Button
-          type="submit"
-          variant="ghost"
-          busy={add.isPending}
-          disabled={fields.name.trim() === '' || fields.dose === ''}
-        >
-          Ajouter au planning
-        </Button>
+        {/* Le sélecteur des pistes, et non plus un texte libre : « 1 jour sur 2 » était
+            refusé sans un mot sous le champ (fiche 09). */}
+        <CadencePicker
+          value={cadence}
+          kinds={SUPPLEMENT_CADENCES}
+          error={error?.messageFor('frequency')}
+          onChange={setCadence}
+        />
+
+        <div className="row">
+          <Button
+            type="submit"
+            variant="ghost"
+            busy={save.isPending}
+            disabled={fields.name.trim() === '' || fields.dose === ''}
+          >
+            {editing ? 'Enregistrer la correction' : 'Ajouter au planning'}
+          </Button>
+          {editing !== null && (
+            <Button variant="quiet" onClick={reset}>
+              Annuler
+            </Button>
+          )}
+        </div>
       </form>
     </Card>
   );

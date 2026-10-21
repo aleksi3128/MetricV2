@@ -1,7 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Badge, Button, Card, Empty, Field, Rule } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  CadencePicker,
+  Card,
+  Empty,
+  Field,
+  Rule,
+  cadenceDraft,
+  serializeCadence,
+  type CadenceDraft,
+} from '@/components/ui';
 import {
   heatmapApi,
   type Track,
@@ -39,17 +50,6 @@ import styles from './Tracks.module.css';
  * qui n'existe pas — ou tairait celle qui vient d'apparaître.
  */
 
-/** Formes de cadence proposées à la saisie. Le serveur reste seul juge de leur validité. */
-const CADENCE_KINDS = [
-  { value: 'daily', label: 'Tous les jours' },
-  { value: 'per_week', label: 'N fois par semaine' },
-  { value: 'window', label: 'N fois par fenêtre glissante' },
-  { value: 'conditional', label: 'Les jours d’entraînement' },
-  { value: 'none', label: 'Sans attente (descriptive)' },
-] as const;
-
-type CadenceKind = (typeof CADENCE_KINDS)[number]['value'];
-
 const ACCENT_LABEL: Record<string, string> = {
   signal: 'Mesure',
   effort: 'Effort',
@@ -68,36 +68,10 @@ interface Draft {
   binary: boolean;
   accent: string;
   active: boolean;
-  kind: CadenceKind;
-  count: string;
-  windowDays: string;
-}
-
-/**
- * Compose la forme sérialisée attendue par l'API.
- *
- * Ce n'est **pas** un calcul métier : on assemble une chaîne de saisie, on n'interprète
- * aucune cadence. Le serveur la relit, la valide et la renvoie normalisée — et c'est lui
- * qui en formule le libellé français (`HEAT-30`).
- */
-function serializeCadence(draft: Draft): string {
-  switch (draft.kind) {
-    case 'per_week':
-      return `per_week:count=${draft.count || '1'}`;
-    case 'window':
-      return `window:min_count=${draft.count || '1'};window_days=${draft.windowDays || '2'}`;
-    case 'conditional':
-      return 'conditional:trigger=workout';
-    case 'none':
-      return 'none';
-    default:
-      return 'daily';
-  }
+  cadence: CadenceDraft;
 }
 
 function toDraft(track: Track): Draft {
-  const kind = CADENCE_KINDS.find((item) => item.value === track.cadence.type)?.value ?? 'daily';
-
   return {
     label: track.label,
     source: track.source,
@@ -108,9 +82,7 @@ function toDraft(track: Track): Draft {
     binary: track.binary,
     accent: track.accent,
     active: track.active,
-    kind,
-    count: String(track.cadence.params.count ?? track.cadence.params.min_count ?? 1),
-    windowDays: String(track.cadence.params.window_days ?? 2),
+    cadence: cadenceDraft(track.cadence.type, track.cadence.params),
   };
 }
 
@@ -125,9 +97,7 @@ function emptyDraft(source: string): Draft {
     binary: false,
     accent: 'signal',
     active: true,
-    kind: 'daily',
-    count: '2',
-    windowDays: '2',
+    cadence: { kind: 'daily', count: '2', windowDays: '2' },
   };
 }
 
@@ -147,7 +117,7 @@ function toPayload(draft: Draft): TrackPayload {
           .filter((value) => Number.isFinite(value)),
     binary: draft.binary,
     accent: draft.accent,
-    cadence: serializeCadence(draft),
+    cadence: serializeCadence(draft.cadence),
     active: draft.active,
   };
 }
@@ -276,45 +246,13 @@ function TrackForm({
         />
       )}
 
-      <label className={styles.select}>
-        <span>Cadence</span>
-        <select
-          value={draft.kind}
-          onChange={(event) => {
-            set('kind', event.target.value as CadenceKind);
-          }}
-        >
-          {CADENCE_KINDS.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {(draft.kind === 'per_week' || draft.kind === 'window') && (
-        <div className={styles.pair}>
-          <Field
-            label={draft.kind === 'per_week' ? 'Fois par semaine' : 'Fois par fenêtre'}
-            inputMode="numeric"
-            value={draft.count}
-            error={refusal?.messageFor('cadence')}
-            onChange={(event) => {
-              set('count', event.target.value);
-            }}
-          />
-          {draft.kind === 'window' && (
-            <Field
-              label="Jours de la fenêtre"
-              inputMode="numeric"
-              value={draft.windowDays}
-              onChange={(event) => {
-                set('windowDays', event.target.value);
-              }}
-            />
-          )}
-        </div>
-      )}
+      <CadencePicker
+        value={draft.cadence}
+        error={refusal?.messageFor('cadence')}
+        onChange={(cadence) => {
+          set('cadence', cadence);
+        }}
+      />
 
       <label className={styles.select}>
         <span>Couleur</span>

@@ -53,6 +53,9 @@ export interface Supplement {
   time: string;
   frequency: string;
   cadence_label: string;
+  /** La cadence décomposée, pour remplir le formulaire de correction. */
+  cadence_type: string;
+  cadence_params: Record<string, string | number>;
   active: boolean;
   created: string | null;
 }
@@ -120,6 +123,13 @@ export const routineApi = {
   schedule: () => request<Supplement[]>('/api/supplements/schedule'),
   addSupplement: (payload: SupplementPayload) =>
     request<Supplement>('/api/supplements/schedule', { method: 'POST', body: payload }),
+  /** Corrige une ligne sans changer son `schedule_id` : le journal des prises s'y rattache. */
+  updateSupplement: (id: number, token: string, payload: SupplementPayload) =>
+    request<Supplement>(`/api/supplements/schedule/${id}`, {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'If-Match': token },
+    }),
   removeSupplement: (id: number, token: string) =>
     request<undefined>(`/api/supplements/schedule/${id}`, {
       method: 'DELETE',

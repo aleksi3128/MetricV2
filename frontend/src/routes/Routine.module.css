@@ -142,30 +142,6 @@
   color: var(--ink-mid);
 }
 
-.remove {
-  background: none;
-  border: none;
-  color: var(--ink-low);
-  cursor: pointer;
-  font-family: var(--mono);
-  font-size: var(--t-sub);
-  line-height: 1;
-  /* 17 × 19 px pour retirer un verre : le plus petit bouton de l'application était
-     aussi celui qui défait une saisie. */
-  min-width: var(--tap);
-  min-height: var(--tap);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  touch-action: manipulation;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .remove:hover {
-    color: var(--recover);
-  }
-}
-
 /* ── Checklist ────────────────────────────────────── */
 
 .moment {

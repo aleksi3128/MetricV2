@@ -39,6 +39,7 @@ class SupplementService:
     @staticmethod
     def _to_schema(row: Row[ScheduleRow]) -> Supplement:
         model = row.model
+        cadence = Cadence.parse(model.frequency)
         return Supplement(
             id=row.index,
             token=row.token,
@@ -48,7 +49,9 @@ class SupplementService:
             unit=model.unit,
             time=model.time,
             frequency=model.frequency,
-            cadence_label=Cadence.parse(model.frequency).describe(),
+            cadence_label=cadence.describe(),
+            cadence_type=str(cadence.type),
+            cadence_params=dict(cadence.params),
             active=model.active,
             created=model.created,
         )

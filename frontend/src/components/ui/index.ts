@@ -32,6 +32,10 @@ export { Toaster } from './Toaster';
 
 export { Sheet, SheetGroup, SheetRow } from './Sheet';
 
+export { CadencePicker } from './CadencePicker';
+export { CADENCE_KINDS, cadenceDraft, serializeCadence } from './cadence';
+export type { CadenceDraft, CadenceKind } from './cadence';
+
 export { Combobox } from './Combobox';
 export type { Suggestion } from './Combobox';
 

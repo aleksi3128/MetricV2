@@ -1,0 +1,54 @@
+/* Le sélecteur de cadence — repris de `/reglages` › Pistes, qui le portait seul. */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  min-width: 0;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.select span {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.select select {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-family: inherit;
+  /* 16 px, comme tout champ : en deçà, iOS zoome à l'ouverture de la liste. */
+  font-size: var(--t-body);
+  min-height: 48px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.select select:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 1px;
+}
+
+.error {
+  margin: 0;
+  /* Comme `.fieldError` : le refus d'une cadence se lit comme celui d'un champ. */
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+}

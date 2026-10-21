@@ -128,6 +128,16 @@ def test_the_cadence_lives_in_the_schedule(
     assert "window:min_count=1;window_days=2" in dav.content_of(SCHEDULE_FILE)
 
 
+def test_the_cadence_is_also_served_decomposed(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Le formulaire de correction se remplit sans relire la forme sérialisée (fiche 08)."""
+    supplement = add(app_client, auth, frequency="window:min_count=1;window_days=3")
+
+    assert supplement["cadence_type"] == "window"
+    assert supplement["cadence_params"] == {"min_count": 1, "window_days": 3}
+
+
 def test_an_absent_cadence_means_daily(app_client: TestClient, auth: dict[str, str]) -> None:
     assert add(app_client, auth)["cadence_label"] == "tous les jours"
 

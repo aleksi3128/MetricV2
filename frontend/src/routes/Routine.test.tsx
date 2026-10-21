@@ -100,6 +100,8 @@ const SCHEDULE = [
     time: '12:30',
     frequency: 'window:min_count=1;window_days=2',
     cadence_label: 'un jour sur deux',
+    cadence_type: 'window',
+    cadence_params: { min_count: 1, window_days: 2 },
     active: true,
     created: '2026-01-01',
   },
@@ -183,8 +185,13 @@ describe('écran Routine', () => {
     stub();
     renderRoutine();
 
+    // Deux appuis (audit du 17 octobre, fiche 12) : le premier arme, et n'écrit rien.
     await userEvent.click(
       await screen.findByRole('button', { name: /Supprimer la prise de 08:15/ }),
+    );
+    expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
+    await userEvent.click(
+      screen.getByRole('button', { name: /Supprimer la prise de 08:15 — confirmer/ }),
     );
 
     await waitFor(() => {
@@ -192,6 +199,76 @@ describe('écran Routine', () => {
       expect(remove?.url).toContain('/api/hydration/0');
       expect((remove?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-eau');
     });
+  });
+
+  it('retire un complément en deux appuis, jamais en un', async () => {
+    stub();
+    renderRoutine();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Retirer Whey du planning' }));
+    expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Retirer Whey du planning — confirmer' }),
+    );
+
+    await waitFor(() => {
+      const remove = calls.find((call) => call.init?.method === 'DELETE');
+      expect(remove?.url).toContain('/api/supplements/schedule/0');
+    });
+  });
+
+  it('corrige la cadence d’un complément sans le recréer', async () => {
+    // Fiche 08 : la route `PATCH` n'était appelée par aucun écran. Retirer puis recréer
+    // changeait le `schedule_id`, et l'historique des prises s'en détachait.
+    stub();
+    renderRoutine();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Modifier Whey' }));
+    expect(screen.getByLabelText('Nom')).toHaveValue('Whey');
+    expect(screen.getByLabelText('Fois par fenêtre')).toHaveValue('1');
+    expect(screen.getByLabelText('Jours de la fenêtre')).toHaveValue('2');
+
+    await userEvent.selectOptions(screen.getByLabelText('Cadence'), 'per_week');
+    await userEvent.clear(screen.getByLabelText('Fois par semaine'));
+    await userEvent.type(screen.getByLabelText('Fois par semaine'), '4');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la correction' }));
+
+    await waitFor(() => {
+      const patch = calls.find((call) => call.init?.method === 'PATCH');
+      expect(patch?.url).toContain('/api/supplements/schedule/0');
+      expect((patch?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-planning');
+      expect(JSON.parse(patch?.init?.body as string)).toMatchObject({
+        name: 'Whey',
+        frequency: 'per_week:count=4',
+      });
+    });
+  });
+
+  it('dit sous la cadence pourquoi le serveur la refuse', async () => {
+    // Fiche 09 : « Les données envoyées sont invalides » en tête, rien sous le champ.
+    stub((url, init) =>
+      url.includes('/supplements/schedule') && init?.method === 'POST'
+        ? json(422, {
+            code: 'validation_failed',
+            message: 'Les données envoyées sont invalides.',
+            fields: [
+              {
+                field: 'body.frequency',
+                message: 'une fenêtre ne peut pas exiger plus de prises qu’elle ne compte de jours',
+              },
+            ],
+          })
+        : undefined,
+    );
+    renderRoutine();
+
+    await userEvent.type(await screen.findByLabelText('Nom'), 'Zinc');
+    await userEvent.type(screen.getByLabelText('Dose'), '15');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter au planning' }));
+
+    expect(
+      await screen.findByText(/une fenêtre ne peut pas exiger plus de prises/),
+    ).toBeInTheDocument();
   });
 
   it('groupe la checklist par moment de la journée', async () => {
