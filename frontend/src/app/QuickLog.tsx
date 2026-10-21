@@ -26,6 +26,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
+  AmountEntry,
   Button,
   Chip,
   ChipStrip,
@@ -115,7 +116,9 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
 
   // Le jour vient du serveur — le seul endroit où cette feuille peut le lire.
   const today = checklist.data?.date ?? null;
-  const pending = checklist.data?.items.filter((item) => !item.taken) ?? [];
+  // Ce qui est **dû** et pas pris : une whey « un jour sur deux » prise hier n'est pas à
+  // prendre aujourd'hui — oubli de la fiche 04, vu dans cette feuille.
+  const pending = checklist.data?.items.filter((item) => item.due && !item.taken) ?? [];
   const presets = hydration.data?.presets_ml ?? [];
   const latestKg = lastWeight.data?.stats.latest_kg ?? null;
 
@@ -161,6 +164,17 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
                 </Chip>
               ))}
             </ChipStrip>
+            {/* Un volume hors raccourcis — 0,9 L se notait en allant régler les raccourcis
+                (audit du 17 octobre, fiche 18). */}
+            <AmountEntry
+              label="Autre volume"
+              unit="ml"
+              action="Ajouter"
+              busy={drink.isPending}
+              onSubmit={(milliliters) => {
+                drink.mutate(milliliters);
+              }}
+            />
             {hydration.data !== undefined && (
               <p className={styles.tally}>
                 <b className="num">{volume(hydration.data.stats.today_ml)}</b> aujourd’hui, objectif{' '}
