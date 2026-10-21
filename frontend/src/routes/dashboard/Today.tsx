@@ -263,12 +263,14 @@ export function Today({ data }: { data: DashboardView }) {
             value={weight.latest_kg !== null ? num(weight.latest_kg, 1) : '—'}
             unit={weight.latest_kg !== null ? 'kg' : undefined}
             detail={
-              weight.change_kg !== null
-                ? `${delta(weight.change_kg)} kg sur 8 pesées`
+              // Le nombre de pesées vient du serveur, comme sur /corps (fiche 21).
+              weight.change_kg !== null && weight.change_count !== null
+                ? `${delta(weight.change_kg)} kg sur ${String(weight.change_count)} ${plural(weight.change_count, 'pesée')}`
                 : weight.latest_kg !== null
                   ? // Il y a un chiffre : lui dire d'en poser un se lisait comme un écran
-                    // qui n'a pas vu la pesée qu'il affiche juste au-dessus.
-                    'la tendance vient à la deuxième'
+                    // qui n'a pas vu la pesée qu'il affiche juste au-dessus. Deux jours,
+                    // et non deux pesées : deux le même matin ne font pas une tendance.
+                    'la tendance vient au deuxième jour'
                   : 'un chiffre le matin, et la courbe commence'
             }
             direction={weight.change_kg === null ? undefined : weight.change_kg > 0 ? 'up' : 'down'}
