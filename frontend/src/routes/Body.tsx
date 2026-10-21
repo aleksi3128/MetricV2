@@ -478,7 +478,15 @@ export function Body() {
 
       <Rule>Courbe</Rule>
       <Card>
-        {series.length < 2 ? (
+        {/* L'erreur avant le vide : avec la lecture en échec, « deux pesées suffisent »
+            affirmait qu'il n'y en avait pas (audit du 17 octobre, fiche 06). */}
+        {isPending ? (
+          <Skeleton />
+        ) : error ? (
+          <Empty title="Courbe indisponible">
+            {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+          </Empty>
+        ) : series.length < 2 ? (
           <Empty title="Pas encore de courbe">Deux pesées suffisent à tracer une tendance.</Empty>
         ) : (
           <Chart

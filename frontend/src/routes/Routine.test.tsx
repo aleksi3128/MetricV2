@@ -224,6 +224,24 @@ describe('écran Routine', () => {
     expect(screen.getByText('journée complète')).toBeInTheDocument();
   });
 
+  it('dit la panne au lieu d’afficher un planning vide', async () => {
+    // Audit du 17 octobre, fiche 06 : stockage injoignable, l'écran affirmait « Aucun
+    // supplément au planning » — la façon la plus crédible de mentir (CLAUDE.md §4).
+    const down = json(503, {
+      code: 'storage_unavailable',
+      message: 'Le stockage ne répond pas. Réessaie dans un instant.',
+    });
+    stub((url) => (url.includes('/supplements') || url.includes('/hydration') ? down : undefined));
+    renderRoutine();
+
+    expect(
+      await screen.findByText('Checklist indisponible', {}, { timeout: 6000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Planning indisponible')).toBeInTheDocument();
+    expect(screen.getByText('Hydratation indisponible')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun supplément au planning')).not.toBeInTheDocument();
+  }, 10_000);
+
   it('affiche la série par item', async () => {
     stub();
     renderRoutine();

@@ -58,7 +58,7 @@ function Hydration() {
   const invalidate = useInvalidateRoutine();
   const { notify } = useToast();
 
-  const { data } = useQuery({
+  const { data, error } = useQuery({
     queryKey: keys.hydration.all(),
     queryFn: () => routineApi.hydration(),
   });
@@ -101,6 +101,14 @@ function Hydration() {
           </Badge>
         )}
       </div>
+
+      {/* En panne, la carte le dit au lieu d'offrir des volumes qui n'iraient nulle part
+          et un anneau vide qui passerait pour une journée sans eau (audit, fiche 06). */}
+      {error !== null && (
+        <Empty title="Hydratation indisponible">
+          {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+        </Empty>
+      )}
 
       {/* **Les volumes en tête, sur une seule ligne.** Ils vivaient à côté de l'anneau,
           où ils recevaient la moitié d'une carte de 336 px : quatre boutons de 84 px s'y
@@ -184,7 +192,7 @@ function Checklist() {
   const invalidate = useInvalidateRoutine();
   const { notify } = useToast();
 
-  const { data, isPending } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: keys.supplements.today(),
     queryFn: routineApi.checklist,
   });
@@ -268,8 +276,14 @@ function Checklist() {
         )}
       </div>
 
+      {/* L'erreur avant le vide : en panne, « Aucun supplément au planning » invitait à
+          ajouter ce qui y était déjà (audit du 17 octobre, fiche 06). */}
       {isPending ? (
         <Skeleton className={styles.emptyInset} />
+      ) : error ? (
+        <Empty title="Checklist indisponible">
+          {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+        </Empty>
       ) : items.length === 0 ? (
         <Empty title="Aucun supplément au planning">
           Ajoute ce que tu prends, et la checklist se remplit toute seule chaque matin.
@@ -321,7 +335,7 @@ function Schedule() {
     queryKey: keys.supplements.units(),
     queryFn: routineApi.units,
   });
-  const { data: schedule } = useQuery({
+  const { data: schedule, error: unreadable } = useQuery({
     queryKey: keys.supplements.schedule(),
     queryFn: routineApi.schedule,
   });
@@ -377,6 +391,12 @@ function Schedule() {
         La cadence vit ici et nulle part ailleurs : la grille d'assiduité la lira au même endroit,
         elles ne pourront pas diverger.
       </p>
+
+      {unreadable !== null && (
+        <Empty title="Planning indisponible">
+          {unreadable instanceof Error ? unreadable.message : 'Le serveur n’a pas répondu.'}
+        </Empty>
+      )}
 
       {(schedule ?? []).map((item) => (
         <div className={styles.scheduleRow} key={item.schedule_id}>

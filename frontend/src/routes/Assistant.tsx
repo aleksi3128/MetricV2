@@ -43,6 +43,7 @@ import {
   Sheet,
   SheetGroup,
   SheetRow,
+  Skeleton,
 } from '@/components/ui';
 import { IconBook, IconMic, IconThreads } from '@/components/ui/icons';
 import { dictate, dictationSupported, speak } from '@/lib/voice';
@@ -255,7 +256,7 @@ function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) 
   const invalidate = useInvalidateMemory();
   const { notify } = useToast();
 
-  const { data } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: keys.assistant.memory(),
     queryFn: assistantApi.memory,
     enabled: open,
@@ -321,7 +322,15 @@ function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) 
       title="Ce que l’assistant sait de toi"
       lede="Ce carnet part avec chaque question. Jamais un chiffre — il serait faux le mois suivant."
     >
-      {entries.length === 0 ? (
+      {/* Quatre états : en panne, « Carnet vide » affirmait qu'aucune note n'existait
+          alors qu'aucune n'avait pu être lue (audit du 17 octobre, fiche 06). */}
+      {isPending ? (
+        <Skeleton lines={3} />
+      ) : error ? (
+        <Empty title="Carnet indisponible">
+          {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+        </Empty>
+      ) : entries.length === 0 ? (
         <Empty title="Carnet vide">
           Note ce qui explique tes chiffres sans y figurer. L’assistant en retient aussi tout seul
           au fil des questions — tu peux corriger ou oublier ce qu’il garde.
