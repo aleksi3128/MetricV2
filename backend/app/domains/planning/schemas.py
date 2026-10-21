@@ -393,6 +393,21 @@ class SubscriptionInfo(BaseModel):
 # ── La notation de nage (`docs/planning-natation.md`) ─
 
 
+class CheckRequest(BaseModel):
+    """La séance qu'on s'apprête à poser, pour les garde-fous (`docs/planifier-une-seance.md`,
+    D9). Rien n'est écrit."""
+
+    date: dt.date
+    time: str | None = Field(default=None, pattern=TIME_PATTERN)
+    kind: Kind
+    duration_min: float | None = Field(default=None, gt=0, le=1440)
+    program: str | None = Field(default=None, max_length=600)
+    #: La séance corrigée, qu'on ne compte pas comme sa propre voisine.
+    session_id: str | None = Field(default=None, max_length=40)
+
+    _blank_time = field_validator("time", mode="before")(_empty_time_is_none)
+
+
 class RunParseRequest(BaseModel):
     """Une séance de course à lire, sans rien écrire — l'aperçu du formulaire."""
 

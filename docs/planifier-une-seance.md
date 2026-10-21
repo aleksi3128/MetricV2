@@ -141,3 +141,21 @@ au-delà, une course ou une natation ouvre une feuille de 1 040 px (`Sheet` gagn
 à deux colonnes — à gauche ce qui situe la séance, à droite la séance et son aperçu, côte
 à côte. Trouvé en regardant : la grille à deux colonnes que `.form` prend dès 600 px
 tenait les trois zones dans la moitié de la feuille.
+
+### Étape 4 — les garde-fous et le créneau libre (21 octobre 2026)
+
+`planning/guard.py`, pur, et `POST /planning/check`, qui n'écrit rien : avant
+« Planifier », la feuille dit en phrases ce qu'il faut savoir — une course la veille ou le
+lendemain (la règle du coach), une douleur ouverte (arrêt, ou séance dure ou longue
+déconseillée), un rapport de charge au-dessus de 1,3 sur une séance dure ou longue,
+l'affûtage d'une course A, un chevauchement avec l'agenda. **Rien n'est bloqué** : le
+bouton reste actif. Sans heure, le premier créneau libre de l'agenda se prend d'un appui.
+
+Une séance est dure quand un de ses blocs de course est en zone 4 ou plus — par son sigle,
+sa zone ou son allure (`run_notation.is_hard`). La séance qu'on corrige n'est pas sa propre
+voisine.
+
+#### Ce que le passage à l'écran a trouvé
+
+- « Douleur en cours, course à l'arrêt : Douleur (Genou…) » : la phrase de la douleur
+  commence déjà par « Douleur ». « Course à l'arrêt. » suffit.

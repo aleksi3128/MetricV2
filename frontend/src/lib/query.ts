@@ -130,6 +130,8 @@ export const keys = {
     runParse: (program: string) => ['planning', 'run-parse', program] as const,
     runTemplates: (duration: number | null) => ['planning', 'run-templates', duration] as const,
     runCoach: (day: string) => ['planning', 'run-coach', day] as const,
+    /** Les garde-fous d'une séance en cours de saisie (`docs/planifier-une-seance.md`, D9). */
+    check: (body: object) => ['planning', 'check', body] as const,
   },
   assistant: {
     all: () => ['assistant'] as const,

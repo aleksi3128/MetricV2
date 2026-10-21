@@ -21,7 +21,7 @@
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button, Chip, ChipStrip, Field, Sheet, Stepper } from '@/components/ui';
 import { activityApi } from '@/features/activity/api';
@@ -148,6 +148,79 @@ function RunStarters({
         />
       )}
     </div>
+  );
+}
+
+/** Un délai, pour ne relire les garde-fous qu'une fois la saisie posée. */
+function useSettled<T>(value: T, delay: number): T {
+  const [settled, setSettled] = useState(value);
+  const key = JSON.stringify(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSettled(JSON.parse(key) as T);
+    }, delay);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [key, delay]);
+  return settled;
+}
+
+/**
+ * Ce qu'il faut savoir avant de planifier (D9) : course la veille, douleur, charge,
+ * affûtage, agenda. **Des avis, jamais un refus** — le bouton reste actif. Sans heure, le
+ * premier créneau libre de l'agenda, d'un appui.
+ */
+function Guard({
+  values,
+  sessionId,
+  onTime,
+}: {
+  values: PlanFormValues & { kind: NonNullable<PlanFormValues['kind']> };
+  sessionId: string | null;
+  onTime: (time: string) => void;
+}) {
+  const body = useSettled(
+    {
+      date: values.date,
+      time: values.time,
+      kind: values.kind,
+      duration_min: decimal(values.duration_min),
+      program: values.kind === 'course' ? values.program || null : null,
+      session_id: sessionId,
+    },
+    400,
+  );
+  const { data } = useQuery({
+    queryKey: keys.planning.check(body),
+    queryFn: () => planningApi.check(body),
+    enabled: body.date !== '',
+    staleTime: 30_000,
+  });
+  if (data === undefined) return null;
+  return (
+    <>
+      {data.warnings.length > 0 && (
+        <ul className={layout.warnings} aria-label="Avant de planifier">
+          {data.warnings.map((item) => (
+            <li key={item.key}>{item.text}</li>
+          ))}
+        </ul>
+      )}
+      {values.time === null && data.free_slot !== null && (
+        <div className={layout.slot}>
+          <span>{data.free_text}</span>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              if (data.free_slot !== null) onTime(data.free_slot);
+            }}
+          >
+            Prendre {data.free_slot}
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -419,6 +492,16 @@ export function PlanSheet({
               />
             </div>
           </div>
+
+          {values.kind !== null && (
+            <Guard
+              values={{ ...values, kind: values.kind }}
+              sessionId={editing?.session_id ?? null}
+              onTime={(slot) => {
+                set('time', slot);
+              }}
+            />
+          )}
 
           {missing !== null && (
             <p className={cx(own.error, layout.full)} role="alert">

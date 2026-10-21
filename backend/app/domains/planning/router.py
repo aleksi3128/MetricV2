@@ -39,6 +39,7 @@ from app.core.swim_notation import SwimProgram
 from app.domains.ai.deps import AiServiceDep
 from app.domains.planning import agenda, ical
 from app.domains.planning.glossary import SwimCodeService
+from app.domains.planning.guard import PlanCheck
 from app.domains.planning.replanning import ReplanService
 from app.domains.planning.run_notation import RunProgram
 from app.domains.planning.run_templates import CoachSession, RunTemplate, templates
@@ -49,6 +50,7 @@ from app.domains.planning.schemas import (
     AgendaPayload,
     AgendaView,
     ChangeDecision,
+    CheckRequest,
     MonthView,
     PlanChange,
     PlannedSession,
@@ -239,6 +241,13 @@ async def run_coach(
 ) -> CoachSession | None:
     """`null` quand le coach n'a rien pour ce jour : une réponse, pas une erreur (D6)."""
     return await PlanningService(store).coach_session(day)
+
+
+@router.post("/check", response_model=PlanCheck, summary="Les avertissements avant de planifier")
+async def check_plan(payload: CheckRequest, store: StoreDep) -> PlanCheck:
+    """Course la veille, douleur, charge, affûtage, agenda — et le créneau libre. Des avis
+    en phrases, qui ne bloquent rien (`docs/planifier-une-seance.md`, D9)."""
+    return await PlanningService(store).check(payload)
 
 
 @router.post("/run/parse", response_model=RunProgram, summary="Lire une séance de course")

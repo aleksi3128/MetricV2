@@ -391,6 +391,9 @@ function stub(
     }
     if (url.includes('/api/planning/run/templates')) return Promise.resolve(json(200, []));
     if (url.includes('/api/planning/run/coach')) return Promise.resolve(json(200, null));
+    if (url.includes('/api/planning/check')) {
+      return Promise.resolve(json(200, { warnings: [], free_slot: null, free_text: null }));
+    }
     if (url.includes('/api/planning/swim/codes')) {
       return Promise.resolve(json(200, { codes: CODES }));
     }

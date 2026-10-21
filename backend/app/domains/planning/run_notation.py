@@ -634,3 +634,34 @@ def parse(text: str, refs: References) -> RunProgram:
 def describe_errors(errors: Sequence[RunError]) -> str:
     first = errors[0]
     return f"« {first.token} » : {first.message}" if first.token else first.message
+
+
+def _zone_of(block: Block, refs: References) -> int | None:
+    if block.zone is not None:
+        return block.zone
+    pace = block.target.pace_exact
+    if pace is None and block.block_time_s is not None and block.distance_m:
+        pace = block.block_time_s / 60 / (block.distance_m / 1000)
+    if pace is None or refs.threshold is None:
+        return None
+    return 1 + sum(1 for bound in PACE_BOUNDS if pace / refs.threshold < bound)
+
+
+def is_hard(text: str, refs: References) -> bool:
+    """Une séance **dure** : un bloc de course en zone 4 ou plus — par son sigle, sa zone
+    ou son allure écrite. Ce que les garde-fous de la planification surveillent (D9)."""
+    try:
+        nodes = read_tree(text)
+    except NotationError:
+        return False
+
+    def walk(items: Sequence[Node]) -> bool:
+        for item in items:
+            if isinstance(item, Group):
+                if walk(item.children):
+                    return True
+            elif item.kind == "run" and (_zone_of(item, refs) or 0) >= 4:
+                return True
+        return False
+
+    return walk(nodes)

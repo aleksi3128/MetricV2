@@ -55,3 +55,31 @@
     grid-area: more;
   }
 }
+
+/* Les avis avant de planifier (D9) : l'ambre de ce qui est à surveiller, pas le rouge
+   d'une erreur — rien n'est refusé. */
+.warnings {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  color: var(--ink);
+  font-size: var(--t-sub);
+  line-height: 1.45;
+  border: 1px solid rgb(var(--load-rgb) / var(--badge-border-a));
+  background: rgb(var(--load-rgb) / var(--badge-bg-a));
+  border-radius: var(--r-sm);
+}
+
+.slot {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}

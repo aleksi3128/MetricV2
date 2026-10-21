@@ -17,10 +17,10 @@ from __future__ import annotations
 
 import secrets as secrets_module
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 from app.core import swim_notation as swim
-from app.core.dates import today_local, week_start
+from app.core.dates import now_local, today_local, week_start
 from app.core.exceptions import (
     AiUnreadableError,
     RunNotationError,
@@ -32,13 +32,14 @@ from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
 from app.domains.coach.catalog import References
-from app.domains.planning import run_notation, run_templates
+from app.domains.planning import guard, ics, run_notation, run_templates
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
 from app.domains.planning.glossary import glossary_from
 from app.domains.planning.models import PlanRow, SwimCodeRow, normalise_kind
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionResult,
+    CheckRequest,
     DayCell,
     DoneActivity,
     MonthView,
@@ -148,6 +149,79 @@ class PlanningService:
             notation=run_templates.notation_of(current.type, current.steps),
             duration_min=current.duration_min,
         )
+
+    async def check(self, request: CheckRequest) -> guard.PlanCheck:
+        """Les avertissements avant de planifier, et le créneau libre (D9). N'écrit rien."""
+        from app.domains.activity.service import RunService
+        from app.domains.pain.service import PainService
+        from app.domains.races.catalog import SPECS
+        from app.domains.races.service import RaceService
+        from app.domains.training.service import TrainingService
+
+        today = today_local()
+        refs = await self.references()
+        minutes = round(request.duration_min) if request.duration_min else None
+        hard = False
+        if request.kind == "course" and request.program:
+            read = run_notation.parse(request.program, refs)
+            if minutes is None and read.duration_s is not None:
+                minutes = round(read.duration_s / 60)
+            hard = run_notation.is_hard(request.program, refs)
+
+        around = await self.between(
+            request.date - timedelta(days=1), request.date + timedelta(days=1)
+        )
+        run_days = {
+            item.date
+            for item in around
+            if item.kind == "course" and item.session_id != request.session_id
+        }
+        run_days |= {row.model.date for row in await RunService(self._store).all()}
+
+        pain, pain_text = await PainService(self._store).level(today)
+        summary = await TrainingService(self._store).summary(today)
+
+        taper: guard.Taper | None = None
+        for race in (await RaceService(self._store).view(today)).races:
+            spec = SPECS.get(race.distance)
+            if race.priority != "A" or spec is None or race.date < request.date:
+                continue
+            if (race.date - request.date).days <= spec.taper_days:
+                taper = guard.Taper(name=race.name, day=race.date, days=spec.taper_days)
+                break
+
+        now = now_local().replace(tzinfo=None) if request.date == today else None
+        return guard.check(
+            guard.Context(
+                day=request.date,
+                at=time.fromisoformat(request.time) if request.time else None,
+                minutes=minutes,
+                kind=request.kind,
+                hard=hard,
+                run_days=run_days,
+                pain=pain,
+                pain_text=pain_text,
+                ratio=summary.ratio,
+                ratio_text=summary.ratio_text,
+                taper=taper,
+                busy=await self._busy(request.date),
+                now=now,
+            )
+        )
+
+    async def _busy(self, day: date) -> list[ics.Busy] | None:
+        """Les rendez-vous du jour, ou `None` sans agenda — ou s'il ne répond pas : un agenda
+        injoignable ne doit pas empêcher les autres avertissements."""
+        from app.domains.app_settings.service import SettingsService
+        from app.domains.planning import agenda
+
+        url = (await SettingsService(self._store).all()).get(agenda.SETTING_KEY, "").strip()
+        if not url:
+            return None
+        try:
+            return (await agenda.read(url, day, day)).busy
+        except Exception:
+            return None
 
     async def parse_run(self, program: str) -> run_notation.RunProgram:
         """Lit une séance de course sans rien écrire — l'aperçu du formulaire."""

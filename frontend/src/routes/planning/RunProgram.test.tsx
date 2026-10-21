@@ -44,6 +44,8 @@ const TEMPLATES = [
 ];
 
 let coach: unknown = null;
+const QUIET = { warnings: [], free_slot: null, free_text: null };
+let guarded: unknown = QUIET;
 let circuits: unknown = { circuits: [], linkable: true };
 
 const sent: { url: string; body: unknown }[] = [];
@@ -55,6 +57,7 @@ function json(status: number, body: unknown): Response {
 beforeEach(() => {
   sent.length = 0;
   coach = null;
+  guarded = QUIET;
   circuits = { circuits: [], linkable: true };
   vi.stubGlobal(
     'fetch',
@@ -66,6 +69,7 @@ beforeEach(() => {
       if (url.includes('/run/coach')) return Promise.resolve(json(200, coach));
       if (url.includes('/run/templates')) return Promise.resolve(json(200, TEMPLATES));
       if (url.includes('/activity/circuits')) return Promise.resolve(json(200, circuits));
+      if (url.includes('/planning/check')) return Promise.resolve(json(200, guarded));
       return Promise.resolve(json(201, {}));
     }),
   );
@@ -223,5 +227,31 @@ describe('planifier une course', () => {
     });
     const posted = sent.find((call) => call.url.endsWith('/api/planning/sessions'));
     expect(posted?.body).toMatchObject({ kind: 'muscu', circuit_id: 'c9', duration_min: 38 });
+  });
+
+  it('dit les avis sans rien bloquer, et prend le créneau libre d’un appui', async () => {
+    const user = userEvent.setup();
+    guarded = {
+      warnings: [
+        {
+          key: 'adjacent',
+          text: 'Une course est déjà prévue ou faite la veille : le coach ne fait jamais courir deux jours d’affilée.',
+        },
+      ],
+      free_slot: '18:30',
+      free_text: 'Libre à 18:30 d’après ton agenda, pour 45 min.',
+    };
+    renderSheet();
+    const sheet = await screen.findByRole('dialog');
+    await user.click(within(sheet).getByRole('button', { name: 'Course' }));
+
+    const notes = await within(sheet).findByRole('list', { name: 'Avant de planifier' });
+    expect(notes).toHaveTextContent('la veille');
+    expect(within(sheet).getByRole('button', { name: 'Planifier' })).toBeEnabled();
+
+    await user.click(within(sheet).getByRole('button', { name: 'Prendre 18:30' }));
+    expect(within(sheet).getByLabelText('Heure')).toHaveValue('18:30');
+    const asked = sent.filter((call) => call.url.includes('/planning/check')).at(-1);
+    expect(asked?.body).toMatchObject({ date: '2026-10-22', kind: 'course', session_id: null });
   });
 });

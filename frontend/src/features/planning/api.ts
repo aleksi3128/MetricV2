@@ -235,6 +235,22 @@ export interface PlanFormValues {
   circuit_id?: string | null;
 }
 
+/** Ce qu'il faut savoir avant de planifier (D9) : des avis, jamais un refus. */
+export interface PlanCheck {
+  warnings: { key: string; text: string }[];
+  free_slot: string | null;
+  free_text: string | null;
+}
+
+export interface CheckBody {
+  date: string;
+  time: string | null;
+  kind: PlanKind;
+  duration_min: number | null;
+  program: string | null;
+  session_id: string | null;
+}
+
 /** Une séance-type, écrite en notation depuis le catalogue du coach (D5). */
 export interface RunTemplate {
   type: string;
@@ -343,6 +359,7 @@ export const planningApi = {
     }),
   runCoach: (day: string) =>
     request<CoachSession | null>('/api/planning/run/coach', { query: { date: day } }),
+  check: (body: CheckBody) => request<PlanCheck>('/api/planning/check', { method: 'POST', body }),
   parseRun: (program: string) =>
     request<RunProgram>('/api/planning/run/parse', { method: 'POST', body: { program } }),
 
