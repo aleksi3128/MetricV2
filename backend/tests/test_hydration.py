@@ -216,15 +216,17 @@ def test_the_averages_cover_seven_and_thirty_days(
     today = today_local()
     lines = [
         f"{datetime.combine(today - timedelta(days=offset), datetime.min.time(), tzinfo=tz()).replace(hour=9).isoformat()},"
-        f"{2100 if offset < 7 else 700},eau"
+        f"{2100 if offset <= 7 else 700},eau"
         for offset in range(30)
     ]
     dav.seed(FILE, HEADER + "\n".join(lines) + "\n")
 
     stats = app_client.get(HYDRATION, headers=auth).json()["stats"]
 
+    # Jours **révolus** seulement (audit, fiche 19) : aujourd'hui, pas fini, n'entre pas.
+    # 7 j = hier à J-7 ; 30 j = les 29 jours révolus de la fenêtre.
     assert stats["average_7d_ml"] == 2100
-    assert stats["average_30d_ml"] == pytest.approx(1026, abs=2)
+    assert stats["average_30d_ml"] == pytest.approx((7 * 2100 + 22 * 700) / 29, abs=1)
 
 
 def test_days_reaching_the_target_are_counted(
@@ -240,8 +242,9 @@ def test_days_reaching_the_target_are_counted(
 
     stats = app_client.get(f"{HYDRATION}?days=10", headers=auth).json()["stats"]
 
-    assert stats["days_reached"] == 5
-    assert stats["days_counted"] == 10
+    # Aujourd'hui (atteint) n'est pas encore un jour compté : J-1 à J-9.
+    assert stats["days_reached"] == 4
+    assert stats["days_counted"] == 9
 
 
 def test_an_empty_history_answers_without_failing(
@@ -250,8 +253,22 @@ def test_an_empty_history_answers_without_failing(
     stats = app_client.get(HYDRATION, headers=auth).json()["stats"]
 
     assert stats["today_ml"] == 0
-    assert stats["average_7d_ml"] == 0
+    assert stats["average_7d_ml"] is None
     assert stats["days_reached"] == 0
+
+
+def test_the_first_day_has_no_average_yet(app_client: TestClient, auth: dict[str, str]) -> None:
+    """Audit du 17 octobre, fiche 19 : au premier jour, 1,1 L bus donnaient « moyenne 7 j :
+    157 ml » et « objectif atteint 0 jour sur 30 ». Les jours d'avant le premier relevé ne
+    sont pas des jours sans eau — ce sont des jours sans mesure."""
+    drink(app_client, auth, volume_ml=1100)
+
+    stats = app_client.get(HYDRATION, headers=auth).json()["stats"]
+
+    assert stats["today_ml"] == 1100
+    assert stats["average_7d_ml"] is None
+    assert stats["average_30d_ml"] is None
+    assert stats["days_counted"] == 0
 
 
 # ── Correction (`HYD-04`) ─────────────────────────────

@@ -565,10 +565,14 @@ export function Routine() {
             <Stat
               label="Moyenne · 7 jours"
               value={stats?.average_7d_ml != null ? volume(stats.average_7d_ml) : '—'}
+              // Aucun jour révolu depuis le premier relevé : rien à compter, et « 0 jour sur
+              // 0 » n'apprendrait rien. Le premier jour, c'est ce que dit le tiret.
               detail={
-                stats
+                stats && stats.days_counted > 0
                   ? `objectif atteint ${stats.days_reached} ${plural(stats.days_reached, 'jour')} sur ${stats.days_counted}`
-                  : undefined
+                  : stats
+                    ? 'moyenne dès le deuxième jour complet'
+                    : undefined
               }
             />
           </Card>

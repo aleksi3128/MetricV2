@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from app.core.dates import today_local, tz
 from app.domains.activity.models import CircuitExerciseRow, CircuitRow
@@ -485,7 +485,14 @@ async def test_une_phrase_qui_ne_depend_pas_du_jour_n_arrive_qu_une_fois(
     Les chargeurs ajoutent des faits qui ne dépendent pas du jour rendu — « Moyenne
     d'hydratation sur 7 jours » arrivait **sept fois à l'identique** sur une semaine. Le
     doublon se retire dans `slices`, parce qu'aucun chargeur ne sait qu'il est déroulé.
+
+    Le même volume chaque jour, de quoi rendre la moyenne identique d'un jour à l'autre.
+    Le test s'appuyait jusqu'ici sur un historique vide, où la moyenne valait zéro partout
+    — une valeur inventée, retirée par l'audit (fiche 19) : sans relevé, plus de phrase.
     """
+    for back in range(-7, 9):
+        moment = datetime.combine(date(2026, 8, 10) - timedelta(days=back), time(9), tzinfo=tz())
+        await HydrationService(store).create(IntakePayload(volume_ml=1500, datetime=moment))
     rendu = await _rendu(store, "hydratation_du_jour", jour=date(2026, 8, 10), semaine=True)
 
     assert rendu.count("Moyenne d'hydratation sur 7 jours") == 1
