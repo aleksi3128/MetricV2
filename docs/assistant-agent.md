@@ -146,14 +146,11 @@ que le fil est ouvert.
 
 | Action | Domaine |
 |---|---|
-| `weight.add` · `measurement.add` | Corps |
-| `run.add` · `workout.add` · `set.add` | Activité |
+| `weight.add` | Corps |
+| `run.add` · `circuit.create` | Activité |
 | `meal.add` | Nutrition |
 | `water.add` · `supplement.take` | Routine |
-| `exercise.create` | Catalogue |
 | `plan.add` | Planning |
-| `goal.create` | Objectif |
-| `memory.add` | Carnet — automatique, voir [§6](#6-la-mémoire-automatique) |
 
 ### Niveau `modification` — demande un appui
 
@@ -162,12 +159,22 @@ Un appui exécute, un autre écarte. Rien n'est écrit avant.
 
 | Action | Pourquoi ce niveau |
 |---|---|
-| `weight.edit` · `meal.edit` · `run.edit` · `workout.edit` | Écrase une mesure existante |
-| `*.delete` (tous domaines) | Il n'y a pas de corbeille |
-| `exercise.edit` | Un exercice mal repris pollue l'historique de charge |
-| `goal.close` · `goal.abandon` | Clôt un engagement |
-| `settings.update` | Ces valeurs servent de référence à **tous** les écrans |
-| `plan.delete` | Idem |
+| `weight.delete` · `meal.delete` · `run.delete` | Il n'y a pas de corbeille |
+| `plan.propose` | Une semaine entière d'un coup |
+| `plan.move` · `plan.delete` | Défait un engagement daté |
+
+Le carnet ne passe pas par ce catalogue : ce que l'assistant retient tout seul suit son
+propre chemin, décrit au [§6](#6-la-mémoire-automatique).
+
+### Ce que ce plan prévoyait et qui n'existe pas
+
+Le catalogue réel est `backend/app/domains/assistant/actions.py`, et c'est lui qui fait foi.
+Ce document annonçait aussi `measurement.add`, `workout.add`, `set.add`,
+`exercise.create`, `goal.create`, les `*.edit`, `goal.close`, `goal.abandon` et
+`settings.update`. Les trois premières d'activité ont disparu avec la refonte — tout passe
+par Cadence, et `circuit.create` les remplace ; les autres n'ont jamais été écrites.
+Relevé par l'audit du 17 octobre (fiche 30) : une table qui promet une action que le modèle
+ne peut pas appeler fait chercher là où il n'y a rien.
 
 **Aucune action n'est déclenchable par une plainte physique** (`IA-12`) : la consigne
 l'interdit, et la table refuse `plan.*`, `goal.*` et `settings.*` quand la question porte
