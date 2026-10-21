@@ -180,6 +180,22 @@ describe('écran Routine', () => {
     });
   });
 
+  it('note un volume hors des raccourcis', async () => {
+    // Audit du 17 octobre, fiche 18 : 0,9 L ne se notait qu'en réglant les raccourcis.
+    stub();
+    renderRoutine();
+
+    await userEvent.type(await screen.findByLabelText('Autre volume'), '900');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter' }));
+
+    await waitFor(() => {
+      const posted = calls.find(
+        (call) => call.url.includes('/api/hydration') && call.init?.method === 'POST',
+      );
+      expect(JSON.parse(posted?.init?.body as string)).toMatchObject({ volume_ml: 900 });
+    });
+  });
+
   it('permet de rattraper une erreur de saisie', async () => {
     // `HYD-04` : correction d'une prise du jour, sous garde.
     stub();

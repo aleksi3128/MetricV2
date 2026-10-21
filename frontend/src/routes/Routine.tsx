@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
+  AmountEntry,
   Badge,
   Button,
   Card,
@@ -140,6 +141,20 @@ function Hydration() {
           </button>
         ))}
       </div>
+
+      {/* Un volume hors raccourcis, sans aller régler les raccourcis (fiche 18). */}
+      {data !== undefined && (
+        <AmountEntry
+          label="Autre volume"
+          unit="ml"
+          action="Ajouter"
+          busy={drink.isPending}
+          error={drink.error instanceof ApiError ? drink.error.message : undefined}
+          onSubmit={(millilitres) => {
+            drink.mutate(millilitres);
+          }}
+        />
+      )}
 
       {stats && (
         <div className={styles.hydration}>

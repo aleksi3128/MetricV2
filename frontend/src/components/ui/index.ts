@@ -32,6 +32,7 @@ export { Toaster } from './Toaster';
 
 export { Sheet, SheetGroup, SheetRow } from './Sheet';
 
+export { AmountEntry } from './AmountEntry';
 export { CadencePicker } from './CadencePicker';
 export { CADENCE_KINDS, cadenceDraft, serializeCadence } from './cadence';
 export type { CadenceDraft, CadenceKind } from './cadence';

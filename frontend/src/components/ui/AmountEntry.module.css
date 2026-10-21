@@ -1,0 +1,25 @@
+/* Le champ prend la place, le bouton se cale à sa base, en face de la saisie. */
+/* Elle suit toujours une rangée de raccourcis, et s'y collait : son libellé se lisait
+   comme la légende des boutons du dessus. */
+.form {
+  margin-top: var(--s3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--s3);
+}
+
+/* Comme `.fieldError` : le refus se lit comme celui d'un champ. */
+.error {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+}
