@@ -125,3 +125,25 @@ export function Shell() {
 export function SessionLoading() {
   return <div className={styles.loading}>Vérification de la session…</div>;
 }
+
+/**
+ * Le serveur n'a pas répondu à la vérification du jeton.
+ *
+ * Un écran et non la coquille : le service worker ne sert jamais `/api` du cache, et
+ * chaque écran tomberait en erreur l'un après l'autre. Celui-ci dit la panne une fois,
+ * réessaie seul au retour du réseau, et garde le jeton.
+ */
+export function SessionUnreachable() {
+  const { retry } = useAuth();
+  return (
+    <div className={styles.unreachable} role="alert">
+      <p className={styles.unreachableTitle}>Serveur injoignable</p>
+      <p className={styles.unreachableText}>
+        Ta session est intacte. Metric réessaie dès que le réseau revient.
+      </p>
+      <Button variant="primary" onClick={retry}>
+        Réessayer
+      </Button>
+    </div>
+  );
+}

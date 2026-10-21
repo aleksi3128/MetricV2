@@ -149,6 +149,32 @@
   }
 }
 
+/* Le serveur muet au lancement : centré comme l'attente qu'il remplace, avec le geste
+   qui la relance. */
+.unreachable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  min-height: 100dvh;
+  padding: 0 var(--s4);
+  text-align: center;
+}
+
+.unreachableTitle {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.unreachableText {
+  max-width: 32ch;
+  color: var(--ink-mid);
+}
+
 .loading {
   display: flex;
   align-items: center;

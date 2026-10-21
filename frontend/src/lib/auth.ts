@@ -15,6 +15,11 @@ export type AuthState =
   | { status: 'loading' }
   /** Pas de session. `reason` est renseigné quand elle vient d'expirer. */
   | { status: 'anonymous'; reason?: string }
+  /**
+   * Jeton présent, serveur injoignable : ni connecté ni déconnecté. Le jeton reste — le
+   * réseau qui tombe au lancement n'est pas une session qui expire (audit, fiche 07).
+   */
+  | { status: 'unreachable' }
   | { status: 'authenticated'; username: string };
 
 export interface AuthContextValue {
@@ -24,6 +29,8 @@ export interface AuthContextValue {
   /** Adopte une session déjà ouverte — celle qu'une passkey vient de rendre. */
   adopt: (session: SessionResponse) => void;
   logout: () => Promise<void>;
+  /** Reconfronte le jeton au serveur — après « serveur injoignable ». */
+  retry: () => void;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

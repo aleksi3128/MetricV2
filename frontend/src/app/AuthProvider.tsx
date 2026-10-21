@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { api, onSessionExpired, tokenStore, type SessionResponse } from '@/lib/api';
+import { api, ApiError, onSessionExpired, tokenStore, type SessionResponse } from '@/lib/api';
 import { AuthContext, type AuthState } from '@/lib/auth';
 import { useToast } from '@/lib/toast';
 
@@ -17,9 +17,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.read() ? { status: 'loading' } : { status: 'anonymous' },
   );
   const { notify } = useToast();
+  // Chaque tentative de confronter le jeton au serveur. Au montage, puis à chaque
+  // « Réessayer » ou retour du réseau — jamais à chaque changement d'état, qui
+  // boucherait le rendu.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    if (state.status !== 'loading') return;
+    if (!tokenStore.read()) return;
 
     const controller = new AbortController();
     api
@@ -27,17 +31,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(({ username }) => {
         setState({ status: 'authenticated', username });
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setState({ status: 'anonymous' });
+      .catch((caught: unknown) => {
+        if (controller.signal.aborted) return;
+        // **Seul un refus du serveur déconnecte.** Toute autre panne — réseau coupé au
+        // lancement, API qui redémarre — renvoyait à l'écran de connexion, jeton en
+        // poche, et l'y laissait une fois le réseau revenu (audit du 17 octobre,
+        // fiche 07). Un serveur muet ne dit rien de la session.
+        const refused =
+          caught instanceof ApiError && (caught.status === 401 || caught.status === 403);
+        setState(refused ? { status: 'anonymous' } : { status: 'unreachable' });
       });
 
     return () => {
       controller.abort();
     };
-    // Volontairement au montage seul : une revalidation à chaque changement d'état
-    // boucherait le rendu.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt]);
+
+  const retry = useCallback(() => {
+    if (!tokenStore.read()) {
+      setState({ status: 'anonymous' });
+      return;
+    }
+    setState({ status: 'loading' });
+    setAttempt((current) => current + 1);
   }, []);
+
+  // Le retour du réseau relance seul la vérification : sans lui, il fallait recharger
+  // la page à la main.
+  useEffect(() => {
+    if (state.status !== 'unreachable') return;
+    window.addEventListener('online', retry);
+    return () => {
+      window.removeEventListener('online', retry);
+    };
+  }, [state.status, retry]);
 
   // Une expiration détectée par n'importe quelle requête ramène l'application à l'écran
   // de connexion, avec le motif renvoyé par le serveur.
@@ -72,7 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: 'anonymous' });
   }, []);
 
-  const value = useMemo(() => ({ state, login, adopt, logout }), [state, login, adopt, logout]);
+  const value = useMemo(
+    () => ({ state, login, adopt, logout, retry }),
+    [state, login, adopt, logout, retry],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

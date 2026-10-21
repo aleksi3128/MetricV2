@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
-import { SessionLoading } from './Shell';
+import { SessionLoading, SessionUnreachable } from './Shell';
 
 /**
  * Garde de route (`AUTH-05` côté client).
@@ -17,6 +17,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   if (state.status === 'loading') return <SessionLoading />;
+  if (state.status === 'unreachable') return <SessionUnreachable />;
 
   if (state.status === 'anonymous') {
     return <Navigate to="/connexion" replace state={{ from: location.pathname }} />;

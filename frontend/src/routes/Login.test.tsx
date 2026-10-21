@@ -150,4 +150,31 @@ describe('parcours de connexion', () => {
     expect(await screen.findByRole('heading', { name: 'Connexion' })).toBeInTheDocument();
     expect(tokenStore.read()).toBeNull();
   });
+
+  it('ne déconnecte pas quand le serveur est injoignable au lancement', async () => {
+    // Audit du 17 octobre, fiche 07 : hors-ligne au lancement, l'app renvoyait à la
+    // connexion, jeton en poche, et y restait une fois le réseau revenu.
+    tokenStore.write('jeton-valide');
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderApp('/');
+
+    expect(await screen.findByText('Serveur injoignable')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Connexion' })).not.toBeInTheDocument();
+    expect(tokenStore.read()).toBe('jeton-valide');
+
+    // Le réseau revient : la vérification repart seule.
+    fetchMock.mockImplementation((input: string) =>
+      Promise.resolve(
+        input.includes('/auth/me') ? json(200, { username: 'aleksi' }) : json(200, DASHBOARD),
+      ),
+    );
+    window.dispatchEvent(new Event('online'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Serveur injoignable')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('heading', { name: 'Connexion' })).not.toBeInTheDocument();
+  });
 });
