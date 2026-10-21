@@ -11,6 +11,8 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--s3);
+  /* Par le bas : un libellé qui passerait à la ligne ne décale plus son champ. */
+  align-items: end;
 }
 
 .select {

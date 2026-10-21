@@ -226,7 +226,7 @@ describe('écran Routine', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Modifier Whey' }));
     expect(screen.getByLabelText('Nom')).toHaveValue('Whey');
     expect(screen.getByLabelText('Fois par fenêtre')).toHaveValue('1');
-    expect(screen.getByLabelText('Jours de la fenêtre')).toHaveValue('2');
+    expect(screen.getByLabelText('Fenêtre (jours)')).toHaveValue('2');
 
     await userEvent.selectOptions(screen.getByLabelText('Cadence'), 'per_week');
     await userEvent.clear(screen.getByLabelText('Fois par semaine'));

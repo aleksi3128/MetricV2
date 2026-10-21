@@ -66,7 +66,9 @@ export function CadencePicker({
           />
           {value.kind === 'window' && (
             <Field
-              label="Jours de la fenêtre"
+              // Court, et c'est une correction de capture : « Jours de la fenêtre » passait sur
+              // deux lignes à 390 px et poussait son champ sous celui d'à côté.
+              label="Fenêtre (jours)"
               inputMode="numeric"
               value={value.windowDays}
               onChange={(event) => {
