@@ -42,6 +42,13 @@ class CadenceView(BaseModel):
     valid_from: date | None = None
 
 
+class FilterOption(BaseModel):
+    """Une valeur de filtre, et ce qu'on en lit à l'écran."""
+
+    value: str
+    label: str
+
+
 class SourceDescriptor(BaseModel):
     """Une entrée du catalogue de sources (`HEAT-02`)."""
 
@@ -50,6 +57,12 @@ class SourceDescriptor(BaseModel):
     unit: str
     #: Ce que le filtre désigne, ou `None` quand la source n'en prend pas.
     filter_label: str | None = None
+    #: Les valeurs que le filtre accepte, quand elles se comptent — les compléments du
+    #: planning pour `supplement.intake`. `None` : le filtre reste un texte libre.
+    #:
+    #: Sans elle, le filtre d'un complément attendait son `schedule_id`, que rien
+    #: n'affiche, et « Whey » tapé à la main donnait une grille vide (audit, fiche 03).
+    filter_options: list[FilterOption] | None = None
 
 
 class Track(BaseModel):
@@ -65,6 +78,9 @@ class Track(BaseModel):
     unit: str
     filter: str
     validation_threshold: float
+    #: D'où vient le seuil quand il ne se règle pas sur la piste — « l'objectif
+    #: d'hydratation » pour la piste eau. `None` : il se règle ici.
+    threshold_follows: str | None = None
     #: Quatre bornes croissantes. Vide en mode binaire.
     levels: list[float] = Field(default_factory=list)
     binary: bool

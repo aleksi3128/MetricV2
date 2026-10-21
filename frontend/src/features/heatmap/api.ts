@@ -133,6 +133,8 @@ export interface SourceDescriptor {
   label: string;
   unit: string;
   filter_label: string | null;
+  /** Les valeurs du filtre quand elles se comptent — les compléments du planning. */
+  filter_options: { value: string; label: string }[] | null;
 }
 
 export interface Track {
@@ -146,6 +148,8 @@ export interface Track {
   unit: string;
   filter: string;
   validation_threshold: number;
+  /** D'où vient le seuil quand il ne se règle pas ici — « l'objectif d'hydratation ». */
+  threshold_follows: string | null;
   levels: number[];
   binary: boolean;
   accent: string;

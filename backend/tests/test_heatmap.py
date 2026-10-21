@@ -172,16 +172,82 @@ def test_without_history_the_cadence_starts_at_once_a_week(
     assert by_id(app_client, auth)["torse"]["cadence"]["params"]["count"] == 1
 
 
-def test_the_water_track_validates_at_fifteen_hundred(
+def test_the_water_track_validates_at_the_hydration_goal(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:
-    """Décision **D10**. À un litre, le vert validait des journées à la moitié de
-    l'objectif et ne voulait plus rien dire. Le gradient, lui, est inchangé."""
+    """Audit du 17 octobre, fiche 05 : 1 500 ml sur la grille, 2 000 ml partout ailleurs.
+    Un seul chiffre désormais — l'objectif. Le gradient, lui, est inchangé."""
     eau = by_id(app_client, auth)["eau"]
 
-    assert eau["validation_threshold"] == 1500
+    assert eau["validation_threshold"] == 2000
+    assert eau["threshold_follows"] == "l’objectif d’hydratation"
     assert eau["levels"] == [1000, 1500, 2000, 2500]
     assert eau["cadence"]["type"] == "daily"
+
+
+def test_the_water_threshold_follows_a_new_goal(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    read(app_client, auth)
+
+    token = app_client.get("/api/settings", headers=auth).json()["token"]
+    response = app_client.patch(
+        "/api/settings",
+        headers={**auth, "If-Match": token},
+        json={"target_hydration_ml": 2500},
+    )
+    assert response.status_code == 200, response.text
+
+    assert by_id(app_client, auth)["eau"]["validation_threshold"] == 2500
+
+
+def test_the_water_threshold_is_not_set_on_the_track(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Le formulaire renvoie la piste entière : un autre seuil est ramené à l'objectif,
+    pas refusé."""
+    eau = by_id(app_client, auth)["eau"]
+
+    response = app_client.patch(
+        f"{TRACKS}/eau",
+        headers={**auth, "If-Match": eau["token"]},
+        json={
+            "label": "Eau",
+            "source": "hydration.intake",
+            "filter": "",
+            "validation_threshold": 1000,
+            "levels": eau["levels"],
+            "binary": False,
+            "accent": eau["accent"],
+            "active": True,
+            "cadence": "daily",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["track"]["validation_threshold"] == 2000
+
+
+def test_a_second_water_track_keeps_its_own_threshold(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    read(app_client, auth)
+    response = app_client.post(
+        TRACKS,
+        headers=auth,
+        json=payload(
+            label="Trois litres",
+            source="hydration.intake",
+            filter="",
+            validation_threshold=3000,
+            levels=[1000, 2000, 3000, 4000],
+            cadence="daily",
+        ),
+    )
+    assert response.status_code == 201, response.text
+
+    track = response.json()
+    assert track["validation_threshold"] == 3000
+    assert track["threshold_follows"] is None
 
 
 def test_a_supplement_gets_its_own_track_and_its_own_cadence(
@@ -196,6 +262,53 @@ def test_a_supplement_gets_its_own_track_and_its_own_cadence(
     assert tracks["sup-s1"]["cadence"]["label"] == "tous les jours"
     assert tracks["sup-s2"]["label"] == "Whey"
     assert tracks["sup-s2"]["cadence"]["label"] == "un jour sur deux"
+
+
+def test_a_supplement_added_later_gets_its_track(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Audit du 17 octobre, fiche 03. Les pistes de compléments ne naissaient qu'à
+    l'amorçage : une whey ajoutée le lendemain n'avait jamais de grille."""
+    read(app_client, auth)  # premier passage : les pistes sont amorcées, sans complément
+
+    response = app_client.post(
+        "/api/supplements/schedule",
+        headers=auth,
+        json={
+            "name": "Whey",
+            "dose": 30,
+            "unit": "g",
+            "time": "12:30",
+            "frequency": "window:min_count=1;window_days=2",
+        },
+    )
+    assert response.status_code == 201, response.text
+    schedule_id = response.json()["schedule_id"]
+
+    tracks = by_id(app_client, auth)
+    whey = tracks[f"sup-{schedule_id}"]
+    assert whey["label"] == "Whey"
+    assert whey["source"] == "supplement.intake"
+    assert whey["filter"] == schedule_id
+    assert whey["cadence"]["label"] == "un jour sur deux"
+    # Ajoutée en dernier, comme toute piste créée après l'amorçage.
+    assert whey["position"] == max(track["position"] for track in tracks.values())
+
+
+def test_adding_a_supplement_before_the_first_read_does_not_seed_half_the_tracks(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Fichier des pistes vide : l'ajout n'y écrit rien, l'amorçage prendra le complément
+    avec les autres — sinon une piste seule empêcherait l'amorçage des huit autres."""
+    response = app_client.post(
+        "/api/supplements/schedule",
+        headers=auth,
+        json={"name": "Créatine", "dose": 5, "unit": "g", "time": "08:00", "frequency": "daily"},
+    )
+    assert response.status_code == 201, response.text
+
+    tracks = by_id(app_client, auth)
+    assert {"torse", "eau", f"sup-{response.json()['schedule_id']}"} <= set(tracks)
 
 
 def test_supplements_are_binary_by_default(
@@ -538,20 +651,23 @@ def test_changing_a_threshold_announces_the_recalculation(
 ) -> None:
     """`HEAT-20`. Un seuil dit ce que « validé » signifie, et cette signification n'a pas
     de version : tout l'historique est rejugé. Il ne suffit pas de l'appliquer — il faut
-    le dire."""
-    eau = by_id(app_client, auth)["eau"]
+    le dire.
+
+    Sur la piste Course et non sur l'eau, dont le seuil suit désormais l'objectif
+    d'hydratation et ne se règle plus sur la piste (audit, fiche 05)."""
+    course = by_id(app_client, auth)["course"]
 
     body = app_client.patch(
-        f"{TRACKS}/eau",
+        f"{TRACKS}/course",
         json=payload(
-            label="Eau",
-            source="hydration.intake",
+            label="Course",
+            source="activity.runs",
             filter="",
-            validation_threshold=1000,
-            levels=[1000, 1500, 2000, 2500],
-            cadence="daily",
+            validation_threshold=5,
+            levels=[1, 3, 6, 10],
+            cadence="per_week:count=1",
         ),
-        headers={**auth, "If-Match": eau["token"]},
+        headers={**auth, "If-Match": course["token"]},
     ).json()
 
     assert body["recalculated_history"] is True

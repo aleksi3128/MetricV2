@@ -50,7 +50,9 @@ def seed_track(dav: FakeWebDav, *lines: str) -> None:
     dav.seed(TRACKS_FILE, TRACK_HEADER + "".join(lines))
 
 
-def water_track(created: date, *, threshold: int = 1500) -> str:
+# Au seuil de l'objectif d'hydratation par défaut : la piste eau y est ramenée à la
+# lecture (audit, fiche 05), et une autre valeur coûterait une écriture au premier appel.
+def water_track(created: date, *, threshold: int = 2000) -> str:
     return (
         f"eau,Eau,hydration.intake,,{threshold},1000;1500;2000;2500,false,signal,0,true,{created}\n"
     )
@@ -72,7 +74,7 @@ async def test_a_late_intake_belongs_to_the_day_the_clock_shows(
     seed_track(dav, water_track(today - timedelta(days=30)))
     dav.seed(
         HYDRATION,
-        f"datetime,volume_ml,kind\n{moment(today, 23, 30)},1600,eau\n",
+        f"datetime,volume_ml,kind\n{moment(today, 23, 30)},2100,eau\n",
     )
 
     grid = (await GridService(store).grid("eau", window=Range(today, today))).grid

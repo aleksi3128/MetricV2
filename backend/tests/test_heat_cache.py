@@ -43,6 +43,7 @@ CREATED = TODAY - timedelta(days=DAYS)
 TRACKS_FILE = "Metric/settings/heatmap_tracks.csv"
 CADENCES_FILE = "Metric/settings/heatmap_cadences.csv"
 OFF_FILE = "Metric/settings/heatmap_off_days.csv"
+SETTINGS_FILE = "settings/settings.csv"
 EXERCISE_LOG = "Metric/activity/exercise_log.csv"
 RUNS = "Metric/activity/runs.csv"
 WORKOUTS = "Metric/activity/workouts.csv"
@@ -95,7 +96,8 @@ def full_dav(dav: FakeWebDav) -> FakeWebDav:
         cadences += f"c{position},{track_id},per_week,count=2,{CREATED}\n"
 
     tracks += f"course,Course,activity.runs,,1,1;3;6;10,false,signal,5,true,{CREATED}\n"
-    tracks += f"eau,Eau,hydration.intake,,1500,1000;1500;2000;2500,false,signal,6,true,{CREATED}\n"
+    # Au seuil de l'objectif : la piste eau y est ramenée à la lecture (audit, fiche 05).
+    tracks += f"eau,Eau,hydration.intake,,2000,1000;1500;2000;2500,false,signal,6,true,{CREATED}\n"
     tracks += f"sup-s1,Créatine,supplement.intake,s1,1,,true,recover,7,true,{CREATED}\n"
     tracks += f"sup-s2,Whey,supplement.intake,s2,1,,true,recover,8,true,{CREATED}\n"
     cadences += f"c5,course,per_week,count=3,{CREATED}\n"
@@ -186,8 +188,10 @@ async def test_a_second_display_recomputes_nothing(
     assert await display(service) == 9
 
     assert grids_cache.hits == 9
-    # Seule la liste des pistes est relue : c'est elle qui dit lesquelles afficher.
-    assert loads == [TRACKS_FILE.removeprefix("Metric/")]
+    # Seules la liste des pistes et les réglages sont relus : l'une dit lesquelles
+    # afficher, les autres portent l'objectif d'hydratation, qui est le seuil de la piste
+    # eau (audit, fiche 05). Une vingtaine de lignes de plus par affichage.
+    assert sorted(loads) == sorted([TRACKS_FILE.removeprefix("Metric/"), SETTINGS_FILE])
     assert first > 20, "le premier affichage analyse bien tous les fichiers sources"
 
 
@@ -210,7 +214,7 @@ async def test_a_grid_survives_the_file_cache_expiring(
     await display(service)
 
     assert grids_cache.hits == 9
-    assert loads == [TRACKS_FILE.removeprefix("Metric/")]
+    assert sorted(loads) == sorted([TRACKS_FILE.removeprefix("Metric/"), SETTINGS_FILE])
     assert full_dav.count("GET") > 0, "les fichiers ont bien été revalidés"
 
 
@@ -266,12 +270,19 @@ async def test_changing_a_validation_threshold_invalidates_the_grid(
     s'enregistre, s'affiche comme enregistré, et ne change rien à la grille.
     """
     await display(service)
-    validated = (await service.grid("eau")).grid.stats.validated_days
+    # La piste Course et non l'eau : le seuil de l'eau suit l'objectif d'hydratation, et
+    # une modification au tableur serait ramenée à l'objectif (audit, fiche 05).
+    validated = (await service.grid("course")).grid.stats.validated_days
 
-    full_dav.seed(TRACKS_FILE, full_dav.content_of(TRACKS_FILE).replace(",1500,", ",2500,"))
+    full_dav.seed(
+        TRACKS_FILE,
+        full_dav.content_of(TRACKS_FILE).replace(
+            "course,Course,activity.runs,,1,", "course,Course,activity.runs,,30,"
+        ),
+    )
     grids_cache.hits = grids_cache.misses = 0
 
-    assert (await service.grid("eau")).grid.stats.validated_days < validated
+    assert (await service.grid("course")).grid.stats.validated_days < validated
     assert grids_cache.misses == 1
 
 

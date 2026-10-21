@@ -62,6 +62,8 @@ interface Draft {
   source: string;
   filter: string;
   threshold: string;
+  /** Le seuil suit un réglage ailleurs : il se lit ici, il ne s'y règle pas. */
+  thresholdFollows: string | null;
   levels: string;
   binary: boolean;
   accent: string;
@@ -101,6 +103,7 @@ function toDraft(track: Track): Draft {
     source: track.source,
     filter: track.filter,
     threshold: String(track.validation_threshold),
+    thresholdFollows: track.threshold_follows,
     levels: track.levels.join(', '),
     binary: track.binary,
     accent: track.accent,
@@ -117,6 +120,7 @@ function emptyDraft(source: string): Draft {
     source,
     filter: '',
     threshold: '1',
+    thresholdFollows: null,
     levels: '',
     binary: false,
     accent: 'signal',
@@ -196,7 +200,28 @@ function TrackForm({
 
       {/* Le catalogue dit lui-même si la source prend un filtre, et ce qu'il désigne :
           l'écran n'a pas à savoir quelle source attend quoi (`HEAT-02`). */}
-      {source?.filter_label != null && (
+      {/* Des valeurs qui se comptent se choisissent dans une liste : le filtre d'un
+          complément est son identifiant interne, que rien n'affiche — taper « Whey »
+          donnait une grille vide (audit du 17 octobre, fiche 03). */}
+      {source?.filter_label != null && source.filter_options !== null && (
+        <label className={styles.select}>
+          <span>{source.filter_label}</span>
+          <select
+            value={draft.filter}
+            onChange={(event) => {
+              set('filter', event.target.value);
+            }}
+          >
+            <option value="">Tous</option>
+            {source.filter_options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {source?.filter_label != null && source.filter_options === null && (
         <Field
           label={source.filter_label}
           value={draft.filter}
@@ -212,7 +237,14 @@ function TrackForm({
         label={`Seuil de validation (${source?.unit ?? ''})`}
         inputMode="decimal"
         value={draft.threshold}
-        hint="Au-delà, la journée est validée"
+        // La piste eau valide à l'objectif d'hydratation, réglé dans le profil : un seul
+        // chiffre pour la même journée (audit du 17 octobre, fiche 05).
+        disabled={draft.thresholdFollows !== null}
+        hint={
+          draft.thresholdFollows !== null
+            ? `C’est ${draft.thresholdFollows} — il se règle dans le profil`
+            : 'Au-delà, la journée est validée'
+        }
         error={refusal?.messageFor('validation_threshold')}
         onChange={(event) => {
           set('threshold', event.target.value);

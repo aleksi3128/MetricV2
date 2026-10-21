@@ -35,6 +35,7 @@ from app.domains.heatmap.models import CadenceRow, OffDayRow, TrackRow
 from app.domains.heatmap.schemas import (
     ACCENTS,
     CadenceView,
+    FilterOption,
     OffDay,
     OffDayPayload,
     SourceDescriptor,
@@ -45,6 +46,7 @@ from app.domains.heatmap.schemas import (
     TrackUpdate,
 )
 from app.domains.heatmap.sources import SEPARATOR, SOURCES
+from app.domains.supplements.schemas import Supplement
 from app.domains.supplements.service import SupplementService
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
@@ -58,10 +60,18 @@ SEED_WEEKS = 4
 #: Quatre bornes croissantes : le niveau est le nombre de bornes atteintes.
 DEFAULT_LEVELS = (1.0, 3.0, 6.0, 10.0)
 
-#: Piste eau. La validation passe de 1000 à **1500 ml** (décision **D10**) : à un litre,
-#: le vert validait des journées à la moitié de l'objectif et ne voulait plus rien dire.
-#: Le gradient, lui, est inchangé — il court toujours jusqu'à 2500 ml (`HEAT-17`).
-WATER_VALIDATION = 1500.0
+#: Piste eau. Son seuil de validation **est** l'objectif `target_hydration_ml`, et ne se
+#: règle plus à part (audit du 17 octobre, fiche 05).
+#:
+#: **D10** l'avait porté de 1000 à 1500 ml : à un litre, le vert validait des journées à la
+#: moitié de l'objectif. Mais 1500 ml contre un objectif de 2 L donnait trois chiffres pour
+#: une même journée — 2 L sur l'accueil, 1,5 L sur la grille, rien pour dire lequel valide.
+#: L'objectif lui-même tient mieux encore la promesse de D10. Le gradient est inchangé
+#: (`HEAT-17`).
+#:
+#: Seule la piste **amorcée** suit l'objectif : une seconde piste d'eau créée à la main
+#: — « les jours à 3 L » — garde le seuil qu'on lui a donné.
+WATER_TRACK = "eau"
 WATER_LEVELS = (1000.0, 1500.0, 2000.0, 2500.0)
 
 #: Regroupement des neuf groupes musculaires de `ACT-06` en cinq pistes.
@@ -117,6 +127,10 @@ class TrackService:
 
     async def view(self) -> TracksView:
         """Tout l'écran de configuration en une requête."""
+        supplements = [
+            FilterOption(value=item.schedule_id, label=item.name)
+            for item in await SupplementService(self._store).schedule()
+        ]
         return TracksView(
             today=today_local(),
             tracks=await self.all(include_inactive=True),
@@ -126,6 +140,7 @@ class TrackService:
                     label=source.label,
                     unit=source.unit,
                     filter_label=source.filter_label,
+                    filter_options=supplements if source.key == "supplement.intake" else None,
                 )
                 for source in SOURCES.values()
             ],
@@ -134,7 +149,7 @@ class TrackService:
         )
 
     async def all(self, *, include_inactive: bool = False) -> list[Track]:
-        rows = await self._tracks.read_all()
+        rows = await self._sync_water_threshold(await self._tracks.read_all())
         if not rows:
             return []
 
@@ -167,7 +182,7 @@ class TrackService:
         Le moteur de grilles a besoin du modèle et non du schéma : lui faire retraverser
         `Track` pour en réextraire un seuil serait un aller-retour pour rien.
         """
-        rows = await self._tracks.read_all()
+        rows = await self._sync_water_threshold(await self._tracks.read_all())
         if not include_inactive:
             rows = [row for row in rows if row.model.active]
         return sorted(rows, key=lambda row: (row.model.position, row.model.label))
@@ -253,8 +268,16 @@ class TrackService:
         # manquaient à cette liste au lot L09, et la modification passait donc pour
         # non rétroactive alors qu'elle changeait toute la grille.
         levels = _levels_to_text(payload.levels)
+        # Le seuil de la piste eau ne se règle pas ici : il suit l'objectif. Un envoi qui
+        # en porterait un autre est ramené à l'objectif plutôt que refusé — le formulaire
+        # renvoie la piste entière, seuil compris, à chaque modification.
+        threshold = (
+            float(await self._water_goal())
+            if before.id == WATER_TRACK
+            else payload.validation_threshold
+        )
         retroactive = (
-            payload.validation_threshold != before.validation_threshold
+            threshold != before.validation_threshold
             or levels != before.levels
             or payload.binary != before.binary
             or payload.source != before.source
@@ -269,7 +292,7 @@ class TrackService:
                 label=payload.label,
                 source=payload.source,
                 filter=payload.filter,
-                validation_threshold=payload.validation_threshold,
+                validation_threshold=threshold,
                 levels=levels,
                 binary=payload.binary,
                 accent=payload.accent,
@@ -468,10 +491,10 @@ class TrackService:
 
         add(
             TrackRow(
-                id="eau",
+                id=WATER_TRACK,
                 label="Eau",
                 source="hydration.intake",
-                validation_threshold=WATER_VALIDATION,
+                validation_threshold=await self._water_goal(),
                 levels=_levels_to_text(WATER_LEVELS),
                 accent="signal",
             ),
@@ -482,26 +505,72 @@ class TrackService:
         # spec cite « créatine » et « whey » en exemple ; les coder en dur donnerait deux
         # grilles vides à qui prend autre chose.
         for supplement in await SupplementService(self._store).schedule(active_only=True):
-            add(
-                TrackRow(
-                    id=f"sup-{supplement.schedule_id}",
-                    label=supplement.name,
-                    source="supplement.intake",
-                    filter=supplement.schedule_id,
-                    validation_threshold=1,
-                    # Binaire par défaut (décision **D11**) : une prise est une prise.
-                    # Le mode gradué est supporté, il suffit de renseigner deux seuils.
-                    binary=True,
-                    accent="recover",
-                ),
-                Cadence.parse(supplement.frequency),
-            )
+            add(_supplement_track(supplement), Cadence.parse(supplement.frequency))
 
         await self._tracks.overwrite(rows)
         await self._cadences.overwrite(cadences)
         return await self.all(include_inactive=True)
 
+    async def adopt_supplement(self, supplement: Supplement) -> None:
+        """Donne sa piste à un complément qu'on vient d'ajouter au planning.
+
+        L'amorçage ne crée les pistes de compléments qu'une fois, au premier passage :
+        une whey ajoutée le lendemain n'avait jamais de grille, et la créer à la main
+        exigeait un identifiant que rien n'affiche (audit du 17 octobre, fiche 03).
+
+        **À l'ajout, et non à la lecture** comme les cadences : une réconciliation à la
+        lecture recréerait à chaque ouverture une piste que l'utilisateur a supprimée
+        exprès. Un complément ajouté au tableur n'a donc pas de piste d'office — le
+        formulaire de `/reglages` les propose par leur nom pour ce cas.
+
+        Fichier vide : rien à faire, l'amorçage prendra ce complément avec les autres.
+        """
+        rows = await self._tracks.read_all()
+        if not rows:
+            return
+        if any(
+            row.model.source == "supplement.intake" and row.model.filter == supplement.schedule_id
+            for row in rows
+        ):
+            return
+
+        row = _supplement_track(supplement)
+        row.position = max(existing.model.position for existing in rows) + 1
+        row.created = today_local()
+        await self._tracks.append(row)
+        await self._record_cadence(row.id, Cadence.parse(supplement.frequency), today_local())
+
     # ── Interne ───────────────────────────────────────
+
+    async def _water_goal(self) -> int:
+        return (await self._settings.values()).target_hydration_ml
+
+    async def _sync_water_threshold(self, rows: list[Row[TrackRow]]) -> list[Row[TrackRow]]:
+        """Ramène le seuil de la piste eau à l'objectif d'hydratation.
+
+        À la lecture et non à l'écriture du réglage, pour la raison de
+        `_sync_supplement_cadences` : les réglages se modifient aussi au tableur. Et
+        l'écriture change l'empreinte du fichier des pistes, ce qui invalide le cache des
+        grilles sans qu'il ait à connaître le fichier des réglages.
+
+        Changer l'objectif rejuge donc tout le passé de la grille — exactement ce que fait
+        déjà le tableau de bord avec le même chiffre.
+        """
+        stale = [
+            row
+            for row in rows
+            if row.model.id == WATER_TRACK and row.model.source == "hydration.intake"
+        ]
+        if not stale:
+            return rows
+        goal = float(await self._water_goal())
+        if all(row.model.validation_threshold == goal for row in stale):
+            return rows
+        for row in stale:
+            await self._tracks.replace_by_token(
+                row.index, row.token, row.model.model_copy(update={"validation_threshold": goal})
+            )
+        return await self._tracks.read_all()
 
     async def _history(self) -> dict[str, list[CadenceRow]]:
         by_track: dict[str, list[CadenceRow]] = {}
@@ -602,6 +671,7 @@ class TrackService:
             unit=source.unit if source else "",
             filter=model.filter,
             validation_threshold=model.validation_threshold,
+            threshold_follows="l’objectif d’hydratation" if model.id == WATER_TRACK else None,
             levels=[] if model.binary else levels_from_text(model.levels),
             binary=model.binary,
             accent=model.accent if model.accent in ACCENTS else "signal",
@@ -643,6 +713,21 @@ class TrackService:
             reason=model.reason,
             days=(model.date_to - model.date_from).days + 1,
         )
+
+
+def _supplement_track(supplement: Supplement) -> TrackRow:
+    """La piste d'un complément, à l'amorçage comme à l'ajout (`HEAT-18`, `HEAT-23`)."""
+    return TrackRow(
+        id=f"sup-{supplement.schedule_id}",
+        label=supplement.name,
+        source="supplement.intake",
+        filter=supplement.schedule_id,
+        validation_threshold=1,
+        # Binaire par défaut (décision **D11**) : une prise est une prise. Le mode
+        # gradué est supporté, il suffit de renseigner deux seuils.
+        binary=True,
+        accent="recover",
+    )
 
 
 def _chronological(entries: Iterable[CadenceRow]) -> list[CadenceRow]:

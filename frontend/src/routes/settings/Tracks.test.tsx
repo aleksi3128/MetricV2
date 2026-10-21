@@ -136,16 +136,31 @@ describe('réglage des pistes', () => {
     ).toBeInTheDocument();
   });
 
+  it('fait choisir un complément par son nom, pas par son identifiant', async () => {
+    // Audit du 17 octobre, fiche 03 : le filtre attendait un `schedule_id` jamais affiché.
+    stub();
+    renderTracks();
+    await openEditor('Eau');
+
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /source/i }),
+      'supplement.intake',
+    );
+    const supplement = screen.getByRole('combobox', { name: 'Supplément' });
+    await userEvent.selectOptions(supplement, 'Whey');
+    expect(supplement).toHaveValue('8e11f8e26707');
+  });
+
   it('chiffre le recalcul et attend une confirmation avant d’écrire', async () => {
     // **Le test central du lot.** « 34 journées passeraient de validée à manquée » doit
     // s'afficher, et rien ne doit être écrit tant que l'utilisateur n'a pas confirmé.
     stub(HEAVY);
     renderTracks();
-    await openEditor('Eau');
+    await openEditor('Torse');
 
     const threshold = screen.getByLabelText(/Seuil de validation/);
     await userEvent.clear(threshold);
-    await userEvent.type(threshold, '2000');
+    await userEvent.type(threshold, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     expect(
@@ -157,11 +172,11 @@ describe('réglage des pistes', () => {
   it('écrit seulement après « Appliquer quand même »', async () => {
     stub(HEAVY);
     renderTracks();
-    await openEditor('Eau');
+    await openEditor('Torse');
 
     const threshold = screen.getByLabelText(/Seuil de validation/);
     await userEvent.clear(threshold);
-    await userEvent.type(threshold, '2000');
+    await userEvent.type(threshold, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await screen.findByRole('alertdialog');
 
@@ -170,17 +185,17 @@ describe('réglage des pistes', () => {
     await waitFor(() => {
       expect(patched()).toHaveLength(1);
     });
-    expect(patched()[0]?.body).toMatchObject({ validation_threshold: 2000 });
+    expect(patched()[0]?.body).toMatchObject({ validation_threshold: 3 });
   });
 
   it('renonce sans rien écrire', async () => {
     stub(HEAVY);
     renderTracks();
-    await openEditor('Eau');
+    await openEditor('Torse');
 
     const threshold = screen.getByLabelText(/Seuil de validation/);
     await userEvent.clear(threshold);
-    await userEvent.type(threshold, '2000');
+    await userEvent.type(threshold, '3');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await screen.findByRole('alertdialog');
 
@@ -190,6 +205,21 @@ describe('réglage des pistes', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     });
     expect(patched()).toHaveLength(0);
+  });
+
+  it('montre le seuil de l’eau sans le laisser régler', async () => {
+    // Audit du 17 octobre, fiche 05 : le seuil de la piste eau est l'objectif
+    // d'hydratation. Le régler ici ferait revenir deux chiffres pour la même journée.
+    stub();
+    renderTracks();
+    await openEditor('Eau');
+
+    const threshold = screen.getByLabelText(/Seuil de validation/);
+    expect(threshold).toBeDisabled();
+    expect(threshold).toHaveValue('2000');
+    expect(
+      screen.getByText(/l’objectif d’hydratation — il se règle dans le profil/),
+    ).toBeInTheDocument();
   });
 
   it('ne dérange pas quand la modification ne rejuge rien', async () => {

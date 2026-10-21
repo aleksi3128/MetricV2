@@ -8,6 +8,7 @@ from fastapi import APIRouter, Header, Path, Query, status
 
 from app.core.dates import today_local
 from app.core.deps import StoreDep
+from app.domains.heatmap.service import TrackService
 from app.domains.supplements.models import UNITS
 from app.domains.supplements.schemas import (
     ChecklistView,
@@ -68,7 +69,11 @@ async def schedule(
     summary="Ajouter un supplément",
 )
 async def create(payload: SupplementPayload, store: StoreDep) -> Supplement:
-    return await SupplementService(store).create(payload)
+    supplement = await SupplementService(store).create(payload)
+    # Ici et non dans le service : `heatmap.service` importe déjà `SupplementService`, et
+    # l'appel inverse bouclerait. Le routeur est le seul endroit qui voit les deux.
+    await TrackService(store).adopt_supplement(supplement)
+    return supplement
 
 
 @router.patch("/schedule/{row_id}", response_model=Supplement, summary="Modifier un supplément")
