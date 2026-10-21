@@ -139,7 +139,9 @@ export function CircuitCard({
               setMinutes(String(Math.round(circuit.estimated_duration_min)));
             }}
           >
-            <IconCheck size={18} />
+            {/* La coche dit « c'est fait » : sous « Annuler », elle disait le contraire du
+                mot (audit du 17 octobre, fiche 33). */}
+            {!logging && <IconCheck size={18} />}
             {logging ? 'Annuler' : 'Je l’ai faite'}
           </Button>
           {actions}

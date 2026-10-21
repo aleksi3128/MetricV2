@@ -122,7 +122,8 @@ function MealCard({
             {/* Espaces insécables entre le nombre et son unité : « 640 / kcal » passait à
                 la ligne entre les deux (fiche 31). */}
             {meal.protein_g !== null
-              ? `${num(meal.protein_g, 0)}\u00a0g prot.`
+              ? // Une décimale sous 10 g : 1,5 g de protéines s'affichait « 2 g » (fiche 33).
+                `${num(meal.protein_g, meal.protein_g < 10 ? 1 : 0)}\u00a0g prot.`
               : 'macros non renseignées'}
             {meal.added_sugar_g !== null && ` · ${num(meal.added_sugar_g, 0)}\u00a0g sucres`}
             {meal.calories !== null && ` · ${integer(meal.calories)}\u00a0kcal`}

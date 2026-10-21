@@ -149,3 +149,11 @@
   font-size: var(--t-meta);
   color: var(--ink-low);
 }
+
+/* Le nom et sa ligne à gauche, « Modifier » toujours à la même place à droite. */
+.trackRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s3);
+}

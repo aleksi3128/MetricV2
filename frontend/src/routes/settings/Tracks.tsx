@@ -331,17 +331,27 @@ function ImpactPanel({
 
 function TrackRow({
   track,
+  sources,
   highlighted,
   onEdit,
   editing,
 }: {
   track: Track;
+  sources: TracksView['sources'];
   highlighted: boolean;
   editing: boolean;
   onEdit: () => void;
 }) {
+  // Un filtre qui se compte se lit par son nom : celui d'un complément est son identifiant
+  // interne, et la ligne affichait « · 0ca77bf544f1 ».
+  const options = sources.find((source) => source.key === track.source)?.filter_options;
+  const filter = options?.find((option) => option.value === track.filter)?.label ?? track.filter;
+
+  // Une grille et non `.spread` : « Modifier » passait sous le texte quand la ligne était
+  // longue (Course) et restait à droite sinon (Eau) — deux places pour le même bouton
+  // d'une ligne à l'autre (audit du 17 octobre, fiche 33).
   return (
-    <div className="spread">
+    <div className={styles.trackRow}>
       <div>
         <h3 className={styles.rowName}>
           {track.label}
@@ -350,7 +360,7 @@ function TrackRow({
         </h3>
         <p className={styles.rowMeta}>
           {track.source_label}
-          {track.filter !== '' && ` · ${track.filter}`} · {track.cadence.label}
+          {filter !== '' && ` · ${filter}`} · {track.cadence.label}
         </p>
       </div>
       <Button variant="quiet" onClick={onEdit}>
@@ -562,6 +572,7 @@ export function Tracks() {
           <Card key={track.track_id}>
             <TrackRow
               track={track}
+              sources={data.sources}
               highlighted={data.highlight === track.track_id}
               editing={editing === track.track_id}
               onEdit={() => {
