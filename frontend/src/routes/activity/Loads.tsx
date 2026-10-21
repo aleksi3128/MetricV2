@@ -348,7 +348,7 @@ export function Loads() {
       {!isPending && unreadable === null && loads.length === 0 && (
         <Empty
           title="Aucune séance tabata"
-          action={<LinkButton to="/activite/seances">Créer une séance</LinkButton>}
+          action={<LinkButton to="/activite/seances?creer">Créer une séance</LinkButton>}
         >
           Les charges se notent sur les exercices d’une séance Cadence. Crées-en une, ses exercices
           apparaîtront ici.

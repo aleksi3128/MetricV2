@@ -331,7 +331,7 @@ describe('charges des exercices de tabata', () => {
     expect(await screen.findByText('Aucune séance tabata')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Créer une séance' })).toHaveAttribute(
       'href',
-      '/activite/seances',
+      '/activite/seances?creer',
     );
   });
 

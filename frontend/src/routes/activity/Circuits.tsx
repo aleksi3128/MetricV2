@@ -30,6 +30,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import type { SyntheticEvent } from 'react';
 
 import {
@@ -112,7 +113,14 @@ export function Circuits() {
   }
 
   const [editing, setEditing] = useState<Circuit | null>(null);
-  const [open, setOpen] = useState(false);
+  /*
+   * `?creer` ouvre le formulaire d'emblée : « Créer une séance » menait ici, où il
+   * fallait appuyer une seconde fois sur « Créer une séance » (audit du 17 octobre,
+   * fiche 25). Retiré à la fermeture, sans entrée d'historique — « précédent » ne doit
+   * pas rouvrir ce qu'on vient de fermer.
+   */
+  const [params, setParams] = useSearchParams();
+  const [open, setOpen] = useState(() => params.has('creer'));
   const [name, setName] = useState('');
   const [rounds, setRounds] = useState('4');
   const [roundRest, setRoundRest] = useState('60');
@@ -132,6 +140,7 @@ export function Circuits() {
   }, [shown, editing]);
 
   function close(): void {
+    if (params.has('creer')) setParams({}, { replace: true });
     setOpen(false);
     setEditing(null);
     setName('');

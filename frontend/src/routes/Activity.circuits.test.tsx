@@ -125,10 +125,10 @@ function stub(body: unknown = { circuits: [HAUT, GAINAGE], linkable: true }) {
   return fetchMock;
 }
 
-function renderCircuits() {
+function renderCircuits(route = '/activite/seances') {
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/activite/seances']}>
+      <MemoryRouter initialEntries={[route]}>
         <Toaster>
           <Routes>
             <Route path="/activite/seances" element={<Circuits />} />
@@ -262,6 +262,14 @@ describe('séances Cadence', () => {
         { name: 'Push-Ups Classic', muscle_group: 'pectoraux', reps: 30, rest_s: 10, note: '' },
       ]);
     });
+  });
+
+  it('ouvre le formulaire d’emblée depuis un lien « Créer une séance »', async () => {
+    // Audit du 17 octobre, fiche 25 : il fallait appuyer deux fois sur le même libellé.
+    stub({ circuits: [], linkable: true });
+    renderCircuits('/activite/seances?creer');
+
+    expect(await screen.findByLabelText('Nom de la séance')).toBeInTheDocument();
   });
 
   it('ne présélectionne aucun groupe, et n’enregistre pas sans lui', async () => {

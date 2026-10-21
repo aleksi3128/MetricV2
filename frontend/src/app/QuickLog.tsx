@@ -246,7 +246,9 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
           label="Noter une séance"
           hint="→"
           onClick={() => {
-            go('/activite');
+            // Les séances, chacune avec « Je l'ai faite » — et non le haut de /activite,
+            // où il n'y avait rien à noter (fiche 25).
+            go('/activite/seances');
           }}
         />
       </SheetGroup>

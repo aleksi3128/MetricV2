@@ -72,7 +72,9 @@ export function CircuitsSection() {
         )}
 
         <div className={styles.circuitMore}>
-          <LinkButton to="/activite/seances">
+          <LinkButton
+            to={circuits.length > SHOWN ? '/activite/seances' : '/activite/seances?creer'}
+          >
             {circuits.length > SHOWN
               ? `Toutes les séances (${String(circuits.length)})`
               : 'Créer une séance'}
