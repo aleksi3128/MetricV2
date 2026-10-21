@@ -155,6 +155,42 @@ describe('composition assistée', () => {
     });
   });
 
+  it('dit l’échec dans la carte, et non dans un toast qui s’efface', async () => {
+    // Audit du 17 octobre, fiche 17 : un toast de trois secondes, puis « Rien de proposé
+    // pour l'instant » — comme si rien ne s'était passé.
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = input as string;
+        const failed = url.includes('/propose');
+        const body = failed
+          ? {
+              code: 'ai_unavailable',
+              message:
+                'Les modèles disponibles n’ont rien rendu d’exploitable. Réessaie dans un instant.',
+            }
+          : url.includes('/muscle-groups')
+            ? ['pectoraux']
+            : [];
+        return Promise.resolve({
+          ok: !failed,
+          status: failed ? 503 : 200,
+          json: () => Promise.resolve(body),
+        } as Response);
+      }),
+    );
+    renderCompose();
+
+    await user.click(await screen.findByRole('button', { name: 'Proposer une séance' }));
+
+    expect(
+      await screen.findByText('Rien n’a pu être proposé', {}, { timeout: 8000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/rien rendu d’exploitable/)).toBeInTheDocument();
+    expect(screen.queryByText('Rien de proposé pour l’instant')).toBeNull();
+  }, 12_000);
+
   it('n’écrit rien tant qu’on n’a pas appuyé sur Enregistrer', async () => {
     // **Le test qui porte la page.** Un circuit à dix exercices se corrige mal une fois
     // enregistré : proposer, ajuster et écrire sont trois temps séparés.

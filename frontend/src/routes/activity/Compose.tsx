@@ -138,9 +138,8 @@ export function Compose() {
       // d'arriver, aucune n'a encore été approuvée.
       setTouched({});
     },
-    onError: (caught: unknown) => {
-      notify(caught instanceof ApiError ? caught.message : 'Proposition impossible.', 'recover');
-    },
+    // L'échec se dit **dans la carte** et non en toast : effacé en trois secondes, il
+    // laissait l'écran sur « Rien de proposé » sans dire pourquoi (audit, fiche 17).
   });
 
   // La charge utile est construite **avant** l'appel et passée en argument : le bouton
@@ -211,7 +210,17 @@ export function Compose() {
         </div>
       </Card>
 
-      {proposal === null && !compose.isPending && (
+      {proposal === null && !compose.isPending && compose.error !== null && (
+        <Card>
+          <Empty title="Rien n’a pu être proposé">
+            {compose.error instanceof ApiError
+              ? compose.error.message
+              : 'Le serveur n’a pas répondu. Réessaie dans un instant.'}
+          </Empty>
+        </Card>
+      )}
+
+      {proposal === null && !compose.isPending && compose.error === null && (
         <Card>
           <Empty title="Rien de proposé pour l’instant">
             Une phrase suffit — et même une phrase vide : ce que l’application sait déjà de toi lui

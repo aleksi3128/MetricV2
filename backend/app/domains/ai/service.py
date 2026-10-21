@@ -224,9 +224,11 @@ class AiService:
 
         if quota_only and attempted:
             raise AiQuotaError
+        # Neutre, et c'est une correction : « Saisis les valeurs à la main » avait été écrit
+        # pour la nutrition, et s'affichait aussi là où il n'y a rien à saisir — la
+        # composition d'une séance (audit du 17 octobre, fiche 17).
         raise AiUnavailableError(
-            "Les modèles disponibles n'ont rien rendu d'exploitable. "
-            "Saisis les valeurs à la main, ou réessaie."
+            "Les modèles disponibles n'ont rien rendu d'exploitable. Réessaie dans un instant."
         )
 
     async def stream_json(
@@ -306,9 +308,11 @@ class AiService:
 
         if quota_only and attempted:
             raise AiQuotaError
+        # Neutre, et c'est une correction : « Saisis les valeurs à la main » avait été écrit
+        # pour la nutrition, et s'affichait aussi là où il n'y a rien à saisir — la
+        # composition d'une séance (audit du 17 octobre, fiche 17).
         raise AiUnavailableError(
-            "Les modèles disponibles n'ont rien rendu d'exploitable. "
-            "Saisis les valeurs à la main, ou réessaie."
+            "Les modèles disponibles n'ont rien rendu d'exploitable. Réessaie dans un instant."
         )
 
 
