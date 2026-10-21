@@ -132,3 +132,12 @@ distance reste donc inconnue, et l'aperçu le dit.
 
 - La doublure du planning renvoyait un objet quelconque pour les circuits, et le choix de
   la muscu plantait : elle connaît maintenant les trois nouvelles adresses.
+
+### Hors plan — la feuille sur grand écran (21 octobre 2026)
+
+Demandé en cours d'étape 4 : sur Mac, la feuille restait une bande de 480 px, le
+formulaire en colonne de téléphone. **Deux vues** désormais : sous 960 px rien ne change ;
+au-delà, une course ou une natation ouvre une feuille de 1 040 px (`Sheet` gagne `wide`),
+à deux colonnes — à gauche ce qui situe la séance, à droite la séance et son aperçu, côte
+à côte. Trouvé en regardant : la grille à deux colonnes que `.form` prend dès 600 px
+tenait les trois zones dans la moitié de la feuille.

@@ -33,9 +33,11 @@ import {
 } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
 import { keys } from '@/lib/query';
+import { cx } from '@/lib/cx';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Planning.module.css';
+import layout from './PlanSheet.module.css';
 import { ProgramField } from './ProgramField';
 import { RunBuilder } from './RunBuilder';
 import { RunProgramField } from './RunProgram';
@@ -209,6 +211,8 @@ export function PlanSheet({
 
   const swimming = values?.kind === 'natation';
   const running = values?.kind === 'course';
+  // Une séance à écrire : la feuille s'élargit sur grand écran, et la séance passe à droite.
+  const written = swimming || running;
 
   const save = useMutation({
     mutationFn: (payload: PlanBody) =>
@@ -249,6 +253,7 @@ export function PlanSheet({
         onDone();
       }}
       title={editing ? 'Modifier la séance' : 'Planifier une séance'}
+      wide={written}
       lede={
         swimming
           ? 'Le programme s’écrit une ligne par bloc, dans la notation.'
@@ -272,145 +277,151 @@ export function PlanSheet({
             save.mutate(bodyOf({ ...values, kind }));
           }}
         >
-          <div className={styles.kinds}>
-            <ChipStrip label="Nature de la séance">
-              {KIND_OPTIONS.map((option) => (
-                <Chip
-                  key={option.value}
-                  selected={values.kind === option.value}
-                  onClick={() => {
-                    set('kind', option.value);
-                  }}
-                >
-                  {option.label}
-                </Chip>
-              ))}
-            </ChipStrip>
-          </div>
-
-          <Field
-            label="Date"
-            type="date"
-            value={values.date}
-            error={error?.messageFor('date')}
-            onChange={(event) => {
-              set('date', event.target.value);
-            }}
-          />
-
-          <Field
-            label="Heure"
-            type="time"
-            value={values.time ?? ''}
-            hint="Facultative — sans heure, la séance tient la journée entière."
-            error={error?.messageFor('time')}
-            onChange={(event) => {
-              set('time', event.target.value || null);
-            }}
-          />
-
-          <Field
-            label="Titre"
-            value={values.title}
-            placeholder={swimming ? 'Endurance' : running ? 'Lignes droites' : 'Haut du corps'}
-            error={error?.messageFor('title')}
-            onChange={(event) => {
-              set('title', event.target.value);
-            }}
-          />
-
-          {running && <RunStarters values={values} onPatch={patch} />}
-
-          {values.kind === 'muscu' && <CircuitPicker values={values} onPatch={patch} />}
-
-          {running && (
-            <RunProgramField
-              value={values.program ?? ''}
-              error={error?.messageFor('program')}
-              onChange={(program) => {
-                set('program', program);
-              }}
-            />
-          )}
-
-          <Stepper
-            label="Durée (min)"
-            value={values.duration_min}
-            step={5}
-            min={5}
-            max={300}
-            placeholder={running ? 'déduite' : '—'}
-            error={error?.messageFor('duration_min')}
-            onChange={(value) => {
-              set('duration_min', value);
-            }}
-          />
-
-          {running && (
-            <>
-              <p className={own.label}>Ce que tu vises — facultatif</p>
-              <div className={own.goals}>
-                <Field
-                  label="Distance (km)"
-                  inputMode="decimal"
-                  value={values.distance_km ?? ''}
-                  placeholder="10"
-                  error={error?.messageFor('distance_km')}
-                  onChange={(event) => {
-                    set('distance_km', event.target.value);
-                  }}
-                />
-                <Field
-                  label="Chrono"
-                  value={values.goal_time ?? ''}
-                  placeholder="50'00"
-                  error={error?.messageFor('goal_time')}
-                  onChange={(event) => {
-                    set('goal_time', event.target.value);
-                  }}
-                />
+          <div className={cx(layout.layout, written && layout.split)}>
+            <div className={layout.meta}>
+              <div className={styles.kinds}>
+                <ChipStrip label="Nature de la séance">
+                  {KIND_OPTIONS.map((option) => (
+                    <Chip
+                      key={option.value}
+                      selected={values.kind === option.value}
+                      onClick={() => {
+                        set('kind', option.value);
+                      }}
+                    >
+                      {option.label}
+                    </Chip>
+                  ))}
+                </ChipStrip>
               </div>
-              <Stepper
-                label="Effort perçu visé (1–10)"
-                value={
-                  values.rpe_goal === null || values.rpe_goal === undefined
-                    ? ''
-                    : String(values.rpe_goal)
-                }
-                step={1}
-                min={1}
-                max={10}
-                placeholder="—"
-                error={error?.messageFor('rpe_goal')}
-                onChange={(value) => {
-                  set('rpe_goal', value === '' ? null : Number(value));
+
+              <Field
+                label="Date"
+                type="date"
+                value={values.date}
+                error={error?.messageFor('date')}
+                onChange={(event) => {
+                  set('date', event.target.value);
                 }}
               />
-            </>
-          )}
 
-          {swimming && (
-            <ProgramField
-              value={values.program ?? ''}
-              hint="Vide : une piscine libre, sans programme."
-              error={error?.messageFor('program')}
-              onChange={(program) => {
-                set('program', program);
-              }}
-            />
-          )}
+              <Field
+                label="Heure"
+                type="time"
+                value={values.time ?? ''}
+                hint="Facultative — sans heure, la séance tient la journée entière."
+                error={error?.messageFor('time')}
+                onChange={(event) => {
+                  set('time', event.target.value || null);
+                }}
+              />
 
-          <Field
-            label="Note"
-            value={values.note ?? ''}
-            placeholder={swimming ? 'bassin de 25 m, lignes 4' : '5×5, montée en charge'}
-            onChange={(event) => {
-              set('note', event.target.value);
-            }}
-          />
+              <Field
+                label="Titre"
+                value={values.title}
+                placeholder={swimming ? 'Endurance' : running ? 'Lignes droites' : 'Haut du corps'}
+                error={error?.messageFor('title')}
+                onChange={(event) => {
+                  set('title', event.target.value);
+                }}
+              />
+              {values.kind === 'muscu' && <CircuitPicker values={values} onPatch={patch} />}
+            </div>
+
+            {written && (
+              <div className={layout.work}>
+                {running && <RunStarters values={values} onPatch={patch} />}
+                {running && (
+                  <RunProgramField
+                    value={values.program ?? ''}
+                    error={error?.messageFor('program')}
+                    onChange={(program) => {
+                      set('program', program);
+                    }}
+                  />
+                )}
+                {swimming && (
+                  <ProgramField
+                    value={values.program ?? ''}
+                    hint="Vide : une piscine libre, sans programme."
+                    error={error?.messageFor('program')}
+                    onChange={(program) => {
+                      set('program', program);
+                    }}
+                  />
+                )}
+              </div>
+            )}
+
+            <div className={layout.more}>
+              <Stepper
+                label="Durée (min)"
+                value={values.duration_min}
+                step={5}
+                min={5}
+                max={300}
+                placeholder={running ? 'déduite' : '—'}
+                error={error?.messageFor('duration_min')}
+                onChange={(value) => {
+                  set('duration_min', value);
+                }}
+              />
+
+              {running && (
+                <>
+                  <p className={own.label}>Ce que tu vises — facultatif</p>
+                  <div className={own.goals}>
+                    <Field
+                      label="Distance (km)"
+                      inputMode="decimal"
+                      value={values.distance_km ?? ''}
+                      placeholder="10"
+                      error={error?.messageFor('distance_km')}
+                      onChange={(event) => {
+                        set('distance_km', event.target.value);
+                      }}
+                    />
+                    <Field
+                      label="Chrono"
+                      value={values.goal_time ?? ''}
+                      placeholder="50'00"
+                      error={error?.messageFor('goal_time')}
+                      onChange={(event) => {
+                        set('goal_time', event.target.value);
+                      }}
+                    />
+                  </div>
+                  <Stepper
+                    label="Effort perçu visé (1–10)"
+                    value={
+                      values.rpe_goal === null || values.rpe_goal === undefined
+                        ? ''
+                        : String(values.rpe_goal)
+                    }
+                    step={1}
+                    min={1}
+                    max={10}
+                    placeholder="—"
+                    error={error?.messageFor('rpe_goal')}
+                    onChange={(value) => {
+                      set('rpe_goal', value === '' ? null : Number(value));
+                    }}
+                  />
+                </>
+              )}
+              <Field
+                label="Note"
+                value={values.note ?? ''}
+                placeholder={swimming ? 'bassin de 25 m, lignes 4' : '5×5, montée en charge'}
+                onChange={(event) => {
+                  set('note', event.target.value);
+                }}
+              />
+            </div>
+          </div>
 
           {missing !== null && (
-            <p className={own.error} role="alert">
+            <p className={cx(own.error, layout.full)} role="alert">
               {missing}
             </p>
           )}

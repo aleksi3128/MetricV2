@@ -31,6 +31,7 @@ export function Sheet({
   /** Décrit ce que la feuille sert à faire, sous le titre. */
   lede,
   fit,
+  wide,
   children,
   className,
 }: {
@@ -51,6 +52,12 @@ export function Sheet({
    * grandir — ce serait rendre le saut à la feuille qui vient de s'en débarrasser.
    */
   fit?: boolean | undefined;
+  /**
+   * **Deux vues, petit et grand écran.** Sur téléphone, rien ne change : la feuille monte
+   * du bas. Sur un écran large, elle s'élargit pour qu'un formulaire riche — une séance à
+   * écrire et son aperçu — se lise sur deux colonnes au lieu d'une bande de 480 px.
+   */
+  wide?: boolean | undefined;
   children: ReactNode;
   className?: string | undefined;
 }) {
@@ -140,7 +147,12 @@ export function Sheet({
 
       <div
         ref={panel}
-        className={cx(styles.panel, fit === true && styles.fit, className)}
+        className={cx(
+          styles.panel,
+          fit === true && styles.fit,
+          wide === true && styles.wide,
+          className,
+        )}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -1,0 +1,57 @@
+/*
+ * Planifier une séance, deux vues (`docs/planifier-une-seance.md`).
+ *
+ * Sur téléphone, une colonne, dans l'ordre où l'on décide : la nature et le jour, puis la
+ * séance, puis ce qu'on vise. Sur grand écran, deux colonnes : à gauche ce qui situe la
+ * séance, à droite la séance elle-même et son aperçu — on écrit en voyant ce que le
+ * serveur en lit, sans faire défiler.
+ */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  /* Le formulaire du planning est une grille à deux colonnes dès 600 px : sans cela, les
+     trois zones tenaient dans la moitié de la feuille — vu à 1440 px. */
+  grid-column: 1 / -1;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.meta,
+.work,
+.more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-areas:
+      'meta work'
+      'more work';
+    column-gap: var(--s6);
+    row-gap: var(--s4);
+    align-items: start;
+  }
+
+  .split .meta {
+    grid-area: meta;
+  }
+
+  .split .work {
+    grid-area: work;
+    padding-left: var(--s6);
+    border-left: 1px solid var(--line-soft);
+  }
+
+  .split .more {
+    grid-area: more;
+  }
+}

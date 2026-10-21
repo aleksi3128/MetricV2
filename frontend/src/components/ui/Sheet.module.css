@@ -284,3 +284,14 @@
     transition: none;
   }
 }
+
+/*
+ * La feuille **large** (`wide`), pour un formulaire qui a besoin de deux colonnes sur grand
+ * écran — planifier une séance, et son aperçu à côté. Le téléphone n'en voit rien : la
+ * règle ne joue qu'à partir du second point de rupture.
+ */
+@media (min-width: 960px) {
+  .wide {
+    width: min(1040px, 100%);
+  }
+}
