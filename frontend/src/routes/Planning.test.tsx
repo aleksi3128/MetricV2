@@ -225,6 +225,7 @@ const CODES: SwimCodeEntry[] = [
 ];
 
 const SWIM_DETAIL: SwimDetail = {
+  program_hint: null,
   id: 0,
   token: 'nage-jeton',
   swim_id: 'swim01',

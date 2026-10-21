@@ -24,6 +24,7 @@ import { Swims } from './activity/Swims';
 const TODAY = '2026-10-19';
 
 const TYPED: SwimDetail = {
+  program_hint: null,
   id: 1,
   token: 'jeton-nage',
   swim_id: 'nage02',

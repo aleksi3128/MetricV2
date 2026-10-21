@@ -922,6 +922,41 @@ export const activityApi = {
       headers: guard(token),
       body: payload,
     }),
+  /** Corrige un tour : distance, temps (`1:45`), nage — seul ce qui est envoyé change, et la
+   *  séance reprend ses totaux de ses tours (`docs/natation-corriger.md`). */
+  editSwimLap: (
+    id: number,
+    token: string,
+    body: { distance_m?: number; duration?: string; stroke?: string },
+  ) =>
+    request<SwimDetail>(`/api/activity/swims/laps/${String(id)}/edit`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body,
+    }),
+  /** Recolle un tour et le suivant — une longueur que la montre a coupée. */
+  mergeSwimLap: (id: number, token: string) =>
+    request<SwimDetail>(`/api/activity/swims/laps/${String(id)}/merge`, {
+      method: 'POST',
+      headers: guard(token),
+    }),
+  /** Retire un tour — une pause prise pour une longueur. */
+  deleteSwimLap: (id: number, token: string) =>
+    request<SwimDetail>(`/api/activity/swims/laps/${String(id)}`, {
+      method: 'DELETE',
+      headers: guard(token),
+    }),
+  /** Date, heure, bassin, note — rien de mesuré, sur toute natation. */
+  updateSwimMeta: (
+    id: number,
+    token: string,
+    body: { date: string; start: string | null; pool_m: number; note: string | null },
+  ) =>
+    request<SwimDetail>(`/api/activity/swims/${String(id)}/meta`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body,
+    }),
   /** Corrige la nage d'un tour. `null` rend la lecture de la montre. */
   correctSwimLap: (id: number, token: string, stroke: string | null) =>
     request<SwimDetail>(`/api/activity/swims/laps/${String(id)}`, {
@@ -1068,7 +1103,8 @@ export interface SwimDetail {
   date: string;
   start: string | null;
   pool_m: number;
-  /** La distance **de la montre**, tours douteux compris (D12). */
+  /** La distance de la montre, tours douteux compris (D12) — puis celle des tours, dès qu'on
+   *  en a corrigé un (`docs/natation-corriger.md`, D2). */
   distance_m: number;
   duration_s: number;
   elapsed_s: number | null;
@@ -1088,6 +1124,9 @@ export interface SwimDetail {
   /** Le programme tel qu'il a été tapé, pour une natation saisie. */
   program: string | null;
   note: string | null;
+  /** Pour une importée : sa lecture tour par tour, dans la notation — le départ d'une
+   *  réécriture. `null` pour une saisie. */
+  program_hint: string | null;
 }
 
 /** Une natation dans une liste — la même, sans ses tours. */
@@ -1112,6 +1151,8 @@ export interface SwimPayload {
   program: string;
   pool_m: number;
   note: string | null;
+  /** Réécrire une natation **importée** : ses tours sont remplacés par le programme. */
+  rewrite?: boolean;
 }
 
 export type OtherSport = 'vélo' | 'marche' | 'randonnée';

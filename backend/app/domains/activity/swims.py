@@ -28,7 +28,9 @@ from app.domains.activity.swim_schemas import (
     Swim,
     SwimDetail,
     SwimLap,
+    SwimLapPayload,
     SwimList,
+    SwimMetaPayload,
     SwimPayload,
     SwimStrokePayload,
     SwimWeek,
@@ -205,6 +207,7 @@ class SwimService:
             summary = self._to_schema(row, [lap.model for lap in lap_rows], await self._glossary())
             return SwimDetail(
                 **summary.model_dump(),
+                program_hint=_hint(summary.lines) if row.model.source != "manual" else None,
                 laps=[
                     SwimLap(
                         id=lap.index,
@@ -335,16 +338,42 @@ class SwimService:
         if not 0 <= index < len(rows):
             raise StorageNotFoundError("Cette natation n'existe plus.")
         existing = rows[index].model
-        if existing.source != "manual":
+        if existing.source != "manual" and not payload.rewrite:
             raise ValidationFailedError(
-                "Une natation importée se corrige tour par tour, pas d'un bloc."
+                "Une natation importée se corrige tour par tour — ou se réécrit entière, "
+                "en remplaçant ses tours."
             )
         read = await self._read_program(payload)
         # L'effort perçu se note à part (`set_rpe`) : corriger le programme ne l'efface pas.
         replacement = self._manual_row(payload, read, existing.swim_id)
         replacement.rpe = existing.rpe
+        # Réécrite, une importée garde son fichier : il reste rangé, et sa suppression
+        # l'emportera avec la séance (`docs/natation-corriger.md`, D6).
+        replacement.fit_path = existing.fit_path
         await self._repo.replace_by_token(index, token, replacement)
+        if existing.source != "manual":
+            await self._laps.remove_where(lambda lap: lap.swim_id == existing.swim_id)
         return await self.detail(existing.swim_id, fresh=True)
+
+    async def update_meta(self, index: int, token: str, payload: SwimMetaPayload) -> SwimDetail:
+        """Date, heure, bassin, note — rien de mesuré, pour toute natation (D1)."""
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette natation n'existe plus.")
+        current = rows[index].model
+        await self._repo.replace_by_token(
+            index,
+            token,
+            current.model_copy(
+                update={
+                    "date": payload.date,
+                    "start": payload.start,
+                    "pool_m": payload.pool_m,
+                    "note": payload.note or "",
+                }
+            ),
+        )
+        return await self.detail(current.swim_id, fresh=True)
 
     async def set_rpe(self, index: int, token: str, rpe: int | None) -> SwimDetail:
         """L'effort perçu seul, sous `If-Match` : une note est une correction de la ligne."""
@@ -359,19 +388,112 @@ class SwimService:
 
     async def correct_lap(self, index: int, token: str, payload: SwimStrokePayload) -> SwimDetail:
         """Corrige la nage d'un tour. La lecture de la montre, elle, reste où elle est."""
+        return await self.edit_lap(index, token, SwimLapPayload(stroke=payload.stroke or ""))
+
+    async def edit_lap(self, index: int, token: str, payload: SwimLapPayload) -> SwimDetail:
+        """Distance, temps, nage d'un tour — seul ce qui est envoyé change, et la séance
+        reprend ses totaux de ses tours (`docs/natation-corriger.md`, D1–D4)."""
         rows = await self._laps.read_all(fresh=True)
         if not 0 <= index < len(rows):
             raise StorageNotFoundError("Ce tour n'existe plus.")
         lap = rows[index].model
-        if lap.kind != "swim":
-            raise ValidationFailedError("Un tour de repos n'a pas de nage à corriger.")
-
-        stroke = ""
-        if payload.stroke is not None and payload.stroke.strip():
-            stroke = await self._stroke_code(payload.stroke)
-
-        await self._laps.replace_by_token(index, token, lap.model_copy(update={"stroke": stroke}))
+        update: dict[str, object] = {}
+        if payload.stroke is not None:
+            if lap.kind != "swim":
+                raise ValidationFailedError("Un tour de repos n'a pas de nage à corriger.")
+            update["stroke"] = (
+                await self._stroke_code(payload.stroke) if payload.stroke.strip() else ""
+            )
+        if payload.distance_m is not None:
+            if lap.kind != "swim":
+                raise ValidationFailedError("Un tour de repos n'a pas de distance.")
+            update["distance_m"] = round(payload.distance_m, 1)
+        if payload.duration is not None:
+            update["duration_s"] = _lap_seconds(payload.duration)
+        if "distance_m" in update or "duration_s" in update:
+            # Regardé et corrigé : il n'est plus douteux (D4).
+            update["suspect"] = False
+        await self._laps.replace_by_token(index, token, lap.model_copy(update=update))
+        # Seule une distance ou un temps corrigé change les totaux : une nage corrigée ne
+        # doit pas remplacer le chiffre de la montre par la somme de ses tours.
+        if "distance_m" in update or "duration_s" in update:
+            await self._retotal(lap.swim_id)
         return await self.detail(lap.swim_id, fresh=True)
+
+    async def merge_lap(self, index: int, token: str) -> SwimDetail:
+        """Recolle un tour et le suivant — une longueur que la montre a coupée (D5)."""
+        sheet = await self._laps.load(fresh=True)
+        first = self._guarded(sheet.rows, index, token)
+        if first.model.kind != "swim":
+            raise ValidationFailedError("Un repos ne se fusionne pas.")
+        siblings = sorted(
+            (row for row in sheet.rows if row.model.swim_id == first.model.swim_id),
+            key=lambda row: row.model.seq,
+        )
+        position = next(at for at, row in enumerate(siblings) if row.index == index)
+        if position + 1 >= len(siblings):
+            raise ValidationFailedError("C'est le dernier tour : il n'a rien à suivre.")
+        second = siblings[position + 1]
+        if second.model.kind != "swim":
+            raise ValidationFailedError(
+                "Le tour suivant est un repos : on s'est arrêté, ce n'est pas la même longueur."
+            )
+        merged = _merged(first.model, second.model)
+        kept = [
+            merged if row.index == index else row.model
+            for row in sheet.rows
+            if row.index != second.index
+        ]
+        # Les sommes ne bougent pas : rien à recalculer.
+        await self._laps.overwrite(_renumbered(kept, first.model.swim_id), token=sheet.token)
+        return await self.detail(first.model.swim_id, fresh=True)
+
+    async def delete_lap(self, index: int, token: str) -> SwimDetail:
+        """Retire un tour — une pause prise pour une longueur (D1, D6)."""
+        sheet = await self._laps.load(fresh=True)
+        lap = self._guarded(sheet.rows, index, token)
+        kept = [row.model for row in sheet.rows if row.index != index]
+        await self._laps.overwrite(_renumbered(kept, lap.model.swim_id), token=sheet.token)
+        await self._retotal(lap.model.swim_id)
+        return await self.detail(lap.model.swim_id, fresh=True)
+
+    @staticmethod
+    def _guarded(rows: list[Row[SwimLapRow]], index: int, token: str) -> Row[SwimLapRow]:
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Ce tour n'existe plus.")
+        if rows[index].token != token:
+            raise StorageConflictError(
+                "Ce tour a changé depuis ton dernier affichage — recharge la natation.",
+                detail=f"tour {index} : jeton périmé",
+            )
+        return rows[index]
+
+    async def _retotal(self, swim_id: str) -> None:
+        """La séance reprend ses totaux de ses tours (D2) : la distance des tours de nage,
+        le temps de tous, repos compris."""
+        laps = [
+            lap.model
+            for lap in await self._laps.read_all(fresh=True)
+            if lap.model.swim_id == swim_id
+        ]
+        if not laps:
+            return
+        for row in await self._repo.read_all(fresh=True):
+            if row.model.swim_id != swim_id:
+                continue
+            await self._repo.replace_by_token(
+                row.index,
+                row.token,
+                row.model.model_copy(
+                    update={
+                        "distance_m": round(
+                            sum(lap.distance_m for lap in laps if lap.kind == "swim"), 1
+                        ),
+                        "duration_s": round(sum(lap.duration_s for lap in laps), 1),
+                    }
+                ),
+            )
+            return
 
     async def _stroke_code(self, raw: str) -> str:
         """Un sigle de **nage** du glossaire, dans sa forme écrite — ajouts compris."""
@@ -409,3 +531,70 @@ class SwimService:
 
 
 __all__ = ["SwimService", "lines_of", "program_lines"]
+
+
+def _lap_seconds(raw: str) -> float:
+    """`1:45` → 105 s. Une heure au plus : un tour n'est pas une séance."""
+    from app.core.parsing import ParseError, parse_duration_minutes
+
+    # `1'45` comme `1:45` : le pouce tape l'un ou l'autre.
+    cleaned = raw.strip().replace("\u2019", ":").replace("'", ":").rstrip(":")
+    try:
+        minutes = parse_duration_minutes(cleaned)
+    except ParseError as error:
+        raise ValidationFailedError(
+            "Le temps d'un tour s'écrit 1:45.", fields=[("body.duration", str(error))]
+        ) from error
+    if not 0 < minutes <= 60:
+        raise ValidationFailedError(
+            "Un tour dure entre une seconde et une heure.",
+            fields=[("body.duration", "hors bornes")],
+        )
+    return round(minutes * 60, 1)
+
+
+def _merged(first: SwimLapRow, second: SwimLapRow) -> SwimLapRow:
+    """Deux tours en un : distances, temps et coups s'additionnent, la FC se pondère par le
+    temps, la plus haute reste la plus haute (D5)."""
+    total = first.duration_s + second.duration_s
+
+    def weighted(a: int | None, b: int | None) -> int | None:
+        if a is None or b is None or total <= 0:
+            return a if b is None else b
+        return round((a * first.duration_s + b * second.duration_s) / total)
+
+    return first.model_copy(
+        update={
+            "distance_m": round(first.distance_m + second.distance_m, 1),
+            "duration_s": round(total, 1),
+            "idle_s": round(first.idle_s + second.idle_s, 1),
+            "detected": " ".join(part for part in (first.detected, second.detected) if part),
+            "stroke": first.stroke or second.stroke,
+            "strokes": (
+                (first.strokes or 0) + (second.strokes or 0)
+                if first.strokes is not None or second.strokes is not None
+                else None
+            ),
+            "avg_hr": weighted(first.avg_hr, second.avg_hr),
+            "max_hr": max(
+                (hr for hr in (first.max_hr, second.max_hr) if hr is not None), default=None
+            ),
+            "suspect": False,
+        }
+    )
+
+
+def _renumbered(laps: list[SwimLapRow], swim_id: str) -> list[SwimLapRow]:
+    """Les tours d'une natation renumérotés de 1 en 1, dans leur ordre : un tour retiré ne
+    laisse pas de trou dans « tour 5, tour 7 »."""
+    order = sorted((lap.seq, at) for at, lap in enumerate(laps) if lap.swim_id == swim_id)
+    seq = {at: rank for rank, (_, at) in enumerate(order, start=1)}
+    return [
+        lap.model_copy(update={"seq": seq[at]}) if at in seq else lap for at, lap in enumerate(laps)
+    ]
+
+
+def _hint(lines: list[SwimDoneLine]) -> str:
+    """La lecture des tours, réécrite pour la notation saisie : `R~40` (un repos approché)
+    devient `R40`, et les titres de section ne sont pas repris (D7)."""
+    return "\n".join(line.text.replace("R~", "R") for line in lines if not line.section)

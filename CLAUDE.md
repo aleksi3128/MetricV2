@@ -56,6 +56,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | L'accueil « Forme », l'écran `/charge` — facile tous sports, frise des douleurs — et le respect au kilomètre de la séance prévue | [`docs/accueil-et-charge.md`](docs/accueil-et-charge.md) |
 | La passkey (mot de passe en secours), l'export complet, la sauvegarde datée, le plafond IA, `make status/doctor/sync/backup` | [`docs/exploitation-securite.md`](docs/exploitation-securite.md) |
 | Planifier une séance, deuxième version — la notation de course lue par le serveur, les garde-fous, la montre, le respect bloc par bloc | [`docs/planifier-une-seance.md`](docs/planifier-une-seance.md) |
+| Corriger une natation importée — un tour en distance, temps et nage, la fusion, le retrait, les réglages, la réécriture en notation | [`docs/natation-corriger.md`](docs/natation-corriger.md) |
 
 [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
 charte visuelle.
@@ -189,8 +190,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (346 fichiers), 2 332 tests backend
-               # prettier, eslint, tsc, 797 tests d'écran
+make check     # ruff, ruff format, mypy (347 fichiers), 2 338 tests backend
+               # prettier, eslint, tsc, 802 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

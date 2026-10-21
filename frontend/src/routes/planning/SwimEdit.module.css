@@ -1,0 +1,25 @@
+/* Corriger une natation importée (`docs/natation-corriger.md`) : un tour se déplie en un
+   petit formulaire, et la séance porte ses propres réglages. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3) 0;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.danger {
+  color: var(--recover);
+}

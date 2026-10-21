@@ -11,7 +11,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, Chip, ChipStrip, Empty, Sheet, Skeleton } from '@/components/ui';
+import {
+  Button,
+  Chip,
+  ChipStrip,
+  Empty,
+  Field,
+  Segmented,
+  Sheet,
+  Skeleton,
+  Stepper,
+} from '@/components/ui';
 import { activityApi, type SwimDetail, type SwimLap } from '@/features/activity/api';
 import { planningApi } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
@@ -22,90 +32,296 @@ import { useToast } from '@/lib/toast';
 
 import { RateEffort } from '../activity/run/Rate';
 import styles from '../Planning.module.css';
+import edits from './SwimEdit.module.css';
 import { SwimDoneView } from './SwimProgram';
 
 function swimKey(swimId: string) {
   return [...keys.planning.all(), 'swim', swimId] as const;
 }
 
+/** `105` → `1:45` : le temps d'un tour tel qu'on le retape. */
+function clockOf(seconds: number): string {
+  const total = Math.round(seconds);
+  return `${String(Math.floor(total / 60))}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Un tour : sa ligne, et dépliée, de quoi le corriger (`docs/natation-corriger.md`, D1).
+ * La distance avance d'une longueur de bassin ; le temps se retape (`1:45`) ; la nage se
+ * choisit d'un appui. Fusionner recolle le tour suivant ; retirer demande deux appuis.
+ */
 function LapRow({
   lap,
+  next,
+  pool,
   strokes,
   onSaved,
 }: {
   lap: SwimLap;
+  /** Le tour qui suit, s'il y en a un : fusionner n'a de sens qu'avec un tour de nage. */
+  next: SwimLap | undefined;
+  pool: number;
   strokes: { code: string; label: string }[];
   onSaved: (detail: SwimDetail) => void;
 }) {
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
+  const [armed, setArmed] = useState(false);
+  const [distance, setDistance] = useState(String(lap.distance_m));
+  const [duration, setDuration] = useState(clockOf(lap.duration_s));
+
+  function failed(caught: unknown): void {
+    notify(caught instanceof ApiError ? caught.message : 'Correction impossible.', 'recover');
+  }
 
   const correct = useMutation({
     mutationFn: (stroke: string | null) => activityApi.correctSwimLap(lap.id, lap.token, stroke),
+    onSuccess: onSaved,
+    onError: failed,
+  });
+  const edit = useMutation({
+    mutationFn: () =>
+      activityApi.editSwimLap(lap.id, lap.token, {
+        ...(Number(distance) !== lap.distance_m && lap.kind === 'swim'
+          ? { distance_m: Number(distance) }
+          : {}),
+        ...(duration !== clockOf(lap.duration_s) ? { duration } : {}),
+      }),
     onSuccess: (detail) => {
       setOpen(false);
+      onSaved(detail);
+    },
+    onError: failed,
+  });
+  const merge = useMutation({
+    mutationFn: () => activityApi.mergeSwimLap(lap.id, lap.token),
+    onSuccess: (detail) => {
+      setOpen(false);
+      onSaved(detail);
+    },
+    onError: failed,
+  });
+  const remove = useMutation({
+    mutationFn: () => activityApi.deleteSwimLap(lap.id, lap.token),
+    onSuccess: (detail) => {
+      setOpen(false);
+      setArmed(false);
+      onSaved(detail);
+    },
+    onError: failed,
+  });
+
+  const swimming = lap.kind === 'swim';
+  const read = lap.detected.length > 0 ? lap.detected.join(' ') : '—';
+  const changed = Number(distance) !== lap.distance_m || duration !== clockOf(lap.duration_s);
+
+  return (
+    <li className={swimming ? styles.lap : styles.lapRest}>
+      <button
+        type="button"
+        className={styles.lapHead}
+        aria-expanded={open}
+        aria-label={
+          swimming
+            ? `Tour ${String(lap.seq)} : ${meters(lap.distance_m)}, ${
+                lap.stroke ?? `lu ${read}`
+              } — corriger`
+            : `Repos ${swimClock(lap.duration_s)} — corriger`
+        }
+        onClick={() => {
+          setOpen((current) => !current);
+          setArmed(false);
+        }}
+      >
+        {swimming ? (
+          <>
+            <span className={styles.lapMain}>
+              {meters(lap.distance_m)} · {swimClock(lap.duration_s)}
+              {lap.suspect && <span className={styles.lapFlag}>douteux</span>}
+            </span>
+            <span className={styles.lapStroke}>{lap.stroke ?? `lu : ${read}`}</span>
+          </>
+        ) : (
+          <span>repos {swimClock(lap.duration_s)}</span>
+        )}
+      </button>
+
+      {open && (
+        <div className={edits.form}>
+          <div className={edits.pair}>
+            {swimming && (
+              <Stepper
+                label="Distance (m)"
+                value={distance}
+                step={pool}
+                min={pool}
+                max={5000}
+                onChange={setDistance}
+              />
+            )}
+            <Field
+              label="Temps"
+              value={duration}
+              placeholder="1:45"
+              hint="m:ss"
+              onChange={(event) => {
+                setDuration(event.target.value);
+              }}
+            />
+          </div>
+
+          {swimming && (
+            <ChipStrip label={`Nage du tour ${String(lap.seq)}`}>
+              {strokes.map((stroke) => (
+                <Chip
+                  key={stroke.code}
+                  selected={lap.stroke === stroke.code}
+                  onClick={() => {
+                    correct.mutate(stroke.code);
+                  }}
+                >
+                  {stroke.code}
+                </Chip>
+              ))}
+              {lap.stroke !== null && (
+                <Chip
+                  onClick={() => {
+                    correct.mutate(null);
+                  }}
+                >
+                  lecture de la montre
+                </Chip>
+              )}
+            </ChipStrip>
+          )}
+
+          <div className={edits.actions}>
+            <Button
+              variant="primary"
+              busy={edit.isPending}
+              disabled={!changed}
+              onClick={() => {
+                edit.mutate();
+              }}
+            >
+              Enregistrer le tour
+            </Button>
+            {swimming && next?.kind === 'swim' && (
+              <Button
+                variant="ghost"
+                busy={merge.isPending}
+                onClick={() => {
+                  merge.mutate();
+                }}
+              >
+                Fusionner avec le suivant
+              </Button>
+            )}
+            {/* Deux appuis pour détruire : le projet n'a aucune annulation. */}
+            <Button
+              variant="quiet"
+              className={edits.danger}
+              busy={remove.isPending}
+              aria-label={
+                armed
+                  ? `Retirer le tour ${String(lap.seq)} — confirmer`
+                  : `Retirer le tour ${String(lap.seq)}`
+              }
+              onClick={() => {
+                if (!armed) {
+                  setArmed(true);
+                  return;
+                }
+                remove.mutate();
+              }}
+            >
+              {armed ? 'Confirmer le retrait ?' : 'Retirer ce tour'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+/** Date, heure, bassin, note : ce qui entoure une natation importée, sans rien de mesuré. */
+function MetaForm({ swim, onSaved }: { swim: SwimDetail; onSaved: (detail: SwimDetail) => void }) {
+  const { notify } = useToast();
+  const [values, setValues] = useState({
+    date: swim.date,
+    start: swim.start === null ? '' : swim.start.slice(0, 5),
+    pool: String(swim.pool_m === 50 ? 50 : 25) as '25' | '50',
+    note: swim.note ?? '',
+  });
+  const save = useMutation({
+    mutationFn: () =>
+      activityApi.updateSwimMeta(swim.id, swim.token, {
+        date: values.date,
+        start: values.start === '' ? null : values.start,
+        pool_m: Number(values.pool),
+        note: values.note.trim() === '' ? null : values.note,
+      }),
+    onSuccess: (detail) => {
+      notify('Séance corrigée.', 'effort');
       onSaved(detail);
     },
     onError: (caught: unknown) => {
       notify(caught instanceof ApiError ? caught.message : 'Correction impossible.', 'recover');
     },
   });
-
-  if (lap.kind === 'rest') {
-    return <li className={styles.lapRest}>repos {swimClock(lap.duration_s)}</li>;
-  }
-
-  const read = lap.detected.length > 0 ? lap.detected.join(' ') : '—';
-
   return (
-    <li className={styles.lap}>
-      <button
-        type="button"
-        className={styles.lapHead}
-        aria-expanded={open}
-        aria-label={`Tour ${String(lap.seq)} : ${meters(lap.distance_m)}, ${
-          lap.stroke ?? `lu ${read}`
-        } — corriger la nage`}
+    <div className={edits.form}>
+      <div className={edits.pair}>
+        <Field
+          label="Date"
+          type="date"
+          value={values.date}
+          onChange={(event) => {
+            setValues({ ...values, date: event.target.value });
+          }}
+        />
+        <Field
+          label="Heure"
+          type="time"
+          value={values.start}
+          onChange={(event) => {
+            setValues({ ...values, start: event.target.value });
+          }}
+        />
+      </div>
+      <Segmented
+        label="Bassin"
+        options={POOLS}
+        value={values.pool}
+        onChange={(pool) => {
+          setValues({ ...values, pool });
+        }}
+      />
+      <Field
+        label="Note"
+        value={values.note}
+        placeholder="lignes 4, eau froide"
+        onChange={(event) => {
+          setValues({ ...values, note: event.target.value });
+        }}
+      />
+      <Button
+        variant="primary"
+        busy={save.isPending}
         onClick={() => {
-          setOpen((current) => !current);
+          save.mutate();
         }}
       >
-        <span className={styles.lapMain}>
-          {meters(lap.distance_m)} · {swimClock(lap.duration_s)}
-          {lap.suspect && <span className={styles.lapFlag}>douteux</span>}
-        </span>
-        <span className={styles.lapStroke}>{lap.stroke ?? `lu : ${read}`}</span>
-      </button>
-
-      {open && (
-        <div className={styles.lapEdit}>
-          <ChipStrip label={`Nage du tour ${String(lap.seq)}`}>
-            {strokes.map((stroke) => (
-              <Chip
-                key={stroke.code}
-                selected={lap.stroke === stroke.code}
-                onClick={() => {
-                  correct.mutate(stroke.code);
-                }}
-              >
-                {stroke.code}
-              </Chip>
-            ))}
-            {lap.stroke !== null && (
-              <Chip
-                onClick={() => {
-                  correct.mutate(null);
-                }}
-              >
-                lecture de la montre
-              </Chip>
-            )}
-          </ChipStrip>
-        </div>
-      )}
-    </li>
+        Enregistrer la séance
+      </Button>
+    </div>
   );
 }
+
+const POOLS = [
+  { value: '25', label: 'Bassin de 25 m' },
+  { value: '50', label: 'Bassin de 50 m' },
+] as const;
 
 export function SwimSheet({
   swimId,
@@ -123,6 +339,7 @@ export function SwimSheet({
   const client = useQueryClient();
   const { notify } = useToast();
   const [armed, setArmed] = useState(false);
+  const [correcting, setCorrecting] = useState(false);
 
   const { data, isPending, error } = useQuery({
     queryKey: swimKey(swimId ?? ''),
@@ -210,8 +427,9 @@ export function SwimSheet({
 
           {data.note !== null && <p className={styles.note}>{data.note}</p>}
 
-          {/* Une natation **saisie** n'a pas de tours : elle se corrige d'un bloc, par le
-              formulaire qui l'a écrite. Une importée, elle, se corrige au tour. */}
+          {/* Une natation **saisie** se corrige d'un bloc, par le formulaire qui l'a écrite.
+              Une importée se corrige au tour, ses réglages ici — et se réécrit entière en
+              notation, ce qui remplace ses tours (`docs/natation-corriger.md`). */}
           {data.source === 'manual' && onEdit !== undefined && (
             <Button
               variant="ghost"
@@ -222,17 +440,57 @@ export function SwimSheet({
               Corriger la séance
             </Button>
           )}
+          {data.source !== 'manual' && (
+            <div className={edits.actions}>
+              <Button
+                variant="ghost"
+                aria-expanded={correcting}
+                onClick={() => {
+                  setCorrecting(!correcting);
+                }}
+              >
+                {correcting ? 'Fermer' : 'Corriger la séance'}
+              </Button>
+              {onEdit !== undefined && (
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    onEdit(data);
+                  }}
+                >
+                  Réécrire en notation
+                </Button>
+              )}
+            </div>
+          )}
+          {correcting && data.source !== 'manual' && (
+            <MetaForm
+              key={data.token}
+              swim={data}
+              onSaved={(detail) => {
+                setCorrecting(false);
+                refresh(detail);
+              }}
+            />
+          )}
 
           {data.laps.length > 0 && (
             <>
               <h4 className={styles.sheetHeading}>Tour par tour</h4>
               <p className={styles.note}>
-                « lu » : la nage que la montre a cru voir. Touche un tour pour la confirmer ou la
-                corriger.
+                Touche un tour pour corriger sa distance, son temps ou sa nage — « lu » est ce que
+                la montre a cru voir. La séance reprend ses totaux de ses tours.
               </p>
               <ol className={styles.laps}>
-                {data.laps.map((lap) => (
-                  <LapRow key={lap.id} lap={lap} strokes={strokes} onSaved={refresh} />
+                {data.laps.map((lap, index) => (
+                  <LapRow
+                    key={`${String(lap.id)}-${lap.token}`}
+                    lap={lap}
+                    next={data.laps[index + 1]}
+                    pool={data.pool_m}
+                    strokes={strokes}
+                    onSaved={refresh}
+                  />
                 ))}
               </ol>
             </>

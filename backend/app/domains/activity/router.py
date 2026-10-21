@@ -55,7 +55,9 @@ from app.domains.activity.service import (
 from app.domains.activity.stats import ActivityStats
 from app.domains.activity.swim_schemas import (
     SwimDetail,
+    SwimLapPayload,
     SwimList,
+    SwimMetaPayload,
     SwimPayload,
     SwimStrokePayload,
 )
@@ -208,6 +210,37 @@ async def correct_swim_lap(
     return await SwimService(store).correct_lap(row_id, _token(if_match), payload)
 
 
+@router.patch("/swims/laps/{row_id}/edit", response_model=SwimDetail, summary="Corriger un tour")
+async def edit_swim_lap(
+    row_id: RowId, payload: SwimLapPayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimDetail:
+    """Distance, temps, nage — seul ce qui est envoyé change ; la séance reprend ses totaux
+    de ses tours (`docs/natation-corriger.md`)."""
+    return await SwimService(store).edit_lap(row_id, _token(if_match), payload)
+
+
+@router.post(
+    "/swims/laps/{row_id}/merge", response_model=SwimDetail, summary="Fusionner un tour au suivant"
+)
+async def merge_swim_lap(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> SwimDetail:
+    return await SwimService(store).merge_lap(row_id, _token(if_match))
+
+
+@router.delete("/swims/laps/{row_id}", response_model=SwimDetail, summary="Retirer un tour")
+async def delete_swim_lap(row_id: RowId, store: StoreDep, if_match: IfMatch = None) -> SwimDetail:
+    return await SwimService(store).delete_lap(row_id, _token(if_match))
+
+
+@router.patch(
+    "/swims/{row_id}/meta", response_model=SwimDetail, summary="Date, heure, bassin et note"
+)
+async def update_swim_meta(
+    row_id: RowId, payload: SwimMetaPayload, store: StoreDep, if_match: IfMatch = None
+) -> SwimDetail:
+    """Rien de mesuré : se corrige sur toute natation, importée ou saisie."""
+    return await SwimService(store).update_meta(row_id, _token(if_match), payload)
+
+
 @router.get("/swims/{swim_id}", response_model=SwimDetail, summary="Une natation et ses tours")
 async def read_swim(
     swim_id: Annotated[str, Path(min_length=1, max_length=32)], store: StoreDep
@@ -219,7 +252,7 @@ async def read_swim(
 async def update_swim(
     row_id: RowId, payload: SwimPayload, store: StoreDep, if_match: IfMatch = None
 ) -> SwimDetail:
-    """Une natation **saisie** seulement : une importée se corrige au tour."""
+    """Une natation saisie ; une importée seulement avec `rewrite`, qui remplace ses tours."""
     return await SwimService(store).update(row_id, _token(if_match), payload)
 
 

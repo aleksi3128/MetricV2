@@ -73,12 +73,35 @@ class SwimDetail(Swim):
     """Une natation et tous ses tours."""
 
     laps: list[SwimLap] = Field(default_factory=list)
+    #: Pour une importée : sa lecture tour par tour, **dans la notation saisie** — le point
+    #: de départ d'une réécriture (`docs/natation-corriger.md`, D7). `null` pour une saisie,
+    #: qui a déjà son programme.
+    program_hint: str | None = None
 
 
 class SwimStrokePayload(BaseModel):
     """La nage d'un tour, corrigée. `null` rend la lecture de la montre."""
 
     stroke: str | None = Field(default=None, max_length=8)
+
+
+class SwimLapPayload(BaseModel):
+    """Un tour corrigé (`docs/natation-corriger.md`, D1) : tout est facultatif, seul ce qui
+    est envoyé change. La durée s'écrit comme au chrono, `1:45`."""
+
+    distance_m: float | None = Field(default=None, gt=0, le=5000)
+    duration: str | None = Field(default=None, max_length=12)
+    #: Un sigle de nage ; `""` rend la lecture de la montre.
+    stroke: str | None = Field(default=None, max_length=8)
+
+
+class SwimMetaPayload(BaseModel):
+    """Ce qui entoure une natation, importée ou saisie : rien de mesuré."""
+
+    date: PastDate
+    start: dt.time | None = None
+    pool_m: float = Field(default=25, ge=25, le=50)
+    note: Note | None = None
 
 
 class SwimPayload(BaseModel):
@@ -96,6 +119,9 @@ class SwimPayload(BaseModel):
     #: dit où l'on a nagé, comme une natation importée le dit.
     pool_m: float = Field(default=25, ge=25, le=50)
     note: Note | None = None
+    #: Réécrire une natation **importée** : ses tours sont remplacés par le programme
+    #: (`docs/natation-corriger.md`, D6). Faux, une importée refuse la correction d'un bloc.
+    rewrite: bool = False
 
     @field_validator("note", mode="before")
     @classmethod

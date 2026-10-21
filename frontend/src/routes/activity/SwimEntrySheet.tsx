@@ -47,7 +47,8 @@ function fromSwim(swim: SwimDetail): SwimPayload {
     date: swim.date,
     start: swim.start === null ? null : swim.start.slice(0, 5),
     duration_min: String(Math.round(swim.duration_s / 60)),
-    program: swim.program ?? '',
+    // Une importée réécrite part de sa lecture tour par tour (`docs/natation-corriger.md`, D7).
+    program: swim.program ?? swim.program_hint ?? '',
     pool_m: swim.pool_m,
     note: swim.note,
   };
@@ -61,7 +62,8 @@ export function SwimEntrySheet({
 }: {
   open: boolean;
   today: string;
-  /** La natation **saisie** à corriger, ou `null` pour en enregistrer une. */
+  /** La natation à corriger — saisie, ou importée à réécrire —, ou `null` pour en
+   *  enregistrer une. */
   editing: SwimDetail | null;
   onClose: () => void;
 }) {
@@ -72,6 +74,9 @@ export function SwimEntrySheet({
   );
   const [error, setError] = useState<ApiError | null>(null);
   const [refused, setRefused] = useState<string | null>(null);
+  // Réécrire une importée remplace ses tours : un geste qui détruit, donc deux appuis.
+  const rewriting = editing !== null && editing.source !== 'manual';
+  const [armed, setArmed] = useState(false);
 
   function done(swim: SwimDetail, verb: string): void {
     invalidate();
@@ -83,7 +88,7 @@ export function SwimEntrySheet({
     mutationFn: (payload: SwimPayload) =>
       editing === null
         ? activityApi.createSwim(payload)
-        : activityApi.updateSwim(editing.id, editing.token, payload),
+        : activityApi.updateSwim(editing.id, editing.token, { ...payload, rewrite: rewriting }),
     onSuccess: (swim) => {
       setError(null);
       done(swim, editing === null ? 'enregistrée' : 'corrigée');
@@ -119,11 +124,15 @@ export function SwimEntrySheet({
       open={open}
       wide
       onClose={onClose}
-      title={editing === null ? 'Natation' : 'Corriger la natation'}
+      title={
+        editing === null ? 'Natation' : rewriting ? 'Réécrire la natation' : 'Corriger la natation'
+      }
       lede={
         editing === null
           ? 'Le fichier de la montre, ou la séance écrite dans la notation.'
-          : 'La distance se relit dans le programme.'
+          : rewriting
+            ? `Réécrite, la séance perd ses ${String(editing.laps.length)} tours de montre : le détail est remplacé par le programme. Le fichier et l’effort perçu restent.`
+            : 'La distance se relit dans le programme.'
       }
     >
       <div className={styles.form}>
@@ -165,6 +174,10 @@ export function SwimEntrySheet({
           className={cx(styles.form, wide.swim)}
           onSubmit={(event) => {
             event.preventDefault();
+            if (rewriting && !armed) {
+              setArmed(true);
+              return;
+            }
             save.mutate(values);
           }}
         >
@@ -234,7 +247,13 @@ export function SwimEntrySheet({
             disabled={values.program.trim() === '' || values.duration_min.trim() === ''}
             className={cx(styles.commit, wide.commit)}
           >
-            {editing === null ? 'Enregistrer la natation' : 'Enregistrer'}
+            {editing === null
+              ? 'Enregistrer la natation'
+              : rewriting
+                ? armed
+                  ? 'Confirmer : remplacer les tours ?'
+                  : 'Remplacer les tours par ce programme'
+                : 'Enregistrer'}
           </Button>
         </form>
       </div>
