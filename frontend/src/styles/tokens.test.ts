@@ -191,6 +191,7 @@ describe('thème clair', () => {
       '--effort-rgb',
       '--load-rgb',
       '--recover-rgb',
+      '--info-rgb',
       '--ink-rgb',
     ]) {
       expect(THEMES.clair.has(name), `${name} manque au thème clair`).toBe(true);
@@ -247,15 +248,17 @@ describe('niveaux de heatmap', () => {
 
 describe('contraste', () => {
   /**
-   * Deux écarts connus de la charte sombre, portés par `GuidelinesUI.html` et hors du
-   * périmètre de ce lot : les corriger reviendrait à modifier la charte. Ils sont nommés
-   * ici avec leur valeur actuelle pour plancher — ils ne peuvent plus empirer sans que
-   * la batterie le dise, et le thème clair, lui, n'y a pas droit.
+   * Un écart connu de la charte sombre : le `fg-3` de RunFurther, qu'elle réserve aux
+   * petites étiquettes en capitales et dit elle-même à 3,4:1. Le corriger reviendrait à
+   * modifier la charte. Il est nommé ici avec sa valeur actuelle pour plancher — il ne
+   * peut plus empirer sans que la batterie le dise, et le thème clair, lui, n'y a pas droit.
+   *
+   * Le badge `recover` y figurait à 4,1 avec l'ancienne charte ; le rouge de RunFurther le
+   * porte à 4,7, et la tolérance est tombée avec.
    */
   const TOLERE: Record<string, number> = {
-    'sombre --ink-low / --bg': 3.3,
-    'sombre --ink-low / --surface': 3,
-    'sombre badge recover': 4.1,
+    'sombre --ink-low / --bg': 3.6,
+    'sombre --ink-low / --surface': 3.4,
   };
 
   const attendre = (nom: string, mesure: number, minimum: number) => {
@@ -282,6 +285,17 @@ describe('contraste', () => {
         attendre(
           `${theme} --bg sur --${tone}`,
           contrast(colour(theme, '--bg'), colour(theme, `--${tone}`)),
+          4.5,
+        );
+      }
+    });
+
+    it(`texte proposé à 4,5:1 — thème ${theme}`, () => {
+      // `--info` écrit l'invite du bloc IA (« Ouvrir ») : c'est du texte, pas un trait.
+      for (const fond of ['--bg', '--surface'] as const) {
+        attendre(
+          `${theme} --info / ${fond}`,
+          contrast(colour(theme, '--info'), colour(theme, fond)),
           4.5,
         );
       }

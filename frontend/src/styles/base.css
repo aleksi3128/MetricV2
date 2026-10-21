@@ -49,30 +49,46 @@ body {
    sur un téléphone demandait de plisser les yeux. Les rapports entre niveaux
    sont conservés ; c'est le point de départ qui change. */
 
-h1 {
-  font-size: var(--t-hero);
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
+/* Les titres sont le tableau d'affichage de RunFurther : Barlow Condensed. Ils ont leur
+   propre échelle (`--t-h1`…`--t-h3`) parce qu'un condensé à la taille d'un Space Grotesk
+   se lit d'un cran plus petit — reprendre `--t-hero` aurait rétréci chaque en-tête.
+
+   `h2` et `h3` sont en capitales, comme le `panel-title` de la charte ; `h1` non, c'est le
+   nom de l'écran et la charte réserve les capitales aux intitulés courts. */
+h1,
+h2,
+h3 {
+  font-family: var(--condensed);
   text-wrap: balance;
+}
+
+h1 {
+  font-size: var(--t-h1);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 0.95;
 }
 
 h2 {
-  font-size: var(--t-title);
+  font-size: var(--t-h2);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 h3 {
-  font-size: var(--t-head);
+  font-size: var(--t-h3);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
-/* Surtitre monospace en capitales — motif récurrent de la charte. */
+/* Surtitre en capitales — motif récurrent des deux chartes. RunFurther l'écrit dans la
+   police d'interface, plus en mono : la mono reste aux valeurs mesurées. */
 .eyebrow {
-  font-family: var(--mono);
+  font-family: var(--display);
   font-size: var(--t-meta);
   font-weight: 500;
   letter-spacing: var(--ls-meta);

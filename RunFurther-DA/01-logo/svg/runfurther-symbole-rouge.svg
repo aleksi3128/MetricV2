@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 40 200 160" width="500" height="400">
+  <title>RunFurther</title>
+  <defs><clipPath id="cut"><rect x="0" y="0" width="240" height="240"></rect></clipPath></defs>
+  <g clip-path="url(#cut)">
+    <g transform="translate(46 0) skewX(-16)" fill="#FF2E3B"><rect x="-80" y="50" width="140" height="28"></rect><rect x="0" y="102" width="60" height="28"></rect><rect x="30" y="152" width="30" height="14"></rect><rect x="70" y="50" width="30" height="140"></rect><path fill-rule="evenodd" d="M100 50 H130 A40 40 0 0 1 130 130 H100 Z M100 78 H128 A12 12 0 0 1 128 102 H100 Z"></path><polygon points="100,130 138,130 182,190 144,190"></polygon></g>
+  </g>
+</svg>

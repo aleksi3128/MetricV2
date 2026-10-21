@@ -225,7 +225,7 @@ function TrackCard({
     <Card className={styles.track}>
       <div className="spread">
         <div>
-          <h2 className={styles.trackName}>{grid.track.label}</h2>
+          <h2>{grid.track.label}</h2>
           {/* Le libellé de la cadence vient du serveur : le reconstruire ici serait
               réimplémenter la grammaire des cadences (`HEAT-30`). */}
           <p className={styles.cadence}>{grid.cadence.label}</p>

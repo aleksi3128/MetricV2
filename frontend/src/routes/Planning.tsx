@@ -90,7 +90,7 @@ export function Planning() {
       <header className={styles.head}>
         <div>
           <p className="eyebrow">Planning</p>
-          <h2 className={styles.month}>{monthLabel(month)}</h2>
+          <h2>{monthLabel(month)}</h2>
         </div>
 
         <div className={styles.nav}>

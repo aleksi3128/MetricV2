@@ -43,6 +43,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Sortir l'app pour le public — l'audit UX/UI, ce qui bloque et le plan en sept lots | [`docs/sortie-publique.md`](docs/sortie-publique.md) |
 | La natation au planning — notation `CR EF R15`, glossaire, fil de l'assistant, import `.fit` piscine | [`docs/planning-natation.md`](docs/planning-natation.md) |
 | La natation comme activité — saisie notée, page Natation, où elle compte | [`docs/natation-activite.md`](docs/natation-activite.md) |
+| La DA de RunFurther — un seul accent rouge, Barlow Condensed, ce qui a été pris et laissé | [`docs/da-runfurther.md`](docs/da-runfurther.md) |
 | Le cahier des charges RunFurther porté dans Metric — l'écart, les décisions, onze lots | [`docs/runfurther-dans-metric.md`](docs/runfurther-dans-metric.md) |
 | Les douleurs — relevé après séance, suivi du matin, réponse graduée, prise sur le coach | [`docs/douleurs.md`](docs/douleurs.md) |
 | La charge multisport — sRPE, forme et fatigue (Banister), sauts de volume, vélo et marche | [`docs/charge-multisport.md`](docs/charge-multisport.md) |
@@ -58,8 +59,9 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Planifier une séance, deuxième version — la notation de course lue par le serveur, les garde-fous, la montre, le respect bloc par bloc | [`docs/planifier-une-seance.md`](docs/planifier-une-seance.md) |
 | Corriger une natation importée — un tour en distance, temps et nage, la fusion, le retrait, les réglages, la réécriture en notation | [`docs/natation-corriger.md`](docs/natation-corriger.md) |
 
-[`docs/GuidelinesUI.html`](docs/GuidelinesUI.html) reste la **référence exclusive** de la
-charte visuelle.
+[`docs/charte-runfurther/`](docs/charte-runfurther/LISEZMOI.md) est la **référence** des
+couleurs, de la typographie et des formes. [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html),
+la charte d'avant, ne vaut plus que pour la mise en page, que RunFurther ne couvre pas.
 
 **Écrire un plan avant de coder** dès que le lot dépasse un correctif. Les documents
 ci-dessus sont tous des plans écrits avant. Un plan dit ce qui change, pourquoi, et ce que
@@ -191,7 +193,7 @@ et `routes/activity/`.
 
 ```bash
 make check     # ruff, ruff format, mypy (347 fichiers), 2 338 tests backend
-               # prettier, eslint, tsc, 802 tests d'écran
+               # prettier, eslint, tsc, 804 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

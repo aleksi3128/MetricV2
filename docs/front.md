@@ -3,8 +3,9 @@
 Document de travail pour **modifier l'interface**. Il dit où sont les pages, ce que chaque
 couche a le droit de décider, et par quel fichier passer selon ce qu'on veut changer.
 
-Il ne remplace pas `GuidelinesUI.html`, qui reste la **référence exclusive** de la charte,
-ni le §2 de [`etat-du-projet.md`](etat-du-projet.md), qui porte les invariants. Il les
+Il ne remplace pas la charte — [`charte-runfurther/`](charte-runfurther/LISEZMOI.md) pour
+les couleurs, la typographie et les formes depuis [`da-runfurther.md`](da-runfurther.md),
+`GuidelinesUI.html` pour la mise en page —, ni le §2 de [`etat-du-projet.md`](etat-du-projet.md), qui porte les invariants. Il les
 rend praticables.
 
 > **À lire avant une refonte** : la [§7](#7--ce-quune-refonte-ne-doit-pas-casser) liste les
@@ -407,7 +408,8 @@ Les deux dernières lignes ne sont pas une commodité de rangement : voir la
 
 ### Les deux thèmes
 
-Le sombre est celui de `GuidelinesUI.html` et reste le défaut de `:root`. Le clair est une
+Le sombre est celui de RunFurther et reste le défaut de `:root`. Le clair — que RunFurther
+n'a pas, et qui en est dérivé ([`da-runfurther.md`](da-runfurther.md)) — est une
 **seconde table de valeurs** dans le même fichier, sous `:root[data-theme='light']` : il
 n'écrase que ce qui dépend de la clarté du fond — surfaces, encres, les quatre tons, et
 les opacités qui en dérivent. Il n'ajoute aucun token et n'en retire aucun.

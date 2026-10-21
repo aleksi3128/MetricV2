@@ -31,12 +31,6 @@
   gap: var(--s2);
 }
 
-.title {
-  font-size: var(--t-title);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-
 /* ── L'objectif en cours (`GOAL-04`, `GOAL-05`) ────── */
 
 /* L'anneau au-dessus de la phrase au pouce, à côté dès qu'il y a la place : à 390 px,

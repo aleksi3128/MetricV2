@@ -1,10 +1,12 @@
 /* ═══════════════════════════════════════════════════
    METRIC — Design tokens
-   Direction : planche de bord instrumentée.
-   Fond sombre mat, accents saturés, données en mono.
+   Direction : celle de RunFurther (`docs/da-runfurther.md`).
+   Fond presque noir aux gris chauds, un seul accent rouge, chiffres en condensé.
 
-   Source de vérité : GuidelinesUI.html (`:root`). Les valeurs du bloc « Charte »
-   ci-dessous en sont la reprise exacte — ne pas les modifier sans modifier la charte.
+   Source de vérité : `docs/charte-runfurther/` (`02-tokens/tokens.css`). Les valeurs du
+   bloc « Charte » ci-dessous en sont la reprise, **sous les noms de Metric** : `--ink`
+   est le `fg` de RunFurther, `--signal` son `red`. Garder les noms a laissé valides les
+   250 emplois des écrans ; ne pas modifier une valeur sans modifier la charte.
    Le bloc « Extensions » ajoute ce que la charte utilisait en valeurs littérales et
    qu'une application a besoin de nommer.
 
@@ -25,35 +27,48 @@
   color-scheme: dark;
 
   /* ── Charte — fond & surfaces ──────────────────── */
-  --bg: #0b0f16;
-  --surface: #131a24;
-  --surface-2: #18212d;
-  --line: #1f2a38;
-  --line-soft: #182231;
+  --bg: #0d0b0c;
+  --surface: #161314;
+  --surface-2: #1e1a1b;
+  --line: #2c2627;
+  --line-soft: #221e1f;
 
-  /* ── Charte — 4 couleurs de signal ─────────────── */
-  --signal: #38bdf8; /* primaire — bleu ciel, mesure / neutre */
-  --effort: #4ade80; /* vert franc — activité, série tenue */
-  --load: #fbbf24; /* ambre vif — charge, seuil approché */
-  --recover: #fb7185; /* rose — repos, alerte, dette */
+  /* ── Charte — 4 tons, un seul accent ────────────
+     RunFurther n'a qu'un accent : `signal` et `recover` valent **le même rouge**. Le
+     primaire et l'alerte se distinguent par leur mot, pas par leur teinte — « si tout est
+     rouge, plus rien ne l'est ». Les deux noms restent séparés : ce qu'ils *veulent dire*
+     n'a pas fusionné, et une charte suivante pourra les rouvrir sans toucher un écran. */
+  --signal: #ff2e3b; /* `red` — primaire, focus, ce qui compte */
+  --effort: #4cc38a; /* `good` — série tenue, stable */
+  --load: #e8a33d; /* `warn` — charge, seuil approché, à surveiller */
+  --recover: #ff2e3b; /* `red` — alerte, dette, destruction */
+
+  /* `cyan` de RunFurther, l'« info » et la seconde série. C'est la couleur de **ce qui
+     est proposé** (`AiBlock`, `Stepper` en état `proposed`) : laissé sur `--signal`, une
+     proposition aurait pris le rouge de l'alerte. */
+  --info: #3e9bc9;
 
   /* ── Confettis ────────────────────────────────────
      Décoratif, et **c'est la seule liste de couleurs du dépôt qui ne porte aucun sens**.
      Elle est ici quand même : « aucune couleur en dur » vaut aussi pour ce qui ne veut
      rien dire, sans quoi la première exception en appelle une seconde.
 
-     Les quatre couleurs de signal ouvrent la liste — la fête reste dans la charte — et
+     Les quatre couleurs de la charte ouvrent la liste — la fête reste dans la charte — et
      trois teintes de plus l'élargissent, parce qu'un feu d'artifice en quatre couleurs se
      lit comme un graphique. */
-  --confetti: #38bdf8, #4ade80, #fbbf24, #fb7185, #a78bfa, #38bdf8, #fb923c;
+  --confetti: #ff2e3b, #4cc38a, #e8a33d, #3e9bc9, #a78bfa, #ff8a91, #fb923c;
 
   /* ── Charte — texte ───────────────────────────── */
-  --ink: #e3e8ee;
-  --ink-mid: #97a3b0;
-  --ink-low: #5c6874;
+  --ink: #f3eeee;
+  --ink-mid: #a9a0a1;
+  --ink-low: #716869;
 
-  /* ── Charte — type ────────────────────────────── */
+  /* ── Charte — type ──────────────────────────────
+     Trois familles, trois rôles. `--display` garde son nom historique mais porte
+     l'**interface** (Space Grotesk) ; le tableau d'affichage — chiffres et titres — est
+     `--condensed` (Barlow Condensed). */
   --display: 'Space Grotesk', system-ui, sans-serif;
+  --condensed: 'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, monospace;
 
   /* ── Charte — rayons ──────────────────────────── */
@@ -66,11 +81,12 @@
      main ; les nommer permet de dériver n'importe quelle opacité, et surtout de
      paramétrer une couleur d'accent par piste (`HEAT-20`, `L11-12`) sans dupliquer
      quatre variantes par couleur. */
-  --signal-rgb: 56 189 248;
-  --effort-rgb: 74 222 128;
-  --load-rgb: 251 191 36;
-  --recover-rgb: 251 113 133;
-  --ink-rgb: 227 232 238;
+  --signal-rgb: 255 46 59;
+  --effort-rgb: 76 195 138;
+  --load-rgb: 232 163 61;
+  --recover-rgb: 255 46 59;
+  --info-rgb: 62 155 201;
+  --ink-rgb: 243 238 238;
 
   /* ── Les couleurs que le thème ne retourne pas ─────
      Une seule raison pour toutes : elles ne s'affichent pas **sur** le fond de
@@ -93,8 +109,8 @@
      dessin en tire l'ombre portée, qui est l'encre opposée à une opacité. */
   --story-light: #ffffff;
   --story-light-rgb: 255 255 255;
-  --story-dark: #0b0f16;
-  --story-dark-rgb: 11 15 22;
+  --story-dark: #0d0b0c;
+  --story-dark-rgb: 13 11 12;
 
   /* La cinquième teinte de l'encre de story. Les quatre autres sont les signaux de la
      charte ; celle-ci vient de `--confetti`, la seule liste du dépôt qui assume de ne
@@ -109,10 +125,11 @@
   --accent-rgb: var(--signal-rgb);
 
   /* Opacités des 4 niveaux d'intensité de heatmap (`HEAT-15`).
-     Reprises des classes `.l1`–`.l4` de la charte. */
-  --heat-a1: 0.2;
-  --heat-a2: 0.4;
-  --heat-a3: 0.65;
+     Le premier palier vaut 0.22 et non 0.2 : à 0.2, le rouge de RunFurther ne décollait
+     de la case vide que de ΔL* 5,8, sous le plancher de 6 que `tokens.test.ts` exige. */
+  --heat-a1: 0.22;
+  --heat-a2: 0.42;
+  --heat-a3: 0.66;
   --heat-a4: 1;
 
   /* Cellule de heatmap. La charte fixe 12 px et 3 px de gouttière. */
@@ -135,10 +152,10 @@
   --s7: 36px;
   --s8: 52px;
 
-  /* Rayon des contrôles — la charte utilise 10 px pour les boutons, 5 px pour
-     les badges. */
-  --r-btn: 10px;
-  --r-badge: 5px;
+  /* Rayon des contrôles — `radius-md` de RunFurther pour les boutons, `radius-pill`
+     pour les pastilles. */
+  --r-btn: 8px;
+  --r-badge: 999px;
 
   /* ── Cible tactile (`L17-07`) ───────────────────
      Le mobile est la cible d'usage principale du projet, et la charte n'avait
@@ -165,10 +182,11 @@
      `TabBar.module.css` — trois occurrences de `#93b8c3`, une de `#1b2530`. Elles
      tenaient parce qu'un survol *éclaircit* sur fond sombre ; sur fond clair il doit
      assombrir, et un littéral ne sait pas faire les deux. */
-  --signal-hover: #7dd3fc;
+  --signal-hover: #ff5c66;
 
-  /* Élévation des surfaces flottantes (infobulles, tiroirs). */
-  --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  /* Élévation des surfaces flottantes (infobulles, tiroirs) — `shadow-tip`, la seule
+     ombre de RunFurther, qui sépare tout le reste par des filets. */
+  --shadow: 0 12px 32px rgb(0 0 0 / 0.55);
 
   /* Voile derrière une feuille. Il assombrit dans les deux thèmes — c'est ce qui dit
      que l'écran est en retrait —, mais pas de la même quantité : sur fond clair, la
@@ -198,6 +216,13 @@
   --t-num-xl: 34px; /* le chiffre qu'on vient lire, lui, grandit */
   --t-num: 17px; /* chiffre en ligne dans une phrase */
   --t-num-md: 20px; /* chiffre secondaire : indicateur, objectif, total */
+
+  /* Les titres en Barlow Condensed. Un condensé se lit d'un cran plus petit qu'un Space
+     Grotesk de même taille : ces trois valeurs sont celles de `--t-hero`, `--t-title`
+     et `--t-head` relevées d'autant. 24 px est le `panel-title` de RunFurther. */
+  --t-h1: 36px;
+  --t-h2: 24px;
+  --t-h3: 20px;
 
   /* Interlettrage des capitales monospace. La charte montait à `.18em` sur des
      surtitres de 11 px ; à 12 px, la même valeur les élargit de 9 % et fait
@@ -238,6 +263,8 @@
   :root {
     --t-hero: 40px;
     --t-title: 22px;
+    --t-h1: 48px;
+    --t-h2: 26px;
     --t-num-xl: 40px;
     --gutter: 28px;
     --card-pad: var(--s5);
@@ -256,15 +283,14 @@
    échelles, rayons, cibles tactiles, durées — est commun aux deux thèmes et n'a rien
    à faire ici.
 
-   **Les quatre tons gardent leur sens et leur ordre de lecture** : `signal` mesure,
-   `effort` tient, `load` approche, `recover` alerte. Ils ne changent pas de teinte,
-   ils changent de clarté — même angle de teinte à ±2°, saturation relevée, luminance
-   descendue de moitié. C'est ce qu'il faut pour garder le même contraste contre un
-   fond blanc plutôt que noir.
+   **Les tons gardent leur sens et leur ordre de lecture** : `signal` et `recover` sont
+   le même rouge, `effort` tient, `load` approche, `info` propose. Ils ne changent pas
+   de teinte, ils changent de clarté. C'est ce qu'il faut pour garder le même contraste
+   contre un fond blanc plutôt que noir.
 
    Chaque valeur ci-dessous est mesurée, pas choisie à l'œil : texte à 4,5:1 minimum,
-   éléments d'interface à 3:1. `--ink-low` tient **4,9:1 sur `--bg`** là où le thème
-   sombre le laisse à 3,4 — le défaut connu de la charte n'est pas reproduit ici. */
+   éléments d'interface à 3:1. `--ink-low` tient **5,5:1 sur `--bg`** là où le thème
+   sombre le laisse à 3,6 — le défaut connu de la charte n'est pas reproduit ici. */
 
 :root[data-theme='light'] {
   color-scheme: light;
@@ -272,39 +298,42 @@
   /* ── Fond & surfaces ─────────────────────────────
      Trois niveaux, dans l'ordre inverse du sombre : la carte est *au-dessus* de la
      page, donc plus claire, et la surface en retrait est plus sombre que les deux. */
-  --bg: #f5f7f9;
+  --bg: #f7f4f4;
   --surface: #ffffff;
-  --surface-2: #e6ebf1;
-  --line: #cfd8e1;
-  --line-soft: #e2e8ef;
+  --surface-2: #ebe5e5;
+  --line: #d8cfd0;
+  --line-soft: #ebe5e5;
 
-  /* ── Les 4 couleurs de signal ────────────────────
-     Même sémantique, même ordre. **Les teintes ne sont plus celles du sombre** : un
-     accent de thème clair doit être sombre pour porter du texte, un accent de thème
-     sombre doit être clair pour qu'on écrive dessus. Le primaire est donc bleu ciel
-     d'un côté (#38BDF8) et bleu marine de l'autre (#1E3A8A) — deux bouts de la même
-     famille, chacun là où il tient ses 4,5:1. */
-  --signal: #1e3a8a; /* bleu marine — mesure / neutre */
-  --effort: #166534; /* vert — activité, série tenue */
-  --load: #92400e; /* ambre — charge, seuil approché */
-  --recover: #be123c; /* rose — repos, alerte, dette */
+  /* ── Les tons ─────────────────────────────────────
+     RunFurther n'a pas de thème clair : cette table est **dérivée**, pas reprise. Même
+     sémantique, même accent unique ; chaque teinte est assombrie jusqu'à tenir ses 4,5:1
+     sur blanc — un rouge qui porte du texte sur fond clair ne peut pas être celui qui en
+     porte sur fond noir. */
+  --signal: #c8101e; /* `red` assombri */
+  --effort: #17703f; /* `good` assombri */
+  --load: #8f4b06; /* `warn` assombri */
+  --recover: #c8101e; /* `red` assombri */
+  --info: #1b6a93; /* `cyan` assombri */
 
   /* Mêmes teintes, assombries pour tenir sur un fond clair. */
-  --confetti: #1e3a8a, #166534, #92400e, #be123c, #6d28d9, #0369a1, #c2410c;
+  --confetti: #c8101e, #17703f, #8f4b06, #1b6a93, #6d28d9, #e0444f, #c2410c;
 
-  /* ── Texte ───────────────────────────────────── */
-  --ink: #131b24;
-  --ink-mid: #4c5a68;
-  --ink-low: #5f6d7a;
+  /* ── Texte ─────────────────────────────────────
+     Les gris chauds de RunFurther. `--ink-low` tient 5,5:1 sur `--bg`, là où le `fg-3`
+     de la charte sombre s'arrête à 3,6. */
+  --ink: #1a1415;
+  --ink-mid: #574d4e;
+  --ink-low: #6b6162;
 
   /* Les composantes RVB **doivent** suivre leur hex : tout ce qui dérive une opacité
      lit celles-ci, et une paire désaccordée donne un badge d'une couleur et son texte
      d'une autre. `tokens.test.ts` le vérifie sur les deux thèmes. */
-  --signal-rgb: 30 58 138;
-  --effort-rgb: 22 101 52;
-  --load-rgb: 146 64 14;
-  --recover-rgb: 190 18 60;
-  --ink-rgb: 19 27 36;
+  --signal-rgb: 200 16 30;
+  --effort-rgb: 23 112 63;
+  --load-rgb: 143 75 6;
+  --recover-rgb: 200 16 30;
+  --info-rgb: 27 106 147;
+  --ink-rgb: 26 20 21;
 
   /* ── Heatmap : le vrai travail du thème clair ────
      Les quatre niveaux d'intensité ne sont **que** des opacités posées sur la carte.
@@ -317,9 +346,9 @@
 
      Ces quatre valeurs sont le résultat d'une recherche du jeu qui maximise le plus
      petit pas de la suite vide → 1 → 2 → 3 → 4, sur les quatre tons à la fois —
-     chaque piste choisit son accent. Le pas le plus serré vaut **ΔL* 12,4**, contre
-     6,6 pour le thème sombre : les niveaux sont plus également espacés en clair
-     qu'en sombre. */
+     chaque piste choisit son accent. Avec les teintes de RunFurther, le pas le plus
+     serré vaut **ΔL* 7,6** (le dernier palier du rouge), contre 6,8 pour le thème
+     sombre. */
   --heat-a1: 0.35;
   --heat-a2: 0.57;
   --heat-a3: 0.79;
@@ -331,11 +360,11 @@
   --badge-border-a: 0.42;
 
   /* Un survol assombrit, au lieu d'éclaircir. */
-  --signal-hover: #172554;
+  --signal-hover: #9e0c17;
 
   /* Une ombre portée sur fond clair se lit à 12 % là où il en fallait 45 sur fond
      sombre : au-delà, elle salit la page au lieu de détacher la surface. */
-  --shadow: 0 8px 24px rgb(19 27 36 / 0.12);
-  --scrim: rgb(19 27 36 / 0.38);
-  --heat-edge: rgb(19 27 36 / 0.06);
+  --shadow: 0 12px 32px rgb(26 20 21 / 0.12);
+  --scrim: rgb(26 20 21 / 0.38);
+  --heat-edge: rgb(26 20 21 / 0.06);
 }

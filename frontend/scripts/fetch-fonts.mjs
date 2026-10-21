@@ -1,5 +1,5 @@
 /**
- * Récupère Space Grotesk et JetBrains Mono depuis Google Fonts et les installe
+ * Récupère Space Grotesk, Barlow Condensed et JetBrains Mono depuis Google Fonts et les installe
  * localement dans `public/fonts/`, puis génère `src/styles/fonts.css`.
  *
  * Pourquoi ne pas garder le `<link>` CDN des guidelines : une dépendance réseau à un
@@ -24,6 +24,8 @@ const KEEP_SUBSETS = new Set(['latin', 'latin-ext']);
 
 const FAMILIES = [
   { name: 'Space Grotesk', slug: 'space-grotesk', weights: [400, 500, 600, 700] },
+  // Le tableau d'affichage de RunFurther : chiffres et titres (`docs/da-runfurther.md`).
+  { name: 'Barlow Condensed', slug: 'barlow-condensed', weights: [500, 600, 700] },
   { name: 'JetBrains Mono', slug: 'jetbrains-mono', weights: [400, 500, 700] },
 ];
 
@@ -103,7 +105,7 @@ async function main() {
     '/* ═══════════════════════════════════════════════════',
     '   METRIC — Polices servies localement',
     '   Généré par `npm run fonts`. Ne pas éditer à la main.',
-    '   Space Grotesk · JetBrains Mono — licence OFL.',
+    '   Space Grotesk · Barlow Condensed · JetBrains Mono — licence OFL.',
     '   ═══════════════════════════════════════════════════ */',
     '',
   ].join('\n');

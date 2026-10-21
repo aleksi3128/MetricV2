@@ -108,7 +108,7 @@ describe('application', () => {
 
   it('fait suivre les deux balises que lit le système', () => {
     document.head.innerHTML =
-      '<meta name="color-scheme" content="dark"><meta name="theme-color" content="#0B0F16">';
+      '<meta name="color-scheme" content="dark"><meta name="theme-color" content="#0D0B0C">';
 
     applyTheme('light');
     expect(document.querySelector('meta[name="color-scheme"]')).toHaveAttribute('content', 'light');

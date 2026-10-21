@@ -14,19 +14,23 @@
   color: var(--ink-low);
 }
 
+/* Le chiffre qu'on vient lire est en Barlow Condensed, comme le `kpi-value` de
+   RunFurther : un tableau d'affichage, pas une colonne. La mono reste aux valeurs alignées
+   — tableaux, axes, détails. */
 .statValue {
-  font-family: var(--mono);
+  font-family: var(--condensed);
   font-size: var(--t-num-xl);
-  font-weight: 500;
-  letter-spacing: -0.03em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   margin-top: 6px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .statUnit {
-  font-size: var(--t-sub);
-  color: var(--ink-low);
+  font-size: var(--t-num);
+  font-weight: 500;
+  color: var(--ink-mid);
   margin-left: 5px;
 }
 

@@ -135,7 +135,7 @@
 }
 
 .title {
-  font-size: var(--t-title);
+  font-size: var(--t-h2);
 }
 
 .lede {

@@ -239,7 +239,7 @@ describe('la story d’une course', () => {
     const strip = await screen.findByRole('group', { name: 'Teinte de l’encre' });
     // Chaque teinte porte son **nom** : un choix qui ne se lirait qu'à la couleur serait
     // illisible pour qui ne les distingue pas.
-    for (const name of ['Bleu', 'Vert', 'Ambre', 'Rose', 'Violet']) {
+    for (const name of ['Rouge', 'Vert', 'Ambre', 'Cyan', 'Violet']) {
       expect(within(strip).getByRole('button', { name })).toBeInTheDocument();
     }
   });

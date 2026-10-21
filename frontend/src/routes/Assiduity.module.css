@@ -24,12 +24,6 @@
   overflow: hidden;
 }
 
-.trackName {
-  font-size: var(--t-title);
-  font-weight: 500;
-  letter-spacing: -0.01em;
-}
-
 .cadence {
   margin-top: 4px;
   font-family: var(--mono);
@@ -150,8 +144,6 @@
 }
 
 .drawerTitle {
-  font-size: var(--t-title);
-  font-weight: 500;
   margin-top: 6px;
 }
 

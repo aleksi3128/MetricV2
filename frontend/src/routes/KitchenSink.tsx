@@ -345,14 +345,21 @@ export function KitchenSink() {
 
       {/* ══ 02 TYPOGRAPHIE ══ */}
       <Rule>02 — Typographie</Rule>
-      <div className="grid g2">
+      <div className="grid g3">
         <Card>
-          <p className="eyebrow">Display · Space Grotesk</p>
-          <p className={cx(styles.specimen, styles.specimenDisplay)}>42,7 km</p>
+          <p className="eyebrow">Chiffres et titres · Barlow Condensed</p>
+          <p className={cx(styles.specimen, styles.specimenCondensed)}>42,7 km</p>
           <p className={styles.note}>
-            Titres, libellés, interface. Ses formes légèrement techniques tiennent bien aux grandes
-            tailles. Le corps de texte est à 16&nbsp;px, le plancher à 12 — rien n’est écrit plus
-            petit nulle part.
+            Le tableau d’affichage de RunFurther : le chiffre qu’on vient lire, les titres de page
+            et de carte. Les titres de carte sont en capitales, et seulement eux.
+          </p>
+        </Card>
+        <Card>
+          <p className="eyebrow">Interface · Space Grotesk</p>
+          <p className={cx(styles.specimen, styles.specimenDisplay)}>Séance du jour</p>
+          <p className={styles.note}>
+            Libellés, boutons, champs, corps de texte. Le corps est à 16&nbsp;px, le plancher à 12 —
+            rien n’est écrit plus petit nulle part.
           </p>
         </Card>
         <Card>
@@ -584,7 +591,7 @@ export function KitchenSink() {
             <p className={styles.note}>
               Deux fois par semaine. La grille est majoritairement grise, et ce n'est{' '}
               <strong>pas</strong> un échec : gris veut dire « rien n'était attendu ce jour-là ».
-              Seul le mauve accuse. Les hachures sont les jours neutralisés — une grippe ne casse
+              Seul le rouge accuse. Les hachures sont les jours neutralisés — une grippe ne casse
               pas une série.
             </p>
           </div>
@@ -690,8 +697,8 @@ export function KitchenSink() {
           }}
           note={
             <>
-              Les barres sous l'axe passent en <span className={styles.recoverInk}>mauve</span> sous
-              6 h 30. Trois barres mauves d'affilée et la bande de charge s'épaissit : c'est le
+              Les barres sous l'axe passent en <span className={styles.recoverInk}>rouge</span> sous
+              6 h 30. Trois barres rouges d'affilée et la bande de charge s'épaissit : c'est le
               signal qu'on cherche à voir venir.
             </>
           }

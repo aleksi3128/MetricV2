@@ -55,6 +55,12 @@
   font-weight: 700;
 }
 
+.specimenCondensed {
+  font-family: var(--condensed);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
 .specimenMono {
   font-family: var(--mono);
   font-weight: 500;

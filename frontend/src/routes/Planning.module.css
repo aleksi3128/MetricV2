@@ -37,13 +37,6 @@
   gap: var(--s3);
 }
 
-.month {
-  font-size: var(--t-title);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  text-transform: capitalize;
-}
-
 .nav {
   display: flex;
   gap: var(--s2);

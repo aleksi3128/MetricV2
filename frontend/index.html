@@ -9,7 +9,7 @@
     <!-- Valeurs de départ : le sombre est le thème de la charte. Le script ci-dessous les
          corrige avant la première peinture si le thème résolu est le clair. -->
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#0B0F16" />
+    <meta name="theme-color" content="#0D0B0C" />
     <!--
       Le thème, posé avant que quoi que ce soit ne s'affiche.
 
@@ -38,7 +38,7 @@
           document.documentElement.dataset.theme = theme;
           document.querySelector('meta[name="color-scheme"]').content = theme;
           document.querySelector('meta[name="theme-color"]').content =
-            theme === 'light' ? '#F5F7F9' : '#0B0F16';
+            theme === 'light' ? '#F7F4F4' : '#0D0B0C';
         } catch (error) {
           // Stockage refusé ou `matchMedia` absent : le sombre des balises ci-dessus
           // reste en place, et l'application s'affiche.

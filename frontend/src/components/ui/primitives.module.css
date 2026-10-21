@@ -150,10 +150,15 @@
   white-space: nowrap;
 }
 
+/* Le badge `signal` est **neutre** : une étiquette (type de repas, source `.fit`, durée
+   d'un circuit) ou un « pas encore » face à l'`effort` atteint. Teint de `--signal`, il
+   prenait le rouge de RunFurther et 24 étiquettes se lisaient comme des alertes — « si
+   tout est rouge, plus rien ne l'est ». Il reprend le `rf-tag` de la charte : gris sur
+   `--surface-2`. */
 .signal {
-  color: var(--signal);
-  border-color: rgb(var(--signal-rgb) / var(--badge-border-a));
-  background: rgb(var(--signal-rgb) / var(--badge-bg-a));
+  color: var(--ink-mid);
+  border-color: var(--line);
+  background: var(--surface-2);
 }
 
 .effort {
@@ -402,11 +407,14 @@
 /* Valeur proposée par l'IA, pas encore validée (`NUT-04`, `IMP-02`).
    Le trait discontinu est le même vocabulaire que l'état vide de la charte : ce qui n'est
    pas plein est ce qui n'est pas acquis. La teinte reprend celle du bloc IA, pour qu'on
-   lise d'où vient le chiffre sans avoir à le chercher. */
+   lise d'où vient le chiffre sans avoir à le chercher.
+
+   Cette teinte est `--info`, le cyan de RunFurther : sur `--signal`, elle aurait pris le
+   rouge de l'alerte, et une proposition ne doit pas se lire comme un avertissement. */
 .stepperProposed {
   border-style: dashed;
-  border-color: rgb(var(--signal-rgb) / 0.55);
-  background: linear-gradient(180deg, rgb(var(--signal-rgb) / 0.08), transparent), var(--bg);
+  border-color: rgb(var(--info-rgb) / 0.55);
+  background: linear-gradient(180deg, rgb(var(--info-rgb) / 0.08), transparent), var(--bg);
 }
 
 /* ── Pastilles ────────────────────────────────────── */
@@ -663,10 +671,11 @@
 
 /* ── Bloc IA ──────────────────────────────────────── */
 
+/* En `--info`, comme `.stepperProposed` : les deux seules façons de dire « proposé »
+   partagent leur couleur, et ce n'est pas celle de l'accent. */
 .ai {
-  border: 1px solid rgb(var(--signal-rgb) / 0.28);
-  background:
-    linear-gradient(180deg, rgb(var(--signal-rgb) / 0.07), transparent 70%), var(--surface);
+  border: 1px solid rgb(var(--info-rgb) / 0.32);
+  background: linear-gradient(180deg, rgb(var(--info-rgb) / 0.07), transparent 70%), var(--surface);
   border-radius: var(--r);
   padding: var(--card-pad);
   position: relative;
@@ -683,8 +692,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 0 4px rgb(var(--signal-rgb) / 0.14);
+  background: var(--info);
+  box-shadow: 0 0 0 4px rgb(var(--info-rgb) / 0.14);
 }
 
 .ai p {
@@ -742,7 +751,7 @@
 .aiHint {
   display: block;
   margin-top: var(--s3);
-  color: var(--signal);
+  color: var(--info);
   font-family: var(--mono);
   font-size: var(--t-meta);
   letter-spacing: 0.04em;

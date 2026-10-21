@@ -542,7 +542,7 @@ export function Goals() {
     <div className={cx('wrap', styles.screen)}>
       <header className={styles.head}>
         <p className="eyebrow">Objectif</p>
-        <h2 className={styles.title}>Une cible, chiffrée, datée</h2>
+        <h2>Une cible, chiffrée, datée</h2>
       </header>
 
       {isPending && <Card>Chargement de l&apos;objectif…</Card>}

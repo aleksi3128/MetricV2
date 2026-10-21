@@ -65,19 +65,23 @@ export type StoryInk = 'light' | 'dark' | 'accent';
 /**
  * Les cinq teintes offertes derrière « Couleur ».
  *
- * **Toutes viennent d'un jeton.** Quatre sont les signaux de la charte ; la cinquième est
- * le violet de `--confetti`, la seule liste du dépôt qui assume de ne rien vouloir dire.
- * Une sixième inventée pour l'occasion aurait été la première couleur de l'application à
- * ne venir de nulle part.
+ * **Toutes viennent d'un jeton.** Quatre sont les couleurs de la charte RunFurther ; la
+ * cinquième est le violet de `--confetti`, la seule liste du dépôt qui assume de ne rien
+ * vouloir dire. Une sixième inventée pour l'occasion aurait été la première couleur de
+ * l'application à ne venir de nulle part.
+ *
+ * `recover` n'en fait plus partie : avec RunFurther il vaut le même rouge que `signal`, et
+ * la bande proposait deux cases identiques sous deux noms. Le cyan de `--info` a pris sa
+ * place.
  */
-export type StoryAccent = 'signal' | 'effort' | 'load' | 'recover' | 'violet';
+export type StoryAccent = 'signal' | 'effort' | 'load' | 'info' | 'violet';
 
 /** Dans l'ordre où la bande les propose. Le libellé est celui qu'on lit à côté. */
 export const ACCENTS = [
-  { value: 'signal', label: 'Bleu', token: '--signal' },
+  { value: 'signal', label: 'Rouge', token: '--signal' },
   { value: 'effort', label: 'Vert', token: '--effort' },
   { value: 'load', label: 'Ambre', token: '--load' },
-  { value: 'recover', label: 'Rose', token: '--recover' },
+  { value: 'info', label: 'Cyan', token: '--info' },
   { value: 'violet', label: 'Violet', token: '--story-violet' },
 ] as const satisfies readonly { value: StoryAccent; label: string; token: string }[];
 

@@ -43,7 +43,7 @@ serveur.
 ### Les deux contrôles de S4
 
 **Blanc · Sombre · Couleur**, en segmenté. « Couleur » — et elle seule — fait apparaître
-une bande de cinq pastilles : Bleu, Vert, Ambre, Rose, Violet. Offertes en permanence,
+une bande de cinq pastilles : Rouge, Vert, Ambre, Cyan, Violet (Bleu et Rose avant [`da-runfurther.md`](da-runfurther.md)). Offertes en permanence,
 elles laissaient croire qu'elles pilotaient le tracé plutôt que l'encre, et ajoutaient
 cinq cibles à une feuille qui en porte déjà six.
 
