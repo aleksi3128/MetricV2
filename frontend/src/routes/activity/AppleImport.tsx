@@ -48,6 +48,7 @@ interface ImportFields {
   distance_km: string;
   duration_min: string;
   avg_hr: string;
+  cadence_spm: string;
   elevation_m: string;
   calories: string;
 }
@@ -59,6 +60,7 @@ const EMPTY_IMPORT: ImportFields = {
   distance_km: '',
   duration_min: '',
   avg_hr: '',
+  cadence_spm: '',
   elevation_m: '',
   calories: '',
 };
@@ -224,11 +226,17 @@ export function AppleImport({ today }: { today: string | undefined }) {
         distance_km: numberText(result.distance_km),
         duration_min: numberText(result.duration_min),
         avg_hr: numberText(result.avg_hr),
+        cadence_spm: numberText(result.cadence_spm),
         elevation_m: numberText(result.elevation_m),
         calories: numberText(result.calories),
       });
       // Ce que la capture portait vraiment — l'inverse exact de `missing`.
-      setProposed(Object.keys(FIELD_NAMES).filter((field) => !result.missing.includes(field)));
+      // La cadence n'est pas dans `missing` — une capture Apple ne la montre pas toujours,
+      // et son absence n'est pas un oubli de lecture à signaler. Proposée si lue, c'est tout.
+      setProposed([
+        ...Object.keys(FIELD_NAMES).filter((field) => !result.missing.includes(field)),
+        ...(result.cadence_spm !== null ? ['cadence_spm'] : []),
+      ]);
       setError(null);
     },
     onError: (caught: unknown) => {
@@ -246,6 +254,11 @@ export function AppleImport({ today }: { today: string | undefined }) {
         type: fields.type || (fields.kind === 'run' ? 'Course' : 'séance'),
         distance_km: fields.distance_km || null,
         avg_hr: fields.avg_hr || null,
+        // Audit du 17 octobre, fiche 02 : lue, montrée nulle part, jamais envoyée — la
+        // colonne `cadence_spm` restait vide. **L'allure lue, elle, ne part pas** : quand
+        // elle accompagne la distance, `RunPayload` la fait gagner et recalcule la
+        // distance depuis une allure arrondie à la seconde — 8,14 km devenaient 8,142.
+        cadence_spm: fields.kind === 'run' ? fields.cadence_spm || null : null,
         elevation_m: fields.elevation_m || null,
         calories: fields.calories || null,
         // Ce que l'analyse a lu et qu'aucun champ ne montre : il traverse tel quel.
@@ -570,6 +583,18 @@ export function AppleImport({ today }: { today: string | undefined }) {
                 proposed={proposed.includes('calories')}
                 error={error?.messageFor('calories')}
               />
+              {fields.kind === 'run' && (
+                <Stepper
+                  label="Cadence (pas/min)"
+                  inputMode="numeric"
+                  value={fields.cadence_spm}
+                  onChange={set('cadence_spm')}
+                  step={2}
+                  min={0}
+                  proposed={proposed.includes('cadence_spm')}
+                  error={error?.messageFor('cadence_spm')}
+                />
+              )}
             </div>
 
             <Button

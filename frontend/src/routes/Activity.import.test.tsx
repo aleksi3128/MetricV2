@@ -83,6 +83,8 @@ const DRAFT = {
   distance_km: 8.369,
   duration_min: 44.2,
   avg_hr: 152,
+  pace_min_km: 5.28,
+  cadence_spm: 168,
   elevation_m: null,
   calories: 620,
   // Le serveur rend toujours ces champs, y compris vides : une capture de résumé seul
@@ -284,6 +286,37 @@ describe('import Apple', () => {
         distance_km: '8,87',
         duration_min: '44,2',
       });
+    });
+  });
+
+  it('écrit la cadence lue, et pas l’allure lue', async () => {
+    // Audit du 17 octobre, fiche 02 : la cadence lue n'était ni montrée ni envoyée. Et
+    // l'allure lue ne doit pas partir : à côté de la distance, elle la ferait recalculer
+    // depuis une valeur arrondie à la seconde.
+    stub((url, init) =>
+      url.endsWith('/api/import/apple') && init?.method === 'POST'
+        ? json(201, {
+            kind: 'run',
+            id: 0,
+            date: '2026-07-28',
+            label: 'Course à pied',
+            duration_min: 44.2,
+            distance_km: 8.369,
+            source: 'apple',
+          })
+        : undefined,
+    );
+    renderActivity();
+    await readScreenshot();
+
+    expect(within(importCard()).getByLabelText('Cadence (pas/min)')).toHaveValue('168');
+    await userEvent.click(screen.getByRole('button', { name: 'Importer cette activité' }));
+
+    await waitFor(() => {
+      const posted = writes().find((call) => call.url.endsWith('/api/import/apple'));
+      const body = JSON.parse(posted?.init?.body as string) as Record<string, unknown>;
+      expect(body.cadence_spm).toBe('168');
+      expect(body).not.toHaveProperty('pace_min_km');
     });
   });
 
