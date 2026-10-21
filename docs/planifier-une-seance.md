@@ -204,3 +204,14 @@ l'effort visés. Sans `.fit`, la durée et la distance seulement, et la carte le
 Les cinq étapes sont livrées, plus la feuille sur grand écran demandée en cours de route.
 Restent hors du lot, comme prévu : la répétition hebdomadaire d'une séance, le jugement
 d'un bloc sans `.fit`, l'envoi sans fil à la montre.
+
+### Hors plan — les feuilles d'une sortie sur grand écran (21 octobre 2026)
+
+Même défaut que la feuille du planning, sur l'import et la saisie d'une sortie : une bande
+de 480 px sur un écran de Mac, et le stepper « FC moyenne » écrasé à quelques pixels par la
+grille à deux colonnes. Les feuilles « Course » (import puis saisie), sa correction et
+« Natation » prennent `wide` : le fichier de la montre et la capture côte à côte, les
+chiffres d'une course sur deux lignes, les réglages d'une nage à gauche de son programme.
+Leurs enveloppes sont en `display: contents` sous 960 px — le téléphone n'en voit rien.
+Sur grand écran, une feuille large **suit son contenu**, plafonnée à 86dvh : la hauteur
+tenue est une règle du pouce, et laissait la moitié de la feuille vide.

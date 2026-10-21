@@ -21,10 +21,12 @@ import { useState } from 'react';
 import { Button, Field, Rule, Segmented, Sheet } from '@/components/ui';
 import { activityApi, type SwimDetail, type SwimPayload } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
+import { cx } from '@/lib/cx';
 import { meters } from '@/lib/format';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Activity.module.css';
+import wide from './EntrySheet.module.css';
 import { ProgramField } from '../planning/ProgramField';
 import { useInvalidateActivity } from './shared';
 
@@ -115,6 +117,7 @@ export function SwimEntrySheet({
   return (
     <Sheet
       open={open}
+      wide
       onClose={onClose}
       title={editing === null ? 'Natation' : 'Corriger la natation'}
       lede={
@@ -145,85 +148,91 @@ export function SwimEntrySheet({
                 event.target.value = '';
               }}
             />
-            <label htmlFor="swim-fit" className={styles.drop}>
-              {upload.isPending ? 'lecture du fichier…' : 'importer le .fit de la montre'}
-            </label>
-            <p className={styles.note}>
-              Les tours, les nages, la fréquence cardiaque : tout est lu dedans, et le fichier
-              conservé.
-            </p>
+            <div className={wide.strip}>
+              <label htmlFor="swim-fit" className={styles.drop}>
+                {upload.isPending ? 'lecture du fichier…' : 'importer le .fit de la montre'}
+              </label>
+              <p className={styles.note}>
+                Les tours, les nages, la fréquence cardiaque : tout est lu dedans, et le fichier
+                conservé.
+              </p>
+            </div>
             <Rule>Ou à la main</Rule>
           </>
         )}
 
         <form
-          className={styles.form}
+          className={cx(styles.form, wide.swim)}
           onSubmit={(event) => {
             event.preventDefault();
             save.mutate(values);
           }}
         >
-          <Field
-            label="Date"
-            type="date"
-            value={values.date}
-            max={today}
-            error={error?.messageFor('date')}
-            onChange={(event) => {
-              set('date', event.target.value);
-            }}
-          />
-          <Field
-            label="Heure"
-            type="time"
-            value={values.start ?? ''}
-            hint="Facultative."
-            onChange={(event) => {
-              set('start', event.target.value || null);
-            }}
-          />
-          <Field
-            label="Durée"
-            unit="min"
-            inputMode="numeric"
-            value={values.duration_min}
-            placeholder="45"
-            hint="Au chrono, repos compris."
-            error={error?.messageFor('duration_min')}
-            onChange={(event) => {
-              set('duration_min', event.target.value);
-            }}
-          />
-          <Segmented
-            label="Bassin"
-            options={POOLS}
-            value={String(values.pool_m) as '25' | '50'}
-            onChange={(pool) => {
-              set('pool_m', Number(pool));
-            }}
-          />
-          <ProgramField
-            value={values.program}
-            hint="Une ligne par bloc. La distance en est le total."
-            error={error?.messageFor('program')}
-            onChange={(program) => {
-              set('program', program);
-            }}
-          />
-          <Field
-            label="Note"
-            value={values.note ?? ''}
-            placeholder="lignes 4, eau froide"
-            onChange={(event) => {
-              set('note', event.target.value || null);
-            }}
-          />
+          <div className={wide.column}>
+            <Field
+              label="Date"
+              type="date"
+              value={values.date}
+              max={today}
+              error={error?.messageFor('date')}
+              onChange={(event) => {
+                set('date', event.target.value);
+              }}
+            />
+            <Field
+              label="Heure"
+              type="time"
+              value={values.start ?? ''}
+              hint="Facultative."
+              onChange={(event) => {
+                set('start', event.target.value || null);
+              }}
+            />
+            <Field
+              label="Durée"
+              unit="min"
+              inputMode="numeric"
+              value={values.duration_min}
+              placeholder="45"
+              hint="Au chrono, repos compris."
+              error={error?.messageFor('duration_min')}
+              onChange={(event) => {
+                set('duration_min', event.target.value);
+              }}
+            />
+            <Segmented
+              label="Bassin"
+              options={POOLS}
+              value={String(values.pool_m) as '25' | '50'}
+              onChange={(pool) => {
+                set('pool_m', Number(pool));
+              }}
+            />
+          </div>
+          <div className={wide.column}>
+            <ProgramField
+              value={values.program}
+              hint="Une ligne par bloc. La distance en est le total."
+              error={error?.messageFor('program')}
+              onChange={(program) => {
+                set('program', program);
+              }}
+            />
+            <Field
+              label="Note"
+              value={values.note ?? ''}
+              placeholder="lignes 4, eau froide"
+              onChange={(event) => {
+                set('note', event.target.value || null);
+              }}
+            />
+          </div>
           <Button
             type="submit"
             variant="primary"
             busy={save.isPending}
             disabled={values.program.trim() === '' || values.duration_min.trim() === ''}
-            className={styles.commit}
+            className={cx(styles.commit, wide.commit)}
           >
             {editing === null ? 'Enregistrer la natation' : 'Enregistrer'}
           </Button>

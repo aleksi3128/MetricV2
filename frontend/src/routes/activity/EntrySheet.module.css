@@ -1,0 +1,106 @@
+/*
+ * Les feuilles de saisie d'une sortie — course, import, natation — sur grand écran.
+ *
+ * Sur téléphone et tablette, ces enveloppes **n'existent pas** (`display: contents`) : la
+ * feuille garde sa colonne et son ordre, au pixel près. Au second point de rupture, la
+ * feuille s'élargit (`Sheet` `wide`) et le contenu se range sur la largeur : deux façons
+ * d'importer côte à côte, les chiffres d'une course sur une ligne, le programme d'une nage
+ * à côté de ses réglages. C'était une bande de 480 px au milieu d'un écran de Mac.
+ */
+
+.choices,
+.choice,
+.flat,
+.column,
+.strip {
+  display: contents;
+}
+
+.choiceTitle {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  /* Le fichier de la montre, ou une capture : deux portes de même poids, côte à côte. */
+  .choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s5);
+    align-items: stretch;
+  }
+
+  .choice {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    padding: var(--s4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+  }
+
+  .choiceTitle {
+    display: block;
+    margin: 0;
+  }
+
+  /* La phrase d'explication sous sa zone de dépôt, dans les deux cartes : la capture la
+     portait avant, le fichier après, et les deux cartes ne s'alignaient pas. */
+  .after {
+    order: 1;
+  }
+
+  /* Une zone de dépôt digne de ce nom : à la souris, on vise mieux un grand rectangle. */
+  .choice > label,
+  .strip > label {
+    min-height: 140px;
+  }
+
+  /* Les chiffres d'une course sur une ligne : date, temps, distance, allure — puis
+     cadence, FC et ressenti. Le stepper « FC moyenne » n'est plus écrasé à 10 px. */
+  .grid4 {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: var(--s4);
+    row-gap: var(--s5);
+    align-items: start;
+  }
+
+  .span2 {
+    grid-column: span 2;
+  }
+
+  .full {
+    grid-column: 1 / -1;
+  }
+
+  /* L'import d'une nage en bandeau, au-dessus du formulaire. */
+  .strip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: var(--s5);
+    align-items: center;
+  }
+
+  /* Ses réglages à gauche, son programme et sa lecture à droite. */
+  .swim {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    column-gap: var(--s6);
+    row-gap: var(--s4);
+    align-items: start;
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+    min-width: 0;
+  }
+
+  .commit {
+    grid-column: 1 / -1;
+    justify-self: start;
+    width: auto;
+    min-width: 260px;
+  }
+}

@@ -48,6 +48,7 @@ import { activityApi, type Other, type Run, type SwimDetail } from '@/features/a
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
+import { cx } from '@/lib/cx';
 import { meters, num } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
 import { CROSS_CUTTING, keys } from '@/lib/query';
@@ -55,7 +56,9 @@ import { useToast } from '@/lib/toast';
 
 import { PainCheck } from '../body/PainCheck';
 import { RateEffort, RateRun } from './run/Rate';
+
 import styles from '../Activity.module.css';
+import wide from './EntrySheet.module.css';
 import { useInvalidateActivity } from './shared';
 
 export function NewActivitySheet({
@@ -75,7 +78,7 @@ export function NewActivitySheet({
   }
 
   return (
-    <Sheet open={open} onClose={close} title="Course" lede={`Étape ${String(step)} sur 2`}>
+    <Sheet open={open} onClose={close} title="Course" lede={`Étape ${String(step)} sur 2`} wide>
       {/* **L'étape 0 a disparu avec la séance.** Elle demandait « Course ou Séance ? » ;
           il ne reste qu'une nature à saisir à la main, et poser une question dont la
           réponse est déjà connue est un appui de plus pour rien. « Retour », à la
@@ -309,14 +312,14 @@ function RunWizard({
   }
 
   return (
-    <div className={styles.form}>
+    <div className={cx(styles.form, wide.grid4)}>
       {error !== null && (
-        <p className={styles.error} role="alert">
+        <p className={cx(styles.error, wide.full)} role="alert">
           {error.message}
         </p>
       )}
 
-      <div className={styles.pair}>
+      <div className={cx(styles.pair, wide.flat)}>
         <Field
           label="Date"
           type="date"
@@ -341,7 +344,7 @@ function RunWizard({
 
       {/* Distance **et** allure sont modifiables, et le serveur recalcule celle qu'on n'a
           pas touchée. C'est pour cela qu'elles sont côte à côte : leur lien se voit. */}
-      <div className={styles.pair}>
+      <div className={cx(styles.pair, wide.flat)}>
         <Stepper
           label="Distance (km)"
           value={fields.distance_km}
@@ -369,7 +372,7 @@ function RunWizard({
         />
       </div>
 
-      <div className={styles.logGrid}>
+      <div className={cx(styles.logGrid, wide.flat)}>
         <Stepper
           label="Cadence (SPM)"
           inputMode="numeric"
@@ -392,16 +395,18 @@ function RunWizard({
         />
       </div>
 
-      <Field
-        label="Ressenti"
-        placeholder="jambes lourdes, vent de face…"
-        value={fields.note}
-        onChange={(event) => {
-          setFields((current) => ({ ...current, note: event.target.value }));
-        }}
-      />
+      <div className={wide.span2}>
+        <Field
+          label="Ressenti"
+          placeholder="jambes lourdes, vent de face…"
+          value={fields.note}
+          onChange={(event) => {
+            setFields((current) => ({ ...current, note: event.target.value }));
+          }}
+        />
+      </div>
 
-      <div className={styles.sheetCommit}>
+      <div className={cx(styles.sheetCommit, wide.full)}>
         <Button
           variant="primary"
           className={styles.commit}
@@ -576,46 +581,55 @@ function AppleStep({
           event.target.value = '';
         }}
       />
-      <label htmlFor="run-fit" className={styles.drop}>
-        {importFit.isPending || importSwim.isPending || importOther.isPending
-          ? 'lecture du fichier…'
-          : 'importer un fichier .fit'}
-      </label>
-      <p className={styles.note}>
-        Le fichier de ta montre ou de Strava. Distance, temps, paliers et parcours sont lus dedans,
-        la sortie est enregistrée et le fichier conservé. Une natation en piscine va au planning.
-      </p>
+      <div className={wide.choices}>
+        <div className={wide.choice}>
+          <h3 className={wide.choiceTitle}>Le fichier de la montre</h3>
+          <label htmlFor="run-fit" className={styles.drop}>
+            {importFit.isPending || importSwim.isPending || importOther.isPending
+              ? 'lecture du fichier…'
+              : 'importer un fichier .fit'}
+          </label>
+          <p className={styles.note}>
+            Le fichier de ta montre ou de Strava. Distance, temps, paliers et parcours sont lus
+            dedans, la sortie est enregistrée et le fichier conservé. Une natation en piscine va au
+            planning.
+          </p>
+        </div>
 
-      <p className={styles.note}>
-        {enabled
-          ? 'Sinon, une capture d’Apple Fitness ou de la montre : elle est lue, jamais enregistrée telle quelle. Tout reste modifiable ensuite.'
-          : 'La lecture de capture demande une clé OpenRouter. L’import .fit et la saisie à la main restent entiers.'}
-      </p>
+        <div className={wide.choice}>
+          <h3 className={wide.choiceTitle}>Une capture d’écran</h3>
+          <p className={cx(styles.note, wide.after)}>
+            {enabled
+              ? 'Sinon, une capture d’Apple Fitness ou de la montre : elle est lue, jamais enregistrée telle quelle. Tout reste modifiable ensuite.'
+              : 'La lecture de capture demande une clé OpenRouter. L’import .fit et la saisie à la main restent entiers.'}
+          </p>
 
-      {enabled && (
-        <>
-          <input
-            ref={fileInput}
-            id="apple-screenshot"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="sr-only"
-            onChange={(event) => {
-              choose.mutate(event.target.files?.[0] ?? null);
-            }}
-          />
-          {preview !== null ? (
-            <img className={styles.shot} src={preview} alt="Aperçu de la capture" />
-          ) : (
-            <label htmlFor="apple-screenshot" className={styles.drop}>
-              {choose.isPending ? 'réduction…' : 'choisir une capture d’écran'}
-            </label>
+          {enabled && (
+            <>
+              <input
+                ref={fileInput}
+                id="apple-screenshot"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => {
+                  choose.mutate(event.target.files?.[0] ?? null);
+                }}
+              />
+              {preview !== null ? (
+                <img className={styles.shot} src={preview} alt="Aperçu de la capture" />
+              ) : (
+                <label htmlFor="apple-screenshot" className={styles.drop}>
+                  {choose.isPending ? 'réduction…' : 'choisir une capture d’écran'}
+                </label>
+              )}
+              {weight !== null && (
+                <span className={styles.empty}>{fileSize(weight)} — réduite avant l’envoi</span>
+              )}
+            </>
           )}
-          {weight !== null && (
-            <span className={styles.empty}>{fileSize(weight)} — réduite avant l’envoi</span>
-          )}
-        </>
-      )}
+        </div>
+      </div>
 
       <div className={styles.sheetCommit}>
         {enabled && file !== null ? (

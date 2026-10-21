@@ -24,12 +24,14 @@ import type { ReactNode, SyntheticEvent } from 'react';
 import { Button, Field, Sheet, Skeleton } from '@/components/ui';
 import { activityApi, type Run } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
+import { cx } from '@/lib/cx';
 import { celebrate } from '@/lib/confetti';
 import { shortDate } from '@/lib/format';
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Activity.module.css';
+import wide from './EntrySheet.module.css';
 import { useInvalidateActivity } from './shared';
 
 /**
@@ -122,14 +124,14 @@ function RunForm({
   }
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
+    <form className={cx(styles.form, wide.grid4)} onSubmit={submit} noValidate>
       {error !== null && (
-        <p className={styles.error} role="alert">
+        <p className={cx(styles.error, wide.full)} role="alert">
           {error.message}
         </p>
       )}
 
-      <div className={styles.pair}>
+      <div className={cx(styles.pair, wide.flat)}>
         <Field
           label="Date"
           type="date"
@@ -147,7 +149,7 @@ function RunForm({
         />
       </div>
 
-      <div className={styles.pair}>
+      <div className={cx(styles.pair, wide.flat)}>
         <Field
           label="Durée"
           placeholder="44:12 ou 1h30"
@@ -166,14 +168,16 @@ function RunForm({
         />
       </div>
 
-      <Field
-        label="Ressenti"
-        placeholder="jambes lourdes, vent de face…"
-        value={fields.note}
-        onChange={set('note')}
-      />
+      <div className={wide.full}>
+        <Field
+          label="Ressenti"
+          placeholder="jambes lourdes, vent de face…"
+          value={fields.note}
+          onChange={set('note')}
+        />
+      </div>
 
-      <div className={styles.sheetCommit}>
+      <div className={cx(styles.sheetCommit, wide.full)}>
         <Button
           type="submit"
           variant="primary"
@@ -258,6 +262,7 @@ export function ActivitySheet({
   return (
     <Sheet
       open
+      wide
       onClose={onClose}
       title={
         editing !== null ? `Corriger la course du ${shortDate(editing.date)}` : 'Nouvelle course'

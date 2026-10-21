@@ -293,5 +293,10 @@
 @media (min-width: 960px) {
   .wide {
     width: min(1040px, 100%);
+    /* La hauteur tenue de `.panel` est une règle du pouce : sur grand écran, une feuille
+       large à moitié vide n'avait rien à stabiliser — elle suit son contenu, plafonnée à
+       la même hauteur. */
+    height: auto;
+    max-height: 86dvh;
   }
 }
