@@ -364,6 +364,16 @@
   min-height: var(--tap-lg);
 }
 
+/* Une attente qui se dit, ou une question avant d'écrire : un texte, puis ses gestes. */
+.waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
 /* La validation et son dégagement. « Changer de mode » ne doit jamais tomber sous le
    pouce à la place de l'action qui enregistre : d'où l'ordre, et la ligne à part. */
 .sheetCommit {

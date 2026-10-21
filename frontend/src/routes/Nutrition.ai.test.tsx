@@ -432,6 +432,62 @@ describe('estimation d’une assiette', () => {
     });
   });
 
+  it('demande avec ou sans une estimation laissée en attente', async () => {
+    // Audit du 17 octobre, fiche 15 : l'estimation affichée mais jamais acceptée
+    // disparaissait à l'enregistrement, sans un mot.
+    stub((url, init) =>
+      url.endsWith('/api/nutrition') && init?.method === 'POST'
+        ? json(201, { ...VIEW.meals[0], protein_g: 38, source: 'ai' })
+        : undefined,
+    );
+    renderNutrition();
+
+    await describePlate();
+    await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
+    await screen.findByRole('button', { name: 'Utiliser ces valeurs' });
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
+
+    expect(await screen.findByText(/Enregistrer le repas avec, ou sans/)).toBeInTheDocument();
+    expect(writes().some((call) => call.url.endsWith('/api/nutrition'))).toBe(false);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Avec l’estimation' }));
+    await waitFor(() => {
+      const posted = writes().find(
+        (call) => call.url.endsWith('/api/nutrition') && call.init?.method === 'POST',
+      );
+      expect((posted?.init?.body as FormData).get('protein_g')).toBe('38');
+      expect((posted?.init?.body as FormData).get('source')).toBe('ai');
+    });
+  });
+
+  it('laisse enregistrer pendant une estimation lente, et l’abandonner', async () => {
+    // Fiche 16 : 25 s de bouton grisé, sans texte ni sortie, et l'enregistrement bloqué
+    // même pour des valeurs tapées à la main.
+    let answer: (response: Response) => void = () => undefined;
+    stub((url) =>
+      url.includes('/api/nutrition/analyze')
+        ? (new Promise<Response>((resolve) => {
+            answer = resolve;
+          }) as unknown as Response)
+        : undefined,
+    );
+    renderNutrition();
+
+    await describePlate();
+    await userEvent.click(screen.getByRole('button', { name: 'Estimer les macros' }));
+
+    expect(await screen.findByText(/Lecture de la description/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler l’estimation' }));
+    answer(json(200, ESTIMATE));
+    // La réponse tardive ne se pose nulle part.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Estimer les macros' })).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Utiliser ces valeurs' })).toBeNull();
+  });
+
   it('dit qu’il n’a rien su estimer plutôt que de remplir des zéros', async () => {
     stub((url) =>
       url.includes('/api/nutrition/analyze')

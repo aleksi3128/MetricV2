@@ -170,6 +170,14 @@ export function MealSheet({
   // La feuille tient-elle déjà une saisie ? Une référence et non un état : l'effet de
   // reprise ne doit se rejouer qu'à l'ouverture, pas à chaque frappe.
   const live = useRef(false);
+  /*
+   * Chaque estimation demandée porte un numéro ; une réponse qui arrive après un
+   * « Annuler », un enregistrement ou un changement de mode n'a plus de feuille où se
+   * poser, et serait apparue dans le repas suivant (audit du 17 octobre, fiche 16).
+   */
+  const generation = useRef(0);
+  /** L'enregistrement demandé alors qu'une estimation attend encore sa réponse (fiche 15). */
+  const [asking, setAsking] = useState(false);
 
   // Ce que le modèle a proposé, et lesquelles de ces valeurs sont encore les siennes.
   // Deux états et non un : une valeur retouchée cesse d'être une proposition, mais
@@ -222,8 +230,10 @@ export function MealSheet({
     setLaterOpen(false);
     setStep({ kind: 'form' });
     setWeighing(null);
+    setAsking(false);
     clearDraft();
     live.current = false;
+    generation.current += 1;
   }, []);
 
   /**
@@ -296,11 +306,18 @@ export function MealSheet({
     });
     setProposed([]);
     setEstimate(null);
+    setAsking(false);
   }
 
   const suggest = useMutation({
-    mutationFn: () => nutritionApi.analyze(values.comment),
-    onSuccess: setEstimate,
+    mutationFn: async () => {
+      const ticket = generation.current;
+      const result = await nutritionApi.analyze(values.comment);
+      return { ticket, result };
+    },
+    onSuccess: ({ ticket, result }) => {
+      if (ticket === generation.current) setEstimate(result);
+    },
     onError: (caught: unknown) => {
       // Un refus de l'IA se dit et s'oublie : la saisie manuelle reste entière (`IA-07`).
       // Le refus de taille, lui, porte maintenant un code et une phrase française —
@@ -309,22 +326,26 @@ export function MealSheet({
     },
   });
 
-  /** Applique la proposition aux champs, et retient lesquels en viennent (`NUT-04`). */
-  function accept(result: MealEstimate): void {
+  /** Les champs une fois la proposition appliquée, et lesquels en viennent (`NUT-04`). */
+  function merged(current: typeof values, result: MealEstimate) {
     const filled: Macro[] = [];
-    setValues((current) => {
-      const next = { ...current, source: 'ai' as const };
-      for (const { key } of NUTRIENTS) {
-        const value = result[key];
-        if (value === null) continue;
-        next[key] = fieldText(value);
-        filled.push(key);
-      }
-      // La description ne remplace jamais celle qui a été tapée : c'est elle que le
-      // modèle a lue, et la reformuler par-dessus n'apprendrait rien.
-      if (result.comment !== null && current.comment.trim() === '') next.comment = result.comment;
-      return next;
-    });
+    const next = { ...current, source: 'ai' as const };
+    for (const { key } of NUTRIENTS) {
+      const value = result[key];
+      if (value === null) continue;
+      next[key] = fieldText(value);
+      filled.push(key);
+    }
+    // La description ne remplace jamais celle qui a été tapée : c'est elle que le modèle
+    // a lue, et la reformuler par-dessus n'apprendrait rien.
+    if (result.comment !== null && current.comment.trim() === '') next.comment = result.comment;
+    return { next, filled };
+  }
+
+  /** Applique la proposition aux champs, et retient lesquels en viennent. */
+  function accept(result: MealEstimate): void {
+    const { next, filled } = merged(values, result);
+    setValues(next);
     setProposed(filled);
   }
 
@@ -377,8 +398,11 @@ export function MealSheet({
     },
   });
 
+  // Les valeurs à écrire passent en argument : « avec l'estimation » doit enregistrer les
+  // champs fusionnés, pas l'état d'avant la fusion que la fermeture aurait capturé.
   const save = useMutation({
-    mutationFn: () => nutritionApi.create({ ...values, meal_type: values.meal_type || suggested }),
+    mutationFn: (fields: typeof values) =>
+      nutritionApi.create({ ...fields, meal_type: fields.meal_type || suggested }),
     onSuccess: () => {
       notify('Repas enregistré.', 'effort');
       reset();
@@ -484,7 +508,12 @@ export function MealSheet({
   // `computeTotal` n'en fait **pas** partie : il part tout seul au repos de la frappe, et
   // l'inclure ferait clignoter l'action principale à chaque gramme tapé. L'enregistrement
   // ne dépend pas de lui — il recalcule le total de son côté.
-  const busy = suggest.isPending || save.isPending || saveComposed.isPending;
+  // L'estimation en vol ne bloque plus l'enregistrement : 25 s de bouton grisé, même
+  // pour des valeurs tapées à la main, et sans moyen d'en sortir (audit, fiche 16).
+  const busy = save.isPending || saveComposed.isPending;
+  /** Une estimation lisible, ni appliquée ni écartée : l'enregistrer sans le dire la perdrait. */
+  const waiting =
+    estimate !== null && estimate.readable && !estimate.empty && proposed.length === 0;
   /*
    * Le repli des deux dernières valeurs s'ouvre à la demande **ou** dès qu'il a quelque
    * chose à montrer. La seconde condition n'est pas un confort : une valeur remplie et
@@ -626,7 +655,15 @@ export function MealSheet({
               saveComposed.mutate();
               return;
             }
-            save.mutate();
+            // Audit du 17 octobre, fiche 15 : l'estimation affichée mais pas acceptée
+            // disparaissait à l'enregistrement, et le repas partait « macros non
+            // renseignées ». Conforme à « une proposition n'est pas une mesure » — mais
+            // sans le dire. On demande.
+            if (waiting) {
+              setAsking(true);
+              return;
+            }
+            save.mutate(values);
           }}
           noValidate
         >
@@ -715,10 +752,24 @@ export function MealSheet({
           )}
 
           {wantsEstimate(mode) &&
-            (estimate === null ? (
+            (estimate === null && suggest.isPending ? (
+              // L'attente se dit, et s'abandonne : un bouton grisé seul pendant 25 s ne
+              // disait ni ce qui se passait ni comment en sortir (fiche 16).
+              <div className={styles.waiting} role="status">
+                <p>Lecture de la description… Tu peux enregistrer sans attendre.</p>
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    generation.current += 1;
+                    suggest.reset();
+                  }}
+                >
+                  Annuler l’estimation
+                </Button>
+              </div>
+            ) : estimate === null ? (
               <Button
                 variant="ghost"
-                busy={suggest.isPending}
                 disabled={nothingToEstimate}
                 onClick={() => {
                   suggest.mutate();
@@ -829,6 +880,34 @@ export function MealSheet({
                 Plus de valeurs — AG saturés, fibres
               </Button>
             ))}
+
+          {asking && estimate !== null && (
+            <div className={styles.waiting} role="alert">
+              <p>Une estimation attend encore ta réponse. Enregistrer le repas avec, ou sans ?</p>
+              <div className="row">
+                <Button
+                  variant="primary"
+                  busy={save.isPending}
+                  onClick={() => {
+                    const { next, filled } = merged(values, estimate);
+                    setProposed(filled);
+                    save.mutate(next);
+                  }}
+                >
+                  Avec l’estimation
+                </Button>
+                <Button
+                  variant="quiet"
+                  disabled={save.isPending}
+                  onClick={() => {
+                    save.mutate(values);
+                  }}
+                >
+                  Sans
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className={styles.sheetCommit}>
             <Button
