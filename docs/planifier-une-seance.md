@@ -215,3 +215,13 @@ chiffres d'une course sur deux lignes, les réglages d'une nage à gauche de son
 Leurs enveloppes sont en `display: contents` sous 960 px — le téléphone n'en voit rien.
 Sur grand écran, une feuille large **suit son contenu**, plafonnée à 86dvh : la hauteur
 tenue est une règle du pouce, et laissait la moitié de la feuille vide.
+
+### Hors plan — la taille de toutes les feuilles sur grand écran (21 octobre 2026)
+
+Les dix-neuf feuilles gardaient sur Mac leur forme de téléphone : 480 px de large, 86 % de
+la hauteur quel que soit leur contenu — un « Point du soir » de deux lignes flottait dans
+774 px. Au second point de rupture, **toute** feuille suit désormais son contenu, plafonnée
+à 86dvh, et s'élargit à 560 px ; `wide` (1 040 px) reste aux contenus à deux colonnes, dont
+la fiche d'une natation importée — le résumé, l'effort et les gestes à gauche, les tours à
+droite. Le téléphone et la tablette gardent la hauteur tenue : c'est une règle du pouce.
+Ce que ça coûte : sur grand écran, une feuille change de hauteur quand son contenu change.

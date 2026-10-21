@@ -286,17 +286,26 @@
 }
 
 /*
- * La feuille **large** (`wide`), pour un formulaire qui a besoin de deux colonnes sur grand
- * écran — planifier une séance, et son aperçu à côté. Le téléphone n'en voit rien : la
- * règle ne joue qu'à partir du second point de rupture.
+ * **Sur grand écran, toute feuille suit son contenu.**
+ *
+ * La hauteur tenue de `.panel` est une règle du pouce : la cible ne doit pas bouger sous le
+ * doigt entre deux appuis. À la souris, elle n'avait que du vide à garder — un « Point du
+ * soir » de deux lignes flottait dans 774 px. Au second point de rupture, la feuille prend
+ * la hauteur de ce qu'elle porte, plafonnée à la même, et s'élargit un peu : 480 px
+ * serraient le texte d'une fiche lue à un mètre de l'écran.
+ *
+ * La feuille **large** (`wide`) est pour un formulaire ou une fiche à deux colonnes —
+ * planifier une séance, saisir une sortie, les tours d'une nage. Le téléphone et la
+ * tablette n'en voient rien.
  */
 @media (min-width: 960px) {
-  .wide {
-    width: min(1040px, 100%);
-    /* La hauteur tenue de `.panel` est une règle du pouce : sur grand écran, une feuille
-       large à moitié vide n'avait rien à stabiliser — elle suit son contenu, plafonnée à
-       la même hauteur. */
+  .panel {
+    width: min(560px, 100%);
     height: auto;
     max-height: 86dvh;
+  }
+
+  .wide {
+    width: min(1040px, 100%);
   }
 }

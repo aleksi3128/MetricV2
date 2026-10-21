@@ -393,6 +393,7 @@ export function SwimSheet({
         onClose();
       }}
       title={data === undefined ? 'Natation' : `Natation du ${dayMonth(`${data.date}T12:00:00`)}`}
+      wide={data !== undefined && data.laps.length > 0}
       lede={lede}
     >
       {isPending && <Skeleton lines={4} />}
@@ -404,78 +405,80 @@ export function SwimSheet({
       )}
 
       {data !== undefined && (
-        <div className={styles.swimSheet}>
-          {data.suspect_laps > 0 && (
-            <p className={styles.note}>
-              {data.suspect_laps === 1
-                ? 'Un tour porte une longueur douteuse'
-                : `${String(data.suspect_laps)} tours portent une longueur douteuse`}{' '}
-              — comptée deux fois par la montre, le plus souvent. La distance reste la sienne.
-            </p>
-          )}
+        <div className={cx(styles.swimSheet, edits.split)}>
+          <div className={edits.side}>
+            {data.suspect_laps > 0 && (
+              <p className={styles.note}>
+                {data.suspect_laps === 1
+                  ? 'Un tour porte une longueur douteuse'
+                  : `${String(data.suspect_laps)} tours portent une longueur douteuse`}{' '}
+                — comptée deux fois par la montre, le plus souvent. La distance reste la sienne.
+              </p>
+            )}
 
-          <SwimDoneView lines={data.lines} />
+            <SwimDoneView lines={data.lines} />
 
-          {/* L'effort perçu : sans lui, la nage ne compte pas dans la charge globale
+            {/* L'effort perçu : sans lui, la nage ne compte pas dans la charge globale
               (`docs/charge-multisport.md`, D9). */}
-          <h4 className={styles.sheetHeading}>Effort perçu</h4>
-          <RateEffort
-            current={data.rpe}
-            rate={(rpe) => activityApi.setSwimRpe(data.id, data.token, rpe)}
-            onRated={refresh}
-          />
+            <h4 className={styles.sheetHeading}>Effort perçu</h4>
+            <RateEffort
+              current={data.rpe}
+              rate={(rpe) => activityApi.setSwimRpe(data.id, data.token, rpe)}
+              onRated={refresh}
+            />
 
-          {data.note !== null && <p className={styles.note}>{data.note}</p>}
+            {data.note !== null && <p className={styles.note}>{data.note}</p>}
 
-          {/* Une natation **saisie** se corrige d'un bloc, par le formulaire qui l'a écrite.
+            {/* Une natation **saisie** se corrige d'un bloc, par le formulaire qui l'a écrite.
               Une importée se corrige au tour, ses réglages ici — et se réécrit entière en
               notation, ce qui remplace ses tours (`docs/natation-corriger.md`). */}
-          {data.source === 'manual' && onEdit !== undefined && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                onEdit(data);
-              }}
-            >
-              Corriger la séance
-            </Button>
-          )}
-          {data.source !== 'manual' && (
-            <div className={edits.actions}>
+            {data.source === 'manual' && onEdit !== undefined && (
               <Button
                 variant="ghost"
-                aria-expanded={correcting}
                 onClick={() => {
-                  setCorrecting(!correcting);
+                  onEdit(data);
                 }}
               >
-                {correcting ? 'Fermer' : 'Corriger la séance'}
+                Corriger la séance
               </Button>
-              {onEdit !== undefined && (
+            )}
+            {data.source !== 'manual' && (
+              <div className={edits.actions}>
                 <Button
-                  variant="quiet"
+                  variant="ghost"
+                  aria-expanded={correcting}
                   onClick={() => {
-                    onEdit(data);
+                    setCorrecting(!correcting);
                   }}
                 >
-                  Réécrire en notation
+                  {correcting ? 'Fermer' : 'Corriger la séance'}
                 </Button>
-              )}
-            </div>
-          )}
-          {correcting && data.source !== 'manual' && (
-            <MetaForm
-              key={data.token}
-              swim={data}
-              onSaved={(detail) => {
-                setCorrecting(false);
-                refresh(detail);
-              }}
-            />
-          )}
+                {onEdit !== undefined && (
+                  <Button
+                    variant="quiet"
+                    onClick={() => {
+                      onEdit(data);
+                    }}
+                  >
+                    Réécrire en notation
+                  </Button>
+                )}
+              </div>
+            )}
+            {correcting && data.source !== 'manual' && (
+              <MetaForm
+                key={data.token}
+                swim={data}
+                onSaved={(detail) => {
+                  setCorrecting(false);
+                  refresh(detail);
+                }}
+              />
+            )}
+          </div>
 
           {data.laps.length > 0 && (
-            <>
+            <div className={edits.main}>
               <h4 className={styles.sheetHeading}>Tour par tour</h4>
               <p className={styles.note}>
                 Touche un tour pour corriger sa distance, son temps ou sa nage — « lu » est ce que
@@ -493,14 +496,14 @@ export function SwimSheet({
                   />
                 ))}
               </ol>
-            </>
+            </div>
           )}
 
           {/* Deux appuis pour détruire : le projet n'a aucune annulation, et la séance part
               avec ses tours et son fichier. */}
           <Button
             variant="quiet"
-            className={cx(styles.danger, armed && styles.dangerArmed)}
+            className={cx(styles.danger, armed && styles.dangerArmed, edits.full)}
             busy={remove.isPending}
             aria-label={armed ? 'Supprimer cette natation — confirmer' : 'Supprimer cette natation'}
             onClick={() => {

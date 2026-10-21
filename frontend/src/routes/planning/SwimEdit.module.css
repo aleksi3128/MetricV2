@@ -23,3 +23,32 @@
 .danger {
   color: var(--recover);
 }
+
+/* La fiche d'une nage sur grand écran : le résumé, l'effort et les gestes à gauche, les
+   tours à droite. Sous 960 px, les enveloppes n'existent pas (`display: contents`). */
+.side,
+.main {
+  display: contents;
+}
+
+@media (min-width: 960px) {
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    column-gap: var(--s6);
+    align-items: start;
+  }
+
+  .side,
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s3);
+    min-width: 0;
+  }
+
+  .full {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
