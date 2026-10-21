@@ -54,7 +54,10 @@ function Thumbnail({ meal }: { meal: Meal }) {
 
   // Des `span` et non des `div` : la vignette vit dans la cible qui ouvre la fiche, et un
   // bouton n'admet que du contenu de phrase.
-  if (meal.photo === null) return <span className={styles.thumbEmpty} aria-hidden="true" />;
+  // Sans photo, rien : un carré gris vide sur chaque repas était le reliquat de la photo
+  // retirée (`NUT-22`), et prenait 56 px à la description (audit du 17 octobre, fiche 31).
+  // Le carré ne reste que le temps qu'une vraie photo arrive.
+  if (meal.photo === null) return null;
   if (url === null) return <span className={styles.thumbEmpty} aria-hidden="true" />;
   // `alt` vide : le nom de la cible dit déjà de quel repas il s'agit, et la description
   // est lue avec lui.
@@ -116,11 +119,13 @@ function MealCard({
           </span>
           {meal.comment !== null && <span className={styles.mealComment}>{meal.comment}</span>}
           <span className={styles.mealMacros}>
+            {/* Espaces insécables entre le nombre et son unité : « 640 / kcal » passait à
+                la ligne entre les deux (fiche 31). */}
             {meal.protein_g !== null
-              ? `${num(meal.protein_g, 0)} g prot.`
+              ? `${num(meal.protein_g, 0)}\u00a0g prot.`
               : 'macros non renseignées'}
-            {meal.added_sugar_g !== null && ` · ${num(meal.added_sugar_g, 0)} g sucres`}
-            {meal.calories !== null && ` · ${integer(meal.calories)} kcal`}
+            {meal.added_sugar_g !== null && ` · ${num(meal.added_sugar_g, 0)}\u00a0g sucres`}
+            {meal.calories !== null && ` · ${integer(meal.calories)}\u00a0kcal`}
           </span>
         </span>
         <span className={styles.foodChevron} aria-hidden="true" />
