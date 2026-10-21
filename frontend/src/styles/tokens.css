@@ -239,7 +239,10 @@
   --card-pad: 16px;
 
   /* Hauteur de la barre d'onglets basse, **hors** zone sûre. */
-  --tabbar: 56px;
+  /* La hauteur **mesurée** de la barre d'onglets, filet compris : 63,2 px pour 56 réservés
+     laissaient 7 px de contenu toujours dessous (audit du 17 octobre, fiche 14). La
+     barre se règle sur ce jeton, et tout ce qui la dégage le lit. */
+  --tabbar: 64px;
 
   /* Zones sûres. Sur un iPhone 16 Pro : 59 px d'îlot dynamique en haut, 34 px
      d'indicateur d'accueil en bas. Elles ne valent que si `index.html` déclare

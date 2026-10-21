@@ -1,5 +1,6 @@
 .bar {
   position: fixed;
+  transition: transform var(--t);
   inset: auto 0 0 0;
   z-index: 30;
   display: flex;
@@ -10,6 +11,15 @@
   /* La zone sûre s'ajoute **sous** les cibles : l'indicateur d'accueil ne mange pas
      44 px de bouton, il ajoute 34 px de vide sous eux. */
   padding-bottom: var(--safe-b);
+}
+
+/* Un champ a le focus au doigt : le clavier système monte, et une barre `fixed` restait
+   par-dessus le contenu qu'on tape (audit du 17 octobre, fiche 14 — la piste la plus
+   probable du « la barre rend des éléments inaccessibles »). Elle s'efface le temps de
+   la saisie. Non vérifiable en émulation : à regarder sur le téléphone. */
+.barHidden {
+  transform: translateY(100%);
+  visibility: hidden;
 }
 
 /* Au-delà de 960 px, la navigation de l'en-tête reprend la main. */
@@ -23,8 +33,9 @@
   flex: 1 1 0;
   min-width: 0;
   /* `--tabbar` est un plancher, pas une hauteur : un libellé qui passerait à la ligne
-     dans une autre langue pousserait la barre au lieu d'être coupé. */
-  min-height: var(--tabbar);
+     dans une autre langue pousserait la barre au lieu d'être coupé. Moins le filet du
+     haut, pour que la barre entière mesure exactement ce que `.main` réserve. */
+  min-height: calc(var(--tabbar) - 1px);
   display: flex;
   flex-direction: column;
   align-items: center;

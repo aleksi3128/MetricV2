@@ -23,7 +23,7 @@
  * l'ordinateur ne perd rien.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router';
 
 import { Sheet, SheetGroup, SheetRow } from '@/components/ui';
@@ -93,8 +93,44 @@ const MORE = [
   },
 ] as const;
 
+/** Un champ qui ouvre le clavier système — pas une case, pas un bouton. */
+function opensKeyboard(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLInputElement) {
+    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range', 'file', 'color'].includes(
+      target.type,
+    );
+  }
+  return target instanceof HTMLElement && target.isContentEditable;
+}
+
+/** Vrai tant qu'un champ a le focus sous un pointeur grossier — le clavier est monté. */
+function useTyping(): boolean {
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    // Sans `matchMedia` — jsdom en test —, rien ne se masque : même repli que `lib/media`.
+    const coarse = (): boolean =>
+      typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    const onFocus = (event: FocusEvent) => {
+      setTyping(coarse() && opensKeyboard(event.target));
+    };
+    // D'un champ au suivant, la barre ne remonte pas entre les deux : elle clignoterait.
+    const onBlur = (event: FocusEvent) => {
+      if (!opensKeyboard(event.relatedTarget)) setTyping(false);
+    };
+    document.addEventListener('focusin', onFocus);
+    document.addEventListener('focusout', onBlur);
+    return () => {
+      document.removeEventListener('focusin', onFocus);
+      document.removeEventListener('focusout', onBlur);
+    };
+  }, []);
+  return typing;
+}
+
 export function TabBar() {
   const { state, logout } = useAuth();
+  const typing = useTyping();
   const navigate = useNavigate();
   const [more, setMore] = useState(false);
   const [quick, setQuick] = useState(false);
@@ -106,7 +142,10 @@ export function TabBar() {
 
   return (
     <>
-      <nav className={styles.bar} aria-label="Navigation principale">
+      <nav
+        className={cx(styles.bar, typing && styles.barHidden)}
+        aria-label="Navigation principale"
+      >
         {TABS.map((tab) => (
           <NavLink
             key={tab.to}
