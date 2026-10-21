@@ -27,6 +27,9 @@ export interface WeightStats {
   latest_kg: number | null;
   latest_date: string | null;
   change_kg: number | null;
+  /** Sur combien de pesées la variation est mesurée — `null` sans variation. */
+  change_count: number | null;
+  change_since: string | null;
   to_target_kg: number | null;
   target_kg: number;
   min_kg: number | null;

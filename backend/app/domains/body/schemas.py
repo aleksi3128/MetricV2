@@ -58,8 +58,13 @@ class WeightStats(BaseModel):
 
     latest_kg: float | None = Field(default=None, description="Dernière pesée")
     latest_date: date | None = None
-    #: Variation sur les 8 dernières pesées (`BODY-03`).
+    #: Variation sur les 8 dernières pesées (`BODY-03`), sur au moins deux jours.
     change_kg: float | None = None
+    #: Sur combien de pesées la variation est mesurée — l'écran écrivait « 8 pesées » en
+    #: dur, y compris avec deux (audit du 17 octobre, fiche 21).
+    change_count: int | None = None
+    #: Le jour de la plus ancienne pesée de la fenêtre.
+    change_since: date | None = None
     #: Écart restant jusqu'à l'objectif. Négatif = objectif dépassé vers le bas.
     to_target_kg: float | None = None
     target_kg: float

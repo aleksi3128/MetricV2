@@ -146,14 +146,19 @@ class WeightService:
         latest = rows[-1].model
 
         # Variation sur les huit dernières pesées : de la plus ancienne de la fenêtre à
-        # la dernière. Avec moins de deux pesées, il n'y a pas de variation à annoncer.
-        window = weights[-CHANGE_WINDOW:]
-        change = latest.weight_kg - window[0] if len(window) >= 2 else None
+        # la dernière. Il faut **deux jours** et non deux pesées : 78,4 puis 78,6 le même
+        # matin s'annonçaient « +0,2 kg en hausse », une tendance tirée d'un seul jour
+        # (audit du 17 octobre, fiche 21).
+        window = rows[-CHANGE_WINDOW:]
+        spans_days = window[0].model.date != latest.date
+        change = latest.weight_kg - window[0].model.weight_kg if spans_days else None
 
         return WeightStats(
             latest_kg=latest.weight_kg,
             latest_date=latest.date,
             change_kg=_round(change),
+            change_count=len(window) if change is not None else None,
+            change_since=window[0].model.date if change is not None else None,
             to_target_kg=_round(latest.weight_kg - target),
             target_kg=target,
             min_kg=min(weights),

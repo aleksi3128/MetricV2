@@ -19,6 +19,8 @@ export const DASHBOARD: DashboardView = {
     latest_kg: 72.4,
     latest_date: '2026-07-27',
     change_kg: -1.2,
+    change_count: 8,
+    change_since: '2026-07-12',
     to_target_kg: 2.4,
     target_kg: 70,
     min_kg: 71.8,

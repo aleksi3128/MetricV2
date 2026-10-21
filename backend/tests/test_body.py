@@ -204,6 +204,22 @@ def test_the_change_spans_the_last_eight_weighings(
 
     # Les huit dernières vont de 74,0 à 69,0 : la pesée à 80 est hors fenêtre.
     assert stats["change_kg"] == -5.0
+    assert stats["change_count"] == 8
+
+
+def test_two_weighings_on_the_same_day_are_not_a_trend(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Audit du 17 octobre, fiche 21 : 78,4 puis 78,6 le même matin s'annonçaient
+    « +0,2 kg en hausse » sous « Variation · 8 pesées »."""
+    day = (today_local() - timedelta(days=1)).isoformat()
+    post(app_client, auth, day=day, weight=78.4)
+    post(app_client, auth, day=day, weight=78.6)
+
+    stats = app_client.get(WEIGHT, headers=auth).json()["stats"]
+
+    assert stats["change_kg"] is None
+    assert stats["change_count"] is None
 
 
 def test_a_single_weighing_has_no_change_to_announce(

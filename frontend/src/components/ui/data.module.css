@@ -436,3 +436,14 @@
 .dot[data-on] {
   background: var(--signal);
 }
+
+/* Une colonne qui ne tient qu'à partir de 600 px — voir `Column.wideOnly`. */
+.wideOnly {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .wideOnly {
+    display: table-cell;
+  }
+}

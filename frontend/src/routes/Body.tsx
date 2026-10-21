@@ -311,6 +311,8 @@ export function Body() {
   const invalidate = useInvalidateBody();
   const { notify } = useToast();
   const [editing, setEditing] = useState<WeightEntry | null>(null);
+  /** Le jeton de la pesée dont la suppression est armée — un appui de plus l'exécute. */
+  const [armed, setArmed] = useState<string | null>(null);
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.body.weight(),
@@ -335,11 +337,13 @@ export function Body() {
     {
       key: 'note',
       header: 'Note',
+      wideOnly: true,
       render: (row) => row.note ?? <span className={styles.empty}>—</span>,
     },
     {
       key: 'source',
       header: 'Source',
+      wideOnly: true,
       render: (row) =>
         row.source === 'manual' ? (
           <span className={styles.empty}>saisie</span>
@@ -362,15 +366,27 @@ export function Body() {
           >
             corriger
           </button>
+          {/* Deux appuis : le premier arme, le second supprime. Il partait au premier — la
+              seule destruction de /corps à ignorer la règle (CLAUDE.md §3). */}
           <button
             type="button"
             className={cx(styles.iconButton, styles.danger)}
-            aria-label={`Supprimer la pesée du ${shortDate(row.date)}`}
+            aria-label={
+              armed === row.token
+                ? `Supprimer la pesée du ${shortDate(row.date)} — confirmer`
+                : `Supprimer la pesée du ${shortDate(row.date)}`
+            }
+            disabled={remove.isPending}
             onClick={() => {
+              if (armed !== row.token) {
+                setArmed(row.token);
+                return;
+              }
+              setArmed(null);
               remove.mutate(row);
             }}
           >
-            supprimer
+            {armed === row.token ? 'confirmer ?' : 'supprimer'}
           </button>
         </div>
       ),
@@ -436,17 +452,27 @@ export function Body() {
         <Card>
           <Stat
             compact
-            label="Variation · 8 pesées"
+            // Le nombre vient du serveur : « 8 pesées » était écrit en dur, y compris sur
+            // deux pesées du même matin (audit du 17 octobre, fiche 21).
+            label={
+              stats?.change_count != null
+                ? `Variation · ${String(stats.change_count)} ${plural(stats.change_count, 'pesée')}`
+                : 'Variation'
+            }
             value={stats?.change_kg != null ? delta(stats.change_kg) : '—'}
             unit={stats?.change_kg != null ? 'kg' : undefined}
             detail={
               waiting
                 ? loadingNote
-                : stats.change_kg != null
-                  ? stats.change_kg <= 0
-                    ? 'en baisse'
-                    : 'en hausse'
-                  : 'pas assez de relevés'
+                : stats.change_kg != null && stats.change_since != null
+                  ? `${
+                      stats.change_kg === 0
+                        ? 'stable'
+                        : stats.change_kg < 0
+                          ? 'en baisse'
+                          : 'en hausse'
+                    } depuis le ${shortDate(stats.change_since)}`
+                  : 'il faut deux jours de pesée'
             }
             direction={
               stats?.change_kg != null ? (stats.change_kg <= 0 ? 'up' : 'down') : undefined

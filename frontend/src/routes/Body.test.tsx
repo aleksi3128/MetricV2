@@ -28,6 +28,8 @@ const WEIGHT_VIEW = {
     latest_kg: 68.4,
     latest_date: '2026-07-20',
     change_kg: -2.1,
+    change_count: 8,
+    change_since: '2026-07-12',
     to_target_kg: -1.6,
     target_kg: 70,
     min_kg: 68.4,
@@ -249,7 +251,12 @@ describe('écran Corps', () => {
     stubApi();
     renderBody();
 
+    // Deux appuis : le premier arme et n'envoie rien.
     await userEvent.click(await screen.findByRole('button', { name: /Supprimer la pesée du 20/ }));
+    expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
+    await userEvent.click(
+      screen.getByRole('button', { name: /Supprimer la pesée du 20.* — confirmer/ }),
+    );
 
     await waitFor(() => {
       const remove = calls.find((call) => call.init?.method === 'DELETE');

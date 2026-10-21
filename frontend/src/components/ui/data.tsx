@@ -372,6 +372,12 @@ export interface Column<Row> {
   header: string;
   /** Chiffres à chasse fixe, alignés à droite. */
   numeric?: boolean | undefined;
+  /**
+   * Masquée sous 600 px. Pour ce qui se lit ailleurs ou se passe à 390 px : le tableau des
+   * pesées faisait 495 px dans 340, et « supprimer » était entièrement hors champ, derrière
+   * un défilement horizontal que rien n'annonçait (audit du 17 octobre, fiche 22).
+   */
+  wideOnly?: boolean | undefined;
   render: (row: Row) => ReactNode;
 }
 
@@ -393,7 +399,13 @@ export function Table<Row>({
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key} className={cx(column.numeric && styles.alignRight)}>
+              <th
+                key={column.key}
+                className={cx(
+                  column.numeric && styles.alignRight,
+                  column.wideOnly && styles.wideOnly,
+                )}
+              >
                 {column.header}
               </th>
             ))}
@@ -408,6 +420,7 @@ export function Table<Row>({
                   className={cx(
                     column.numeric && styles.cellNum,
                     column.numeric && styles.alignRight,
+                    column.wideOnly && styles.wideOnly,
                   )}
                 >
                   {column.render(row)}
