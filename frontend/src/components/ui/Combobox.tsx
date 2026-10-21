@@ -31,7 +31,7 @@
  * focus doit rester dans le champ pour que la frappe continue de filtrer.
  */
 
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { InputHTMLAttributes, KeyboardEvent } from 'react';
 
 import { cx } from '@/lib/cx';
@@ -108,6 +108,42 @@ export function Combobox({
   // `onBlur` refermerait la liste et le clic tomberait dans le vide — défaut classique,
   // et invisible à la souris sur un écran large.
   const picking = useRef(false);
+
+  /*
+   * Refermer **après** le geste qui a fait perdre le focus, jamais avant.
+   *
+   * La liste est dans le flux : en se refermant au `blur`, elle faisait remonter tout ce
+   * qui la suit, et le clic qui venait de provoquer ce `blur` retombait sur ce qui avait
+   * pris la place. Appuyer sur la puce « pectoraux » sous le champ ne faisait que fermer
+   * la liste ; il fallait un second appui, et le premier passait pour fait (audit du
+   * 17 octobre, fiche 01 — des pompes rangées en abdos).
+   *
+   * Le `click` qui suit le `blur` arrive après que son propre gestionnaire a tourné : on
+   * referme alors. Un `blur` sans clic — `Tab`, clavier rentré — referme au délai.
+   */
+  const closing = useRef<() => void>(() => undefined);
+  useEffect(
+    () => () => {
+      closing.current();
+    },
+    [],
+  );
+
+  function closeAfterGesture(): void {
+    closing.current();
+    const close = (): void => {
+      window.clearTimeout(timer);
+      document.removeEventListener('click', close);
+      closing.current = () => undefined;
+      setOpen(false);
+    };
+    const timer = window.setTimeout(close, 300);
+    document.addEventListener('click', close);
+    closing.current = () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('click', close);
+    };
+  }
 
   const shown = useMemo(() => {
     const needle = fold(value);
@@ -191,10 +227,11 @@ export function Combobox({
           setMarked(0);
         }}
         onFocus={() => {
+          closing.current();
           setOpen(true);
         }}
         onBlur={() => {
-          if (!picking.current) setOpen(false);
+          if (!picking.current) closeAfterGesture();
         }}
         onKeyDown={onKeyDown}
         {...rest}

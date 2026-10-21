@@ -250,6 +250,7 @@ describe('séances Cadence', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Créer une séance' }));
     await userEvent.type(screen.getByLabelText('Nom de la séance'), 'Pompes');
     await userEvent.type(screen.getByLabelText('Exercice 1'), 'Push-Ups Classic');
+    await userEvent.click(screen.getByRole('button', { name: 'pectoraux' }));
     await userEvent.click(screen.getByRole('button', { name: 'Répétitions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la séance' }));
 
@@ -258,9 +259,34 @@ describe('séances Cadence', () => {
         exercises: { duration_s?: number; reps?: number }[];
       };
       expect(body.exercises).toEqual([
-        { name: 'Push-Ups Classic', muscle_group: 'abdos', reps: 30, rest_s: 10, note: '' },
+        { name: 'Push-Ups Classic', muscle_group: 'pectoraux', reps: 30, rest_s: 10, note: '' },
       ]);
     });
+  });
+
+  it('ne présélectionne aucun groupe, et n’enregistre pas sans lui', async () => {
+    // Audit du 17 octobre, fiche 01 : `abdos` était choisi d'office, et des pompes
+    // s'enregistraient en abdos sans que rien ne le montre.
+    stub({ circuits: [], linkable: true });
+    renderCircuits();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Créer une séance' }));
+    await userEvent.type(screen.getByLabelText('Nom de la séance'), 'Pompes');
+    await userEvent.type(screen.getByLabelText('Exercice 1'), 'push up');
+
+    for (const group of screen.queryAllByRole('button', { pressed: true })) {
+      expect(['pectoraux', 'abdos', 'jambes']).not.toContain(group.textContent);
+    }
+    expect(screen.getByText(/Choisis un groupe/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enregistrer la séance' })).toBeDisabled();
+
+    // Un seul appui, champ encore focalisé et suggestions ouvertes : il doit porter.
+    await userEvent.click(screen.getByRole('button', { name: 'pectoraux' }));
+    expect(screen.getByRole('button', { name: 'pectoraux' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Enregistrer la séance' })).toBeEnabled();
   });
 
   it('dit que l’adresse manque au lieu de laisser les boutons disparaître', async () => {
@@ -400,6 +426,7 @@ describe('séances Cadence', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Créer une séance' }));
     await userEvent.type(screen.getByLabelText('Nom de la séance'), 'Perso');
     await userEvent.type(screen.getByLabelText('Exercice 1'), 'Montées de genoux');
+    await userEvent.click(screen.getByRole('button', { name: 'jambes' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la séance' }));
 
     await waitFor(() => {

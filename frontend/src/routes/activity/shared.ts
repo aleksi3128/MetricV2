@@ -92,7 +92,10 @@ export interface Draft {
 
 export const NEW_LINE: Draft = {
   name: '',
-  muscle_group: 'abdos',
+  // Vide, et c'est la correction de l'audit du 17 octobre (fiche 01) : `'abdos'` en dur
+  // rangeait des pompes en abdos sans que rien ne le montre — la valeur inventée de
+  // CLAUDE.md §2, celle de `sets: '3'`. Le groupe est exigé ; il se choisit.
+  muscle_group: '',
   mode: 'time',
   value: '30',
   rest: '10',
@@ -141,7 +144,7 @@ export function toPayload(
   const exercises: CircuitExercisePayload[] = [];
   for (const line of lines) {
     const value = whole(line.value);
-    if (line.name.trim() === '' || value === null) return null;
+    if (line.name.trim() === '' || line.muscle_group === '' || value === null) return null;
     exercises.push({
       name: line.name.trim(),
       muscle_group: line.muscle_group,

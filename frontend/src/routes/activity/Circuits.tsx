@@ -355,6 +355,12 @@ export function Circuits() {
                     </Chip>
                   ))}
                 </ChipStrip>
+                {/* Sans ce mot, « Enregistrer » grisé ne dirait pas ce qui manque. */}
+                {line.muscle_group === '' && (
+                  <p className={styles.note}>
+                    Choisis un groupe : c’est lui qui fait compter la séance.
+                  </p>
+                )}
 
                 {/* Secondes ou répétitions : c'est **le** choix qui change la nature de
                     l'exercice, et le confondre est la faute la plus fréquente du format.
