@@ -387,6 +387,9 @@ export function Body() {
    * regard tombait sur un écran qui déclare vide un historique qu'il n'a pas encore lu.
    */
   const waiting = stats === undefined;
+  // En panne, les tuiles n'écrivent pas « chargement… » pour toujours : le bandeau d'erreur
+  // au-dessus dit déjà pourquoi elles sont vides (audit du 17 octobre, vu en fiche 06).
+  const loadingNote = error !== null ? undefined : 'chargement…';
 
   return (
     <div className={cx('wrap', styles.screen)}>
@@ -423,7 +426,7 @@ export function Body() {
             unit={stats?.latest_kg != null ? 'kg' : undefined}
             detail={
               waiting
-                ? 'chargement…'
+                ? loadingNote
                 : stats.latest_date != null
                   ? shortDate(stats.latest_date)
                   : 'aucune pesée'
@@ -438,7 +441,7 @@ export function Body() {
             unit={stats?.change_kg != null ? 'kg' : undefined}
             detail={
               waiting
-                ? 'chargement…'
+                ? loadingNote
                 : stats.change_kg != null
                   ? stats.change_kg <= 0
                     ? 'en baisse'
@@ -467,7 +470,7 @@ export function Body() {
             unit={stats?.amplitude_kg != null ? 'kg' : undefined}
             detail={
               waiting
-                ? 'chargement…'
+                ? loadingNote
                 : stats.min_kg != null && stats.max_kg != null
                   ? `${num(stats.min_kg, 1)} → ${num(stats.max_kg, 1)} kg`
                   : `${stats.count} ${plural(stats.count, 'relevé')}`
@@ -550,7 +553,11 @@ export function Body() {
                 de jour à proposer, et en inventer un est exactement ce qu'on vient de
                 retirer. Une seconde de « chargement… » vaut mieux qu'un champ qui
                 affiche l'horloge du téléphone. */}
-            {data === undefined ? (
+            {data === undefined && error !== null ? (
+              <Empty title="Saisie indisponible">
+                Le formulaire attend le jour du serveur, qui ne répond pas.
+              </Empty>
+            ) : data === undefined ? (
               <Skeleton />
             ) : (
               <WeightForm
