@@ -76,6 +76,12 @@ class PlanRow(CsvModel):
     #: Ajoutée en dernier, avec un défaut : les lignes écrites avant se relisent telles
     #: quelles.
     program: str = ""
+    #: Ce que vise une course (`docs/planifier-une-seance.md`, D7) : la distance, le chrono
+    #: de la séance, l'effort perçu. Vides partout ailleurs, et ajoutés en dernier — les
+    #: lignes écrites avant se relisent telles quelles.
+    distance_km: float | None = None
+    goal_s: int | None = None
+    rpe_goal: int | None = None
 
 
 #: Catégories d'un sigle, telles que le fichier les écrit.

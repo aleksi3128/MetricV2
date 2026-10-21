@@ -110,8 +110,10 @@ def test_a_planned_session_carries_the_link_in_its_note(
     assert response.status_code == 201, response.text
     assert circuit["url"] in response.json()["note"]
     header, line = dav.content_of(PLAN_FILE).splitlines()[:2]
-    assert header == "id,date,time,kind,title,duration_min,note,source,program"
-    assert line.endswith(",")
+    assert header == (
+        "id,date,time,kind,title,duration_min,note,source,program,distance_km,goal_s,rpe_goal"
+    )
+    assert line.endswith(",,,,")
 
 
 def test_the_server_extracts_the_link_so_the_screen_does_not(

@@ -72,3 +72,38 @@ course la veille, d'une douleur ouverte ou d'un rendez-vous dans l'agenda.
 La carte Garmin des réglages et son client d'API sont retirés ; la ligne de nuit de
 l'accueil ne s'affiche plus que s'il y a une nuit. Le backend n'a pas bougé : sans
 identifiants, la passe de synchro rendait déjà la main sans rien écrire ni dire.
+
+### Étape 2 — la notation de course (20–21 octobre 2026)
+
+`planning/run_notation.py` lit la séance : quantités, sigles, cibles, groupes `N × ( … )`,
+récupérations. Ta séance, `15' EF + 5 × (1 km 6'00 + 80 m LD 3'30) + 10' RC`, se lit en
+9,6 km et 56 minutes, chaque bloc avec sa plage d'allure et de FC. La durée d'une course
+en notation est **déduite** ; l'ouverture n'impose plus ni nature ni durée. Le chrono,
+la distance et l'effort visés s'enregistrent (`plan.csv` gagne trois colonnes, vides
+ailleurs).
+
+**Le sigle SL a été tranché avec toi** : SL reste la sortie longue (R5), la ligne droite
+s'écrit LD. Un « SL » de moins d'un kilomètre est refusé avec la bonne écriture — c'est
+exactement ce que ton premier exemple, `80m Sl 3"30'`, aurait donné.
+
+#### Ce que le passage à l'écran a trouvé
+
+- Les plages se coupaient en fin de ligne (« 5:25– » / « 6:08 /km », « au- » / « dessus ») :
+  insécables.
+- « Visé : en 56:00 » sans distance : « chrono 56:00 ».
+
+#### Ce que les tests ont trouvé
+
+- Quatre tests de nage comptaient sur la natation présélectionnée : ils la choisissent.
+- Deux tests figeaient l'en-tête de `plan.csv`.
+- Un programme de nage posé sur une course est désormais lu comme une course, donc refusé
+  par la notation de course (`run_notation_invalid`) et non plus par la validation.
+- `test_harness` a échoué deux fois dans la batterie complète, puis passé deux fois : la
+  machine s'est suspendue en pleine exécution (la batterie mesurait plus d'une heure
+  d'horloge réelle). Rien dans le code.
+
+#### Laissé
+
+- **Les cases de la grille du mois font 39 px à 360 px**, sous le plancher de 44 : défaut
+  de la grille existante, hors de cette étape.
+- Les puces de nature défilent à 360 px, comme avant.

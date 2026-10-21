@@ -1,34 +1,68 @@
 /**
- * Planifier ou corriger une séance (`PLAN-02`), dans une feuille.
+ * Planifier ou corriger une séance (`PLAN-02`, `docs/planifier-une-seance.md`), dans une
+ * feuille.
  *
  * Elle était une carte posée sous le panneau du jour. Avec un programme de nage à écrire,
  * elle repoussait la grille hors de l'écran — or c'est en regardant la semaine qu'on
  * décide quoi y mettre. La feuille garde la page en place dessous.
  *
- * ## Le programme
+ * ## Rien d'imposé (D8)
  *
- * Une ligne par bloc, dans la notation (`docs/planning-natation.md` §2). **L'écran ne la
- * lit pas** : il envoie le texte au serveur, qui rend les lignes réécrites et le total, ou
- * la ligne fautive. L'aperçu arrive 400 ms après la dernière frappe — assez tard pour ne
- * pas interroger le serveur à chaque lettre, assez tôt pour voir sa faute avant d'envoyer.
+ * Elle partait de « natation, 60 minutes ». La date vient maintenant du jour touché, et
+ * rien d'autre : la nature se choisit, la durée aussi — sauf pour une course écrite en
+ * notation, dont le serveur déduit la durée des blocs.
  *
- * Le clavier du téléphone est l'adversaire : il n'a pas de `×`, change `'` en `’`, met une
- * majuscule en tête et « corrige » `PB` en `Pb`. Le serveur tolère les deux premiers ; le
- * champ coupe les deux autres, et une rangée de puces insère au curseur ce que le pouce
- * tape mal.
+ * ## La notation
+ *
+ * Une natation s'écrit une ligne par bloc (`docs/planning-natation.md` §2), une course en
+ * blocs et groupes (`15' EF + 5 × (1 km 6'00 + 80 m LD 3'30)`). **L'écran ne lit ni
+ * l'une ni l'autre** : il envoie le texte, le serveur rend les blocs réécrits et le total,
+ * ou la faute.
  */
 
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Button, Chip, ChipStrip, Field, Sheet, Stepper } from '@/components/ui';
-import { planningApi, type PlanFormValues, type PlannedSession } from '@/features/planning/api';
+import {
+  planningApi,
+  type PlanBody,
+  type PlanFormValues,
+  type PlannedSession,
+} from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Planning.module.css';
 import { ProgramField } from './ProgramField';
+import { RunProgramField } from './RunProgram';
+import own from './RunProgram.module.css';
 import { KIND_OPTIONS, useInvalidatePlanning } from './shared';
+
+/** « 9,5 » → 9.5 ; vide → `null`. La virgule du clavier français, pas un calcul. */
+function decimal(raw: string | null | undefined): number | null {
+  const cleaned = (raw ?? '').trim().replace(',', '.');
+  return cleaned === '' ? null : Number(cleaned);
+}
+
+function bodyOf(values: PlanFormValues & { kind: NonNullable<PlanFormValues['kind']> }): PlanBody {
+  const running = values.kind === 'course';
+  const written = values.kind === 'natation' || running;
+  return {
+    date: values.date,
+    time: values.time,
+    kind: values.kind,
+    title: values.title,
+    duration_min: decimal(values.duration_min),
+    note: values.note ?? null,
+    // Un programme ne part qu'avec la nature qui le lit : changer de nature en cours de
+    // saisie ne doit pas faire refuser la séance pour un champ qu'on ne voit plus.
+    program: written ? values.program || null : null,
+    distance_km: running ? decimal(values.distance_km) : null,
+    goal_time: running ? values.goal_time || null : null,
+    rpe_goal: running ? (values.rpe_goal ?? null) : null,
+  };
+}
 
 export function PlanSheet({
   values,
@@ -45,11 +79,13 @@ export function PlanSheet({
   const invalidate = useInvalidatePlanning();
   const { notify } = useToast();
   const [error, setError] = useState<ApiError | null>(null);
+  const [missing, setMissing] = useState<string | null>(null);
 
   const swimming = values?.kind === 'natation';
+  const running = values?.kind === 'course';
 
   const save = useMutation({
-    mutationFn: (payload: PlanFormValues) =>
+    mutationFn: (payload: PlanBody) =>
       editing
         ? planningApi.update(editing.id, editing.token, payload)
         : planningApi.create(payload),
@@ -78,19 +114,31 @@ export function PlanSheet({
       open={values !== null}
       onClose={() => {
         setError(null);
+        setMissing(null);
         onDone();
       }}
       title={editing ? 'Modifier la séance' : 'Planifier une séance'}
-      lede={swimming ? 'Le programme s’écrit une ligne par bloc, dans la notation.' : undefined}
+      lede={
+        swimming
+          ? 'Le programme s’écrit une ligne par bloc, dans la notation.'
+          : running
+            ? 'La séance s’écrit en blocs : la durée et la distance en viennent.'
+            : undefined
+      }
     >
       {values !== null && (
         <form
           className={styles.form}
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            // Un programme ne part qu'avec une natation : changer de nature en cours de
-            // saisie ne doit pas faire refuser la séance pour un champ qu'on ne voit plus.
-            save.mutate({ ...values, program: swimming ? (values.program ?? null) : null });
+            const { kind } = values;
+            if (kind === null) {
+              setMissing('Choisis la nature de la séance.');
+              return;
+            }
+            setMissing(null);
+            save.mutate(bodyOf({ ...values, kind }));
           }}
         >
           <div className={styles.kinds}>
@@ -133,24 +181,78 @@ export function PlanSheet({
           <Field
             label="Titre"
             value={values.title}
-            placeholder={swimming ? 'Endurance' : 'Haut du corps'}
+            placeholder={swimming ? 'Endurance' : running ? 'Lignes droites' : 'Haut du corps'}
             error={error?.messageFor('title')}
             onChange={(event) => {
               set('title', event.target.value);
             }}
           />
 
+          {running && (
+            <RunProgramField
+              value={values.program ?? ''}
+              error={error?.messageFor('program')}
+              onChange={(program) => {
+                set('program', program);
+              }}
+            />
+          )}
+
           <Stepper
             label="Durée (min)"
             value={values.duration_min}
-            step={15}
+            step={5}
             min={5}
             max={300}
+            placeholder={running ? 'déduite' : '—'}
             error={error?.messageFor('duration_min')}
             onChange={(value) => {
               set('duration_min', value);
             }}
           />
+
+          {running && (
+            <>
+              <p className={own.label}>Ce que tu vises — facultatif</p>
+              <div className={own.goals}>
+                <Field
+                  label="Distance (km)"
+                  inputMode="decimal"
+                  value={values.distance_km ?? ''}
+                  placeholder="10"
+                  error={error?.messageFor('distance_km')}
+                  onChange={(event) => {
+                    set('distance_km', event.target.value);
+                  }}
+                />
+                <Field
+                  label="Chrono"
+                  value={values.goal_time ?? ''}
+                  placeholder="50'00"
+                  error={error?.messageFor('goal_time')}
+                  onChange={(event) => {
+                    set('goal_time', event.target.value);
+                  }}
+                />
+              </div>
+              <Stepper
+                label="Effort perçu visé (1–10)"
+                value={
+                  values.rpe_goal === null || values.rpe_goal === undefined
+                    ? ''
+                    : String(values.rpe_goal)
+                }
+                step={1}
+                min={1}
+                max={10}
+                placeholder="—"
+                error={error?.messageFor('rpe_goal')}
+                onChange={(value) => {
+                  set('rpe_goal', value === '' ? null : Number(value));
+                }}
+              />
+            </>
+          )}
 
           {swimming && (
             <ProgramField
@@ -171,6 +273,12 @@ export function PlanSheet({
               set('note', event.target.value);
             }}
           />
+
+          {missing !== null && (
+            <p className={own.error} role="alert">
+              {missing}
+            </p>
+          )}
 
           <Button type="submit" variant="primary" busy={save.isPending} className={styles.submit}>
             {editing ? 'Enregistrer' : 'Planifier'}

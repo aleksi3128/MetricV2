@@ -52,6 +52,27 @@ export interface SwimProgram {
   rest_s: number | null;
 }
 
+/**
+ * Une séance de course **lue par le serveur** (`docs/planifier-une-seance.md`, D2) : les
+ * blocs réécrits avec leur cible, les totaux — ou la faute, sur son morceau.
+ */
+export interface RunProgramLine {
+  depth: number;
+  kind: 'block' | 'group' | 'recovery';
+  text: string;
+}
+
+export interface RunProgram {
+  lines: RunProgramLine[];
+  errors: { token: string | null; message: string }[];
+  /** La forme canonique, celle qui s'enregistre. */
+  notation: string;
+  distance_m: number | null;
+  duration_s: number | null;
+  /** « 7,9 km · 52 min », ou ce qui manque pour le dire. */
+  summary: string;
+}
+
 /** Une ligne de la séance **nagée**, réécrite dans la notation : `4×50 CR R~40`. */
 export interface SwimLine {
   text: string;
@@ -112,6 +133,13 @@ export interface PlannedSession {
   program: string | null;
   /** Le programme **lu**, `null` hors natation. */
   swim: SwimProgram | null;
+  /** La séance de course **lue**, `null` hors course ou sans notation. */
+  run: RunProgram | null;
+  /** Ce que vise une course, et sa phrase : « 10 km en 50:00 · effort 7/10 ». */
+  distance_km: number | null;
+  goal_s: number | null;
+  rpe_goal: number | null;
+  goal_text: string | null;
   /** La distance nagée ce jour-là, et l'écart au prévu — calculés par le serveur. */
   done_m: number | null;
   gap_m: number | null;
@@ -191,12 +219,32 @@ export interface SubscriptionInfo {
 export interface PlanFormValues {
   date: string;
   time: string | null;
-  kind: PlanKind;
+  /** `null` à l'ouverture : aucune nature n'est choisie à la place de l'utilisateur. */
+  kind: PlanKind | null;
   title: string;
+  /** Vide pour une course en notation : le serveur la déduit des blocs. */
   duration_min: string;
   note?: string | null;
-  /** Le programme d'une natation, une ligne par bloc. Ignoré hors natation. */
+  /** Le programme d'une natation, ou la séance d'une course, dans leur notation. */
   program?: string | null;
+  /** Ce que vise une course (D7) : distance, chrono (`50'00`), effort perçu. */
+  distance_km?: string | null;
+  goal_time?: string | null;
+  rpe_goal?: number | null;
+}
+
+/** Ce qui part au serveur : la nature choisie, les nombres en nombres, le vide en `null`. */
+export interface PlanBody {
+  date: string;
+  time: string | null;
+  kind: PlanKind;
+  title: string;
+  duration_min: number | null;
+  note?: string | null;
+  program?: string | null;
+  distance_km?: number | null;
+  goal_time?: string | null;
+  rpe_goal?: number | null;
 }
 
 /** Garde anti-conflit : le jeton lu est celui qu'on renvoie (`STO-05`). */
@@ -239,10 +287,10 @@ export const planningApi = {
 
   adherence: (weeks = 8) => request<AdherenceView>('/api/planning/adherence', { query: { weeks } }),
 
-  create: (values: PlanFormValues) =>
+  create: (values: PlanBody) =>
     request<PlannedSession>('/api/planning/sessions', { method: 'POST', body: values }),
 
-  update: (id: number, token: string, values: PlanFormValues) =>
+  update: (id: number, token: string, values: PlanBody) =>
     request<PlannedSession>(`/api/planning/sessions/${String(id)}`, {
       method: 'PATCH',
       body: values,
@@ -270,6 +318,8 @@ export const planningApi = {
   /** Lit un programme **sans rien écrire** — l'aperçu du formulaire. */
   parseSwim: (program: string) =>
     request<SwimProgram>('/api/planning/swim/parse', { method: 'POST', body: { program } }),
+  parseRun: (program: string) =>
+    request<RunProgram>('/api/planning/run/parse', { method: 'POST', body: { program } }),
 
   swimCodes: () => request<{ codes: SwimCodeEntry[] }>('/api/planning/swim/codes'),
 

@@ -126,6 +126,8 @@ export const keys = {
      *  affiche, et l'invalidation du domaine doit l'emporter avec lui. */
     swimCodes: () => ['planning', 'swim-codes'] as const,
     swimParse: (program: string) => ['planning', 'swim-parse', program] as const,
+    /** L'aperçu d'une séance de course (`docs/planifier-une-seance.md`, D2). */
+    runParse: (program: string) => ['planning', 'run-parse', program] as const,
   },
   assistant: {
     all: () => ['assistant'] as const,

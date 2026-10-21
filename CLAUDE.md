@@ -189,8 +189,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (338 fichiers), 2 293 tests backend
-               # prettier, eslint, tsc, 788 tests d'écran
+make check     # ruff, ruff format, mypy (340 fichiers), 2 314 tests backend
+               # prettier, eslint, tsc, 791 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

@@ -132,11 +132,18 @@ def test_a_program_out_of_the_notation_is_refused_line_by_line(
     assert PLAN_FILE not in dav.files
 
 
-def test_a_program_is_only_for_a_swim(app_client: TestClient, auth: dict[str, str]) -> None:
+def test_a_swim_program_is_refused_elsewhere(app_client: TestClient, auth: dict[str, str]) -> None:
+    # Une course a désormais sa propre notation (`docs/planifier-une-seance.md`) : un
+    # programme de nage y est lu comme une course, et refusé par elle.
     response = app_client.post(
         f"{PLANNING}/sessions", json=body(kind="course", program="400 CR"), headers=auth
     )
+    assert response.status_code == 422
+    assert response.json()["code"] == "run_notation_invalid"
 
+    response = app_client.post(
+        f"{PLANNING}/sessions", json=body(kind="muscu", program="400 CR"), headers=auth
+    )
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
 

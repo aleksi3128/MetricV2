@@ -40,6 +40,7 @@ from app.domains.ai.deps import AiServiceDep
 from app.domains.planning import agenda, ical
 from app.domains.planning.glossary import SwimCodeService
 from app.domains.planning.replanning import ReplanService
+from app.domains.planning.run_notation import RunProgram
 from app.domains.planning.schemas import (
     AdherenceView,
     AdoptionPayload,
@@ -53,6 +54,7 @@ from app.domains.planning.schemas import (
     PlanPayload,
     Proposal,
     ProposalRequest,
+    RunParseRequest,
     SubscriptionInfo,
     SwimCodePayload,
     SwimGlossaryView,
@@ -213,6 +215,12 @@ async def adherence(store: StoreDep, weeks: Weeks = DEFAULT_ADHERENCE_WEEKS) -> 
 
 
 # ── La notation de nage (`docs/planning-natation.md`) ─
+
+
+@router.post("/run/parse", response_model=RunProgram, summary="Lire une séance de course")
+async def parse_run(payload: RunParseRequest, store: StoreDep) -> RunProgram:
+    """L'aperçu du formulaire (`docs/planifier-une-seance.md`, D2) : rien n'est écrit."""
+    return await PlanningService(store).parse_run(payload.program)
 
 
 @router.post("/swim/parse", response_model=SwimProgram, summary="Lire un programme de nage")

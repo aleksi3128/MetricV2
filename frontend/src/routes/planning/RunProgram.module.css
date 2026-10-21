@@ -1,0 +1,103 @@
+/* La séance de course en notation (`docs/planifier-une-seance.md`). Mobile d'abord. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+
+.previewTitle {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.line {
+  font-size: var(--t-sub);
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.depth1 {
+  padding-left: var(--s4);
+  border-left: 2px solid var(--line);
+}
+
+.depth2 {
+  padding-left: calc(var(--s4) * 2);
+  border-left: 2px solid var(--line);
+}
+
+.group {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.recovery {
+  color: var(--ink-mid);
+}
+
+.summary {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+}
+
+.error {
+  margin: 0;
+  color: var(--recover);
+  font-size: var(--t-sub);
+}
+
+.goals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s3);
+}
+
+.label {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.glossary {
+  font-size: var(--t-sub);
+  color: var(--ink-mid);
+}
+
+.glossary summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.glossary ul {
+  margin: var(--s2) 0 0;
+  padding-left: var(--s4);
+}

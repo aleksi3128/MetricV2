@@ -21,11 +21,18 @@ from datetime import date, timedelta
 
 from app.core import swim_notation as swim
 from app.core.dates import today_local, week_start
-from app.core.exceptions import AiUnreadableError, SwimNotationError
+from app.core.exceptions import (
+    AiUnreadableError,
+    RunNotationError,
+    SwimNotationError,
+    ValidationFailedError,
+)
 from app.domains.activity import circuit_link
 from app.domains.activity.models import CircuitSessionRow, RunRow
 from app.domains.activity.stats import ActivityStats
 from app.domains.ai.service import AiService
+from app.domains.coach.catalog import References
+from app.domains.planning import run_notation
 from app.domains.planning.generation import INSTRUCTION, build_prompt, read_proposals
 from app.domains.planning.glossary import glossary_from
 from app.domains.planning.models import PlanRow, SwimCodeRow, normalise_kind
@@ -40,6 +47,7 @@ from app.domains.planning.schemas import (
     Proposal,
     ProposalRequest,
     WeekAdherence,
+    goal_text,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
@@ -119,8 +127,21 @@ class PlanningService:
 
     # ── Lecture du planning ───────────────────────────
 
+    async def references(self) -> References:
+        """FC max et allure seuil — les zones du coach, celles d'aujourd'hui (D3)."""
+        from app.domains.coach.service import CoachService
+
+        refs, _ = await CoachService(self._store).references(today_local())
+        return refs
+
+    async def parse_run(self, program: str) -> run_notation.RunProgram:
+        """Lit une séance de course sans rien écrire — l'aperçu du formulaire."""
+        return run_notation.parse(program, await self.references())
+
     @staticmethod
-    def _to_schema(row: Row[PlanRow], glossary: swim.Glossary) -> PlannedSession:
+    def _to_schema(
+        row: Row[PlanRow], glossary: swim.Glossary, refs: References | None = None
+    ) -> PlannedSession:
         model = row.model
         assert model.date is not None  # garanti par le filtre de `_rows`
         kind = normalise_kind(model.kind)
@@ -141,6 +162,15 @@ class PlanningService:
             # Lu même s'il est vide : une natation sans programme rend un programme sans
             # ligne ni total — ce que l'écran affiche en tiret, et non en « 0 m ».
             swim=swim.parse(program, glossary) if kind == "natation" else None,
+            run=(
+                run_notation.parse(program, refs or References())
+                if kind == "course" and program
+                else None
+            ),
+            distance_km=model.distance_km,
+            goal_s=model.goal_s,
+            rpe_goal=model.rpe_goal,
+            goal_text=goal_text(model.distance_km, model.goal_s, model.rpe_goal),
         )
 
     async def _rows(self, *, fresh: bool = False) -> list[PlannedSession]:
@@ -152,8 +182,9 @@ class PlanningService:
         """
         rows = await self._plan.read_all(fresh=fresh)
         glossary = await self.glossary()
+        refs = await self.references()
         sessions = [
-            self._to_schema(row, glossary)
+            self._to_schema(row, glossary, refs)
             for row in rows
             if row.model.id and row.model.date is not None
         ]
@@ -267,17 +298,42 @@ class PlanningService:
 
     @staticmethod
     def _to_row(payload: PlanPayload, *, session_id: str, source: str) -> PlanRow:
+        running = payload.kind == "course"
         return PlanRow(
             id=session_id,
             date=payload.date,
             time=payload.time or "",
             kind=payload.kind,
             title=payload.title,
-            duration_min=payload.duration_min,
+            duration_min=payload.duration_min or 0,
             note=payload.note or "",
             source=source,
             program=payload.program or "",
+            distance_km=payload.distance_km if running else None,
+            goal_s=payload.goal_s if running else None,
+            rpe_goal=payload.rpe_goal if running else None,
         )
+
+    async def _resolved(self, payload: PlanPayload, field: str = "body") -> PlanPayload:
+        """Une course écrite en notation : la séance canonique, et sa durée **déduite** si
+        elle n'a pas été donnée (D8). Ailleurs, la durée est exigée."""
+        if payload.kind == "course" and payload.program is not None:
+            read = run_notation.parse(payload.program, await self.references())
+            if not read.valid:
+                message = run_notation.describe_errors(read.errors)
+                raise RunNotationError(message, fields=[(f"{field}.program", message)])
+            update: dict[str, object] = {"program": read.notation}
+            if payload.duration_min is None and read.duration_s is not None:
+                update["duration_min"] = round(read.duration_s / 60)
+            payload = payload.model_copy(update=update)
+        if payload.duration_min is None:
+            message = (
+                "La durée manque : la séance n'en donne pas, faute d'allure. Écris-la."
+                if payload.kind == "course" and payload.program is not None
+                else "La durée manque."
+            )
+            raise ValidationFailedError(message, fields=[(f"{field}.duration_min", message)])
+        return payload
 
     async def parse(self, program: str) -> swim.SwimProgram:
         """Lit un programme sans rien écrire — l'aperçu du formulaire."""
@@ -294,7 +350,8 @@ class PlanningService:
         glossary = await self.glossary(fresh=True)
         faults: list[tuple[str, str]] = []
         for field, payload in payloads:
-            if payload.program is None:
+            # Une course a sa propre notation, lue par `_resolved` (`run_notation.py`).
+            if payload.program is None or payload.kind != "natation":
                 continue
             read = swim.parse(payload.program, glossary)
             if not read.valid:
@@ -306,10 +363,11 @@ class PlanningService:
 
     async def create(self, payload: PlanPayload, *, source: str = "manual") -> PlannedSession:
         glossary = await self.check_programs([("body.program", payload)])
+        payload = await self._resolved(payload)
         row = await self._plan.append(
             self._to_row(await self._with_link(payload), session_id=new_id(), source=source)
         )
-        return self._to_schema(row, glossary)
+        return self._to_schema(row, glossary, await self.references())
 
     async def _with_link(self, payload: PlanPayload) -> PlanPayload:
         """La charge utile, note enrichie du lien de la séance Cadence demandée (**D5**).
@@ -342,6 +400,7 @@ class PlanningService:
 
     async def update(self, index: int, token: str, payload: PlanPayload) -> PlannedSession:
         glossary = await self.check_programs([("body.program", payload)])
+        payload = await self._resolved(payload)
         rows = await self._plan.read_all(fresh=True)
         if not 0 <= index < len(rows):
             raise StorageNotFoundError("Cette séance n'est pas au planning.")
@@ -361,7 +420,7 @@ class PlanningService:
                 source=existing.source or "manual",
             ),
         )
-        return self._to_schema(row, glossary)
+        return self._to_schema(row, glossary, await self.references())
 
     async def remove(self, index: int, token: str) -> None:
         await self._plan.delete_by_token(index, token)
@@ -378,15 +437,21 @@ class PlanningService:
         glossary = await self.check_programs(
             [(f"body.sessions.{index}.program", payload) for index, payload in enumerate(payloads)]
         )
+        payloads = [
+            await self._resolved(payload, f"body.sessions.{index}")
+            for index, payload in enumerate(payloads)
+        ]
         rows = await self._plan.extend(
             [self._to_row(payload, session_id=new_id(), source="ai") for payload in payloads]
         )
-        return AdoptionResult(created=[self._to_schema(row, glossary) for row in rows])
+        refs = await self.references()
+        return AdoptionResult(created=[self._to_schema(row, glossary, refs) for row in rows])
 
     # ── Le plan d'une course (`docs/plan-course.md`, D10) ──
 
     async def place_plan(self, payloads: list[PlanPayload]) -> int:
         """Pose les séances d'un plan **en une écriture**, marquées `plan`."""
+        payloads = [await self._resolved(payload) for payload in payloads]
         rows = await self._plan.extend(
             [self._to_row(payload, session_id=new_id(), source="plan") for payload in payloads]
         )

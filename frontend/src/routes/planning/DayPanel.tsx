@@ -18,6 +18,7 @@ import { delta, hoursMinutes, longDate, meters } from '@/lib/format';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Planning.module.css';
+import { RunProgramView } from './RunProgram';
 import { SwimDoneView, SwimProgramView } from './SwimProgram';
 import { sessionLine, useInvalidatePlanning } from './shared';
 
@@ -150,6 +151,12 @@ export function DayPanel({
                 <span className={styles.meta}>{sessionLine(session)}</span>
 
                 {session.swim !== null && <SwimProgramView program={session.swim} />}
+                {/* Une course écrite en notation, lue par le serveur, et ce qu'elle vise
+                    (`docs/planifier-une-seance.md`, D2, D7). */}
+                {session.run !== null && <RunProgramView program={session.run} />}
+                {session.goal_text !== null && (
+                  <span className={styles.note}>Visé : {session.goal_text}</span>
+                )}
                 {doneLine(session) !== null && (
                   <span className={styles.doneLine}>{doneLine(session)}</span>
                 )}

@@ -67,6 +67,11 @@ function session(overrides: Partial<PlannedSession>): PlannedSession {
     workout_url: null,
     program: null,
     swim: null,
+    run: null,
+    distance_km: null,
+    goal_s: null,
+    rpe_goal: null,
+    goal_text: null,
     done_m: null,
     gap_m: null,
     ...overrides,
@@ -628,6 +633,25 @@ describe('planifier une séance', () => {
     expect(await screen.findByLabelText('Date')).toHaveValue('2026-08-20');
   });
 
+  it('n’impose ni nature ni durée, et ne part pas sans nature', async () => {
+    const user = userEvent.setup();
+    stub();
+    renderScreen();
+    await screen.findByRole('grid');
+
+    await user.click(screen.getByRole('button', { name: 'Planifier' }));
+    const sheet = await screen.findByRole('dialog');
+    const pressed = within(sheet)
+      .getAllByRole('button')
+      .filter((button) => button.getAttribute('aria-pressed') === 'true');
+    expect(pressed).toHaveLength(0);
+    expect(within(sheet).getByLabelText('Durée (min)')).toHaveValue('');
+
+    await user.click(within(sheet).getByRole('button', { name: 'Planifier' }));
+    expect(await within(sheet).findByRole('alert')).toHaveTextContent('Choisis la nature');
+    expect(writes().some((call) => call.url.includes('/planning/sessions'))).toBe(false);
+  });
+
   it('montre l’aperçu **du serveur**, pas une lecture faite ici', async () => {
     const user = userEvent.setup();
     stub();
@@ -635,6 +659,9 @@ describe('planifier une séance', () => {
     await screen.findByRole('grid');
 
     await user.click(screen.getByRole('button', { name: 'Planifier' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Natation' }),
+    );
     await user.type(await screen.findByLabelText('Programme'), '400 cr ef');
 
     expect(await screen.findByText('Lu par le serveur')).toBeInTheDocument();
@@ -661,6 +688,9 @@ describe('planifier une séance', () => {
     await screen.findByRole('grid');
 
     await user.click(screen.getByRole('button', { name: 'Planifier' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Natation' }),
+    );
     await user.type(await screen.findByLabelText('Programme'), '400 NL');
 
     expect(
@@ -675,6 +705,9 @@ describe('planifier une séance', () => {
     await screen.findByRole('grid');
 
     await user.click(screen.getByRole('button', { name: 'Planifier' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Natation' }),
+    );
     const field = await screen.findByLabelText('Programme');
     await user.type(field, '8');
     await user.click(screen.getByRole('button', { name: '×' }));
@@ -691,6 +724,9 @@ describe('planifier une séance', () => {
     await screen.findByRole('grid');
 
     await user.click(screen.getByRole('button', { name: 'Planifier' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Natation' }),
+    );
     await user.type(await screen.findByLabelText('Programme'), '400 CR');
     await user.click(screen.getByRole('button', { name: 'Muscu' }));
     expect(screen.queryByLabelText('Programme')).not.toBeInTheDocument();

@@ -17,12 +17,14 @@ from __future__ import annotations
 # et un champ avec valeur par défaut masque le type homonyme au moment où pydantic relit
 # l'annotation. `dt.date` ne peut être masqué par rien. (Le piège a déjà été payé au L12.)
 import datetime as dt
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.swim_notation import MAX_CHARS, SwimDoneLine, SwimProgram
 from app.core.validation import DurationMin, Label, Note, PlannedDate
+from app.domains.planning.run_notation import NotationError, RunProgram, clock_value
 
 #: Les natures planifiables. Fermée côté API alors que le fichier tolère n'importe quoi :
 #: le fichier doit survivre à un tableur, une saisie n'a pas cette excuse.
@@ -46,6 +48,51 @@ def _empty_time_is_none(value: str | None) -> str | None:
     return cleaned or None
 
 
+def goal_seconds(raw: str | None) -> int | None:
+    """`50'00` → 3000 ; `1h05` → 3900 ; `50:00` → 3000 ; `1:05:00` → 3900."""
+    if raw is None:
+        return None
+    text = raw.strip().replace("\u2019", "'").replace('"', "'")
+    parts = text.split(":")
+    if all(part.isdigit() for part in parts) and 2 <= len(parts) <= 3:
+        numbers = [int(part) for part in parts]
+        seconds = numbers[-1] + numbers[-2] * 60 + (numbers[0] * 3600 if len(parts) == 3 else 0)
+        if numbers[-1] < 60:
+            return seconds
+    hours = re.match(r"^(\d{1,2})h(\d{2})?$", text, re.IGNORECASE)
+    if hours is not None:
+        return (int(hours.group(1)) * 60 + int(hours.group(2) or 0)) * 60
+    try:
+        minutes = clock_value(text)
+    except NotationError as error:
+        raise ValueError(error.message) from error
+    if minutes is not None:
+        return round(minutes * 60)
+    raise ValueError("Le chrono visé s'écrit 50'00, 1h05 ou 50:00.")
+
+
+def goal_clock(seconds: int | None) -> str | None:
+    """3000 → `50:00` ; 3900 → `1:05:00` — ce que `goal_seconds` relit."""
+    if seconds is None:
+        return None
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
+
+
+def goal_text(distance_km: float | None, goal_s: int | None, rpe: int | None) -> str | None:
+    """« 10 km en 50:00 · effort 7/10 », rédigée ici ; `None` sans rien de visé."""
+    parts: list[str] = []
+    head = f"{distance_km:g} km".replace(".", ",") if distance_km else ""
+    if goal_s is not None:
+        head = f"{head} en {goal_clock(goal_s)}" if head else f"chrono {goal_clock(goal_s)}"
+    if head:
+        parts.append(head)
+    if rpe is not None:
+        parts.append(f"effort {rpe}/10")
+    return " · ".join(parts) if parts else None
+
+
 class PlanPayload(BaseModel):
     """Une séance à planifier ou à corriger (`PLAN-02`)."""
 
@@ -54,8 +101,14 @@ class PlanPayload(BaseModel):
     time: str | None = Field(default=None, pattern=TIME_PATTERN)
     kind: Kind = "autre"
     title: Label
-    duration_min: DurationMin
+    #: Facultative pour une course écrite en notation : le serveur la déduit des blocs
+    #: (`docs/planifier-une-seance.md`, D8). Exigée partout ailleurs.
+    duration_min: DurationMin | None = None
     note: Note | None = None
+    #: Ce que vise une course (D7). Le chrono s'écrit comme la notation : `50'00`, `1h05`.
+    distance_km: float | None = Field(default=None, gt=0, le=300)
+    goal_time: str | None = Field(default=None, max_length=12)
+    rpe_goal: int | None = Field(default=None, ge=1, le=10)
     #: La séance Cadence à joindre, par son identifiant **stable** (**D5**).
     #:
     #: Ce n'est pas une colonne de `plan.csv` : le serveur s'en sert pour ajouter le lien
@@ -81,11 +134,26 @@ class PlanPayload(BaseModel):
         cleaned = value.strip()
         return cleaned or None
 
+    @field_validator("goal_time", mode="before")
+    @classmethod
+    def _blank_goal(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = str(value).strip()
+        if cleaned:
+            goal_seconds(cleaned)  # refusé ici, sur son champ, plutôt qu'à l'écriture
+        return cleaned or None
+
     @model_validator(mode="after")
-    def _program_is_for_swimming(self) -> PlanPayload:
-        if self.program is not None and self.kind != "natation":
-            raise ValueError("Un programme de nage ne va qu'avec une séance de natation.")
+    def _program_is_for_swimming_or_running(self) -> PlanPayload:
+        if self.program is not None and self.kind not in ("natation", "course"):
+            raise ValueError("Un programme ne va qu'avec une natation ou une course.")
         return self
+
+    @property
+    def goal_s(self) -> int | None:
+        """Le chrono visé en secondes, ou `None` ; `ValueError` s'il ne se lit pas."""
+        return goal_seconds(self.goal_time)
 
 
 class PlannedSession(BaseModel):
@@ -121,6 +189,14 @@ class PlannedSession(BaseModel):
     #: Lu à chaque affichage et non stocké : un sigle renommé en Réglages se voit aussitôt,
     #: et le total ne peut pas diverger du texte dont il vient.
     swim: SwimProgram | None = None
+    #: La séance de course **lue** (`docs/planifier-une-seance.md`, D2). `null` hors course
+    #: et sans notation — un footing « 45 min » n'a rien à lire.
+    run: RunProgram | None = None
+    #: Ce que vise une course (D7), et sa phrase : « 10 km en 50:00 · effort 7/10 ».
+    distance_km: float | None = None
+    goal_s: int | None = None
+    rpe_goal: int | None = None
+    goal_text: str | None = None
     #: La distance **nagée** ce jour-là par la natation qui honore celle-ci, et l'écart au
     #: prévu (`docs/planning-natation.md` §6.4). Calculés au serveur, `null` sans natation
     #: réalisée — et l'écart `null` aussi sans total prévu : on ne compare pas à rien.
@@ -315,6 +391,12 @@ class SubscriptionInfo(BaseModel):
 
 
 # ── La notation de nage (`docs/planning-natation.md`) ─
+
+
+class RunParseRequest(BaseModel):
+    """Une séance de course à lire, sans rien écrire — l'aperçu du formulaire."""
+
+    program: str = Field(default="", max_length=600)
 
 
 class SwimParseRequest(BaseModel):

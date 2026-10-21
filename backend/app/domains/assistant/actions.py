@@ -478,7 +478,7 @@ async def _delete_plan(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
 
 
 async def _move_plan(store: FileStore, payload: MovePlanArgs) -> Outcome:
-    from app.domains.planning.schemas import PlanPayload
+    from app.domains.planning.schemas import PlanPayload, goal_clock
     from app.domains.planning.service import PlanningService
 
     service = PlanningService(store)
@@ -498,6 +498,10 @@ async def _move_plan(store: FileStore, payload: MovePlanArgs) -> Outcome:
             duration_min=current.duration_min,
             note=current.note,
             program=current.program,
+            # Ce que visait une course suit la séance déplacée (`docs/planifier-une-seance.md`).
+            distance_km=current.distance_km,
+            goal_time=goal_clock(current.goal_s),
+            rpe_goal=current.rpe_goal,
         ),
     )
     when = f" à {moved.time}" if moved.time else ""

@@ -38,19 +38,34 @@ export const WEEKDAY_NAMES = [
 ];
 
 /**
- * Le formulaire vierge. La durée part de 60 minutes, comme avant la natation : c'est un
- * créneau à ajuster, pas une mesure — et le programme, lui, part **vide** : un programme
- * pré-rempli serait une séance que personne n'a écrite.
+ * Le formulaire vierge : **rien d'imposé** (`docs/planifier-une-seance.md`, D8). Il partait
+ * de « natation, 60 minutes » — une nature et une durée que personne n'avait décidées. La
+ * date vient du jour touché ; la nature et la durée se choisissent.
  */
 export const EMPTY_FORM: PlanFormValues = {
   date: '',
   time: null,
-  kind: 'natation',
+  kind: null,
   title: '',
-  duration_min: '60',
+  duration_min: '',
   note: '',
   program: '',
+  distance_km: '',
+  goal_time: '',
+  rpe_goal: null,
 };
+
+/** « 50:00 » — le chrono visé tel que le formulaire le recharge, et que le serveur relit. */
+function clockOf(seconds: number | null): string {
+  if (seconds === null) return '';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  const tail = String(secs).padStart(2, '0');
+  return hours > 0
+    ? `${String(hours)}:${String(minutes).padStart(2, '0')}:${tail}`
+    : `${String(minutes)}:${tail}`;
+}
 
 /**
  * Mois affiché, `AAAA-MM`, décalé de `offset` mois.
@@ -87,6 +102,9 @@ export function formOf(session: PlannedSession): Partial<PlanFormValues> {
     duration_min: String(session.duration_min),
     note: session.note ?? '',
     program: session.program ?? '',
+    distance_km: session.distance_km === null ? '' : String(session.distance_km),
+    goal_time: clockOf(session.goal_s),
+    rpe_goal: session.rpe_goal,
   };
 }
 

@@ -125,6 +125,13 @@ class SwimNotationError(ValidationFailedError):
     message = "Le programme n'est pas dans la notation."
 
 
+class RunNotationError(ValidationFailedError):
+    """Une séance de course hors de la notation (`docs/planifier-une-seance.md`, D1)."""
+
+    code = "run_notation_invalid"
+    message = "La séance n'est pas dans la notation."
+
+
 class SwimCodeInUseError(MetricError):
     """Un sigle qu'une séance prévue emploie ne se supprime pas (§3).
 
