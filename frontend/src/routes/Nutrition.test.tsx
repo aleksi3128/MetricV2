@@ -827,6 +827,24 @@ describe('repas composé', () => {
     expect(screen.queryByLabelText(/^Grammes/)).toBeNull();
   });
 
+  it('ne promet plus la saisie à la main, et tend la porte du catalogue', async () => {
+    // Audit du 17 octobre, fiche 10 : catalogue vide au premier repas, le texte renvoyait
+    // à « la saisie à la main » retirée de l'étape — une impasse.
+    stub((url) =>
+      url.endsWith('/api/nutrition') ? json(200, { ...VIEW, ingredients: [] }) : undefined,
+    );
+    renderNutrition();
+
+    await openSheet('Repas composé');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+
+    expect(await screen.findByText(/Ton catalogue est vide/)).not.toHaveTextContent('à la main');
+    await userEvent.type(screen.getByLabelText('Chercher un aliment'), 'blanc de poulet');
+    expect(
+      screen.getByRole('link', { name: 'Créer « blanc de poulet » au catalogue' }),
+    ).toHaveAttribute('href', '/nutrition/catalogue?ajouter=blanc%20de%20poulet');
+  });
+
   it('filtre le catalogue sans tenir compte des accents', async () => {
     stub((url) =>
       url.endsWith('/api/nutrition')

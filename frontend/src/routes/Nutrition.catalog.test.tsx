@@ -118,10 +118,10 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
   return fetchMock;
 }
 
-function renderCatalog() {
+function renderCatalog(route = '/nutrition/catalogue') {
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[route]}>
         <Toaster>
           <Catalog />
         </Toaster>
@@ -224,6 +224,17 @@ describe('la liste', () => {
 
     expect(await screen.findByText('Aucun aliment')).toBeInTheDocument();
     expect(screen.getByText(/l’historique commence au premier/)).toBeInTheDocument();
+  });
+});
+
+describe('l’ajout tendu depuis un repas composé', () => {
+  it('ouvre la feuille d’ajout, le nom cherché déjà écrit', async () => {
+    // Fiche 10 : le repas composé envoie ici l'aliment que le catalogue ne connaît pas.
+    stub();
+    renderCatalog('/nutrition/catalogue?ajouter=blanc%20de%20poulet');
+
+    expect(await screen.findByRole('dialog', { name: 'Ajouter un aliment' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Nom')).toHaveValue('blanc de poulet');
   });
 });
 

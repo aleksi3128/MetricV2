@@ -36,6 +36,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import {
   Button,
@@ -125,9 +126,22 @@ export function Catalog() {
 
   const [range, setRange] = useState<CatalogRange>('week');
   const [opened, setOpened] = useState<CatalogEntry | null>(null);
-  const [adding, setAdding] = useState(false);
+  /*
+   * `?ajouter=<nom>` ouvre la feuille d'ajout, nom pré-rempli : c'est la porte que le repas
+   * composé tend quand le catalogue ne connaît pas l'aliment (audit du 17 octobre, fiche 10).
+   * Le paramètre est retiré à la fermeture, sans entrée d'historique — sinon « précédent »
+   * rouvrirait la feuille qu'on vient de refermer.
+   */
+  const [params, setParams] = useSearchParams();
+  const [adding, setAdding] = useState(() => params.has('ajouter'));
   /** Le nom que la feuille d'ajout reprend, quand elle s'ouvre depuis un aliment mangé. */
-  const [prefill, setPrefill] = useState('');
+  const [prefill, setPrefill] = useState(() => params.get('ajouter') ?? '');
+
+  function closeAdding(): void {
+    setAdding(false);
+    setPrefill('');
+    if (params.has('ajouter')) setParams({}, { replace: true });
+  }
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.nutrition.catalog(range),
@@ -297,13 +311,9 @@ export function Catalog() {
         key={adding ? `ajout-${prefill}` : 'ferme'}
         open={adding}
         name={prefill}
-        onClose={() => {
-          setAdding(false);
-          setPrefill('');
-        }}
+        onClose={closeAdding}
         onSaved={(name) => {
-          setAdding(false);
-          setPrefill('');
+          closeAdding();
           invalidate();
           notify(`${name} · au catalogue`);
         }}

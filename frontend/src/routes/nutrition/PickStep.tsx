@@ -77,8 +77,9 @@
 
 import { useRef, useState } from 'react';
 
-import { Button, Field, SheetRow } from '@/components/ui';
+import { Button, Field, LinkButton, SheetRow } from '@/components/ui';
 import type { Ingredient, Product } from '@/features/nutrition/api';
+import { cx } from '@/lib/cx';
 import { integer } from '@/lib/format';
 import { fold } from '@/lib/text';
 
@@ -87,6 +88,19 @@ import { useScanner } from './useScanner';
 
 /** Voir l'en-tête : au-delà, les deux autres chemins sortent de l'écran. */
 const SHOWN = 12;
+
+/** Le catalogue, son formulaire d'ajout déjà ouvert, et le nom cherché pré-rempli. */
+function addPath(query: string): string {
+  const name = query.trim();
+  return name === ''
+    ? '/nutrition/catalogue?ajouter'
+    : `/nutrition/catalogue?ajouter=${encodeURIComponent(name)}`;
+}
+
+function addLabel(query: string): string {
+  const name = query.trim();
+  return name === '' ? 'Créer un aliment au catalogue' : `Créer « ${name} » au catalogue`;
+}
 
 export function PickStep({
   catalogue,
@@ -177,16 +191,30 @@ export function PickStep({
       <div className={styles.pickZone}>
         {/* Trois états ici, et le troisième n'est pas le second : un catalogue vide et une
             recherche sans résultat ne se réparent pas du même geste. */}
+        {/* Les deux textes promettaient « la saisie à la main », retirée de cette étape :
+            c'était une impasse au premier repas, catalogue vide et rien sous la main
+            (audit du 17 octobre, fiche 10). Ils disent les deux vrais chemins, et le
+            second a sa porte — le brouillon du repas survit à l'aller-retour. */}
         {catalogue.length === 0 ? (
-          <p className={styles.empty}>
-            Ton catalogue est vide. Un aliment scanné y entre tout seul après le repas ; d’ici là,
-            le code-barres et la saisie à la main suffisent.
-          </p>
+          <div className={cx(styles.empty, styles.emptyWithAction)}>
+            <p>
+              Ton catalogue est vide. Scanne l’emballage, ou crée l’aliment au catalogue — ton repas
+              t’attend ici.
+            </p>
+            <LinkButton variant="quiet" to={addPath(query)}>
+              {addLabel(query)}
+            </LinkButton>
+          </div>
         ) : shown.length === 0 ? (
-          <p className={styles.empty}>
-            Aucun aliment ne porte ce nom. Scanne-le, ou saisis-le à la main — il entrera au
-            catalogue avec le repas.
-          </p>
+          <div className={cx(styles.empty, styles.emptyWithAction)}>
+            <p>
+              Aucun aliment ne porte ce nom. Scanne-le, ou crée-le au catalogue — ton repas t’attend
+              ici.
+            </p>
+            <LinkButton variant="quiet" to={addPath(query)}>
+              {addLabel(query)}
+            </LinkButton>
+          </div>
         ) : (
           <div className={styles.pickList}>
             {shown.map((item) => (

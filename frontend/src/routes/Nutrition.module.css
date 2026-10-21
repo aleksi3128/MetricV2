@@ -72,6 +72,14 @@
   font-size: var(--t-meta);
 }
 
+/* Un état vide qui tend sa porte : le texte, puis le lien qui répare. */
+.emptyWithAction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s3);
+}
+
 .field {
   display: flex;
   flex-direction: column;
