@@ -49,6 +49,7 @@ import { dayMonth, duration, hoursMinutes, num, pace, plural } from '@/lib/forma
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { NewActivitySheet } from './NewActivitySheet';
 import styles from './run/Run.module.css';
 import { Trends } from './Trends';
 
@@ -167,6 +168,13 @@ export function Runs() {
     queryKey: keys.activity.runProgress(),
     queryFn: () => activityApi.runProgress(),
   });
+  // Le jour du serveur, pour borner la date d'une saisie : jamais l'horloge du téléphone.
+  const { data: overview } = useQuery({
+    queryKey: keys.activity.overview(),
+    queryFn: activityApi.overview,
+  });
+  const today = overview?.today;
+  const [creating, setCreating] = useState(false);
 
   const rebuild = useMutation({
     mutationFn: () => activityApi.rebuildEfforts(),
@@ -193,9 +201,22 @@ export function Runs() {
         eyebrow="Domaine Activité"
         title="Toutes tes courses"
         actions={
-          <LinkButton variant="quiet" to="/activite">
-            Retour à l’activité
-          </LinkButton>
+          <>
+            {/* La même porte que l'écran Activité : le fichier de la montre, une capture, ou
+                les chiffres à la main — comme l'onglet Natation a la sienne. */}
+            <Button
+              variant="primary"
+              disabled={today === undefined}
+              onClick={() => {
+                setCreating(true);
+              }}
+            >
+              Ajouter une course
+            </Button>
+            <LinkButton variant="quiet" to="/activite">
+              Retour à l’activité
+            </LinkButton>
+          </>
         }
       >
         {data && data.total_runs > 0
@@ -349,6 +370,17 @@ export function Runs() {
             />
           </Card>
         </>
+      )}
+
+      {today !== undefined && (
+        <NewActivitySheet
+          key={creating ? 'open' : 'closed'}
+          open={creating}
+          today={today}
+          onClose={() => {
+            setCreating(false);
+          }}
+        />
       )}
     </div>
   );
