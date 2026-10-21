@@ -159,3 +159,48 @@ voisine.
 
 - « Douleur en cours, course à l'arrêt : Douleur (Genou…) » : la phrase de la douleur
   commence déjà par « Douleur ». « Course à l'arrêt. » suffit.
+
+### Étape 5 — la montre et le respect bloc par bloc (21 octobre 2026)
+
+**La montre** (D10) : « Pour la montre (.fit) » sur toute course planifiée en notation
+(`GET /planning/sessions/{id}/workout.fit`). Les blocs deviennent des étapes, les groupes
+des répétitions — imbriquées si la séance l'est. L'écriture d'une étape est celle du coach ;
+une **allure écrite l'emporte sur la FC** : la montre ne guiderait pas une ligne droite de
+80 m au cardio, qui n'a pas le temps de monter.
+
+**Le respect** (D11, `planning/run_judge.py`) : une sortie importée en `.fit` se juge contre
+la course planifiée en notation ce jour-là, **avant** la séance du coach et la durée seule.
+Chaque bloc est retrouvé dans l'ordre sur la trace, son allure moyenne (ou sa FC) comparée
+à sa cible : « 3 blocs sur 5 dans la cible », puis la durée, la distance, le chrono et
+l'effort visés. Sans `.fit`, la durée et la distance seulement, et la carte le dit.
+
+#### Ce que les tests et l'écran ont trouvé
+
+- **Borner un bloc au relevé le plus proche faussait les blocs courts** : une ligne droite
+  de 80 m dure 17 s, un relevé de trop en décalait l'allure de plusieurs secondes au
+  kilomètre. Le temps est interpolé à la distance exacte, et la distance au temps exact.
+- La dernière ligne droite d'une séance courue jusqu'au bout se disait « non courue » :
+  l'arrondi des flottants plaçait sa fin quelques millimètres après le dernier relevé.
+  Deux mètres ou deux secondes de jeu en fin de trace.
+- Deux groupes à la suite se numérotaient pareil (« 1 · 1 km » deux fois) : « 1/3 », « 1/2 ».
+- « Plages rebâties depuis tes zones d'aujourd'hui » s'affichait quand toutes les allures
+  étaient écrites : il ne s'affiche plus que si un bloc a été jugé contre une zone.
+
+#### Laissé, et pourquoi
+
+- **Un bloc sauté décale les suivants** : le découpage suppose les blocs courus dans
+  l'ordre. La carte dit quand la sortie s'arrête avant la fin de la séance, pas quand elle
+  a pris un autre chemin.
+- **Aucun fichier n'a été lu par une vraie montre** : le `.fit` est relu par `fitdecode`
+  comme la montre le lirait, rien de plus. Le premier essai réel dira si Garmin accepte les
+  répétitions imbriquées.
+- La dernière retouche (numérotation, avertissement des zones, ordre du panneau du jour)
+  est vérifiée par les tests, pas recapturée.
+
+---
+
+## 6. Le lot, terminé
+
+Les cinq étapes sont livrées, plus la feuille sur grand écran demandée en cours de route.
+Restent hors du lot, comme prévu : la répétition hebdomadaire d'une séance, le jugement
+d'un bloc sans `.fit`, l'envoi sans fil à la montre.

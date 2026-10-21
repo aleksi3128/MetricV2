@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from app.core.exceptions import AiQuotaError, AiUnavailableError, ValidationFailedError
 from app.domains.activity import load
@@ -24,6 +25,7 @@ from app.domains.coach import catalog, frame, prompt
 from app.domains.coach.models import RecommendationRow
 from app.domains.coach.schemas import (
     AcceptPayload,
+    AdherenceBlock,
     AdherenceView,
     CoachNext,
     CoachView,
@@ -32,6 +34,10 @@ from app.domains.coach.schemas import (
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
 from app.storage.paths import COACH
+
+if TYPE_CHECKING:
+    from app.domains.activity.schemas import Run
+    from app.domains.planning.schemas import PlannedSession
 
 log = logging.getLogger(__name__)
 
@@ -412,6 +418,18 @@ class CoachService:
         run = detail.run
         if run is None:
             return AdherenceView()
+        # Une course planifiée **en notation** passe avant tout : ses blocs se jugent sur la
+        # trace (`docs/planifier-une-seance.md`, D11).
+        written = next(
+            (
+                item
+                for item in await PlanningService(self._store).between(run.date, run.date)
+                if item.kind == "course" and item.program
+            ),
+            None,
+        )
+        if written is not None:
+            return await self._against_notation(run_index, run, written)
         splits = [
             adherence.Split(
                 duration_s=item.duration_s,
@@ -466,6 +484,75 @@ class CoachService:
             text=adherence.judge(
                 [], [], done_min=run.duration_min, planned_min=minutes
             ).duration_text,
+        )
+
+    async def _against_notation(
+        self, run_index: int, run: Run, session: PlannedSession
+    ) -> AdherenceView:
+        """Les blocs sur la trace, puis la durée, la distance, le chrono et l'effort visés."""
+        from app.domains.activity.analysis import clock
+        from app.domains.activity.service import RunService
+        from app.domains.coach import adherence
+        from app.domains.planning import run_judge
+        from app.domains.planning.service import PlanningService
+
+        assert session.program is not None
+        refs = await PlanningService(self._store).references()
+        samples = await RunService(self._store).samples(run_index)
+        judged = (
+            run_judge.judge(
+                session.program,
+                [
+                    run_judge.Sample(item.timer_s, item.distance_m, item.heart_rate)
+                    for item in samples
+                ],
+                refs,
+            )
+            if samples
+            else None
+        )
+        parts: list[str] = [
+            judged.text
+            if judged is not None
+            else "Sans .fit, les blocs ne se jugent pas : la durée et la distance seulement."
+        ]
+        parts.append(adherence.duration_text(run.duration_min, round(session.duration_min)))
+        planned_km = session.distance_km or (
+            session.run.distance_m / 1000 if session.run and session.run.distance_m else None
+        )
+        if planned_km:
+            done, aimed = (
+                f"{value:.1f}".replace(".", ",") for value in (run.distance_km, planned_km)
+            )
+            parts.append(f"{done}\u00a0km pour {aimed}\u00a0prévus.")
+        if session.goal_s:
+            parts.append(
+                f"Chrono {clock(run.duration_min)} pour {clock(session.goal_s / 60)} visé."
+            )
+        if session.rpe_goal is not None:
+            parts.append(
+                f"Effort perçu {run.rpe} pour {session.rpe_goal} visé."
+                if run.rpe is not None
+                else f"Effort perçu visé {session.rpe_goal} : note ton effort ci-dessous."
+            )
+        return AdherenceView(
+            planned=True,
+            source="plan",
+            title=session.title,
+            text=" ".join(parts),
+            caveat=(
+                "Plages rebâties depuis tes zones d'aujourd'hui."
+                if judged is not None and judged.from_zones
+                else None
+            ),
+            blocks=[
+                AdherenceBlock(
+                    label=item.label, measured=item.measured, target=item.target, ok=item.ok
+                )
+                for item in (judged.blocks if judged else [])
+            ],
+            judged_blocks=judged.judged if judged else 0,
+            in_range_blocks=judged.in_range if judged else 0,
         )
 
 

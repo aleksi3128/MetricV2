@@ -181,11 +181,46 @@ describe('le respect de la séance prévue', () => {
       target: '6:00–6:20 /km',
       text: '5 km sur 5 dans la plage (6:00–6:20 /km). 32 min pour 31 prévues : la durée y est.',
       caveat: 'Plages rebâties depuis tes zones d’aujourd’hui.',
+      blocks: [],
+      judged_blocks: 0,
+      in_range_blocks: 0,
     };
     serve({ '/adherence': adherence });
     renderWith(<Adherence run={RUN} />);
 
     expect(await screen.findByText(adherence.text)).toBeInTheDocument();
     expect(screen.getByText('5/5 km')).toBeInTheDocument();
+  });
+
+  it('une séance planifiée en notation montre chaque bloc, tenu ou non', async () => {
+    serve({
+      '/adherence': {
+        planned: true,
+        source: 'plan',
+        title: 'Lignes droites',
+        judged_km: 0,
+        in_range_km: 0,
+        basis: null,
+        target: null,
+        text: '9 blocs sur 10 dans la cible.',
+        caveat: null,
+        judged_blocks: 10,
+        in_range_blocks: 9,
+        blocks: [
+          {
+            label: '2 · 80 m ligne droite',
+            measured: '4:00 /km',
+            target: '3:25–3:35 /km',
+            ok: false,
+          },
+        ],
+      },
+    });
+    renderWith(<Adherence run={RUN} />);
+
+    expect(await screen.findByText('9/10 blocs')).toBeInTheDocument();
+    const list = screen.getByRole('list', { name: 'Les blocs de la séance' });
+    expect(within(list).getByText('hors cible')).toBeInTheDocument();
+    expect(within(list).getByText('2 · 80 m ligne droite')).toBeInTheDocument();
   });
 });

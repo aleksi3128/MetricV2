@@ -852,6 +852,10 @@ export interface RunAdherence {
   target: string | null;
   text: string;
   caveat: string | null;
+  /** Une course planifiée en notation, jugée bloc par bloc sur la trace du `.fit`. */
+  blocks: { label: string; measured: string; target: string; ok: boolean | null }[];
+  judged_blocks: number;
+  in_range_blocks: number;
 }
 
 export const activityApi = {

@@ -14,6 +14,7 @@ import { Badge, Button, Card, Empty, ExternalLinkButton, Rule } from '@/componen
 import { activityApi } from '@/features/activity/api';
 import { planningApi, type DayCell, type PlannedSession } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
+import { downloadAuthorized } from '@/lib/download';
 import { delta, hoursMinutes, longDate, meters } from '@/lib/format';
 import { useToast } from '@/lib/toast';
 
@@ -33,6 +34,33 @@ function humanNote(session: PlannedSession): string {
   const note = session.note ?? '';
   if (session.workout_url === null) return note.trim();
   return note.replace(session.workout_url, '').replace(/\s+/g, ' ').trim();
+}
+
+function WatchFile({ session }: { session: PlannedSession }) {
+  const { notify } = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      variant="ghost"
+      busy={busy}
+      aria-label={`${session.title} : fichier pour la montre (.fit)`}
+      onClick={() => {
+        setBusy(true);
+        downloadAuthorized(
+          `/api/planning/sessions/${String(session.id)}/workout.fit`,
+          `seance-${session.date}.fit`,
+        )
+          .catch(() => {
+            notify('Le fichier n’a pas pu être préparé.', 'recover');
+          })
+          .finally(() => {
+            setBusy(false);
+          });
+      }}
+    >
+      Pour la montre (.fit)
+    </Button>
+  );
 }
 
 /** « Fait : 850 m (+50 m) » — la distance et l'écart arrivent calculés. */
@@ -154,8 +182,13 @@ export function DayPanel({
                 {/* Une course écrite en notation, lue par le serveur, et ce qu'elle vise
                     (`docs/planifier-une-seance.md`, D2, D7). */}
                 {session.run !== null && <RunProgramView program={session.run} />}
+                {/* La séance pour la montre (D10) : à copier par câble ou par l'appli
+                    Garmin — sans accès au compte, c'est la voie. */}
                 {session.goal_text !== null && (
                   <span className={styles.note}>Visé : {session.goal_text}</span>
+                )}
+                {session.run !== null && session.run.errors.length === 0 && (
+                  <WatchFile session={session} />
                 )}
                 {doneLine(session) !== null && (
                   <span className={styles.doneLine}>{doneLine(session)}</span>

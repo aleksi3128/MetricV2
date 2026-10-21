@@ -35,19 +35,47 @@ export function Adherence({ run }: { run: Run }) {
   }
   if (data === undefined || !data.planned) return null;
 
-  const all = data.judged_km > 0 && data.in_range_km === data.judged_km;
+  const blocks = data.judged_blocks > 0;
+  const all = blocks
+    ? data.in_range_blocks === data.judged_blocks
+    : data.judged_km > 0 && data.in_range_km === data.judged_km;
   return (
     <Card>
       <div className={styles.head}>
         <h3>Séance prévue</h3>
-        {data.judged_km > 0 && (
+        {blocks ? (
           <Badge mono tone={all ? 'effort' : 'load'}>
-            {data.in_range_km}/{data.judged_km} km
+            {data.in_range_blocks}/{data.judged_blocks} blocs
           </Badge>
+        ) : (
+          data.judged_km > 0 && (
+            <Badge mono tone={all ? 'effort' : 'load'}>
+              {data.in_range_km}/{data.judged_km} km
+            </Badge>
+          )
         )}
       </div>
       {data.title !== null && <p className={styles.text}>{data.title}</p>}
       <p className={styles.text}>{data.text}</p>
+      {/* Chaque bloc retrouvé sur la trace, dans l'ordre (`docs/planifier-une-seance.md`,
+          D11) : ce qui est mesuré, contre ce qui était visé. */}
+      {data.blocks.length > 0 && (
+        <ul className={styles.blocks} aria-label="Les blocs de la séance">
+          {data.blocks.map((block, index) => (
+            <li key={index} className={styles.block}>
+              <span className={styles.blockLabel}>{block.label}</span>
+              <span className={styles.blockFigures}>
+                {block.measured} <span className={styles.blockTarget}>/ {block.target}</span>
+              </span>
+              {block.ok !== null && (
+                <Badge tone={block.ok ? 'effort' : 'load'}>
+                  {block.ok ? 'tenu' : 'hors cible'}
+                </Badge>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {data.caveat !== null && <p className={styles.caveat}>{data.caveat}</p>}
     </Card>
   );

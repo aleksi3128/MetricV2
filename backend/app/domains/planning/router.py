@@ -37,7 +37,7 @@ from app.core.deps import SettingsDep, StoreDep
 from app.core.exceptions import NotFoundError, ValidationFailedError
 from app.core.swim_notation import SwimProgram
 from app.domains.ai.deps import AiServiceDep
-from app.domains.planning import agenda, ical
+from app.domains.planning import agenda, ical, run_workout
 from app.domains.planning.glossary import SwimCodeService
 from app.domains.planning.guard import PlanCheck
 from app.domains.planning.replanning import ReplanService
@@ -241,6 +241,34 @@ async def run_coach(
 ) -> CoachSession | None:
     """`null` quand le coach n'a rien pour ce jour : une réponse, pas une erreur (D6)."""
     return await PlanningService(store).coach_session(day)
+
+
+@router.get(
+    "/sessions/{row_id}/workout.fit",
+    summary="Une course planifiée, en fichier d'entraînement pour la montre",
+    response_class=Response,
+)
+async def session_workout(row_id: RowId, store: StoreDep) -> Response:
+    """Les blocs et leurs cibles, à copier sur la montre — par câble ou par l'appli Garmin,
+    sans accès au compte (`docs/planifier-une-seance.md`, D10)."""
+    service = PlanningService(store)
+    session = next((item for item in await service.all_sessions() if item.id == row_id), None)
+    if session is None or session.kind != "course" or not session.program:
+        raise NotFoundError("Cette séance n'a pas de blocs à guider sur la montre.")
+    data = run_workout.encode(
+        session.title,
+        session.program,
+        await service.references(),
+        created=now_local(),
+        serial=int(session.session_id[:8], 16) if session.session_id else 1,
+    )
+    return Response(
+        content=data,
+        media_type="application/vnd.ant.fit",
+        headers={
+            "Content-Disposition": f'attachment; filename="seance-{session.date:%Y-%m-%d}.fit"'
+        },
+    )
 
 
 @router.post("/check", response_model=PlanCheck, summary="Les avertissements avant de planifier")

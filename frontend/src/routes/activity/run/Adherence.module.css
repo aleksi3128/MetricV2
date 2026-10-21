@@ -20,3 +20,42 @@
   font-family: var(--mono);
   font-size: var(--t-meta);
 }
+
+.blocks {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label badge'
+    'figures badge';
+  align-items: center;
+  column-gap: var(--s2);
+  padding: var(--s2) 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+.blockLabel {
+  grid-area: label;
+  font-size: var(--t-sub);
+}
+
+.blockFigures {
+  grid-area: figures;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.blockTarget {
+  color: var(--ink-low);
+}
+
+.block > :last-child:not(.blockFigures) {
+  grid-area: badge;
+}

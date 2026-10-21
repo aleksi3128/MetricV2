@@ -96,7 +96,7 @@ def _basis(step: CoachStep) -> Basis | None:
     return None
 
 
-def _duration_text(done_min: float, planned_min: int) -> str:
+def duration_text(done_min: float, planned_min: int) -> str:
     # Insécables : « 42 » seul en fin de ligne et « min » au début de la suivante, vu à
     # l'écran sur la page d'une sortie.
     text = f"{round(done_min)}\u00a0min pour {planned_min}\u00a0prévues"
@@ -115,7 +115,7 @@ def judge(
     done_min: float,
     planned_min: int,
 ) -> Adherence:
-    duration = _duration_text(done_min, planned_min)
+    duration = duration_text(done_min, planned_min)
     if any(step.repeat for step in steps):
         return Adherence(
             duration_text=duration,

@@ -95,6 +95,17 @@ class AcceptPayload(BaseModel):
     time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
+class AdherenceBlock(BaseModel):
+    """Un bloc de la séance planifiée, retrouvé sur la trace (`docs/planifier-une-seance.md`,
+    D11)."""
+
+    label: str
+    measured: str
+    target: str
+    #: `None` : un bloc sans cible, montré mais pas jugé.
+    ok: bool | None = None
+
+
 class AdherenceView(BaseModel):
     """Ce que valait une sortie par rapport à la séance prévue ce jour-là (CA-04)."""
 
@@ -111,3 +122,7 @@ class AdherenceView(BaseModel):
     text: str = ""
     #: Les plages sont rebâties depuis les zones **d'aujourd'hui** : à dire sous le chiffre.
     caveat: str | None = None
+    #: Une course planifiée en notation, jugée bloc par bloc sur la trace du `.fit` (D11).
+    blocks: list[AdherenceBlock] = Field(default_factory=list)
+    judged_blocks: int = 0
+    in_range_blocks: int = 0

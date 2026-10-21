@@ -767,6 +767,14 @@ class RunService:
         model = rows[index].model
         return await self._fit_bytes(index), f"course-{model.date:%Y-%m-%d}.fit"
 
+    async def samples(self, index: int) -> list[fit.FitSample] | None:
+        """La trace seconde par seconde d'une sortie, ou `None` sans `.fit` — le jugement bloc
+        par bloc d'une séance planifiée en a besoin (`docs/planifier-une-seance.md`, D11)."""
+        try:
+            return fit.read(await self._fit_bytes(index)).samples
+        except StorageNotFoundError:
+            return None
+
     async def _fit_bytes(self, index: int) -> bytes:
         rows = await self._repo.read_all()
         if not 0 <= index < len(rows):
