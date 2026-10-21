@@ -21,7 +21,7 @@ import {
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { num, pace } from '@/lib/format';
+import { num, pace, plural } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useTheme, type ThemeMode } from '@/lib/theme';
 import { useToast } from '@/lib/toast';
@@ -517,7 +517,19 @@ export function Settings() {
           onThreshold={set('threshold_pace_min_km')}
         />
 
-        <div className={styles.actions}>
+        {/* **Collante dès qu'un champ change** (audit du 17 octobre, fiche 24) : un seul
+            « Enregistrer » pour dix champs sur trois écrans de hauteur, et modifier les
+            raccourcis d'eau n'enregistrait rien tant qu'on n'avait pas trouvé le bouton,
+            deux cartes plus bas. Un seul envoi reste la règle — la barre vient à soi. */}
+        <div className={cx(styles.actions, dirty && styles.actionsPending)}>
+          {dirty && (
+            <p className={styles.pending}>
+              {(() => {
+                const count = Object.keys(changes(fields, data.values)).length;
+                return `${String(count)} ${plural(count, 'réglage modifié', 'réglages modifiés')}`;
+              })()}
+            </p>
+          )}
           <Button type="submit" variant="primary" busy={save.isPending} disabled={!dirty}>
             Enregistrer
           </Button>

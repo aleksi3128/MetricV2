@@ -25,6 +25,35 @@
   margin-top: var(--s5);
 }
 
+/* Un réglage modifié : la barre suit le défilement au-dessus de la barre d'onglets, tant
+   que le formulaire est à l'écran. */
+.actionsPending {
+  position: sticky;
+  bottom: calc(var(--tabbar) + var(--safe-b) + var(--s3));
+  z-index: 5;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 960px) {
+  .actionsPending {
+    bottom: var(--s4);
+  }
+}
+
+.pending {
+  flex: 1 1 100%;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+}
+
 .empty {
   color: var(--ink-low);
   font-family: var(--mono);

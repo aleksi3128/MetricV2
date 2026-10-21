@@ -147,6 +147,19 @@ describe('écran Réglages', () => {
     });
   });
 
+  it('dit combien de réglages attendent d’être enregistrés', async () => {
+    // Audit du 17 octobre, fiche 24 : un seul « Enregistrer », trois écrans plus bas.
+    stub();
+    renderSettings();
+
+    expect(screen.queryByText(/réglage modifié/)).toBeNull();
+    const protein = await screen.findByDisplayValue('150');
+    await userEvent.clear(protein);
+    await userEvent.type(protein, '180');
+
+    expect(screen.getByText('1 réglage modifié')).toBeInTheDocument();
+  });
+
   it('renvoie le jeton lu en « If-Match »', async () => {
     // `STO-05` : un jeu de réglages s'édite en bloc, la garde porte sur le fichier.
     stub();
