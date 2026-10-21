@@ -461,16 +461,34 @@ describe('import Apple', () => {
     expect(screen.queryByRole('button', { name: /Retirer/ })).not.toBeInTheDocument();
   });
 
-  it('permet de basculer une course en séance', async () => {
-    // Le brouillon propose, il n'impose pas — y compris sur la nature de l'activité.
+  it('ne propose plus d’importer une séance, et laisse corriger la lecture', async () => {
+    // Audit du 17 octobre, fiche 23 : « Course | Séance » offrait une option que le
+    // serveur refusait à chaque fois. Une capture lue comme séance le dit d'emblée.
+    stub((url) =>
+      url.includes('/api/import/apple/analyze')
+        ? json(200, { ...DRAFT, kind: 'workout', workout_type: 'Musculation' })
+        : undefined,
+    );
+    renderActivity();
+    await readScreenshot();
+
+    const card = importCard();
+    expect(within(card).queryByRole('button', { name: 'Séance' })).toBeNull();
+    expect(within(card).getByText(/lue comme une séance/)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Importer cette activité' })).toBeDisabled();
+
+    await userEvent.click(within(card).getByRole('button', { name: 'C’est une course' }));
+    expect(within(card).getByLabelText('Distance (km)')).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: 'Importer cette activité' })).toBeEnabled();
+  });
+
+  it('donne la durée telle qu’une montre l’écrit', async () => {
     stub();
     renderActivity();
     await readScreenshot();
 
-    await userEvent.click(within(importCard()).getByRole('button', { name: 'Séance' }));
-
-    // Une séance n'a pas de distance : le champ disparaît au lieu d'être ignoré.
-    expect(within(importCard()).queryByLabelText('Distance (km)')).not.toBeInTheDocument();
+    // 44,2 min, soit 44:12.
+    expect(within(importCard()).getByText('soit 44:12')).toBeInTheDocument();
   });
 });
 

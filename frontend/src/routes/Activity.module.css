@@ -1240,3 +1240,12 @@
     border-color: var(--signal);
   }
 }
+
+/* Une capture lue comme séance : ce qu'on en fait, et la correction d'un appui. */
+.importNotice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  color: var(--ink-mid);
+}

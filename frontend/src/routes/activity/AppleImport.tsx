@@ -30,7 +30,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
-import { AiBlock, Badge, Button, Card, Field, Segmented, Stepper, Steps } from '@/components/ui';
+import { AiBlock, Badge, Button, Card, Field, Stepper, Steps } from '@/components/ui';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
 import { duration, km, shortDate } from '@/lib/format';
@@ -80,6 +80,14 @@ const FIELD_NAMES: Record<string, string> = {
  * est, il ne tient pas de compteur en parallèle.
  */
 const STEPS = ['Ouvrir', 'Ajouter les captures', 'Vérifier', 'Valider'] as const;
+
+/** « soit 40:59 » sous des minutes décimales, quand elles en ont. */
+function clockHint(minutes: string): string | undefined {
+  const value = Number(minutes.replace(',', '.'));
+  return minutes.trim() !== '' && Number.isFinite(value) && value > 0
+    ? `soit ${duration(value)}`
+    : undefined;
+}
 
 function numberText(value: number | null): string {
   return value === null ? '' : String(value).replace('.', ',');
@@ -495,17 +503,26 @@ export function AppleImport({ today }: { today: string | undefined }) {
               </p>
             )}
 
-            <Segmented
-              label="Nature de l'activité"
-              value={fields.kind}
-              onChange={(kind) => {
-                setFields((current) => ({ ...current, kind }));
-              }}
-              options={[
-                { value: 'run', label: 'Course' },
-                { value: 'workout', label: 'Séance' },
-              ]}
-            />
+            {/* Plus de sélecteur « Course | Séance » : le serveur refuse toute séance à
+                l'import, et l'option offerte puis refusée à chaque fois était un piège
+                (audit du 17 octobre, fiche 23). Une capture lue comme séance le dit tout
+                de suite, et une mauvaise lecture se corrige d'un appui. */}
+            {fields.kind === 'workout' && (
+              <div className={styles.importNotice} role="status">
+                <p>
+                  Cette capture a été lue comme une séance. Metric n’en importe plus : crée une
+                  séance Cadence depuis « Activité », puis déclare-la faite.
+                </p>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setFields((current) => ({ ...current, kind: 'run', type: 'Course' }));
+                  }}
+                >
+                  C’est une course
+                </Button>
+              </div>
+            )}
 
             <div className={styles.pair}>
               <Field
@@ -547,6 +564,10 @@ export function AppleImport({ today }: { today: string | undefined }) {
                 onChange={set('duration_min')}
                 step={1}
                 min={0}
+                // Des minutes décimales — 40,98 — ne se lisent pas : la durée telle qu'une
+                // montre l'écrit se donne à côté (fiche 23). Le champ reste en minutes pour
+                // garder le pas-à-pas et la marque « proposée ».
+                hint={clockHint(fields.duration_min)}
                 proposed={proposed.includes('duration_min')}
                 error={error?.messageFor('duration_min')}
               />
@@ -601,7 +622,10 @@ export function AppleImport({ today }: { today: string | undefined }) {
               variant="primary"
               className={styles.commit}
               busy={confirm.isPending}
-              disabled={fields.date === '' || fields.duration_min === ''}
+              // Une séance serait refusée : le bouton ne la propose pas.
+              disabled={
+                fields.date === '' || fields.duration_min === '' || fields.kind === 'workout'
+              }
               onClick={() => {
                 confirm.mutate();
               }}
