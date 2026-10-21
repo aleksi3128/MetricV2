@@ -71,7 +71,11 @@ class ChecklistItem(BaseModel):
     #: Position de la ligne dans le journal, pour pouvoir décocher (`SUP-05`).
     intake_id: int | None = None
     intake_token: str | None = None
-    #: Jours consécutifs de prise jusqu'à hier inclus.
+    #: Une prise est-elle attendue aujourd'hui, selon la cadence et les prises d'avant ?
+    #: Faux pour une whey « un jour sur deux » prise la veille : elle reste cochable, mais
+    #: ne compte pas dans la journée (audit du 17 octobre, fiche 04).
+    due: bool = True
+    #: Jours consécutifs où l'engagement a tenu — une prise, ou rien de dû ce jour-là.
     streak: int
 
 

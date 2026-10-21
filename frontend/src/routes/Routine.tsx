@@ -210,15 +210,18 @@ function Checklist() {
         const items = current.items.map((entry) =>
           entry.schedule_id === item.schedule_id ? { ...entry, taken: !entry.taken } : entry,
         );
-        const taken = items.filter((entry) => entry.taken).length;
+        // Le temps de l'aller-retour seulement : la réponse du serveur remplace ce
+        // compte. Il suit sa règle — ce qui est dû, plus ce qui est pris.
+        const counted = items.filter((entry) => entry.due || entry.taken);
+        const taken = counted.filter((entry) => entry.taken).length;
         return {
           ...current,
           items,
           ratio: {
             taken,
-            planned: items.length,
-            ratio: items.length > 0 ? taken / items.length : 0,
-            complete: items.length > 0 && taken === items.length,
+            planned: counted.length,
+            ratio: counted.length > 0 ? taken / counted.length : 0,
+            complete: items.length > 0 && taken === counted.length,
           },
         };
       });
@@ -279,7 +282,11 @@ function Checklist() {
                 <Check
                   key={item.schedule_id}
                   label={item.name}
-                  dose={`${num(item.dose, 1)} ${item.unit} · ${item.time}`}
+                  // « pas dû aujourd'hui » : la whey d'un jour sur deux, prise hier. Elle
+                  // reste cochable, mais n'est pas un manque (audit, fiche 04).
+                  dose={`${num(item.dose, 1)} ${item.unit} · ${item.time}${
+                    item.due || item.taken ? '' : ' · pas dû aujourd’hui'
+                  }`}
                   streak={item.streak > 0 ? `${item.streak} j` : undefined}
                   checked={item.taken}
                   onToggle={() => {

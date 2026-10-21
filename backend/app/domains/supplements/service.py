@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from datetime import date, timedelta
 
-from app.core.cadence import Cadence
+from app.core.cadence import Cadence, CadenceError, CadenceType
 from app.core.dates import local_day_of, now_local, today_local
 from app.domains.supplements.models import ScheduleRow, SupplementIntakeRow
 from app.domains.supplements.schemas import (
@@ -128,11 +128,13 @@ class SupplementService:
             for row in entries
             if local_day_of(row.model.datetime_) == day
         }
-        streaks = self._streaks(entries, day)
+        by_supplement = _intake_days(entries)
 
         items: list[ChecklistItem] = []
         for supplement in planned:
             row = taken_today.get(supplement.schedule_id)
+            cadence = _cadence_of(supplement.frequency)
+            days = by_supplement.get(supplement.schedule_id, set())
             items.append(
                 ChecklistItem(
                     schedule_id=supplement.schedule_id,
@@ -145,20 +147,26 @@ class SupplementService:
                     taken_at=row.model.datetime_ if row else None,
                     intake_id=row.index if row else None,
                     intake_token=row.token if row else None,
-                    streak=streaks.get(supplement.schedule_id, 0),
+                    due=is_due(cadence, days, day),
+                    streak=_streak(cadence, days, day),
                 )
             )
 
-        taken = sum(1 for item in items if item.taken)
+        # Ne comptent que ce qui est dû et ce qui a été pris. Une whey « un jour sur deux »
+        # prise hier n'est pas un manque aujourd'hui : la compter empêchait toute journée
+        # complète sans une prise que la cadence ne demande pas (audit, fiche 04).
+        counted = [item for item in items if item.due or item.taken]
+        taken = sum(1 for item in counted if item.taken)
         return ChecklistView(
             date=day,
             items=items,
             ratio=DayRatio(
                 taken=taken,
-                planned=len(items),
-                ratio=taken / len(items) if items else 0.0,
-                # « Journée complète » exige que tout ait été coché, pas la majorité.
-                complete=bool(items) and taken == len(items),
+                planned=len(counted),
+                ratio=taken / len(counted) if counted else 0.0,
+                # « Journée complète » exige que tout ce qui est dû ait été coché, pas la
+                # majorité. Rien de dû, planning non vide : l'engagement est tenu.
+                complete=bool(items) and taken == len(counted),
             ),
         )
 
@@ -169,30 +177,6 @@ class SupplementService:
     async def intake_days(self) -> set[date]:
         """Jours portant au moins une prise — source de la série d'assiduité (`AGG-03`)."""
         return {local_day_of(row.model.datetime_) for row in await self.intakes()}
-
-    @staticmethod
-    def _streaks(entries: list[Row[SupplementIntakeRow]], day: date) -> dict[str, int]:
-        """Jours consécutifs de prise, en remontant depuis `day`.
-
-        La journée en cours ne casse pas la série tant qu'elle n'est pas terminée : on
-        compte à partir de `day` si la prise est faite, sinon à partir de la veille.
-        C'est la règle déjà appliquée à la série d'assiduité (`AGG-03`).
-        """
-        by_supplement: dict[str, set[date]] = {}
-        for row in entries:
-            by_supplement.setdefault(row.model.schedule_id, set()).add(
-                local_day_of(row.model.datetime_)
-            )
-
-        streaks: dict[str, int] = {}
-        for schedule_id, days in by_supplement.items():
-            cursor = day if day in days else day - timedelta(days=1)
-            count = 0
-            while cursor in days and count < STREAK_LIMIT:
-                count += 1
-                cursor -= timedelta(days=1)
-            streaks[schedule_id] = count
-        return streaks
 
     async def take(self, schedule_id: str) -> ChecklistView:
         """Coche un item : écrit une prise horodatée (`SUP-03`)."""
@@ -228,3 +212,78 @@ class SupplementService:
         )
         del removed
         return await self.checklist(day)
+
+
+# ── Cadence d'un complément, jour par jour ────────────
+
+
+def _cadence_of(frequency: str) -> Cadence:
+    """La cadence du planning, ou `daily` si la ligne est illisible.
+
+    Repli et non erreur : une cadence abîmée au tableur ne doit pas vider la checklist.
+    C'est aussi ce que faisait la checklist avant de lire la cadence.
+    """
+    try:
+        return Cadence.parse(frequency)
+    except CadenceError:
+        return Cadence(CadenceType.DAILY)
+
+
+def _intake_days(entries: list[Row[SupplementIntakeRow]]) -> dict[str, set[date]]:
+    by_supplement: dict[str, set[date]] = {}
+    for row in entries:
+        by_supplement.setdefault(row.model.schedule_id, set()).add(
+            local_day_of(row.model.datetime_)
+        )
+    return by_supplement
+
+
+def is_due(cadence: Cadence, days: set[date], day: date) -> bool:
+    """Une prise est-elle attendue ce jour-là, vu les prises **d'avant** ?
+
+    Le jour lui-même n'entre pas dans le compte : cocher ne doit pas rendre l'item « pas
+    dû » sous le doigt. `conditional` reste dû, comme avant ce lot — le déclencheur n'est
+    évalué que par le moteur d'assiduité, et le deviner ici en ferait une seconde règle.
+    """
+    match cadence.type:
+        case CadenceType.NONE:
+            return False
+        case CadenceType.WINDOW:
+            needed, span = int(cadence.params["min_count"]), int(cadence.params["window_days"])
+            start = day - timedelta(days=span - 1)
+            return sum(1 for taken in days if start <= taken < day) < needed
+        case CadenceType.PER_WEEK:
+            monday = day - timedelta(days=day.weekday())
+            return sum(1 for taken in days if monday <= taken < day) < int(cadence.params["count"])
+        case _:
+            return True
+
+
+def _streak(cadence: Cadence, days: set[date], day: date) -> int:
+    """Jours consécutifs où l'engagement a tenu, en remontant depuis `day`.
+
+    Un jour tient s'il porte une prise, ou si rien n'y était dû. En quotidien, c'est
+    l'ancienne règle — les jours consécutifs de prise. Pour « un jour sur deux », pris le
+    17, rien le 18, pris le 19 : trois jours, et non une série cassée chaque lendemain.
+
+    La journée en cours ne casse pas la série tant qu'elle n'est pas terminée : on compte
+    à partir de `day` si elle tient déjà, sinon à partir de la veille (`AGG-03`).
+
+    `none` garde les jours de prise seuls : rien n'y étant jamais dû, tout jour « tiendrait »
+    et la série courrait jusqu'à la limite.
+    """
+
+    def held(on: date) -> bool:
+        if on in days:
+            return True
+        return cadence.type is not CadenceType.NONE and not is_due(cadence, days, on)
+
+    if not days:
+        return 0
+    first = min(days)
+    cursor = day if held(day) else day - timedelta(days=1)
+    count = 0
+    while cursor >= first and held(cursor) and count < STREAK_LIMIT:
+        count += 1
+        cursor -= timedelta(days=1)
+    return count

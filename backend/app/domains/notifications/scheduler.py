@@ -504,7 +504,9 @@ class ReminderScheduler:
                     if (heure := parse_slot(session.time or "")) is not None
                 )
             ),
-            supplements_pending=tuple(item.name for item in checklist.items if not item.taken),
+            supplements_pending=tuple(
+                item.name for item in checklist.items if item.due and not item.taken
+            ),
             hydration_ml=eau.today_ml,
             hydration_target_ml=eau.target_ml,
             meals_logged=repas.meals,

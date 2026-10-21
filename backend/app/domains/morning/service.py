@@ -179,6 +179,6 @@ class MorningFlowService:
         return DayStep(
             unrated_runs=unrated,
             meals_yesterday=len(meals.meals),
-            supplements=[item for item in checklist.items if not item.taken],
+            supplements=[item for item in checklist.items if item.due and not item.taken],
             planned=await PlanningService(self._store).between(day, day),
         )

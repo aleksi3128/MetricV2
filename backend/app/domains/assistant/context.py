@@ -479,11 +479,16 @@ async def today_lines(store: FileStore, today: date) -> list[str]:
     checklist = await SupplementService(store).checklist(today)
     if checklist.items:
         taken = [item.name for item in checklist.items if item.taken]
-        left = [item.name for item in checklist.items if not item.taken]
-        lines.append(
-            f"Aujourd'hui — suppléments : {', '.join(taken) or 'aucun'} pris, "
-            f"{', '.join(left) or 'aucun'} restant(s)"
-        )
+        left = [item.name for item in checklist.items if item.due and not item.taken]
+        rest = [item.name for item in checklist.items if not item.due and not item.taken]
+        # Chaque liste dite seulement si elle a quelque chose : « Whey pris, aucun
+        # restant(s) » se lisait mal, et un complément pas dû n'est pas un oubli.
+        parts = [
+            f"{', '.join(taken)} pris" if taken else "",
+            f"reste à prendre : {', '.join(left)}" if left else "",
+            f"pas dû aujourd'hui : {', '.join(rest)}" if rest else "",
+        ]
+        lines.append("Aujourd'hui — suppléments : " + " ; ".join(part for part in parts if part))
 
     lines.extend(await _training_today(store, today))
 
@@ -867,7 +872,7 @@ async def _supplements_today(store: FileStore, today: date) -> list[str]:
         return [f"Suppléments du {today:%d/%m/%Y} : aucun au programme"]
     return [
         f"Supplément « {item.name} » le {today:%d/%m} à {item.time} — "
-        f"{'déjà pris' if item.taken else 'pas encore pris'} "
+        f"{'déjà pris' if item.taken else 'pas encore pris' if item.due else 'pas dû ce jour'} "
         f"(schedule_id={item.schedule_id})"
         for item in view.items
     ]

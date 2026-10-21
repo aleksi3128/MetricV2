@@ -351,6 +351,100 @@ def test_a_gap_breaks_the_streak(
     assert app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()["items"][0]["streak"] == 1
 
 
+# ── La cadence décide de ce qui est dû (audit du 17 octobre, fiche 04) ──
+
+EVERY_OTHER_DAY = "window:min_count=1;window_days=2"
+
+
+def intakes(dav: FakeWebDav, schedule_id: str, *offsets: int) -> None:
+    today = today_local()
+    dav.seed(
+        LOG_FILE,
+        LOG_HEADER
+        + "".join(
+            f"{moment(today - timedelta(days=offset))},{schedule_id},Whey,30.0,g\n"
+            for offset in offsets
+        ),
+    )
+
+
+def test_every_other_day_is_not_due_the_day_after(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Prise hier, rien n'est dû aujourd'hui — et la journée peut être complète."""
+    whey = add(app_client, auth, name="Whey", frequency=EVERY_OTHER_DAY)
+    intakes(dav, whey["schedule_id"], 1)
+
+    view = app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()
+
+    assert view["items"][0]["due"] is False
+    assert view["ratio"] == {"taken": 0, "planned": 0, "ratio": 0.0, "complete": True}
+
+
+def test_every_other_day_is_due_two_days_after(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    whey = add(app_client, auth, name="Whey", frequency=EVERY_OTHER_DAY)
+    intakes(dav, whey["schedule_id"], 2)
+
+    view = app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()
+
+    assert view["items"][0]["due"] is True
+    assert view["ratio"]["planned"] == 1
+
+
+def test_a_supplement_taken_when_not_due_still_counts(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Une prise est une prise : cochée un jour où rien n'était dû, elle se compte."""
+    whey = add(app_client, auth, name="Whey", frequency=EVERY_OTHER_DAY)
+    intakes(dav, whey["schedule_id"], 1)
+
+    view = app_client.post(
+        f"{SUPPLEMENTS}/today", json={"schedule_id": whey["schedule_id"]}, headers=auth
+    ).json()
+
+    assert view["items"][0]["taken"] is True
+    assert view["ratio"] == {"taken": 1, "planned": 1, "ratio": 1.0, "complete": True}
+
+
+def test_a_weekly_count_is_due_until_reached(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """« Une fois par semaine », déjà prise cette semaine : plus rien de dû jusqu'à lundi."""
+    today = today_local()
+    if today.weekday() == 0:
+        pytest.skip("un lundi n'a pas de veille dans la même semaine")
+    weekly = add(app_client, auth, name="Vitamine D", frequency="per_week:count=1")
+    intakes(dav, weekly["schedule_id"], 1)
+
+    assert app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()["items"][0]["due"] is False
+
+
+def test_without_any_expectation_nothing_is_due(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    add(app_client, auth, name="Mélatonine", frequency="none")
+
+    item = app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()["items"][0]
+
+    assert item["due"] is False
+
+
+def test_the_streak_of_every_other_day_counts_the_days_held(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Pris il y a quatre jours, deux jours, et hier : cinq jours tenus, pas une série
+    cassée chaque lendemain."""
+    whey = add(app_client, auth, name="Whey", frequency=EVERY_OTHER_DAY)
+    intakes(dav, whey["schedule_id"], 4, 2, 1)
+
+    item = app_client.get(f"{SUPPLEMENTS}/today", headers=auth).json()["items"][0]
+
+    # Aujourd'hui tient (rien de dû après la prise d'hier), puis hier, J-2, J-3, J-4.
+    assert item["streak"] == 5
+
+
 def test_checking_an_unknown_supplement_is_refused(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:

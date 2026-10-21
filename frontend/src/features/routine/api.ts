@@ -68,6 +68,8 @@ export interface ChecklistItem {
   taken_at: string | null;
   intake_id: number | null;
   intake_token: string | null;
+  /** Une prise est-elle attendue aujourd'hui ? Le serveur lit la cadence, pas l'écran. */
+  due: boolean;
   streak: number;
 }
 

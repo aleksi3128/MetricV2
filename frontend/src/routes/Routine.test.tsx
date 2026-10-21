@@ -68,6 +68,7 @@ const CHECKLIST = {
       taken_at: '2026-07-26T08:05:00+02:00',
       intake_id: 0,
       intake_token: 'jeton-prise',
+      due: true,
       streak: 41,
     },
     {
@@ -81,6 +82,7 @@ const CHECKLIST = {
       taken_at: null,
       intake_id: null,
       intake_token: null,
+      due: true,
       streak: 0,
     },
   ],
@@ -202,6 +204,24 @@ describe('écran Routine', () => {
       'aria-pressed',
       'true',
     );
+  });
+
+  it('dit qu’un complément n’est pas dû, sans en faire un manque', async () => {
+    // Audit du 17 octobre, fiche 04 : la whey « un jour sur deux » prise hier était due
+    // tous les jours. C'est le serveur qui décide ; l'écran le dit.
+    stub((url) =>
+      url.includes('/supplements/today')
+        ? json(200, {
+            ...CHECKLIST,
+            items: [{ ...CHECKLIST.items[1], name: 'Whey', due: false }],
+            ratio: { taken: 0, planned: 0, ratio: 0, complete: true },
+          })
+        : undefined,
+    );
+    renderRoutine();
+
+    expect(await screen.findByText(/pas dû aujourd’hui/)).toBeInTheDocument();
+    expect(screen.getByText('journée complète')).toBeInTheDocument();
   });
 
   it('affiche la série par item', async () => {
