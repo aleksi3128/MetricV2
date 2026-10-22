@@ -23,7 +23,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 WINDOW_DAYS = 28
-#: Seiler : environ 80 % du temps en facile chez les athlètes d'endurance.
+#: **La** cible de facile de l'application (M-02) : Seiler, environ 80 % du temps en facile
+#: chez les athlètes d'endurance. La page Courses n'en a plus d'autre ; le coach garde un
+#: plancher plus bas, qui n'est pas une cible (`coach/frame.py`, `EASY_SHARE_FLOOR`).
 EASY_TARGET = 0.8
 #: L'effort perçu (CR-10) jusqu'auquel une séance est facile, et à partir duquel elle est dure.
 RPE_EASY_MAX = 4
@@ -106,11 +108,8 @@ def split(today: date, items: Sequence[Item]) -> Intensity:
         )
 
     easy, moderate, hard = (value / counted for value in totals)
-    verdict = (
-        "dans la cible de 80\u00a0% de facile."
-        if easy >= EASY_TARGET
-        else "sous la cible de 80\u00a0% de facile."
-    )
+    target = f"la cible de {_pct(EASY_TARGET)} de facile."
+    verdict = f"dans {target}" if easy >= EASY_TARGET else f"sous {target}"
     return Intensity(
         easy=round(easy, 3),
         moderate=round(moderate, 3),

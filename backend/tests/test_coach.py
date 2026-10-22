@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 from app.core.validation import today_local
 from app.domains.activity import load
 from app.domains.coach import catalog, frame, prompt
+from app.domains.training import intensity
 from app.storage.files import FileStore
 from tests.fake_openrouter import FakeOpenRouter
 from tests.fit_files import GarminExtras, paced, stream_file
@@ -83,6 +84,36 @@ def test_a_week_far_above_the_usual_allows_easy_running_only() -> None:
 
     assert not set(limits.allowed) & catalog.HARD
     assert any("du facile seulement" in reason for reason in limits.reasons)
+
+
+def quality(day: date) -> load.Session:
+    """15 min d'échauffement en zone 2, 30 en zone 4."""
+    zones = (0.0, 15 * 60.0, 0.0, 30 * 60.0, 0.0)
+    return load.Session(day=day, run_id=str(day), duration_min=45, zone_seconds=zones)
+
+
+def test_too_little_easy_running_leaves_easy_running_only() -> None:
+    # Deux footings, deux qualités : 110 min de facile sur 170, 65 %.
+    runs = [session(DAY - timedelta(days=offset), 40) for offset in (2, 9)]
+    runs += [quality(DAY - timedelta(days=offset)) for offset in (5, 12)]
+    limits = frame.build(state(runs, measured_max=True))
+
+    assert not set(limits.allowed) & catalog.HARD
+    assert "65 % de facile en course sur 14 jours, sous 70 %" in " ".join(limits.reasons)
+
+
+def test_between_the_floor_and_the_target_the_hard_sessions_stay_open() -> None:
+    """M-02 : 80 % est la cible des pages, pas le plancher du coach. Deux footings et une
+    qualité par semaine font 76 % : à 80 %, le cadre fermerait le dur une semaine sur deux."""
+    runs = [session(DAY - timedelta(days=offset), 40) for offset in (2, 6, 9, 13)]
+    runs += [quality(DAY - timedelta(days=offset)) for offset in (4, 11)]
+    summary = load.summarize(DAY, runs)
+    limits = frame.build(state(runs, measured_max=True))
+
+    assert summary.easy_share == 0.76
+    assert summary.easy_share < intensity.EASY_TARGET
+    assert set(limits.allowed) & catalog.HARD
+    assert not any("de facile en course" in reason for reason in limits.reasons)
 
 
 def test_the_planning_decides_the_days() -> None:

@@ -45,6 +45,13 @@ ENDURANCE_EXPONENT = 1.12
 LONG_RUN_MIN = 60
 #: Le rapport tous sports au-delà duquel on ne fait que du facile — celui de `banister.py`.
 RATIO_GLOBAL_EASY_ONLY = 1.5
+#: En deçà de 70 % de facile en course sur 14 jours, la prochaine sortie est facile. Un
+#: **plancher**, pas la cible : la cible est `training/intensity.py`, `EASY_TARGET`, 80 %.
+#: Les aligner a été chiffré et écarté le 22/10/2026 (M-02) : à 80 %, deux footings de
+#: 40 min et une qualité (15 min en zone 2, 30 en zone 4) par semaine font 76 % de facile,
+#: et le cadre fermait tout le dur — une qualité toutes les deux semaines au lieu d'une
+#: par semaine, pour un coureur qui ne court jamais deux jours d'affilée.
+EASY_SHARE_FLOOR = 0.7
 DECOUPLING_LIMIT = 5.0
 
 
@@ -169,10 +176,11 @@ def build(state: State) -> Frame:
             f"Charge de la semaine à {_fr(ratio)} fois ta moyenne : pas de hausse de volume."
         )
     easy = state.summary.easy_share
-    if easy is not None and easy < load.EASY_SHARE_MIN:
+    if easy is not None and easy < EASY_SHARE_FLOOR:
         easy_only = True
         reasons.append(
-            f"{round(easy * 100)} % de facile sur 14 jours, sous 70 % : la prochaine est facile."
+            f"{round(easy * 100)} % de facile en course sur 14 jours, sous "
+            f"{round(EASY_SHARE_FLOOR * 100)} % : la prochaine est facile."
         )
     if state.readiness in ("lighten", "rest") and slots and slots[0].day == today:
         easy_only = True

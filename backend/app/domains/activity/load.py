@@ -42,10 +42,9 @@ RATIO_MIN_HISTORY_DAYS = 21
 RATIO_HOLD = 1.3
 RATIO_EASY_ONLY = 1.5
 
+#: La répartition se lit sur deux semaines de course. Elle ne se juge pas ici : la cible
+#: de facile est celle de `training/intensity.py`, et le plancher du coach le sien.
 DISTRIBUTION_DAYS = 14
-#: En deçà de 70 % de facile sur quinze jours, la prochaine sortie est facile : la règle
-#: des 80/20, desserrée pour un coureur qui construit son volume.
-EASY_SHARE_MIN = 0.7
 WEEKS_SHOWN = 8
 
 
