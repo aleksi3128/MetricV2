@@ -56,11 +56,11 @@ visée ne parle à aucun autre écran.
 
 | Id | Sorte | Pages | En une ligne | Prio. |
 |---|---|---|---|---|
-| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`), sauf l'assistant | **P1** |
+| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), sauf l'assistant | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`), sauf le point 4 | **P1** |
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables — **fait** (`ae706b7`) ; les douleurs à leur adresse | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
-| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`) | P2 |
+| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`, type au rejeu `d1de02d`) | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
 | [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
 | [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil | P2 |
@@ -158,10 +158,50 @@ client que le **choix** d'un jour servi, ce que le §2 du `CLAUDE.md` autorise
 - **La fiche d'un repas** ne corrige toujours pas l'heure ni le jour.
 - ~~**L'heure type passe pour une heure relevée.**~~ Fait (`7c895ff`) : `meals.csv` porte
   `time_recorded` en dernière colonne (vide = vrai, faux pour un repas rattrapé) ; `Meal`
-  sert `time_recorded` et `day_label` ; la fiche titre « Hier, heure non relevée ». **Aucun
-  écran n'ouvre encore la fiche d'un repas d'hier** — le journal ne lit que la journée :
-  le titre est tenu par un test d'écran, pas vu à l'œil. Il servira le jour où la fiche
-  s'ouvrira depuis l'historique.
+  sert `time_recorded` et `day_label` ; la fiche titre « Hier, heure non relevée » — vue à
+  l'œil depuis `74dfc9d`, qui l'ouvre depuis le journal d'hier.
+- ~~**Un repas rattrapé est intouchable.**~~ Fait (`74dfc9d`), ci-dessous.
+- ~~**Un favori rejoué pour hier prend le type de l'heure présente.**~~ Fait (`d1de02d`),
+  ci-dessous, avec la saisie normale, qui avait le même défaut.
+- **Ouvrir un jour depuis la grille de l'historique.** Au-delà d'hier, un repas ne se
+  relit, ne se corrige ni ne se supprime qu'au tableur. Une autre fiche : `GET
+  /api/nutrition?day=` refuse tout autre jour que les deux servis, et l'ouvrir à la grille
+  demande d'abord de décider ce que « servi » veut dire pour une date passée.
+
+**Les deux restes, faits le 22 octobre au soir** (`74dfc9d`, `d1de02d`).
+
+- **Décisions** (questions posées avant de coder ; quatre réponses, toutes celles
+  proposées en premier). Un segment « Aujourd'hui / Hier » **au-dessus du Journal** ; il
+  porte les deux jours servis (`days`, leurs `label`) ; le journal **et** les totaux le
+  suivent, le titre devient « Repas d'hier » ; l'historique ne bouge pas. Au-delà d'hier :
+  non. Pour hier, un appui sur un favori **demande le type** en pastilles (`Chip`, à la
+  place de la bande), puis rejoue ; « Un autre favori » rend la bande. La saisie normale
+  avait le même défaut (`values.meal_type || suggested`) : pour hier, **aucun type
+  présélectionné**, « Choisir le repas » et une phrase, l'enregistrement attend. Devant le
+  journal d'hier, « Ajouter un repas » ouvre la feuille sur hier.
+- **Le contrat.** `GET /api/nutrition?day=` : `today`, `yesterday` ou une date servie,
+  validé par `resolve_day` — qui nomme maintenant le champ fautif (`query.day`) ; `days`
+  part toujours du vrai aujourd'hui, quel que soit le jour lu. `POST
+  /favorites/{id}/replay` prend `meal_type` : facultatif aujourd'hui (l'heure le
+  propose), **exigé** pour hier — sans lui, `validation_error` sur `body.meal_type`,
+  rien d'écrit. Le serveur ne devine plus le type d'un autre jour.
+- **L'écran.** La journée reste chargée (en-tête, feuille, fiche, favoris) ; une seconde
+  requête, active sur « Hier » seulement, sert journal et totaux — le segment ne
+  disparaît pas pendant qu'hier arrive. Le choix est une **clé** (`yesterday`), traduite
+  en date par `days` : passé minuit, il suit le serveur. Quatre états, dont « Aucun repas
+  noté hier » avec « Rattraper un repas d'hier ».
+
+**Changé en route.**
+
+- Les « puces de type existantes » n'existaient pas : le type est un `<select>`, à la
+  feuille comme à la fiche. Les pastilles du favori sont des `Chip`, la primitive de la
+  bande des favoris.
+- La page porte maintenant un second segment « Hier » : sept tests d'écran visaient le
+  premier bouton de ce nom et ont dû viser celui de la feuille.
+- Le message d'un repas rattrapé disait « le journal ne montre que la journée » : il dit
+  où le voir. La carte Favoris disait « d'un appui » : faux pour hier, retiré.
+- **Supprimer** un repas se fait sur sa ligne du journal (deux appuis), pas dans la fiche :
+  c'était déjà le cas aujourd'hui, et le journal d'hier le reprend tel quel.
 
 <a id="m-02"></a>
 
@@ -769,9 +809,10 @@ serveur, contrairement au coût annoncé.
   retirer. Vide, elle nomme la fiche d'un repas.
 - La phrase d'en-tête ne dit plus « rien n'est enregistré avant ta validation » quand un
   favori est là : l'appui écrit.
-- **Reste.** Un favori rejoué prend le type de l'heure présente (`suggested_type`) : un
-  dîner rejoué pour hier à 8 h part en petit-déjeuner. Un favori ne porte pas de type, et
-  la fiche d'un repas d'hier ne s'ouvre pas pour le corriger.
+- ~~**Reste.** Un favori rejoué prend le type de l'heure présente (`suggested_type`) : un
+  dîner rejoué pour hier à 8 h part en petit-déjeuner.~~ Fait (`d1de02d`) : pour hier, la
+  feuille demande le type, et le serveur l'exige. La fiche d'un repas d'hier s'ouvre
+  depuis le journal d'hier (`74dfc9d`) — voir M-01.
 
 ---
 
@@ -794,7 +835,8 @@ serveur, contrairement au coût annoncé.
    `1fa151b`) ; le point 4 reste un lot à part.
 4. ~~**M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.~~ Faits (`34bbce7`,
    `9f1e991`, `ded7779`), avec deux restes de M-01 (`7c895ff`) et le liseré de `SwipeRow`
-   (`e1a0a1c`).
+   (`e1a0a1c`) ; puis le journal d'hier et le type d'un favori rejoué (`74dfc9d`, `d1de02d`).
+   Reste à part : ouvrir un jour depuis la grille de l'historique.
 5. **M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.
 6. **M-03**, puis **M-04 + M-05 + M-22** — le grand rangement des réglages.
