@@ -56,11 +56,11 @@ visée ne parle à aucun autre écran.
 
 | Id | Sorte | Pages | En une ligne | Prio. |
 |---|---|---|---|---|
-| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`), sauf l'assistant | **P1** |
+| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`), sauf l'assistant | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`), sauf le point 4 | **P1** |
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables — **fait** (`ae706b7`) ; les douleurs à leur adresse | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
-| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » | P2 |
+| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`) | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
 | [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
 | [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil | P2 |
@@ -68,8 +68,8 @@ visée ne parle à aucun autre écran.
 | [M-09](#m-09) | ajouter | Corps (ou Charge) | FC de repos et VFC relues en série | P2 |
 | [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant | P2 |
 | [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens | P2 |
-| [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 | P2 |
-| [M-15](#m-15) | corriger | Activité | Une natation `.fit` mène à `/activite/natations`, pas au planning | P2 |
+| [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
+| [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning — **fait** (`9f1e991`) | P2 |
 | [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit | P3 |
 | [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran | P3 |
 | [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée | P3 |
@@ -153,12 +153,15 @@ client que le **choix** d'un jour servi, ce que le §2 du `CLAUDE.md` autorise
 - **`meal.add` de l'assistant** (M-10) : le service accepte déjà `day="yesterday"`, il
   suffit de le passer depuis l'`ActionSpec` et de nommer le champ dans son schéma ; la
   phrase « noter un repas **du jour** » est à changer avec.
-- **Rejouer un favori** se date toujours de l'instant ; si M-23 met les favoris dans la
-  feuille, le rejeu devra recevoir le jour choisi (`replay_favorite` ne le prend pas).
+- ~~**Rejouer un favori** se date toujours de l'instant.~~ Fait avec M-23 (`34bbce7`) :
+  `POST /favorites/{id}/replay` prend `{day}`, validé comme les deux autres POST.
 - **La fiche d'un repas** ne corrige toujours pas l'heure ni le jour.
-- **Aucun écran ne montre l'heure** d'un repas d'hier : le journal et sa fiche ne lisent
-  que la journée. C'est voulu — une heure posée n'a pas à passer pour une mesure —, mais
-  à garder en tête le jour où la fiche s'ouvrira depuis l'historique.
+- ~~**L'heure type passe pour une heure relevée.**~~ Fait (`7c895ff`) : `meals.csv` porte
+  `time_recorded` en dernière colonne (vide = vrai, faux pour un repas rattrapé) ; `Meal`
+  sert `time_recorded` et `day_label` ; la fiche titre « Hier, heure non relevée ». **Aucun
+  écran n'ouvre encore la fiche d'un repas d'hier** — le journal ne lit que la journée :
+  le titre est tenu par un test d'écran, pas vu à l'œil. Il servira le jour où la fiche
+  s'ouvrira depuis l'historique.
 
 <a id="m-02"></a>
 
@@ -575,6 +578,25 @@ le demande.
 avoir vérifié que la feuille couvre ce qui compte. **Risque.** Perdre l'import
 multi-captures : vérifier d'abord s'il sert.
 
+**Fait le 22 octobre** (`ded7779`). Les lignes citées étaient exactes (645 lignes).
+
+- **Ce que la carte faisait et pas la feuille** — treize points, dont sept **champs lus
+  puis jetés** : la feuille lisait la même capture mais écrivait par `createRun`, sans
+  dénivelé, calories actives et totales, heures de début et de fin, longueur des paliers
+  ni paliers, et en `source=manual`. Puis ce qu'elle disait : champs absents, relecture
+  des paliers, doublon probable, capture lue comme une séance ; « Pas d'accord » ; la
+  durée lisible ; l'allure lue retenue à côté de la distance (fiche 02 de l'audit) ; une
+  date non lue laissée vide (la feuille posait aujourd'hui) ; la réduction à 0,92.
+- **Tout est porté dans l'étape 2**, qui passe par `importsApi.confirm` quand une capture
+  a été lue ; dénivelé et calories ne s'y demandent qu'alors. **Décision par défaut** : une
+  capture suffit — l'envoi de plusieurs à la fois n'a pas suivi.
+- Changé en route : l'étape 2 s'ouvrait à la position de défilement de l'étape 1, la
+  phrase sur ce qui manquait au-dessus du bord (`scrollSheetTop`, sorti de `MealDetail`
+  dans `lib/scroll.ts`) ; les nombres lus s'écrivaient « 44.2 ».
+- **Reste.** La date, le temps et l'allure lus ne portent pas la marque « proposée » :
+  ce sont des `Field`, pas des `Stepper` — la phrase de l'`AiBlock` ne parle que des
+  champs en pointillé. Défaut hérité de la feuille, laissé.
+
 <a id="m-15"></a>
 
 ### M-15 — Une natation `.fit` mène à ses natations
@@ -591,6 +613,12 @@ trace d'avant `/activite/natations`.
 sur place ; la note se corrige.
 
 **Coût.** Front seul. **Risque.** Aucun.
+
+**Fait le 22 octobre** (`9f1e991`). La ligne citée était exacte. La feuille rend la
+natation à l'écran qui l'ouvre (`onSwimImported`) — `/activite` et `/activite/courses`,
+qui monte la même feuille. **Changé en route** : depuis `/activite/courses`, `SwimSheet`
+n'avait pas « Réécrire en notation » (pas d'`onEdit`) ; la page monte maintenant
+`SwimEntrySheet`, comme `Swims`.
 
 <a id="m-16"></a>
 
@@ -729,6 +757,22 @@ déjà le formulaire (fiche 25 de l'audit).
 **Coût.** Front seul (`POST /api/nutrition/favorites/{id}/replay` existe). **Risque.** Un
 favori sans description ne peut plus être créé à la main ; c'est déjà la règle de la fiche.
 
+**Fait le 22 octobre** (`34bbce7`), avec le rejeu daté (reste de M-01) — qui a touché le
+serveur, contrairement au coût annoncé.
+
+- **Décisions** (par défaut) : tous les favoris, dans une `ChipStrip`, dans l'ordre servi ;
+  un appui rejoue et ferme la feuille, sans confirmation. Le **jour** se choisit dès
+  l'étape du mode — un favori n'a pas de formulaire où le dire ensuite — et reste en tête
+  du formulaire, sur le même état. « Noter » mène à `/nutrition?ajout=repas` ; toute
+  valeur d'`ajout` ouvre la feuille, `hier` impose hier.
+- La carte Favoris de la page perd **« rejouer »** et le formulaire : elle ne fait plus que
+  retirer. Vide, elle nomme la fiche d'un repas.
+- La phrase d'en-tête ne dit plus « rien n'est enregistré avant ta validation » quand un
+  favori est là : l'appui écrit.
+- **Reste.** Un favori rejoué prend le type de l'heure présente (`suggested_type`) : un
+  dîner rejoué pour hier à 8 h part en petit-déjeuner. Un favori ne porte pas de type, et
+  la fiche d'un repas d'hier ne s'ouvre pas pour le corriger.
+
 ---
 
 ## 4. Ce qui est déjà décidé ailleurs
@@ -748,7 +792,9 @@ favori sans description ne peut plus être créé à la main ; c'est déjà la r
    défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` reste pour M-10.
 3. ~~**M-02 (1–3)** — après avoir tranché le seuil de facile.~~ Fait (`385871a`,
    `1fa151b`) ; le point 4 reste un lot à part.
-4. **M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.
+4. ~~**M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.~~ Faits (`34bbce7`,
+   `9f1e991`, `ded7779`), avec deux restes de M-01 (`7c895ff`) et le liseré de `SwipeRow`
+   (`e1a0a1c`).
 5. **M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.
 6. **M-03**, puis **M-04 + M-05 + M-22** — le grand rangement des réglages.

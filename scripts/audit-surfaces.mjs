@@ -93,8 +93,9 @@ const SURFACES = [
   // appuyée — ce serait écrire un repas.
   ["/nutrition", "Ajouter un repas", "modes de saisie d’un repas"],
   // La même feuille, ouverte par « Ajouter un repas » de « Noter » (M-23) : la barre
-  // d'onglets mène à l'adresse, et l'adresse ouvre. Deux appuis, aucun qui écrive.
-  ["/activite", ["Noter", "Ajouter un repas"], "repas depuis « Noter »"],
+  // d'onglets mène à l'adresse, et l'adresse ouvre. Deux appuis, aucun qui écrive. Le nom
+  // porte la flèche : `ouvrir` compare le texte entier de la ligne, indice compris.
+  ["/activite", ["Noter", "Ajouter un repas→"], "repas depuis « Noter »"],
   // Le formulaire du repas composé, et les deux surfaces qui vivent au fond : le choix
   // d'un chemin (`NUT-23`), puis le scan (`NUT-13`). Quatre appuis au plus, tous nommés,
   // et aucun ne remplit ni ne valide quoi que ce soit.

@@ -346,7 +346,7 @@ ce qui a été mesuré, ce qui a été écarté et pourquoi, et finit par ce qui
 | La démonstration d'un exercice ne s'affiche que sur un nom **exact** du catalogue | `exercise_media.py` ; un rapprochement approximatif reproduirait celui de Cadence, ce que le dépôt refuse en toutes lettres |
 | Aucun écran n'a jamais été touché sur un **vrai téléphone** | l'émulation ne reproduit ni le pouce, ni le clavier système, ni la latence |
 | Les champs Garmin **non documentés** — VO2max, récupération, condition de performance, stamina | décodés et rangés, **masqués** tant que `garmin.CONFIRMED` est vide : leurs valeurs du 19/09 attendent d'être relues sur Garmin Connect ([`coach-course.md`](docs/coach-course.md) §11) |
-| Open-Meteo et le coach n'ont **jamais été appelés en réel** | doublures partout, y compris à l'écran ; le premier import en production sera le premier appel |
+| Le coach n'a **jamais été appelé en réel** ; Open-Meteo l'a été une fois, par erreur, depuis un banc le 22 octobre (dix requêtes, coordonnées de synthèse). | doublures partout, y compris à l'écran ; le premier import en production sera le premier appel |
 
 Deux lignes sont sorties de ce tableau avec la phase 5 : les calculs métier de `/activite`
 (la tuile « Tonnage » et ses deux `Bars`) ont disparu avec l'écran qui les portait.

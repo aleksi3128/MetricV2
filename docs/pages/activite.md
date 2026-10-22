@@ -29,14 +29,13 @@ La destination la plus large de l'application : **sept adresses** et sept feuill
 | **Séances Cadence** | Les trois premières séances : nom, durée (≈ si répétitions), rounds, exercices ; **Ouvrir dans Cadence**, **Je l'ai faite** | `GET /api/activity/circuits` | « Aucune séance » ; liens **Créer une séance**, **Composer avec l'assistant** |
 | **Sortie** | Deux boutons : Enregistrer une course, Enregistrer une natation | — | — |
 | **Historique** | Toutes les activités fusionnées (course, séance, natation, vélo/marche) : date, libellé, distance, durée, allure ; puces détail / corriger / noter l'effort | `GET /api/activity` | « Aucune activité » ; erreur dite |
-| **Import d'une capture** (si IA) | Import Apple Fitness en quatre étapes | `POST /api/import/apple/analyze` puis `POST /api/import/apple` | carte absente sans clé IA |
 
 ### Actions
 
 | Action | Geste | Écrit | Garde |
 |---|---|---|---|
 | Déclarer une séance faite | Je l'ai faite → durée proposée → Consigner au journal | `POST /api/activity/circuits/{id}/done` | addition |
-| Enregistrer une course | feuille en deux étapes (`NewActivitySheet`) : `.fit`, capture, ou à la main | `POST /api/activity/runs/fit` · `POST /api/activity/runs` | addition |
+| Enregistrer une course | feuille en deux étapes (`NewActivitySheet`) : `.fit`, capture, ou à la main | `POST /api/activity/runs/fit` · `POST /api/import/apple/analyze` puis `POST /api/import/apple` (capture) · `POST /api/activity/runs` (main) | addition |
 | Enregistrer une natation | feuille (`SwimEntrySheet`) : `.fit` ou notation | `POST /api/activity/swims/fit` · `POST /api/activity/swims` | addition |
 | Corriger une course | puce « corriger » → `ActivitySheet` | `PATCH /api/activity/runs/{id}` | `If-Match` |
 | Noter l'effort d'un vélo / marche | puce → `OtherSheet` | `PUT /api/activity/others/{id}/rpe` | `If-Match` |
@@ -116,7 +115,7 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
 
 | Feuille | Ouverte depuis | Contenu |
 |---|---|---|
-| `NewActivitySheet` « Course » | Enregistrer une course, Ajouter une course | Étape 1 : `.fit` (une natation ou un vélo y sont reconnus et redirigés), capture (si IA), ou à la main. Étape 2 : date, temps, distance, allure, cadence, FC, ressenti. Après un import : effort perçu et `PainCheck` |
+| `NewActivitySheet` « Course » | Enregistrer une course, Ajouter une course | Étape 1 : `.fit` (un vélo y est reconnu et réaiguillé ; une natation s'ouvre dans `SwimSheet`, sur place — M-15), capture (si IA, une seule), ou à la main. Étape 2 : date, temps, distance, allure, cadence, FC, ressenti ; après une capture, en plus, ce qu'elle a lu et ce qui manquait, dénivelé et calories, paliers et doublon probable, écrits par l'import (`source=apple`, M-14). Après un `.fit` : effort perçu et `PainCheck` |
 | `ActivitySheet` | corriger | Date, distance, durée, FC, ressenti |
 | `SwimEntrySheet` | Enregistrer une natation, Corriger la séance | `.fit` ou date, heure, durée, bassin, programme en notation (clavier de sigles), note |
 | `SwimSheet` | une natation | voir §6 |
@@ -134,13 +133,13 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
   ([`coach/frame.py`](../../backend/app/domains/coach/frame.py), `EASY_SHARE_FLOOR`). La
   section s'appelle « Charge de course (FC) » et renvoie à `/charge`. **Reste** le
   point 4 : une course sans effort perçu n'a toujours pas de charge globale.
-- **Trois portes vers la capture Apple.** L'étape 1 de « Enregistrer une course » lit une
-  capture ; la carte « Import d'une capture » en bas de `/activite` fait la même chose
-  par un autre composant (`AppleImport`, 645 lignes) (M-14).
-- **Une natation `.fit` déposée dans « Enregistrer une course » part au planning**
-  (`navigate('/planning?jour=…')`, [`NewActivitySheet.tsx:276`](../../frontend/src/routes/activity/NewActivitySheet.tsx#L276)),
-  et la note le promet (« Une natation en piscine va au planning »). Depuis que la natation
-  a sa page, c'est `/activite/natations` qui la montre (M-15).
+- ~~**Trois portes vers la capture Apple.**~~ Corrigé (M-14, `ded7779`) : la carte
+  « Import d'une capture » est partie, après que l'étape 1 de la feuille a repris tout ce
+  qu'elle écrivait — dénivelé, calories, heures, paliers, `source=apple` —, qu'elle lisait
+  puis jetait. Seul l'envoi de plusieurs captures à la fois n'a pas suivi.
+- ~~**Une natation `.fit` déposée dans « Enregistrer une course » part au planning.**~~
+  Corrigé (M-15, `9f1e991`) : elle s'ouvre dans `SwimSheet`, sur place, depuis `/activite`
+  comme depuis `/activite/courses` ; la note le dit.
 - **Vélo et marche ne s'ajoutent que par un `.fit`.** `activityApi.createOther` existe et
   le serveur accepte `POST /api/activity/others`, mais aucun écran ne l'appelle (M-16).
 - ~~**La date du jour s'affiche en ISO** au pied de l'étape 1.~~ Corrigé (M-21,

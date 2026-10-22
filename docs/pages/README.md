@@ -60,7 +60,7 @@ chiffre, sans changer d'écran :
 - Hydratation : raccourcis, autre volume, total du jour ;
 - Suppléments à prendre (les dus non pris) ;
 - Pesée ;
-- deux liens : « Ajouter un repas » → `/nutrition`, « Noter une séance » → `/activite/seances`.
+- deux liens : « Ajouter un repas » → `/nutrition?ajout=repas` (la feuille d'ajout, ouverte — M-23), « Noter une séance » → `/activite/seances`.
 
 **Plus** ([`MoreSheet.tsx`](../../frontend/src/app/MoreSheet.tsx)) — « Tout le reste » :
 
@@ -88,7 +88,7 @@ On n'y arrive que depuis leur page mère : `/activite/seances`, `/activite/creer
 | Depuis | Vers |
 |---|---|
 | Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` (×3 + la lecture du jour), chaque alerte |
-| Activité | ses six sous-pages ; `/reglages` (adresse de Cadence, zones) ; `/planning` (après une natation `.fit`) |
+| Activité | ses six sous-pages ; `/reglages` (adresse de Cadence, zones) |
 | Assiduité | `/reglages` (pistes) |
 | Objectif | `/assistant` |
 | Nutrition | `/nutrition/catalogue` |
@@ -114,8 +114,8 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 | `/assiduite` | 5 610 | 4 221 |
 | `/activite/course/:id` | 4 749 | 874 |
 | `/activite/courses` | 4 029 | 874 |
-| `/activite` | 3 470 | 1 586 |
-| `/nutrition` | 3 312 | 3 142 |
+| `/nutrition` | 3 124 ¹ | 2 609 |
+| `/activite` | 3 100 ¹ | 1 309 |
 | `/` | 2 847 | 2 529 |
 | `/planning` | 2 316 | 2 114 |
 | `/plan` | 2 287 | 1 069 |
@@ -124,3 +124,8 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 | `/activite/seances` | 1 202 | 1 386 |
 | `/objectif` | 1 117 | 1 117 |
 | `/activite/charges`, `/activite/creer`, `/activite/natations`, `/assistant`, `/dossier`, `/nutrition/catalogue` | ≤ 929 | ≤ 879 |
+
+¹ Remesurés le 22 octobre au soir, après M-23 et M-14 (carte d'import et formulaire de
+favori retirés), sur un autre banc rempli que le reste du tableau : onze courses, trois
+natations, aucune séance Cadence ; deux repas et quatre favoris. Les colonnes « vide » se
+comparent directement.

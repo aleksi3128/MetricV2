@@ -4,7 +4,7 @@
 les jours passés, tenir le catalogue des aliments.
 
 **Comment on y arrive.** « Plus » → Décider → Nutrition ; « Ajouter un repas » dans la
-feuille « Noter » ; la ligne « Protéines » de l'accueil ; entrée de la barre du haut sur
+feuille « Noter », qui ouvre directement la feuille d'ajout (`?ajout=repas`, M-23) ; la ligne « Protéines » de l'accueil ; entrée de la barre du haut sur
 ordinateur.
 
 Fichiers : [`Nutrition.tsx`](../../frontend/src/routes/Nutrition.tsx),
@@ -15,15 +15,15 @@ Fichiers : [`Nutrition.tsx`](../../frontend/src/routes/Nutrition.tsx),
 
 ## 1. `/nutrition` — Repas du jour
 
-Haut d'écran rempli : 3 312 px.
+Haut d'écran rempli : 3 124 px (3 312 avant M-23 ; banc du 22 octobre au soir, deux repas, quatre favoris).
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
 | En-tête | Date du serveur ; **Ajouter un repas** | `GET /api/nutrition` | — |
 | **Totaux** | Anneaux protéines et calories contre leur cible ; tuiles sucres ajoutés (plafond), repas notés, AG saturés, fibres | même appel | tirets, « aucun repas chiffré » |
 | **Historique** | 1 mois / 3 mois / 1 an : grille des calories par jour (heatmap), moyenne et écart à l'objectif, jours dans la cible ±10 %, courbe des calories, courbe des protéines, profil de la semaine, d'où viennent les calories | `GET /api/nutrition/history` | « Pas encore de courbe… » par bloc |
-| **Journal** | Les repas du jour : heure, type, description, protéines, sucres, calories ; un appui ouvre la fiche | `GET /api/nutrition` | « Aucun repas aujourd'hui » |
-| **Favoris** | Les repas récurrents : **rejouer**, **retirer** ; formulaire déplié (nom, protéines, sucres, calories, AG saturés, fibres) + **Enregistrer en favori** | même appel | formulaire seul |
+| **Journal** | Les repas du jour : heure (ou « heure non relevée »), type, description, protéines, sucres, calories ; un appui ouvre la fiche | `GET /api/nutrition` | « Aucun repas aujourd'hui » |
+| **Favoris** | Les repas récurrents, à gérer : **retirer** (deux appuis). Ils se rejouent dans la feuille (M-23) | même appel | « Aucun favori. Un repas du journal y entre depuis sa fiche » |
 | Pied | Lien **Catalogue alimentaire** | — | — |
 
 ### Actions
@@ -35,8 +35,8 @@ Haut d'écran rempli : 3 312 px.
 | Corriger un repas | fiche → Corriger (description, valeurs) | `PATCH /api/nutrition/{id}` | `If-Match` |
 | Mettre un repas en favori | fiche → Ajouter aux favoris | `POST /api/nutrition/favorites` | addition |
 | Supprimer un repas | « supprimer », deux appuis | `DELETE /api/nutrition/{id}` | `If-Match` |
-| Rejouer un favori | « rejouer » | `POST /api/nutrition/favorites/{id}/replay` | addition |
-| Créer / retirer un favori | formulaire ; « retirer », deux appuis | `POST/DELETE /api/nutrition/favorites` | `If-Match` |
+| Rejouer un favori | feuille d'ajout, un appui sur sa pastille, au jour choisi | `POST /api/nutrition/favorites/{id}/replay` (champ `day`) | addition |
+| Retirer un favori | « retirer », deux appuis | `DELETE /api/nutrition/favorites/{id}` | `If-Match` |
 
 ## 2. `/nutrition/catalogue` — Catalogue alimentaire
 
@@ -56,27 +56,29 @@ catalogue s'il n'y est pas. Source : `GET /api/nutrition/catalog`,
 | Repas composé | Des aliments du catalogue et leurs poids ; total recalculé à la frappe | non (`POST /api/nutrition/compose`) |
 | Valeurs à la main | Protéines, calories, sucres ; « Plus de valeurs » : AG saturés, fibres | non |
 
-En tête du formulaire, le **jour** : aujourd'hui (par défaut) ou hier, deux jours servis
-par `GET /api/nutrition` (`days`). Pour hier, le serveur pose l'heure type du repas
-(petit-déjeuner 08:00, déjeuner 12:30, collation 16:30, dîner 20:00). `/nutrition?ajout=hier`
-ouvre la feuille sur hier — c'est là que mène le parcours du matin. Puis type de repas
+Avant les trois modes, le **jour** — aujourd'hui (par défaut) ou hier, deux jours servis
+par `GET /api/nutrition` (`days`) — puis les **favoris** en bande défilante, dans l'ordre
+servi : un appui rejoue le favori au jour choisi et ferme la feuille (M-23). Le segment du
+jour revient en tête du formulaire, sur le même état. Pour hier, le serveur pose l'heure
+type du repas (petit-déjeuner 08:00, déjeuner 12:30, collation 16:30, dîner 20:00) et
+l'écrit **non relevée** (`time_recorded`) : la fiche d'un tel repas titre « Hier, heure non
+relevée ». `/nutrition?ajout=hier` ouvre la feuille sur hier — c'est là que mène le
+parcours du matin ; `/nutrition?ajout=repas`, sur le jour par défaut — c'est là que mène
+« Noter ». Puis type de repas
 (proposé selon l'heure) et **Enregistrer le repas**. Brouillon gardé quinze minutes dans le
 navigateur, jour compris.
 
 ## 4. Constats
 
 - ~~**Aucun repas ne se date dans le passé.**~~ Corrigé pour la feuille (M-01,
-  `331ae7e`) : un segment « Aujourd'hui / Hier » servi par le serveur, qui pose l'heure
-  type du repas. Restent la fiche (l'heure ne s'y corrige toujours pas), l'assistant
-  (« noter un repas **du jour** », M-10) et le rejeu d'un favori, toujours daté de
-  l'instant (M-23).
-- **Les favoris ne sont pas dans la feuille d'ajout.** « Rejouer » est sur la page, sous
-  l'historique, à ~2 800 px du haut ; la feuille « Ajouter un repas » — là où l'on va pour
-  noter — propose trois modes et pas celui-là. Et « Noter » → « Ajouter un repas » mène à
-  la page, pas à la feuille (M-23).
-- **Un formulaire de création toujours déplié sur un écran de lecture.** Le formulaire
-  « Enregistrer en favori » occupe la carte Favoris en permanence, alors que la fiche d'un
-  repas sait déjà le faire d'un appui (`MealDetail`, « Ajouter aux favoris ») (M-23).
+  `331ae7e`) et pour le rejeu d'un favori (`34bbce7`) ; l'heure posée se dit non relevée
+  (`7c895ff`). Restent la fiche (l'heure ne s'y corrige toujours pas) et l'assistant
+  (« noter un repas **du jour** », M-10).
+- ~~**Les favoris ne sont pas dans la feuille d'ajout.**~~ Corrigé (M-23, `34bbce7`) : ils
+  ouvrent la feuille, un appui rejoue ; « Noter » ouvre la feuille. Reste : un favori
+  rejoué prend le type de l'heure présente, même pour hier.
+- ~~**Un formulaire de création toujours déplié sur un écran de lecture.**~~ Corrigé (M-23,
+  `34bbce7`) : la carte ne fait plus que retirer ; la fiche d'un repas est la seule porte.
 - **Trois listes de « ce que je mange »** : le journal (aujourd'hui), l'historique
   (calories par jour), le catalogue (aliments mangés — mais seulement depuis les repas
   composés, ce que la page dit elle-même). Les trois sont légitimes ; c'est le catalogue
