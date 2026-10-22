@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { SyntheticEvent } from 'react';
 
@@ -16,33 +16,21 @@ import {
   Table,
 } from '@/components/ui';
 import type { Column } from '@/components/ui';
-import {
-  bodyApi,
-  type MeasurementIndicator,
-  type WeightEntry,
-  type WeightPayload,
-} from '@/features/body/api';
+import { bodyApi, type WeightEntry, type WeightPayload } from '@/features/body/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { delta, kg, num, plural, shortDate } from '@/lib/format';
-import { CROSS_CUTTING, keys } from '@/lib/query';
+import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { Measurements } from './body/Measurements';
 import { PainSection } from './body/Pain';
+import { useInvalidateBody } from './body/shared';
 import { useOpenMorning } from './morning/context';
 import styles from './Body.module.css';
 
 /** Nombre de points affichés sur la courbe. Au-delà, la tendance devient illisible. */
 const CHART_POINTS = 60;
-
-function useInvalidateBody() {
-  const client = useQueryClient();
-  return () => {
-    void client.invalidateQueries({ queryKey: keys.body.all() });
-    // Une pesée nourrit le tableau de bord et la piste d'assiduité de saisie.
-    for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
-  };
-}
 
 // ── Saisie d'une pesée ────────────────────────────────
 
@@ -160,147 +148,6 @@ function WeightForm({
         )}
       </div>
     </form>
-  );
-}
-
-// ── Mensurations ──────────────────────────────────────
-
-function Indicator({ indicator }: { indicator: MeasurementIndicator }) {
-  return (
-    <div className={styles.indicator}>
-      <div className={styles.indicatorLabel}>{indicator.label}</div>
-      {indicator.latest === null ? (
-        <div className={styles.indicatorValue}>
-          <span className={styles.empty}>—</span>
-        </div>
-      ) : (
-        <>
-          <div className={styles.indicatorValue}>
-            {num(indicator.latest, 1)}
-            <span className={styles.indicatorUnit}>{indicator.unit}</span>
-          </div>
-          <div
-            className={cx(
-              styles.indicatorDelta,
-              indicator.direction && styles[indicator.direction],
-            )}
-          >
-            {indicator.delta === null
-              ? 'premier relevé'
-              : `${delta(indicator.delta)} ${indicator.unit}`}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function MeasurementPanel() {
-  const invalidate = useInvalidateBody();
-  const { notify } = useToast();
-  const [values, setValues] = useState<Record<string, string>>({});
-  // Même règle que pour la pesée : `null` signifie « le jour du serveur », qui arrive
-  // dans `MeasurementView`. Voir `WeightForm`.
-  const [day, setDay] = useState<string | null>(null);
-  const [error, setError] = useState<ApiError | null>(null);
-
-  const { data } = useQuery({
-    queryKey: keys.body.measurements(),
-    queryFn: () => bodyApi.measurements(),
-  });
-
-  const save = useMutation({
-    // Le jour du serveur est passé en argument plutôt que lu dans la portée : c'est ce
-    // qui rend impossible d'enregistrer avant qu'il soit connu.
-    mutationFn: (serverDay: string) => {
-      const numeric = Object.fromEntries(
-        Object.entries(values)
-          .filter(([, raw]) => raw.trim() !== '')
-          .map(([field, raw]) => [field, Number.parseFloat(raw.replace(',', '.'))]),
-      );
-      return bodyApi.createMeasurement({ date: day ?? serverDay, ...numeric });
-    },
-    onSuccess: () => {
-      invalidate();
-      notify('Mensurations enregistrées.', 'effort');
-      setValues({});
-      setError(null);
-    },
-    onError: (caught: unknown) => {
-      setError(caught instanceof ApiError ? caught : null);
-    },
-  });
-
-  const indicators = data?.indicators ?? [];
-  const today = data?.today;
-  const nothingFilled = Object.values(values).every((raw) => raw.trim() === '');
-
-  return (
-    <Card>
-      <h3>Mensurations</h3>
-      <p className={styles.note}>
-        Toutes facultatives — on ne mesure pas tout à chaque fois. Chaque mesure garde son propre
-        historique.
-      </p>
-
-      <div className={styles.indicators}>
-        {indicators.map((indicator) => (
-          <Indicator indicator={indicator} key={indicator.field} />
-        ))}
-      </div>
-
-      <form
-        className={styles.form}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (today === undefined) return;
-          save.mutate(today);
-        }}
-        noValidate
-      >
-        {error !== null && (
-          <p className={styles.error} role="alert">
-            {error.message}
-          </p>
-        )}
-
-        <Field
-          label="Date"
-          type="date"
-          value={day ?? today ?? ''}
-          max={today}
-          onChange={(event) => {
-            setDay(event.target.value);
-          }}
-        />
-
-        <div className={styles.formRow}>
-          {indicators.map((indicator) => (
-            <Field
-              key={indicator.field}
-              label={`${indicator.label} (${indicator.unit})`}
-              inputMode="decimal"
-              value={values[indicator.field] ?? ''}
-              error={error?.messageFor(indicator.field)}
-              onChange={(event) => {
-                setValues((current) => ({ ...current, [indicator.field]: event.target.value }));
-              }}
-            />
-          ))}
-        </div>
-
-        <Button
-          type="submit"
-          variant="ghost"
-          busy={save.isPending}
-          // Rien ne part avant que le serveur ait dit quel jour on est : le relevé
-          // n'aurait pas de date à porter.
-          disabled={nothingFilled || today === undefined}
-        >
-          Enregistrer les mensurations
-        </Button>
-      </form>
-    </Card>
   );
 }
 
@@ -596,10 +443,10 @@ export function Body() {
               />
             )}
           </Card>
-
-          <MeasurementPanel />
         </div>
       </div>
+
+      <Measurements />
 
       <PainSection />
     </div>

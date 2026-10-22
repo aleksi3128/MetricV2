@@ -66,8 +66,16 @@ export interface MeasurementEntry {
   note: string | null;
 }
 
+/**
+ * Les six mesures, dans l'ordre de `MEASUREMENT_FIELDS` côté serveur. Ce sont aussi les
+ * clés de leurs séries dans `GET /api/aggregates/series` — c'est ce qui permet à la
+ * courbe de `/corps` de les demander sans table de correspondance.
+ */
+export type MeasureField =
+  'waist_cm' | 'chest_cm' | 'arm_cm' | 'hips_cm' | 'thigh_cm' | 'body_fat_pct';
+
 export interface MeasurementIndicator {
-  field: string;
+  field: MeasureField;
   label: string;
   latest: number | null;
   latest_date: string | null;
@@ -172,6 +180,17 @@ export const bodyApi = {
 
   createMeasurement: (payload: MeasurementPayload) =>
     request<MeasurementEntry>('/api/body/measurements', { method: 'POST', body: payload }),
+
+  /**
+   * Corrige un relevé **en entier** : le serveur remplace la ligne. Une mesure absente du
+   * corps est effacée — c'est ainsi qu'une valeur tapée dans la mauvaise case se retire.
+   */
+  updateMeasurement: (id: number, token: string, payload: MeasurementPayload) =>
+    request<MeasurementEntry>(`/api/body/measurements/${id}`, {
+      method: 'PATCH',
+      body: payload,
+      headers: guard(token),
+    }),
 
   deleteMeasurement: (id: number, token: string) =>
     request<undefined>(`/api/body/measurements/${id}`, {

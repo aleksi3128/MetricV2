@@ -63,6 +63,19 @@
   gap: var(--s4);
 }
 
+/* La règle ouvre la section, et `.rule:first-child` — pensée pour la règle qui ouvre un
+   écran — lui retirait sa marge haute : « Douleurs » collait au bas de la carte d'avant.
+   Ici elle sépare deux sujets, elle reprend donc la marge de `base.css`. */
+.section > :global(.rule):first-child {
+  margin-top: var(--s6);
+}
+
+@media (min-width: 600px) {
+  .section > :global(.rule):first-child {
+    margin-top: var(--s8);
+  }
+}
+
 .episode {
   display: flex;
   flex-direction: column;

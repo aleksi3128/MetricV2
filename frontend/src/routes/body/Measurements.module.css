@@ -1,0 +1,205 @@
+/* Les mensurations de `/corps` (M-08). Module à part plutôt qu'un `composes` vers
+   `Body.module.css` : le dépôt refuse les dépendances de style entre fichiers, qu'aucun
+   import ne rendrait visibles. Les tuiles viennent d'`Body.module.css`, qui ne s'en sert
+   plus ; les autres règles en reprennent les valeurs. */
+
+/* La courbe à gauche, saisie et historique à droite — la grille des pesées. Sur un
+   téléphone, dans l'ordre du document : où j'en suis, noter, corriger. */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr 340px;
+  }
+}
+
+.note {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  margin-top: 2px;
+}
+
+.empty {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.error {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+  border: 1px solid rgb(var(--recover-rgb) / var(--badge-border-a));
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+/* ── Les tuiles ─────────────────────────────────────── */
+
+.indicators {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.indicator {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  padding: 12px;
+}
+
+.indicatorLabel {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.indicatorValue {
+  font-family: var(--mono);
+  font-size: var(--t-num-md);
+  font-variant-numeric: tabular-nums;
+  margin-top: 6px;
+  line-height: 1;
+}
+
+.indicatorUnit {
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+  margin-left: 2px;
+}
+
+.indicatorDelta {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  margin-top: 6px;
+  color: var(--ink-mid);
+}
+
+.up {
+  color: var(--load);
+}
+
+.down {
+  color: var(--effort);
+}
+
+.flat {
+  color: var(--ink-low);
+}
+
+/* ── La courbe ──────────────────────────────────────── */
+
+.curve {
+  margin-top: var(--s5);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line-soft);
+}
+
+.metrics {
+  margin-bottom: var(--s4);
+}
+
+.seriesStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s4);
+  margin-top: var(--s4);
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.04em;
+}
+
+.seriesStats b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ── Le formulaire ──────────────────────────────────── */
+
+/* « corriger » fait monter le formulaire : sans cette marge, son titre — « Corriger le
+   relevé du … », qui dit ce que le formulaire est devenu — passait sous la barre du haut
+   (48 px sur téléphone, `Shell.module.css`). Vu à l'écran, pas par un test. */
+.formAnchor {
+  scroll-margin-top: calc(var(--safe-t) + 48px + var(--s4));
+}
+
+@media (min-width: 960px) {
+  /* La barre du haut peut y passer sur deux rangées. */
+  .formAnchor {
+    scroll-margin-top: calc(var(--safe-t) + 120px);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+}
+
+/* ── L'historique ───────────────────────────────────── */
+
+/* Même retrait qu'aux pesées : la carte est bord à bord pour que la liste en touche les
+   bords, et rend le sien au titre et aux états vides. */
+.flushTitle {
+  padding: 0 12px 14px;
+}
+
+.flushPad {
+  padding: 0 12px 12px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list > li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 12px;
+  min-height: var(--tap);
+}
+
+.entryText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.entryDate {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  line-height: 1.5;
+}

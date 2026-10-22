@@ -91,60 +91,6 @@
   }
 }
 
-.indicators {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--s4);
-  margin-top: var(--s4);
-}
-
-.indicator {
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-sm);
-  padding: 12px;
-}
-
-.indicatorLabel {
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-low);
-}
-
-.indicatorValue {
-  font-family: var(--mono);
-  font-size: var(--t-num-md);
-  font-variant-numeric: tabular-nums;
-  margin-top: 6px;
-  line-height: 1;
-}
-
-.indicatorUnit {
-  font-size: var(--t-meta);
-  color: var(--ink-low);
-  margin-left: 2px;
-}
-
-.indicatorDelta {
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  margin-top: 6px;
-  color: var(--ink-mid);
-}
-
-.up {
-  color: var(--load);
-}
-
-.down {
-  color: var(--effort);
-}
-
-.flat {
-  color: var(--ink-low);
-}
-
 .empty {
   color: var(--ink-low);
   font-family: var(--mono);

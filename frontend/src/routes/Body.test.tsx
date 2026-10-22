@@ -81,6 +81,28 @@ const MEASUREMENT_VIEW = {
   total: 0,
 };
 
+const SERIES = {
+  metric: 'waist_cm',
+  label: 'Taille',
+  unit: 'cm',
+  granularity: 'day',
+  subject: null,
+  range: 'all',
+  points: [
+    { date: '2026-06-20', value: 83 },
+    { date: '2026-07-20', value: 82 },
+  ],
+  stats: {
+    latest: 82,
+    latest_date: '2026-07-20',
+    change: -1,
+    average: 82.5,
+    minimum: 82,
+    maximum: 83,
+    count: 2,
+  },
+};
+
 /** La section Douleurs vit en bas de l'écran ; vide ici, elle a son propre fichier. */
 const PAIN_VIEW = {
   today: '2026-07-21',
@@ -100,6 +122,9 @@ function stubApi(overrides: Partial<Record<string, Response>> = {}) {
       if (url.includes(fragment) && response) return Promise.resolve(response);
     }
     if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
+    // La courbe des mensurations (M-08) : un seul relevé de taille, donc pas de tracé.
+    if (url.includes('/api/aggregates/series'))
+      return Promise.resolve(json(200, { ...SERIES, points: [SERIES.points[0]] }));
     if (url.includes('/body/weight')) return Promise.resolve(json(200, WEIGHT_VIEW));
     if (url.includes('/api/pain/patterns'))
       return Promise.resolve(json(200, { zones: [], unanswered: [] }));
@@ -230,6 +255,7 @@ describe('écran Corps', () => {
         );
       }
       if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
+      if (url.includes('/api/aggregates/series')) return Promise.resolve(json(200, SERIES));
       if (url.includes('/api/pain/patterns'))
         return Promise.resolve(json(200, { zones: [], unanswered: [] }));
       if (url.includes('/api/pain')) return Promise.resolve(json(200, PAIN_VIEW));
