@@ -256,6 +256,13 @@ export function MealSheet({
   // **Hors du brouillon, délibérément.** Rouvrir la feuille doit rendre la saisie, pas
   // rallumer une caméra que personne n'a redemandée ni rouvrir une fiche.
   const [step, setStep] = useState<Step>({ kind: 'form' });
+  /**
+   * Le favori touché pour un autre jour qu'aujourd'hui, qui attend son type. Un favori ne
+   * porte pas le sien, et celui de l'heure présente ne dit rien d'un repas d'hier : un dîner
+   * rejoué à 8 h partait en petit-déjeuner, à 08:00. Hors du brouillon : c'est un appui en
+   * cours, pas une saisie.
+   */
+  const [pending, setPending] = useState<Favorite | null>(null);
   // La ligne arrivée par un scan, qui attend son poids — c'est là que va le focus.
   const [weighing, setWeighing] = useState<string | null>(null);
 
@@ -284,6 +291,7 @@ export function MealSheet({
     setStep({ kind: 'form' });
     setWeighing(null);
     setAsking(false);
+    setPending(null);
     clearDraft();
     live.current = false;
     generation.current += 1;
@@ -444,7 +452,7 @@ export function MealSheet({
   const saveComposed = useMutation({
     mutationFn: () =>
       nutritionApi.createComposed({
-        meal_type: values.meal_type || suggested,
+        meal_type: typeOf(values),
         comment: values.comment.trim(),
         lines: toLines(rows),
         ...(values.day ? { day: values.day } : {}),
@@ -466,7 +474,7 @@ export function MealSheet({
   // champs fusionnés, pas l'état d'avant la fusion que la fermeture aurait capturé.
   const save = useMutation({
     mutationFn: (fields: typeof values) =>
-      nutritionApi.create({ ...fields, meal_type: fields.meal_type || suggested }),
+      nutritionApi.create({ ...fields, meal_type: typeOf(fields) }),
     onSuccess: (_meal, fields) => {
       notify(`Repas enregistré.${elsewhere(fields.day)}`, 'effort');
       reset();
@@ -479,11 +487,15 @@ export function MealSheet({
 
   /**
    * Rejouer un favori, au jour du segment (M-23). Il n'a pas de formulaire : l'appui
-   * écrit, comme « rejouer » le faisait sur la page.
+   * écrit, comme « rejouer » le faisait sur la page. Pour hier, l'appui qui écrit est celui
+   * du type — voir `pending`.
    */
   const replay = useMutation({
-    mutationFn: (favorite: Favorite) =>
-      nutritionApi.replayFavorite(favorite.favorite_id, values.day || undefined),
+    mutationFn: ({ favorite, mealType }: { favorite: Favorite; mealType?: string }) =>
+      nutritionApi.replayFavorite(favorite.favorite_id, {
+        ...(values.day ? { day: values.day } : {}),
+        ...(mealType !== undefined ? { meal_type: mealType } : {}),
+      }),
     onSuccess: (meal) => {
       notify(`« ${meal.comment ?? 'Repas'} » ajouté.${elsewhere(values.day)}`, 'effort');
       reset();
@@ -594,15 +606,29 @@ export function MealSheet({
       : '';
   }
 
+  /**
+   * Le type à écrire : celui qu'on a choisi, sinon celui de l'heure — **aujourd'hui
+   * seulement**. Pour hier, l'heure présente ne dit rien du repas, et ce qu'elle proposerait
+   * deviendrait aussi son heure type : vide, l'enregistrement attend un choix.
+   */
+  function typeOf(fields: MealFormValues): string {
+    if (fields.meal_type) return fields.meal_type;
+    return fields.day === '' || days.find((item) => item.date === fields.day)?.key === 'today'
+      ? suggested
+      : '';
+  }
+
   const sentence = estimate === null ? '' : estimateSentence(estimate);
   const composing = mode === 'compose';
   const lines = toLines(rows);
   // Un repas composé a besoin de son nom **et** d'au moins un ingrédient pesé : sans le
   // premier il arriverait au journal sans rien pour le reconnaître, sans le second il n'y
   // aurait rien à composer.
-  const nothingToLog =
-    staleDay ||
-    (composing ? values.comment.trim() === '' || lines.length === 0 : values.comment.trim() === '');
+  const nothingWritten = composing
+    ? values.comment.trim() === '' || lines.length === 0
+    : values.comment.trim() === '';
+  const mealType = typeOf(values);
+  const nothingToLog = staleDay || mealType === '' || nothingWritten;
   const nothingToEstimate = values.comment.trim() === '';
   // `computeTotal` n'en fait **pas** partie : il part tout seul au repos de la frappe, et
   // l'inclure ferait clignoter l'action principale à chaque gramme tapé. L'enregistrement
@@ -692,7 +718,9 @@ export function MealSheet({
               // Un favori écrit dès l'appui : « rien n'est enregistré avant ta validation »
               // serait faux à côté de lui.
               favorites.length > 0
-                ? 'Un favori s’ajoute d’un appui. Sinon, comment veux-tu le noter ?'
+                ? pastDay !== undefined
+                  ? 'Un favori s’ajoute avec son type. Sinon, comment veux-tu le noter ?'
+                  : 'Un favori s’ajoute d’un appui. Sinon, comment veux-tu le noter ?'
                 : pastDay !== undefined
                   ? 'Comment veux-tu le noter ?'
                   : 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
@@ -744,22 +772,69 @@ export function MealSheet({
                 stale={staleDay}
                 onChange={(day) => {
                   setValues((current) => ({ ...current, day }));
+                  // Le type demandé l'était pour un autre jour.
+                  setPending(null);
                 }}
               />
             )}
 
-            {favorites.length > 0 && (
+            {pending !== null && pastDay !== undefined ? (
+              /* Le type, demandé **avant** d'écrire : il pose aussi l'heure type du repas
+                 (M-01). Les types servis, en pastilles — la même bande que les favoris, à
+                 la même place, pour qu'un appui suive l'autre sans chercher. */
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Quel repas ?</span>
+                <p className={styles.note}>
+                  « {pending.name} », pour {pastDay.label.toLowerCase()} : son type pose son heure
+                  habituelle.
+                </p>
+                <ChipStrip label={`Type de « ${pending.name} »`}>
+                  {types.map((type) => (
+                    <Chip
+                      key={type}
+                      aria-label={`${type} : ajouter « ${pending.name} » pour ${pastDay.label.toLowerCase()}`}
+                      disabled={replay.isPending}
+                      onClick={() => {
+                        setError(null);
+                        replay.mutate({ favorite: pending, mealType: type });
+                      }}
+                    >
+                      {type}
+                    </Chip>
+                  ))}
+                </ChipStrip>
+                <Button
+                  variant="quiet"
+                  disabled={replay.isPending}
+                  onClick={() => {
+                    setPending(null);
+                  }}
+                >
+                  Un autre favori
+                </Button>
+              </div>
+            ) : favorites.length > 0 ? (
               <div className={styles.field}>
                 <span className={styles.fieldLabel}>Favoris</span>
                 <ChipStrip label="Favoris">
                   {favorites.map((favorite) => (
                     <Chip
                       key={favorite.favorite_id}
-                      aria-label={`Ajouter « ${favorite.name} »${pastDay !== undefined ? ` pour ${pastDay.label.toLowerCase()}` : ''}`}
+                      aria-label={
+                        pastDay !== undefined
+                          ? `Ajouter « ${favorite.name} » pour ${pastDay.label.toLowerCase()} : choisir son type`
+                          : `Ajouter « ${favorite.name} »`
+                      }
                       disabled={replay.isPending || staleDay}
                       onClick={() => {
                         setError(null);
-                        replay.mutate(favorite);
+                        // Aujourd'hui, l'heure présente propose le type, et l'appui écrit.
+                        // Un autre jour, il demande d'abord lequel.
+                        if (pastDay !== undefined) {
+                          setPending(favorite);
+                          return;
+                        }
+                        replay.mutate({ favorite });
                       }}
                     >
                       {favorite.name}
@@ -767,7 +842,7 @@ export function MealSheet({
                   ))}
                 </ChipStrip>
               </div>
-            )}
+            ) : null}
           </div>
 
           {MODES.filter((item) => ai.enabled || OFFLINE_MODES.includes(item.value)).map((item) => (
@@ -842,17 +917,30 @@ export function MealSheet({
             <select
               id="meal-type"
               className={styles.select}
-              value={values.meal_type || suggested}
+              value={mealType}
               onChange={(event) => {
                 setValues((current) => ({ ...current, meal_type: event.target.value }));
               }}
             >
+              {/* Pour hier, rien n'est présélectionné : le type de l'heure présente serait
+                  une valeur devinée, et il poserait aussi l'heure du repas. */}
+              {mealType === '' && (
+                <option value="" disabled>
+                  Choisir le repas
+                </option>
+              )}
               {types.map((type) => (
                 <option value={type} key={type}>
                   {type}
                 </option>
               ))}
             </select>
+            {mealType === '' && !staleDay && (
+              <p className={styles.note}>
+                Pour {pastDay?.label.toLowerCase() ?? 'ce jour'}, dis de quel repas il s’agit : son
+                heure habituelle en dépend.
+              </p>
+            )}
           </div>
 
           {(wantsText(mode) || mode === 'manuel' || composing) && (
@@ -1096,7 +1184,7 @@ export function MealSheet({
             </Button>
           </div>
 
-          {nothingToLog && !staleDay && (
+          {nothingWritten && !staleDay && (
             <p className={styles.empty}>
               {composing
                 ? 'Un nom de plat et un ingrédient pesé suffisent. Les valeurs pour 100 g peuvent rester vides.'

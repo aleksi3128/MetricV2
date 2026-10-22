@@ -374,7 +374,7 @@ def test_a_favorite_replayed_yesterday_says_its_time_was_not_recorded(
 
     meal = app_client.post(
         f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
-        json={"day": "yesterday"},
+        json={"day": "yesterday", "meal_type": "collation"},
         headers=auth,
     ).json()
 
@@ -605,7 +605,7 @@ def test_a_favorite_replayed_for_yesterday_lands_yesterday(
 
     response = app_client.post(
         f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
-        json={"day": yesterday.isoformat()},
+        json={"day": yesterday.isoformat(), "meal_type": "dîner"},
         headers=auth,
     )
 
@@ -613,8 +613,44 @@ def test_a_favorite_replayed_for_yesterday_lands_yesterday(
     meal = response.json()
     noted = datetime.fromisoformat(meal["datetime"])
     assert noted.date() == yesterday
-    assert noted.time() == TYPICAL_TIME[MealType(meal["meal_type"])]
+    # Le type choisi, et l'heure type qui va avec — quelle que soit l'heure présente.
+    assert meal["meal_type"] == "dîner"
+    assert noted.time() == TYPICAL_TIME[MealType.DINNER]
     assert app_client.get(NUTRITION, headers=auth).json()["meals"] == []
+
+
+@pytest.mark.parametrize("body", [{"day": "yesterday"}, {"day": "yesterday", "meal_type": " "}])
+def test_a_favorite_replayed_for_yesterday_needs_its_type(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, body: dict[str, str]
+) -> None:
+    """L'heure présente ne dit rien d'un repas d'hier : un dîner rejoué à 8 h partait en
+    petit-déjeuner. Sans type, refus sur le champ, et rien d'écrit."""
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+
+    response = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay", json=body, headers=auth
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert [field["field"] for field in response.json()["fields"]] == ["body.meal_type"]
+    assert MEALS_FILE not in dav.files
+
+
+def test_a_favorite_replayed_today_takes_the_type_it_is_given(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Aujourd'hui, le type reste facultatif ; donné, il l'emporte sur l'heure."""
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+
+    meal = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
+        json={"meal_type": "collation"},
+        headers=auth,
+    ).json()
+
+    assert meal["meal_type"] == "collation"
+    assert meal["time_recorded"] is True
 
 
 def test_a_favorite_replayed_without_a_day_lands_now(

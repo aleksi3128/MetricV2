@@ -498,14 +498,49 @@ describe('écran Nutrition', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
     await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Ajouter « Skyr + flocons » pour hier' }),
+      screen.getByRole('button', {
+        name: 'Ajouter « Skyr + flocons » pour hier : choisir son type',
+      }),
+    );
+    // Pour hier, l'appui sur le favori n'écrit rien : il demande le type.
+    expect(calls.some((call) => call.url.includes('/replay'))).toBe(false);
+    expect(screen.getByText('Quel repas ?')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'dîner : ajouter « Skyr + flocons » pour hier' }),
     );
 
     await waitFor(() => {
       const replay = calls.find((call) => call.url.includes('/favorites/f1/replay'));
-      expect(JSON.parse(replay?.init?.body as string)).toEqual({ day: '2026-07-26' });
+      expect(JSON.parse(replay?.init?.body as string)).toEqual({
+        day: '2026-07-26',
+        meal_type: 'dîner',
+      });
     });
     expect(await screen.findByText(/Il compte pour hier/)).toBeInTheDocument();
+  });
+
+  it('rend la bande des favoris quand on renonce au type, ou qu’on revient à aujourd’hui', async () => {
+    stub();
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Ajouter « Skyr + flocons » pour hier : choisir son type',
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Un autre favori' }));
+    expect(screen.getByRole('group', { name: 'Favoris' })).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Ajouter « Skyr + flocons » pour hier : choisir son type',
+      }),
+    );
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Aujourd’hui' }));
+    expect(screen.queryByText('Quel repas ?')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/replay'))).toBe(false);
   });
 
   it('dit dans la feuille le refus d’un rejeu', async () => {
@@ -735,6 +770,7 @@ describe('repas composé', () => {
 
     await fillPlate();
     await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'dîner');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
 
     const call = await waitFor(() => {
@@ -744,6 +780,7 @@ describe('repas composé', () => {
     });
     const body = JSON.parse(call?.init?.body as string) as Record<string, unknown>;
     expect(body.day).toBe('2026-07-26');
+    expect(body.meal_type).toBe('dîner');
   });
 
   it('refuse d’enregistrer un plat sans nom', async () => {
@@ -1760,13 +1797,34 @@ describe('rattraper un repas d’hier (M-01)', () => {
     await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     expect(screen.getByText(/à l’heure habituelle de ce type de repas/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'dîner');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
 
     const form = await posted();
     expect(form.get('day')).toBe('2026-07-26');
     expect(form.get('datetime')).toBeNull();
-    // Le journal ne montre que la journée : sans ce mot, le repas aurait l'air perdu.
+    expect(form.get('meal_type')).toBe('dîner');
+    // Le journal d'hier est derrière un segment : sans ce mot, le repas aurait l'air perdu.
     expect(await screen.findByText(/Il compte pour hier/)).toBeInTheDocument();
+  });
+
+  it('ne présélectionne aucun type pour hier, et attend qu’on en choisisse un', async () => {
+    // Le type de l'heure présente est une devinette pour un repas d'hier, et il en pose
+    // aussi l'heure : un dîner noté à 8 h partait en petit-déjeuner, à 08:00.
+    stub();
+    renderNutrition();
+
+    await openSheet('Description');
+    expect(screen.getByLabelText('Type')).not.toHaveValue('');
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
+    await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
+
+    expect(screen.getByLabelText('Type')).toHaveValue('');
+    expect(screen.getByText(/dis de quel repas il s’agit/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeDisabled();
+
+    await userEvent.selectOptions(screen.getByLabelText('Type'), 'collation');
+    expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeEnabled();
   });
 
   it('garde le jour quand on change de mode', async () => {

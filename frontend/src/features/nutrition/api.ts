@@ -559,11 +559,18 @@ export const nutritionApi = {
   /**
    * Rejoue un favori. `day` est une date **servie** dans `days` (M-23) ; absente, le
    * serveur date à l'instant même — la règle de `create`.
+   *
+   * `meal_type` est **exigé** pour un autre jour qu'aujourd'hui : un favori ne porte pas son
+   * type, et celui de l'heure présente ne dit rien d'un repas d'hier. Aujourd'hui, absent,
+   * le serveur prend celui de l'heure.
    */
-  replayFavorite: (favoriteId: string, day?: string) =>
+  replayFavorite: (favoriteId: string, choice: { day?: string; meal_type?: string } = {}) =>
     request<Meal>(`/api/nutrition/favorites/${favoriteId}/replay`, {
       method: 'POST',
-      body: day ? { day } : {},
+      body: {
+        ...(choice.day ? { day: choice.day } : {}),
+        ...(choice.meal_type ? { meal_type: choice.meal_type } : {}),
+      },
     }),
 
   removeFavorite: (id: number, token: string) =>

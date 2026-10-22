@@ -206,7 +206,9 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
 
       {favorites.length > 0 ? (
         <>
-          <p className={styles.note}>Ils s’ajoutent d’un appui dans « Ajouter un repas ».</p>
+          {/* « d'un appui » n'est vrai que pour aujourd'hui : pour hier, la feuille demande
+              d'abord le type. */}
+          <p className={styles.note}>Ils s’ajoutent depuis « Ajouter un repas ».</p>
           <div className={styles.favorites}>
             {favorites.map((favorite) => (
               <div className={styles.favorite} key={favorite.favorite_id}>

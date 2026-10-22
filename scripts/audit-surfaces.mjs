@@ -126,6 +126,22 @@ const SURFACES = [
   // La même feuille ouverte par l'adresse où mène le parcours du matin (M-01) : sur hier,
   // avec sa phrase d'en-tête. Aucun appui — l'adresse suffit.
   ["/nutrition?ajout=hier", [], "rattraper un repas d’hier"],
+  // Son formulaire : pour hier, le type n'est pas présélectionné et une phrase le demande.
+  // Aucun champ n'est rempli.
+  [
+    "/nutrition?ajout=hier",
+    ["Valeurs à la main"],
+    "formulaire d’un repas d’hier",
+  ],
+  // Un favori touché pour hier ne s'écrit pas : il demande son type, en pastilles, à la
+  // place de la bande. L'appui est donc sans écriture ; celui sur un type en serait une, et
+  // n'est pas fait. Le nom porte celui du favori — sur une base qui ne l'a pas, la ligne
+  // rend « bouton introuvable », et on le remplace par un favori réellement présent.
+  [
+    "/nutrition?ajout=hier",
+    ["Ajouter « Skyr + flocons » pour hier : choisir son type"],
+    "type d’un favori rejoué hier",
+  ],
   // La fiche d'un repas, lecture seule (`NUT-15`). Le nom du bouton porte l'heure du repas,
   // donc il dépend des données du jour : sans repas à cette heure, la ligne rend « bouton
   // introuvable » — on remplace alors l'heure par celle d'un repas réellement noté.

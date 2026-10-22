@@ -844,12 +844,18 @@ class NutritionService:
     async def remove_favorite(self, index: int, token: str) -> None:
         await self._favorites.delete_by_token(index, token)
 
-    async def replay_favorite(self, favorite_id: str, *, day: str | None = None) -> Meal:
+    async def replay_favorite(
+        self, favorite_id: str, *, day: str | None = None, meal_type: str | None = None
+    ) -> Meal:
         """Rejoue un repas récurrent en une action, sans photo ni IA (`NUT-10`).
 
         `day` suit la règle de `create` (M-01, M-23) : rejoué pour hier, le favori prend
-        l'heure type de son repas. Le type reste celui de l'heure présente — un favori ne
-        porte pas le sien, et la feuille ne le demande pas avant l'appui.
+        l'heure type de son repas.
+
+        **Le type n'est deviné que pour aujourd'hui.** Un favori ne porte pas le sien, et
+        l'heure présente ne dit rien d'un repas d'hier : un dîner rejoué à 8 h partait en
+        petit-déjeuner, et son heure type avec lui. Pour un autre jour, la feuille demande
+        le type ; sans lui, refus, rien d'écrit.
         """
         favorite = next(
             (item for item in await self.favorites() if item.favorite_id == favorite_id), None
@@ -857,8 +863,17 @@ class NutritionService:
         if favorite is None:
             raise StorageNotFoundError("Ce repas favori n'existe pas.")
 
+        now = now_local()
+        chosen = resolve_day(day, now.date())
+        kind = (meal_type or "").strip()
+        if not kind:
+            if chosen is not None and chosen != now.date():
+                message = "Pour un autre jour qu'aujourd'hui, dis de quel repas il s'agit."
+                raise ValidationFailedError(message, fields=[("body.meal_type", message)])
+            kind = suggested_type(now).value
+
         return await self.create(
-            meal_type=suggested_type(now_local()).value,
+            meal_type=kind,
             comment=favorite.name,
             photo=None,
             protein_g=favorite.protein_g,

@@ -321,7 +321,8 @@ async def replay_favorite(
     choisi dans le segment vaut pour le favori comme pour une saisie.
     """
     day = payload.day if payload is not None else None
-    return await NutritionService(store).replay_favorite(favorite_id, day=day)
+    meal_type = payload.meal_type if payload is not None else None
+    return await NutritionService(store).replay_favorite(favorite_id, day=day, meal_type=meal_type)
 
 
 @router.delete(

@@ -416,6 +416,9 @@ class ReplayPayload(BaseModel):
     """
 
     day: str | None = Field(default=None, max_length=10)
+    #: Le type du repas, choisi à la feuille. Facultatif aujourd'hui — l'heure présente le
+    #: propose —, **exigé** pour un autre jour : voir `NutritionService.replay_favorite`.
+    meal_type: str | None = Field(default=None, max_length=80)
 
 
 class Product(BaseModel):
