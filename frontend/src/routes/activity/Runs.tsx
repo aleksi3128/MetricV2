@@ -42,6 +42,7 @@ import {
   type EffortSeries,
   type Run,
   type RunProgress,
+  type SwimDetail,
 } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -49,7 +50,9 @@ import { dayMonth, duration, hoursMinutes, num, pace, plural } from '@/lib/forma
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { SwimSheet } from '../planning/SwimSheet';
 import { NewActivitySheet } from './NewActivitySheet';
+import { SwimEntrySheet } from './SwimEntrySheet';
 import styles from './run/Run.module.css';
 import { Trends } from './Trends';
 
@@ -175,6 +178,9 @@ export function Runs() {
   });
   const today = overview?.today;
   const [creating, setCreating] = useState(false);
+  /** La natation qu'un `.fit` vient d'écrire, ouverte dans sa feuille (M-15). */
+  const [swimOpened, setSwimOpened] = useState<string | null>(null);
+  const [swimEntry, setSwimEntry] = useState<{ editing: SwimDetail } | null>(null);
 
   const rebuild = useMutation({
     mutationFn: () => activityApi.rebuildEfforts(),
@@ -379,6 +385,34 @@ export function Runs() {
           today={today}
           onClose={() => {
             setCreating(false);
+          }}
+          onSwimImported={(swim) => {
+            setSwimOpened(swim.swim_id);
+          }}
+        />
+      )}
+
+      {/* Une natation déposée par « Ajouter une course » s'ouvre ici, dans sa feuille
+          (M-15) — la même que depuis `/activite` et `/activite/natations`, réécriture en
+          notation comprise : sans `onEdit`, ce bouton manquait sur cette page seule. */}
+      <SwimSheet
+        swimId={swimOpened}
+        onClose={() => {
+          setSwimOpened(null);
+        }}
+        onEdit={(swim) => {
+          setSwimOpened(null);
+          setSwimEntry({ editing: swim });
+        }}
+      />
+
+      {swimEntry !== null && today !== undefined && (
+        <SwimEntrySheet
+          open
+          today={today}
+          editing={swimEntry.editing}
+          onClose={() => {
+            setSwimEntry(null);
           }}
         />
       )}

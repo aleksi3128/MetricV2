@@ -41,7 +41,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
 
 import { Button, Field, Sheet, Stepper } from '@/components/ui';
 import { activityApi, type Other, type Run, type SwimDetail } from '@/features/activity/api';
@@ -65,10 +64,17 @@ export function NewActivitySheet({
   open,
   today,
   onClose,
+  onSwimImported,
 }: {
   open: boolean;
   today: string;
   onClose: () => void;
+  /**
+   * Le fichier était une natation : la feuille se ferme et l'écran ouvre la natation dans
+   * `SwimSheet`, sur place (M-15). Elle partait au planning, trace d'avant
+   * `/activite/natations`.
+   */
+  onSwimImported: (swim: SwimDetail) => void;
 }) {
   const [step, setStep] = useState(1);
 
@@ -83,7 +89,17 @@ export function NewActivitySheet({
           il ne reste qu'une nature à saisir à la main, et poser une question dont la
           réponse est déjà connue est un appui de plus pour rien. « Retour », à la
           première étape, ferme donc la feuille au lieu de remonter à ce choix. */}
-      <RunWizard today={today} step={step} onStep={setStep} onBack={close} onDone={close} />
+      <RunWizard
+        today={today}
+        step={step}
+        onStep={setStep}
+        onBack={close}
+        onDone={close}
+        onSwimImported={(swim) => {
+          close();
+          onSwimImported(swim);
+        }}
+      />
     </Sheet>
   );
 }
@@ -107,18 +123,19 @@ function RunWizard({
   onStep,
   onBack,
   onDone,
+  onSwimImported,
 }: {
   today: string;
   step: number;
   onStep: (step: number) => void;
   onBack: () => void;
   onDone: () => void;
+  onSwimImported: (swim: SwimDetail) => void;
 }) {
   const invalidate = useInvalidateActivity();
   const { notify } = useToast();
   const ai = useAiStatus();
   const client = useQueryClient();
-  const navigate = useNavigate();
 
   const [fields, setFields] = useState<RunFields>({
     date: today,
@@ -266,14 +283,15 @@ function RunWizard({
           setImported(run);
         }}
         onSwimImported={(swim) => {
-          // Une natation vit au planning, à côté de ce qui était prévu ce jour-là : la
-          // feuille se ferme et l'écran y mène, sur le bon jour.
+          // Une natation a sa page et sa feuille (`/activite/natations`, `SwimSheet`) :
+          // elle s'ouvre là où l'on est, avec ses tours et son effort perçu, au lieu de
+          // mener au planning (M-15). Le planning la montre toujours, d'où son
+          // invalidation.
           invalidate();
           void client.invalidateQueries({ queryKey: keys.planning.all() });
           for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
           notify(`Natation importée : ${meters(swim.distance_m)}.`, 'effort');
-          onDone();
-          void navigate(`/planning?jour=${swim.date}`);
+          onSwimImported(swim);
         }}
         onOtherImported={(other) => {
           invalidate();
@@ -591,8 +609,8 @@ function AppleStep({
           </label>
           <p className={styles.note}>
             Le fichier de ta montre ou de Strava. Distance, temps, paliers et parcours sont lus
-            dedans, la sortie est enregistrée et le fichier conservé. Une natation en piscine va au
-            planning.
+            dedans, la sortie est enregistrée et le fichier conservé. Une natation en piscine y est
+            reconnue, et s’ouvre dans sa fiche.
           </p>
         </div>
 

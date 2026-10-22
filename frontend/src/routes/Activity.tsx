@@ -235,6 +235,9 @@ export function Activity() {
           onClose={() => {
             setCreating(false);
           }}
+          onSwimImported={(swim) => {
+            setSwimOpened(swim.swim_id);
+          }}
         />
       )}
 

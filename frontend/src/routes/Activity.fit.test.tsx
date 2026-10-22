@@ -11,7 +11,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
@@ -170,17 +170,34 @@ afterEach(() => {
 
 // ── La feuille ────────────────────────────────────────
 
-function renderSheet(onClose = vi.fn()): { onClose: ReturnType<typeof vi.fn> } {
+function renderSheet(onClose = vi.fn()): {
+  onClose: ReturnType<typeof vi.fn>;
+  onSwimImported: ReturnType<typeof vi.fn>;
+} {
+  const onSwimImported = vi.fn();
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/activite']}>
         <Toaster>
-          <NewActivitySheet open today="2026-09-11" onClose={onClose} />
+          <Routes>
+            <Route path="*" element={<Where />} />
+          </Routes>
+          <NewActivitySheet
+            open
+            today="2026-09-11"
+            onClose={onClose}
+            onSwimImported={onSwimImported}
+          />
         </Toaster>
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { onClose };
+  return { onClose, onSwimImported };
+}
+
+function Where() {
+  const location = useLocation();
+  return <p data-testid="where">{`${location.pathname}${location.search}`}</p>;
 }
 
 async function chooseFit(): Promise<void> {
@@ -343,7 +360,7 @@ describe('ajouter une sortie par un .fit', () => {
       }
       return json(200, {});
     });
-    const { onClose } = renderSheet();
+    const { onClose, onSwimImported } = renderSheet();
 
     await chooseFit();
 
@@ -354,6 +371,10 @@ describe('ajouter une sortie par un .fit', () => {
       expect(onClose).toHaveBeenCalled();
     });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    // M-15 : la natation est rendue à l'écran qui l'ouvre dans sa feuille ; on ne part
+    // plus au planning.
+    expect(onSwimImported).toHaveBeenCalledWith(expect.objectContaining({ swim_id: 'nage01' }));
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/activite$/);
   });
 
   it('reste proposé quand la lecture de capture ne l’est pas', async () => {
