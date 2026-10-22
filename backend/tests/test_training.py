@@ -80,6 +80,13 @@ def test_without_any_session_the_unrated_sentence_is_silent() -> None:
     assert "Toutes les séances" in banister.summarize(DAY, [session(0, 60, 5)]).unrated_text
 
 
+def test_without_any_session_the_form_says_there_is_none() -> None:
+    """M-21 : « aucune séance n'a d'effort perçu », sans aucune séance, en suppose qu'il y en a."""
+    assert "aucune séance enregistrée" in banister.summarize(DAY, []).form_text
+    unrated = banister.summarize(DAY, [session(3, 60, None)]).form_text
+    assert "aucune séance n'a d'effort perçu" in unrated
+
+
 def test_an_empty_store_serves_no_unrated_sentence(
     store_client: TestClient, auth: dict[str, str]
 ) -> None:

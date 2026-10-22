@@ -110,9 +110,12 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
     weeks = _weeks(today, past)
     rated = [item for item in past if item.load is not None]
     if not rated:
+        # Sans aucune séance, « aucune séance n'a d'effort perçu » laissait croire qu'il y
+        # en avait (M-21, comme `_unrated_text`) : la phrase dit qu'il n'y a rien.
+        missing = "aucune séance n'a d'effort perçu" if past else "aucune séance enregistrée"
         return Summary(
             form_text=(
-                "Pas encore de charge globale : aucune séance n'a d'effort perçu. "
+                f"Pas encore de charge globale : {missing}. "
                 "Note l'effort de ta prochaine séance, et la courbe commence."
             ),
             ratio_text="Pas de rapport de charge sans séance notée.",
