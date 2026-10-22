@@ -38,9 +38,9 @@ Haut d'écran rempli : 1 810 px.
   bord porte huit semaines en minutes et la répartition par sport ; `/activite/courses` a
   son « Volume par semaine » et sa « Charge par semaine » ; `/activite/natations` ses
   quatre semaines (M-06, M-07).
-- **L'état vide affirme quelque chose de faux.** Sans aucune séance, l'écran écrit
-  « Toutes les séances des 4 semaines ont un effort perçu » — vrai au sens logique, lu comme
-  une mesure (M-21).
+- ~~**L'état vide affirme quelque chose de faux.**~~ Corrigé (M-21, `3bcde3f`) : sans
+  aucune séance sur 4 semaines, le serveur tait « Toutes les séances des 4 semaines ont un
+  effort perçu », et l'écran ne dessine rien à sa place.
 - **L'écran dépend d'un geste qu'aucun écran ne réclame clairement.** Toute la page se
   remplit par l'effort perçu ; « Je l'ai faite » sur une séance Cadence ne le demande pas,
   un import `.fit` le propose en fin de feuille avec « Plus tard ». Le point du soir est le

@@ -142,11 +142,12 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
   a sa page, c'est `/activite/natations` qui la montre (M-15).
 - **Vélo et marche ne s'ajoutent que par un `.fit`.** `activityApi.createOther` existe et
   le serveur accepte `POST /api/activity/others`, mais aucun écran ne l'appelle (M-16).
-- **La date du jour s'affiche en ISO** au pied de l'étape 1 : « Aujourd'hui : 2026-10-22 »
-  ([`NewActivitySheet.tsx:662`](../../frontend/src/routes/activity/NewActivitySheet.tsx#L662)).
-- **L'état vide de `/activite/courses` renvoie ailleurs** : « Importe le fichier .fit de ta
-  montre depuis l'activité », alors que le bouton « Ajouter une course » de la même page
-  le fait (déjà noté dans `sortie-publique.md` §4.17).
+- ~~**La date du jour s'affiche en ISO** au pied de l'étape 1.~~ Corrigé (M-21,
+  `3bcde3f`) : « Aujourd'hui : jeudi 22 octobre ».
+- ~~**L'état vide de `/activite/courses` renvoie ailleurs.**~~ Corrigé (M-21, `3bcde3f`) :
+  il nomme le bouton « Ajouter une course » de la page. Ceux de `/activite/course`
+  disent toujours « depuis l'activité », et c'est juste : cette page n'a pas de bouton
+  d'ajout.
 - **L'effort perçu se demande à six endroits** (page de la course, feuille de natation,
   `OtherSheet`, après un import, matin, soir). Ce n'est pas un défaut : c'est la même
   écriture, posée là où l'on est. Mais une séance Cadence n'en reçoit qu'au point du soir —

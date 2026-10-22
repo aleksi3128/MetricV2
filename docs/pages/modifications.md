@@ -58,7 +58,7 @@ s'écrivent sans se relire, la course visée ne parle à aucun autre écran.
 | [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile, une charge qui ne se contredit pas | **P1** |
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables ; les douleurs à leur adresse | **P1** / P2 |
-| [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant | **P1** |
+| [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
 | [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
@@ -557,6 +557,26 @@ Relevées en regardant les pages, hors de toute fiche :
 
 **Coût.** Une ligne chacun, un test pour le premier. **Risque.** Aucun.
 
+**Fait le 22 octobre** (`3bcde3f`). Les quatre lignes citées étaient exactes.
+
+- (1) `banister._unrated_text` rend une phrase vide quand la fenêtre de 28 jours ne
+  contient **aucune** séance — y compris quand les seules séances sont plus anciennes.
+  En route : `Load.tsx` dessinait la phrase sans garde dans la carte « Forme et fatigue »,
+  un paragraphe vide y serait resté ; il ne s'affiche plus que non vide, comme dans
+  « Rapport et monotonie ». Deux tests serveur (le modèle, et `GET /api/training` sur un
+  stockage vide).
+- (2) `longDate(today)` : « Aujourd'hui : jeudi 22 octobre », comme l'accueil, Nutrition
+  et Routine. Une assertion d'écran.
+- (3) « « Ajouter une course », en haut de page : le fichier .fit de ta montre, ou les
+  chiffres à la main. » Une assertion d'écran.
+- (4) Commentaire seul : il dit que la barre du haut a son entrée depuis `320bcfc` et
+  renvoie à M-22.
+
+**Reste.** Les deux « depuis l'activité » de `/activite/course` sont laissés : la page
+n'a pas de bouton d'ajout, la phrase y est juste. La phrase de forme sur zéro séance
+(« aucune séance n'a d'effort perçu ») a le même biais, plus faible — elle suppose des
+séances — et n'a pas été touchée. `sortie-publique.md` §4.17 n'a pas été mis à jour.
+
 <a id="m-22"></a>
 
 ### M-22 — La rangée « Assistant » en pied d'accueil
@@ -605,7 +625,7 @@ favori sans description ne peut plus être créé à la main ; c'est déjà la r
 
 ## 5. Dans quel ordre
 
-1. **M-21** — une heure, et l'écran ne dit plus rien de faux.
+1. ~~**M-21** — une heure, et l'écran ne dit plus rien de faux.~~ Fait (`3bcde3f`).
 2. **M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
    défaire.
 3. **M-02 (1–3)** — après avoir tranché le seuil de facile.

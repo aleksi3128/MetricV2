@@ -92,10 +92,10 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 - **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
   « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
   enregistre les deux sans changer d'écran.
-- **La rangée « Assistant » en pied d'écran a perdu sa raison d'être.** Son commentaire
-  ([`Dashboard.tsx:319`](../../frontend/src/routes/Dashboard.tsx#L319)) dit que la barre
-  du haut n'a pas d'entrée Assistant sur ordinateur ; elle en a une depuis `320bcfc`, et la
-  barre basse aussi.
+- **La rangée « Assistant » en pied d'écran a perdu sa raison d'être.** La barre du haut a
+  une entrée Assistant sur ordinateur depuis `320bcfc`, et la barre basse aussi. Le
+  commentaire de [`Dashboard.tsx`](../../frontend/src/routes/Dashboard.tsx) qui affirmait
+  le contraire est corrigé (M-21, `3bcde3f`) ; la rangée elle-même attend M-22.
 - **Le matin promet un rattrapage qui n'existe pas.** « Aucun repas noté hier — ils se
   rattrapent depuis Nutrition » : `/nutrition` n'ajoute qu'au jour même (M-01).
 - **FC de repos et VFC s'écrivent chaque matin et ne se relisent nulle part** en série :
