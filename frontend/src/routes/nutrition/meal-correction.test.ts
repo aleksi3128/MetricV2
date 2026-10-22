@@ -17,6 +17,8 @@ const MEAL: Meal = {
   saturated_fat_g: null,
   fiber_g: 11,
   source: 'ai',
+  time_recorded: true,
+  day_label: null,
 };
 
 describe('correction d’un repas', () => {

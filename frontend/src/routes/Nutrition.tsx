@@ -30,13 +30,14 @@ import { nutritionApi, type Favorite, type Meal } from '@/features/nutrition/api
 import { usePhoto } from '@/features/nutrition/usePhoto';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { integer, longDate, num, plural, time } from '@/lib/format';
+import { integer, longDate, num, plural } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './Nutrition.module.css';
 import { History } from './nutrition/History';
 import { MealDetail } from './nutrition/MealDetail';
+import { mealTime } from './nutrition/meal-moment';
 import { MealSheet } from './nutrition/MealSheet';
 
 function useInvalidateNutrition() {
@@ -108,14 +109,14 @@ function MealCard({
       <button
         type="button"
         className={styles.mealOpen}
-        aria-label={`Fiche du repas de ${time(meal.datetime)}`}
+        aria-label={`Fiche du repas de ${mealTime(meal)}`}
         aria-describedby={bodyId}
         onClick={onOpen}
       >
         <Thumbnail meal={meal} />
         <span className={styles.mealBody} id={bodyId}>
           <span className={styles.mealHead}>
-            <span className={styles.mealTime}>{time(meal.datetime)}</span>
+            <span className={styles.mealTime}>{mealTime(meal)}</span>
             <Badge tone="signal">{meal.meal_type}</Badge>
             {meal.source !== 'manual' && <Badge tone="load">{meal.source}</Badge>}
           </span>
@@ -144,8 +145,8 @@ function MealCard({
           className={cx(styles.iconButton, styles.danger, armed && styles.armed)}
           aria-label={
             armed
-              ? `Supprimer le repas de ${time(meal.datetime)} — confirmer`
-              : `Supprimer le repas de ${time(meal.datetime)}`
+              ? `Supprimer le repas de ${mealTime(meal)} — confirmer`
+              : `Supprimer le repas de ${mealTime(meal)}`
           }
           disabled={removing}
           onClick={onRemove}

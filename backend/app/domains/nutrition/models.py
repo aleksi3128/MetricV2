@@ -1,7 +1,7 @@
 """Modèles CSV de la nutrition.
 
 `nutrition/meals.csv` : datetime, meal_type, comment, photo, protein_g, added_sugar_g,
-calories, source, saturated_fat_g, fiber_g
+calories, source, saturated_fat_g, fiber_g, time_recorded
 `nutrition/favorites.csv` : id, name, protein_g, added_sugar_g, calories, saturated_fat_g,
 fiber_g
 `nutrition/ingredients.csv` : id, name, calories_100g, protein_100g, added_sugar_100g,
@@ -49,6 +49,13 @@ class MealRow(CsvModel):
     source: str = "manual"
     saturated_fat_g: float | None = None
     fiber_g: float | None = None
+    #: L'heure de `datetime` a-t-elle été **relevée** ? Fausse pour un repas rattrapé
+    #: (M-01) : le serveur y pose l'heure type de son repas — 20:00 pour un dîner —, et
+    #: l'écran ne doit pas la montrer comme une mesure. **Vide vaut vrai** : toutes les
+    #: lignes d'avant ont été notées à l'instant, et une saisie du jour même l'est encore.
+    #: En dernière colonne, pour la raison de `NUT-16` : un tableur qui visait une colonne
+    #: doit continuer de la viser.
+    time_recorded: bool = True
 
     @classmethod
     def csv_columns(cls) -> tuple[str, ...]:
@@ -63,6 +70,7 @@ class MealRow(CsvModel):
             "source",
             "saturated_fat_g",
             "fiber_g",
+            "time_recorded",
         )
 
     def to_csv(self) -> dict[str, str]:

@@ -48,7 +48,6 @@ import { nutritionApi, type Favorite, type Meal, type MealUpdate } from '@/featu
 import { usePhoto } from '@/features/nutrition/usePhoto';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { time } from '@/lib/format';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Nutrition.module.css';
@@ -58,6 +57,7 @@ import {
   unreadable,
   type CorrectionValues,
 } from './meal-correction';
+import { mealTitle } from './meal-moment';
 import { NutrientGrid } from './NutrientGrid';
 import { NUTRIENTS } from './nutrients';
 
@@ -407,7 +407,7 @@ export function MealDetail({
     <Sheet
       open={meal !== null}
       onClose={onClose}
-      title={meal === null ? '' : editing ? 'Corriger le repas' : `Repas de ${time(meal.datetime)}`}
+      title={meal === null ? '' : editing ? 'Corriger le repas' : mealTitle(meal)}
       lede={
         editing
           ? 'La photo et la provenance restent. Rien n’est écrit avant ta validation.'

@@ -44,6 +44,8 @@ const LENTILS = {
   saturated_fat_g: null,
   fiber_g: 11.5,
   source: 'manual',
+  time_recorded: true,
+  day_label: null,
 };
 
 const BARE = {
@@ -59,6 +61,8 @@ const BARE = {
   saturated_fat_g: null,
   fiber_g: null,
   source: 'manual',
+  time_recorded: true,
+  day_label: null,
 };
 
 const VIEW = {
@@ -154,6 +158,28 @@ afterEach(() => {
 });
 
 describe('la fiche d’un repas', () => {
+  it('ne montre pas l’heure posée sur un repas rattrapé', async () => {
+    // Reste de M-01 : 20:00 est l'heure type d'un dîner, posée par le serveur. La montrer
+    // en ferait une heure relevée.
+    const caught = {
+      ...LENTILS,
+      datetime: '2026-07-26T20:00:00+02:00',
+      meal_type: 'dîner',
+      time_recorded: false,
+      day_label: 'Hier',
+    };
+    stub((url) => (url === '/api/nutrition' ? json(200, { ...VIEW, meals: [caught] }) : undefined));
+    renderNutrition();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Fiche du repas de heure non relevée' }),
+    );
+    const sheet = await screen.findByRole('dialog');
+
+    expect(within(sheet).getByText('Hier, heure non relevée')).toBeInTheDocument();
+    expect(screen.queryByText(/20:00/)).not.toBeInTheDocument();
+  });
+
   it('s’ouvre en touchant la ligne, et dit les cinq valeurs', async () => {
     stub();
     renderNutrition();

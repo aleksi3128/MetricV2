@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from datetime import date, datetime, timedelta
 
-from app.core.dates import local_day_of, now_local, tz
+from app.core.dates import local_day_of, now_local, today_local, tz
 from app.core.exceptions import ValidationFailedError
 from app.domains.ai.images import prepare_data_url
 from app.domains.ai.service import AiService
@@ -139,6 +139,14 @@ class NutritionService:
     @staticmethod
     def _to_schema(row: Row[MealRow]) -> Meal:
         model = row.model
+        day_label: str | None = None
+        if not model.time_recorded:
+            # Le seul mot de jour que le serveur sache dire est celui du segment : au-delà
+            # d'hier, l'écran écrit la date.
+            moment = local_day_of(model.datetime_)
+            day_label = next(
+                (day.label for day in meal_days(today_local()) if day.date == moment), None
+            )
         return Meal(
             id=row.index,
             token=row.token,
@@ -152,6 +160,8 @@ class NutritionService:
             saturated_fat_g=model.saturated_fat_g,
             fiber_g=model.fiber_g,
             source=model.source,
+            time_recorded=model.time_recorded,
+            day_label=day_label,
         )
 
     async def totals(self, day: date) -> DayTotals:
@@ -306,7 +316,8 @@ class NutritionService:
         day: str | None = None,
     ) -> Meal:
         now = now_local()
-        moment = moment_for(resolve_day(day, now.date()), meal_type, now)
+        chosen = resolve_day(day, now.date())
+        moment = moment_for(chosen, meal_type, now)
 
         relative: str | None = None
         if photo:
@@ -327,6 +338,8 @@ class NutritionService:
                 saturated_fat_g=saturated_fat_g,
                 fiber_g=fiber_g,
                 source=source,
+                # Aujourd'hui, l'heure est celle de la saisie ; un autre jour, celle du type.
+                time_recorded=chosen is None or chosen == now.date(),
             )
         )
         return self._to_schema(row)
@@ -362,6 +375,14 @@ class NutritionService:
                 # réécrit pas en saisie manuelle. Elle ne change que si la requête le
                 # demande — accepter une estimation sur un repas déjà relevé.
                 source=payload.source or existing.source,
+                # Une correction ordinaire ne touche pas à l'heure : ce qu'on savait d'elle
+                # reste. Une heure **donnée** — seul l'appelant qui envoie `datetime` le
+                # fait — est relevée.
+                time_recorded=(
+                    True
+                    if payload.datetime is not None and payload.datetime != existing.datetime_
+                    else existing.time_recorded
+                ),
             ),
         )
         return self._to_schema(row)

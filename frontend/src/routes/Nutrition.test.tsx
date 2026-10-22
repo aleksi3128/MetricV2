@@ -77,6 +77,8 @@ const VIEW = {
       saturated_fat_g: 4.5,
       fiber_g: 6,
       source: 'manual',
+      time_recorded: true,
+      day_label: null,
     },
     {
       id: 0,
@@ -91,6 +93,8 @@ const VIEW = {
       saturated_fat_g: null,
       fiber_g: 3,
       source: 'ai',
+      time_recorded: true,
+      day_label: null,
     },
   ],
   favorites: [

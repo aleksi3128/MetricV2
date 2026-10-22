@@ -23,6 +23,13 @@ export interface Meal {
   saturated_fat_g: number | null;
   fiber_g: number | null;
   source: string;
+  /**
+   * Faux pour un repas rattrapé : `datetime` porte alors l'heure type de son repas, posée
+   * par le serveur — elle ne s'affiche pas (M-01). Voir `meal-moment.ts`.
+   */
+  time_recorded: boolean;
+  /** « Hier », quand l'heure n'est pas relevée et que le jour est l'un des deux servis. */
+  day_label: string | null;
 }
 
 export interface DayTotals {

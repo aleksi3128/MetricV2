@@ -342,6 +342,72 @@ def test_the_served_date_holds_across_midnight() -> None:
         resolve_day(date(2026, 10, 20).isoformat(), after_midnight)
 
 
+# ── L'heure relevée, ou posée (reste de M-01) ─────────
+
+
+def test_a_meal_noted_now_has_its_time_recorded(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    meal = log_meal(app_client, auth)
+
+    assert meal["time_recorded"] is True
+    assert meal["day_label"] is None
+    assert dav.content_of(MEALS_FILE).splitlines()[0].endswith(",time_recorded")
+    assert dav.content_of(MEALS_FILE).splitlines()[1].endswith(",true")
+
+
+def test_a_meal_caught_up_yesterday_says_its_time_was_not_recorded(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """20:00 pour un dîner d'hier est posé par le serveur : il le dit, et nomme le jour."""
+    meal = log_meal(app_client, auth, meal_type="dîner", day="yesterday")
+
+    assert meal["time_recorded"] is False
+    assert meal["day_label"] == "Hier"
+    assert dav.content_of(MEALS_FILE).splitlines()[1].endswith(",false")
+
+
+def test_a_favorite_replayed_yesterday_says_its_time_was_not_recorded(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+
+    meal = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
+        json={"day": "yesterday"},
+        headers=auth,
+    ).json()
+
+    assert meal["time_recorded"] is False
+
+
+def test_a_line_from_before_the_column_has_its_time_recorded(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Toutes les lignes d'avant ont été notées à l'instant : la cellule absente vaut vrai."""
+    dav.seed(MEALS_FILE, HEADER + f"{moment(today_local(), 9)},petit-déjeuner,skyr,,,,,manual\n")
+
+    meals = app_client.get(NUTRITION, headers=auth).json()["meals"]
+
+    assert [meal["time_recorded"] for meal in meals] == [True]
+
+
+def test_a_correction_keeps_what_was_known_of_the_time(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Corriger les calories d'un dîner rattrapé ne fait pas de 20:00 une heure relevée."""
+    created = log_meal(app_client, auth, meal_type="dîner", day="yesterday")
+
+    corrected = app_client.patch(
+        f"{NUTRITION}/{created['id']}",
+        json={"meal_type": "dîner", "comment": "pâtes", "calories": 700},
+        headers={**auth, "If-Match": created["token"]},
+    ).json()
+
+    assert corrected["time_recorded"] is False
+    assert corrected["datetime"] == created["datetime"]
+
+
 # ── Liste du jour (`NUT-07`) ──────────────────────────
 
 
@@ -562,12 +628,12 @@ def test_the_file_stays_readable_in_a_spreadsheet(
 
     lines = dav.content_of(MEALS_FILE).splitlines()
 
-    # Les deux colonnes de `NUT-16` en fin de ligne : une formule qui visait les calories
-    # dans un tableur doit continuer de les viser.
+    # Les deux colonnes de `NUT-16`, puis celle de l'heure relevée (M-01), en fin de ligne :
+    # une formule qui visait les calories dans un tableur doit continuer de les viser.
     assert lines[0] == (
         "datetime,meal_type,comment,photo,protein_g,added_sugar_g,calories,source,"
-        "saturated_fat_g,fiber_g"
+        "saturated_fat_g,fiber_g,time_recorded"
     )
     # La virgule du commentaire est protégée par des guillemets.
     assert '"poulet, riz"' in lines[1]
-    assert lines[1].endswith(",42.5,,680,manual,,")
+    assert lines[1].endswith(",42.5,,680,manual,,,true")

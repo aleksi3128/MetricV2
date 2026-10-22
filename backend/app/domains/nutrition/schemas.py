@@ -77,6 +77,13 @@ class Meal(BaseModel):
     saturated_fat_g: float | None = None
     fiber_g: float | None = None
     source: str
+    #: Faux pour un repas rattrapé : `datetime` porte alors l'heure type de son repas,
+    #: posée par le serveur, et non une heure relevée. L'écran ne l'affiche pas (M-01).
+    time_recorded: bool = True
+    #: Le jour du repas dans les mots du segment — « Hier » —, servi quand l'heure n'est
+    #: pas relevée et que le jour est l'un des deux offerts. `None` sinon : l'écran écrit
+    #: alors la date. « Hier » est un calcul de date, il se fait ici.
+    day_label: str | None = None
 
 
 class DayTotals(BaseModel):
