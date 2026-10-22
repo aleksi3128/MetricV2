@@ -106,7 +106,7 @@ class Summary:
 def summarize(today: date, sessions: Sequence[Session]) -> Summary:
     past = [item for item in sessions if item.day <= today]
     unrated = _unrated(today, past)
-    unrated_text = _unrated_text(unrated)
+    unrated_text = _unrated_text(unrated, _windowed(today, past))
     weeks = _weeks(today, past)
     rated = [item for item in past if item.load is not None]
     if not rated:
@@ -247,6 +247,11 @@ def _unrated(today: date, sessions: Sequence[Session]) -> dict[str, int]:
     return counts
 
 
+def _windowed(today: date, sessions: Sequence[Session]) -> int:
+    since = today - timedelta(days=UNRATED_DAYS - 1)
+    return sum(1 for item in sessions if item.day >= since)
+
+
 # ── Les phrases ───────────────────────────────────────
 
 
@@ -291,7 +296,11 @@ def _ratio_text(ratio: float | None, history: int) -> str:
     return base
 
 
-def _unrated_text(unrated: dict[str, int]) -> str:
+def _unrated_text(unrated: dict[str, int], windowed: int) -> str:
+    # Sans aucune séance, « toutes ont un effort perçu » est vrai au sens logique et se lit
+    # comme une mesure (M-21) : la phrase se tait, et l'écran n'en dessine pas.
+    if windowed == 0:
+        return ""
     total = sum(unrated.values())
     if total == 0:
         return "Toutes les séances des 4 semaines ont un effort perçu."

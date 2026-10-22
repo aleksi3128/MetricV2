@@ -294,6 +294,8 @@ describe('page Toutes tes courses', () => {
     renderRuns();
 
     expect(await screen.findByText('Aucune course enregistrée')).toBeInTheDocument();
+    // M-21 : la porte est sur la page, pas « depuis l'activité ».
+    expect(screen.getByText(/« Ajouter une course », en haut de page/)).toBeInTheDocument();
     // Pas de « 0 km » ni de « 0:00 » : rien n'a été couru, ce n'est pas une mesure.
     expect(screen.queryByText('Allure totale')).not.toBeInTheDocument();
   });

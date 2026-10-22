@@ -315,8 +315,9 @@ export function Dashboard() {
 
       {/* Les deux portes de côté de l'assistant, et la sienne propre.
           Elles restent **quoi qu'il arrive** : sans clé OpenRouter la lecture du jour ne
-          s'affiche pas (`IA-07`), et sur ordinateur cette rangée est la seule entrée vers
-          `/assistant` — la barre du haut n'en a pas.
+          s'affiche pas (`IA-07`). Elles ne sont plus la seule entrée vers `/assistant` sur
+          ordinateur — la barre du haut en a une depuis `320bcfc` — et la rangée doit
+          partir (M-22).
           Une adresse et non un état d'écran : la feuille s'ouvre à l'arrivée, le bouton
           système « précédent » la referme, et le lien se garde en favori. */}
       <Rule>Assistant</Rule>

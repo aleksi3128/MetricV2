@@ -49,7 +49,7 @@ import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { meters, num } from '@/lib/format';
+import { longDate, meters, num } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
@@ -659,7 +659,7 @@ function AppleStep({
         </Button>
       )}
 
-      <p className={styles.empty}>Aujourd’hui : {today}</p>
+      <p className={styles.empty}>Aujourd’hui : {longDate(today)}</p>
     </div>
   );
 }

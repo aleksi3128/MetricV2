@@ -71,6 +71,24 @@ def test_without_any_rated_session_there_is_no_curve_and_it_says_why() -> None:
     assert "aucune séance n'a d'effort perçu" in summary.form_text
 
 
+def test_without_any_session_the_unrated_sentence_is_silent() -> None:
+    """M-21 : « toutes les séances ont un effort perçu », sur aucune séance, se lit comme une mesure."""
+    assert banister.summarize(DAY, []).unrated_text == ""
+    # Une séance sortie des 4 semaines ne compte pas davantage.
+    assert banister.summarize(DAY, [session(40, 60, None)]).unrated_text == ""
+    # La phrase reste dès qu'une séance de la fenêtre est notée.
+    assert "Toutes les séances" in banister.summarize(DAY, [session(0, 60, 5)]).unrated_text
+
+
+def test_an_empty_store_serves_no_unrated_sentence(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    view = store_client.get("/api/training", headers=auth)
+
+    assert view.status_code == 200, view.text
+    assert view.json()["unrated_text"] == ""
+
+
 def test_the_form_is_marked_as_building_before_42_days() -> None:
     summary = banister.summarize(DAY, [session(offset, 40, 4) for offset in range(0, 20, 2)])
 

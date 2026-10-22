@@ -53,7 +53,7 @@ function Form({ data }: { data: TrainingView }) {
       </div>
       <p className={styles.text}>{data.form_text}</p>
       {series.length < 2 ? (
-        <p className={styles.text}>{data.unrated_text}</p>
+        data.unrated_text !== '' && <p className={styles.text}>{data.unrated_text}</p>
       ) : (
         <div className={styles.chart}>
           <Chart

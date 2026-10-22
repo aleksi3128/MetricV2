@@ -238,8 +238,8 @@ export function Runs() {
         <Card>
           {/* Aucune valeur inventée : un tiret et ce que coûte le prochain geste. */}
           <Empty title="Aucune course enregistrée">
-            Importe le fichier .fit de ta montre depuis l’activité. Les records et leur progression
-            apparaîtront dès la deuxième sortie.
+            « Ajouter une course », en haut de page : le fichier .fit de ta montre, ou les chiffres
+            à la main. Les records et leur progression apparaîtront dès la deuxième sortie.
           </Empty>
         </Card>
       ) : (

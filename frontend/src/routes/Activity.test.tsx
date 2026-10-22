@@ -274,6 +274,17 @@ describe('écran Activité', () => {
     expect(screen.queryByRole('button', { name: 'Séance' })).toBeNull();
   });
 
+  it('date le jour en toutes lettres, pas en ISO', async () => {
+    // M-21 : « Aujourd'hui : 2026-07-26 » se lisait comme un paramètre d'API.
+    stub();
+    renderActivity();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer une course' }));
+
+    expect(await screen.findByText('Aujourd’hui : dimanche 26 juillet')).toBeInTheDocument();
+    expect(screen.queryByText(/2026-07-26/)).toBeNull();
+  });
+
   it('envoie la durée en texte pour que le serveur la normalise', async () => {
     // `ACT-01` : un second analyseur côté client finirait par diverger.
     stub();
