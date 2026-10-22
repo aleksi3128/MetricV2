@@ -172,3 +172,47 @@ touche toutes les `Sheet`), 29 (la heatmap à 12 px, une décision de forme), et
 - 06 : couper la doublure WebDAV, ouvrir `/routine`, le carnet, `/corps`.
 - 12 : un seul appui sur ✕ n'envoie aucun `DELETE`.
 - les deux thèmes, à 390 et 360 px, par `audit-mobile.mjs` et `audit-surfaces.mjs`.
+
+---
+
+## 5. Où on en est — 22 octobre
+
+**Faites** : toutes les 🔴 et 🟠 sauf la 13 (sortie du lot), et les 🟡/⚪ d'effort S sauf
+la 32. Un commit par fiche, ou par fiches qui touchent la même fonction — 03 et 05,
+08-09-12, 15-16 —, chacun avec ce qui a été vérifié.
+
+**Ce qui a changé en route**, et que le §2 ne dit pas :
+
+- **02** — l'allure lue n'est pas envoyée, contrairement à la piste de l'audit : à côté de
+  la distance, `RunPayload` la fait gagner et recalcule la distance depuis une allure
+  arrondie à la seconde.
+- **03** — `ca26125` a cassé le démarrage de l'API par un cycle d'imports que la batterie ne
+  voyait pas. Trouvé en lançant le banc ; `test_import_order.py` le garde désormais.
+- **27** — le planning est passé lui aussi dans « Plus » : la barre ne tenait pas à 960 px
+  avec lui, et le projet n'a pas de troisième point de rupture.
+- **32** — laissée : ces « 78,4 / 78,6 » sont les graduations de l'axe, et leur passage
+  sous 12 px sur téléphone est un arbitrage écrit dans `Chart.module.css`. Le rouvrir est
+  une décision de forme.
+
+**Trouvés en regardant les pages**, hors des fiches : une pesée se supprimait en un appui ;
+les tuiles de `/corps` écrivaient « chargement… » pour toujours en panne ; la feuille
+« Noter » listait comme « à prendre » un complément pas dû ; le tableau de bord écrivait
+aussi « sur 8 pesées » en dur ; « Jours de la fenêtre » passait sur deux lignes.
+
+**Reste ouvert** :
+
+| Fiche | Pourquoi elle attend |
+|---|---|
+| 13 | décision produit — noter une séance faite depuis des notes |
+| 20 | le contexte de l'assistant, à vérifier ligne à ligne ; la fiche 19 en a retiré une partie des zéros |
+| 21 (second volet) | proposer de remplacer la pesée du jour, et la courbe qui trace deux points le même jour |
+| 24 (second volet) | prévenir avant de quitter `/reglages` avec des réglages non enregistrés |
+| 26 | le retour navigateur ferme la feuille au lieu de quitter l'écran — touche toutes les `Sheet` |
+| 27 (second volet) | allumer « Plus » quand l'écran ouvert est rangé dedans |
+| 29 | la heatmap à 12 px de cible — décision de forme |
+| 32 | voir plus haut |
+
+**Jamais vérifié sur un vrai téléphone** : la barre basse qui s'efface au clavier (14), le
+retour du réseau après un lancement hors ligne (07). Les deux reposent sur ce que
+l'émulation ne reproduit pas.
+
