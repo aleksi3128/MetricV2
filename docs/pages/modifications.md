@@ -37,7 +37,7 @@ gagner aucun part.
 | Effort perçu | — | É ×4 | — | — | — | — | — | — | — | L | — | — | É |
 | **Charge d'entraînement** | L (forme) | **L (course, FC)** | — | — | — | — | — | — | — | **L (tous sports, RPE)** | — | — | — |
 | **Volume hebdomadaire** | **L ×2** | **L ×3** | — | — | — | — | — | — | — | **L** | — | — | — |
-| Facile / modéré / dur | — | L (70 %, 14 j) | — | — | — | — | — | — | — | L (80 %, 28 j) | — | — | — |
+| Facile / modéré / dur | — | L (constat, 14 j — M-02) | — | — | — | — | — | — | — | L (80 %, 28 j) | — | — | — |
 | Objectif daté | L | — | (condensé) | — | — | — | — | L É | — | — | — | — | — |
 | Course visée (A/B/C) | — | — | — | — | — | — | L É | — | — | — | — | — | — |
 | Agenda iCloud, changements du coach | — | — | — | — | — | — | L É | — | — | — | — | — | L É (soir) |
@@ -57,7 +57,7 @@ visée ne parle à aucun autre écran.
 | Id | Sorte | Pages | En une ligne | Prio. |
 |---|---|---|---|---|
 | [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`), sauf l'assistant | **P1** |
-| [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile, une charge qui ne se contredit pas | **P1** |
+| [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`), sauf le point 4 | **P1** |
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables — **fait** (`ae706b7`) ; les douleurs à leur adresse | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » | P2 |
@@ -207,6 +207,49 @@ Le point 4 est un lot à part.
 
 **Risque.** Faible pour 1 à 3. Le point 4 change ce que vaut la forme : ne pas le glisser
 dans le même commit.
+
+**Fait le 22 octobre** (`385871a`, `1fa151b`), points 1 à 3. Les lignes citées étaient
+exactes. **Le point 4 reste ouvert.**
+
+- **Ce qui a été mesuré avant de trancher.** `EASY_SHARE_MIN` ne servait pas qu'au texte :
+  `coach/frame.py` s'en servait pour fermer le dur. Sur le cadre pur, 14 jours de course :
+  quatre footings purs et une qualité font 85 % de facile, six footings et deux qualités
+  82 % — rien ne change à 80 %. Mais **deux footings de 40 min et une qualité (15 min en
+  zone 2, 30 en zone 4) par semaine font 76 %**, des footings qui dérivent de 15 % en
+  zone 3 avec une qualité 74 % : à 80 %, le cadre n'y permettait plus que repos,
+  récupération, footing et sortie longue, et retirait le test de FC max. Une qualité
+  toutes les deux semaines au lieu d'une, pour un coureur qui ne court jamais deux jours
+  d'affilée.
+- **Décisions (de l'utilisateur).** **80 % pour les pages, 70 % pour le coach.** La cible
+  est une seule constante, `training/intensity.EASY_TARGET`, et la phrase de `/charge` se
+  rédige depuis elle. Le coach garde un **plancher** à lui, `coach/frame.EASY_SHARE_FLOOR`,
+  commenté comme tel avec le chiffrage ci-dessus ; sa phrase dit « en course sur
+  14 jours ». Les fenêtres restent séparées (14 jours pour la course, 28 tous sports) et
+  chaque texte nomme la sienne. La page Courses garde le constat chiffré, sans
+  recommandation.
+- **Ce qui a changé en route.** `activity/load.py` n'importe **aucune** constante de
+  facile : une fois le conseil parti, la page Courses ne compare plus sa répartition à
+  rien, et `EASY_SHARE_MIN` a disparu. Le point 1 tient donc par une seule cible, celle de
+  `/charge`, et un plancher qui n'appartient qu'au coach.
+- **Le front.** La section s'appelle « Charge de course (FC) » et sa carte finit sur
+  « Charge tous sports », le même `LinkButton` ghost que le bloc « Forme » (187 × 48 px).
+- **Tests.** Aucun test du coach ne couvrait la règle ; deux l'épinglent : 65 % ferme le
+  dur, 76 % le laisse ouvert — ce dernier casse si le plancher repasse à 80 %, essayé.
+
+**Reste.**
+
+- **Le point 4** : une course `.fit` avec FC et sans effort perçu n'entre toujours pas dans
+  la charge globale. Sur le banc, la page Courses montre une charge 7 jours de 310 pendant
+  que l'accueil dit « Pas encore de charge globale » ; chacune dit désormais son nom, mais
+  l'écart demeure. Lot à part, avec son plan.
+- **Les phrases du rapport aigu/chronique** (« au-dessus de 1,5, on ne fait plus que du
+  facile ») sont aussi un conseil et restent sur la page Courses : `/charge` dit la même
+  chose de son propre rapport, et les retirer d'une page seule recréerait l'écart.
+- **Des parts arrondies qui ne font pas 100.** « 85 % facile, 0 % modéré, 14 % dur » sur
+  le banc, « 2 %, 10 %, 89 % » dans un test : chaque part est arrondie seule. Antérieur.
+- **« Facile » en rouge sur la page Courses**, en vert sur `/charge` : la barre prend la
+  teinte de la zone 2 (`styles.z2`). Antérieur ; `accueil-et-charge.md` l'avait corrigé sur
+  `/charge` seulement.
 
 <a id="m-03"></a>
 
@@ -649,6 +692,8 @@ Relevées en regardant les pages, hors de toute fiche :
 n'a pas de bouton d'ajout, la phrase y est juste. La phrase de forme sur zéro séance
 (« aucune séance n'a d'effort perçu ») a le même biais, plus faible — elle suppose des
 séances — et n'a pas été touchée. `sortie-publique.md` §4.17 n'a pas été mis à jour.
+~~La phrase de forme~~ corrigée avec M-02 (`3930cfb`) : sans aucune séance, « aucune séance
+enregistrée » ; la phrase d'avant revient dès qu'une séance existe sans effort perçu.
 
 <a id="m-22"></a>
 
@@ -701,7 +746,8 @@ favori sans description ne peut plus être créé à la main ; c'est déjà la r
 1. ~~**M-21** — une heure, et l'écran ne dit plus rien de faux.~~ Fait (`3bcde3f`).
 2. ~~**M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
    défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` reste pour M-10.
-3. **M-02 (1–3)** — après avoir tranché le seuil de facile.
+3. ~~**M-02 (1–3)** — après avoir tranché le seuil de facile.~~ Fait (`385871a`,
+   `1fa151b`) ; le point 4 reste un lot à part.
 4. **M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.
 5. **M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.

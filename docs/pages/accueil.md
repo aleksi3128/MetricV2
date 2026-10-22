@@ -86,10 +86,12 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 - **Deux poids, deux variations sur le même écran.** La bande dit « +0,4 kg sur 8 pesées »,
   la courbe juste dessous « variation +1,9 kg » (fenêtre de la plage). Les deux sont
   justes, rien ne dit qu'ils ne mesurent pas la même chose.
-- **La Forme peut contredire la page Courses.** Sur le banc rempli, dix courses `.fit` sans
-  effort perçu : l'accueil dit « Pas encore de charge globale », la page Courses affiche
-  une charge 7 jours de 297 et conseille « la prochaine sortie est facile ». Deux systèmes
-  de charge (M-02).
+- ~~**La Forme peut contredire la page Courses.**~~ En partie corrigé (M-02, `385871a`) :
+  la page Courses ne conseille plus la sortie suivante, nomme sa charge « Charge de
+  course (FC) » et renvoie à `/charge`. **Reste** l'écart de fond (M-02, point 4, ouvert) :
+  dix courses `.fit` sans effort perçu, et l'accueil dit toujours « Pas encore de charge
+  globale » pendant que la page Courses compte 310. Sans aucune séance, la phrase dit
+  désormais « aucune séance enregistrée » (`3930cfb`).
 - **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
   « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
   enregistre les deux sans changer d'écran.

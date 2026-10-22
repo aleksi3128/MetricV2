@@ -28,19 +28,22 @@ Haut d'écran rempli : 1 810 px.
 - **Deux charges dans l'application, et elles ne disent pas la même chose.** Celle-ci compte
   l'effort perçu × les minutes, et ignore toute séance sans effort perçu ; celle de
   `/activite/courses` compte les minutes pondérées par zone de FC, et ne concerne que la
-  course. Sur le banc, dix courses `.fit` sans effort perçu : ici, « aucune charge » ; là,
-  une charge 7 jours de 297 et un conseil pour la sortie suivante (M-02).
-- **Deux cibles de facile** : 80 % sur 28 jours ici
-  ([`training/intensity.py:27`](../../backend/app/domains/training/intensity.py#L27)),
-  70 % sur 14 jours sur la page Courses
-  ([`activity/load.py:48`](../../backend/app/domains/activity/load.py#L48)) (M-02).
+  course. ~~Un conseil pour la sortie suivante~~ : parti (M-02, `385871a`), et la page
+  Courses nomme la sienne « Charge de course (FC) » avec un lien ici. **Reste** l'écart
+  (M-02, point 4, ouvert) : sur le banc, dix courses `.fit` sans effort perçu, ici
+  « aucune charge globale », là une charge 7 jours de 310.
+- ~~**Deux cibles de facile.**~~ Corrigé (M-02, `1fa151b`) : `EASY_TARGET`, 80 %, est la
+  seule cible, et la phrase se rédige depuis elle. La page Courses ne juge plus ; le
+  coach garde son plancher de 70 % (`coach/frame.py`), qui n'est pas une cible.
 - **« Huit semaines, par sport » redit l'accueil.** La carte « Entraînement » du tableau de
   bord porte huit semaines en minutes et la répartition par sport ; `/activite/courses` a
   son « Volume par semaine » et sa « Charge par semaine » ; `/activite/natations` ses
   quatre semaines (M-06, M-07).
 - ~~**L'état vide affirme quelque chose de faux.**~~ Corrigé (M-21, `3bcde3f`) : sans
   aucune séance sur 4 semaines, le serveur tait « Toutes les séances des 4 semaines ont un
-  effort perçu », et l'écran ne dessine rien à sa place.
+  effort perçu », et l'écran ne dessine rien à sa place. La phrase de forme suit
+  (`3930cfb`) : sans aucune séance, « aucune séance enregistrée », et non plus « aucune
+  séance n'a d'effort perçu ».
 - **L'écran dépend d'un geste qu'aucun écran ne réclame clairement.** Toute la page se
   remplit par l'effort perçu ; « Je l'ai faite » sur une séance Cadence ne le demande pas,
   un import `.fit` le propose en fin de feuille avec « Plus tard ». Le point du soir est le

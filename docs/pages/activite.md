@@ -74,7 +74,7 @@ jours de séances. Source : `GET /api/activity/loads`, `GET /api/activity/loads/
 |---|---|---|
 | Tuiles | Sorties, distance, temps, allure totale | `GET /api/activity/runs/progress` |
 | À réanalyser | Nombre de sorties d'avant l'analyse actuelle + **Réanalyser** | même appel ; `POST /api/activity/runs/efforts/rebuild` |
-| **Charge d'entraînement** (`Trends`) | Charge 7 jours (minutes pondérées par zone FC), moyenne hebdo sur 4 semaines, rapport ; facile / modéré / dur sur 14 jours avec **conseil** (« moins de 70 % de facile : la prochaine sortie est facile ») ; dernière séance dure ; charge par semaine | `GET /api/activity/runs/trends` |
+| **Charge de course (FC)** (`Trends`) | Charge 7 jours (minutes pondérées par zone FC), moyenne hebdo sur 4 semaines, rapport ; facile / modéré / dur sur 14 jours, **constat seul** (M-02) ; dernière séance dure ; lien « Charge tous sports » vers `/charge` ; charge par semaine | `GET /api/activity/runs/trends` |
 | Ce qui va avec tes bonnes sorties | Facteurs corrélés à l'efficacité, ceux en attente repliés | même appel |
 | Tes records | Meilleur temps par distance (400 m → 10 km), lien vers la sortie | progress |
 | Progression | Meilleur X de chaque sortie, courbe, choix de la distance | progress |
@@ -126,13 +126,14 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
 
 ## 9. Constats
 
-- **Deux charges, deux règles du « facile ».** La page Courses calcule une charge de course
-  par zones de FC et juge le facile à **70 % sur 14 jours**
-  ([`activity/load.py:48`](../../backend/app/domains/activity/load.py#L48)) ; `/charge`
-  calcule la charge tous sports par effort perçu × minutes et vise **80 % sur 28 jours**
-  ([`training/intensity.py:27`](../../backend/app/domains/training/intensity.py#L27)).
-  Sur le banc, la première conseille déjà la sortie suivante pendant que l'accueil et
-  `/charge` disent qu'il n'y a pas de charge (M-02).
+- ~~**Deux charges, deux règles du « facile ».**~~ Corrigé (M-02, `385871a`, `1fa151b`) :
+  la page Courses ne juge plus sa répartition sur 14 jours, elle la constate ; la seule
+  cible est celle de `/charge`, 80 % sur 28 jours
+  ([`training/intensity.py`](../../backend/app/domains/training/intensity.py)). Le coach
+  garde un plancher à lui, 70 % en course sur 14 jours
+  ([`coach/frame.py`](../../backend/app/domains/coach/frame.py), `EASY_SHARE_FLOOR`). La
+  section s'appelle « Charge de course (FC) » et renvoie à `/charge`. **Reste** le
+  point 4 : une course sans effort perçu n'a toujours pas de charge globale.
 - **Trois portes vers la capture Apple.** L'étape 1 de « Enregistrer une course » lit une
   capture ; la carte « Import d'une capture » en bas de `/activite` fait la même chose
   par un autre composant (`AppleImport`, 645 lignes) (M-14).

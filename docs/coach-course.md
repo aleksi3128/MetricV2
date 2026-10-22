@@ -311,7 +311,7 @@ voulu : dix points font une droite dans n'importe quelle direction.
 | **Jamais deux jours de course d'affilée** — le lendemain d'une sortie est sans course (**C14**) | les sorties elles-mêmes |
 | Deux séances dures à 48 h au moins | §6 |
 | Rapport aiguë/chronique ≥ 1,3 : pas de hausse de volume ; ≥ 1,5 : facile seulement | §6 |
-| Moins de 70 % de facile sur 14 jours : la prochaine est facile | §6 |
+| Moins de 70 % de facile en course sur 14 jours : la prochaine est facile — un **plancher** (`frame.EASY_SHARE_FLOOR`), pas la cible de 80 % de `/charge` : à 80 %, deux footings et une qualité par semaine (76 %) fermaient le dur une semaine sur deux (M-02, 22/10) | §6 |
 | FC de repos et VFC du matin | §4 |
 | Pas de séance dure le lendemain d'une séance de jambes | `circuit_session_sets.csv` |
 | Durée ≤ le créneau du planning, et la sortie longue ≤ 110 % de la plus longue des 28 jours | planning, historique |
