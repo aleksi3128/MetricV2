@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { Button } from '@/components/ui';
@@ -8,6 +9,7 @@ import { EveningFlowProvider } from '@/routes/evening/EveningFlow';
 import { MorningFlowProvider } from '@/routes/morning/MorningFlow';
 
 import styles from './Shell.module.css';
+import { MoreSheet } from './MoreSheet';
 import { TabBar } from './TabBar';
 
 /**
@@ -18,23 +20,19 @@ import { TabBar } from './TabBar';
  * horizontale ci-dessous reprend la main — une souris n'a pas de zone difficile à
  * atteindre, et un écran large a la place d'afficher neuf entrées d'un coup.
  *
- * La barre du haut demandait **806 px pour 695 disponibles**, mesurés entrée par entrée au
- * lot L14. « Tableau de bord » pesait à lui seul le sixième du total : le raccourcir en
- * « Accueil » rend ~80 px et ramène la demande à ~726, ce que le dégradé de bord couvre
- * sans qu'on lise un défaut d'affichage. C'était le premier levier identifié, et il ne
- * coûte qu'un mot.
+ * **Six destinations et « Plus ».** La barre du haut alignait jusqu'à onze entrées :
+ * 931 px pour 669 disponibles, mesurés à 1 440 px — « Planning » coupé, « Plan »,
+ * « Assiduité » et « Réglages » hors champ derrière le dégradé de bord (audit du
+ * 17 octobre, fiche 27). Les lots précédents grattaient des pixels mot par mot ; chaque
+ * écran ajouté les reperdait. Ce qui se consulte à froid — le corps, le dossier, le plan
+ * de course, l'assiduité, les réglages — passe dans la feuille « Plus », **la même** que
+ * sur mobile.
  *
- * L'assistant n'a toujours pas d'entrée **ici** — il en a une sur mobile, dans la feuille
- * « Plus ». Sur ordinateur on y entre par la carte du tableau de bord et le lien de
- * l'écran Objectif, comme depuis le lot L14b : ajouter une dixième entrée reporterait la
- * demande à ~816 px et rendrait le débordement à nouveau visible.
- *
- * **L'ordre suit la fréquence d'usage, et ce n'est pas cosmétique.** La barre demande plus
- * de place qu'elle n'en a : les dernières entrées ne se lisent qu'après avoir défilé, et
- * le dégradé de bord le dit. Ce qui vient en tête est donc ce qu'on ouvre tous les jours —
- * l'activité, ce qu'on mange, la routine —, et ce qui suit est ce qu'on consulte : le
- * corps se relève une fois par semaine, le planning se pose le dimanche, l'assiduité se
- * regarde à froid, les réglages presque jamais.
+ * **Ce qu'on ouvre tous les jours, et rien d'autre** : l'activité, l'assistant, ce qu'on
+ * mange, la routine. Le planning, qui se pose une fois par semaine, est dans « Plus » :
+ * avec lui la barre demandait 601 px pour 549 à 960 px, et les deux seuls points de
+ * rupture du projet ne laissent pas de palier pour le rattraper. L'assistant y gagne enfin
+ * une entrée sur ordinateur : il n'en avait pas, faute de place.
  *
  * L'ordre du bas, lui, ne bouge pas : `TabBar` gouverne sous 960 px et n'a que cinq
  * cibles, choisies sur un autre critère — ce qu'on atteint au pouce entre deux exercices.
@@ -43,20 +41,15 @@ import { TabBar } from './TabBar';
 const NAV = [
   { to: '/', label: 'Accueil', end: true },
   { to: '/activite', label: 'Activité', end: false },
+  { to: '/assistant', label: 'Assistant', end: false },
   { to: '/nutrition', label: 'Nutrition', end: false },
   { to: '/routine', label: 'Routine', end: false },
-  { to: '/objectif', label: 'Objectif', end: false },
-  { to: '/corps', label: 'Corps', end: false },
-  { to: '/dossier', label: 'Dossier', end: false },
-  { to: '/planning', label: 'Planning', end: false },
-  { to: '/plan', label: 'Plan', end: false },
-  { to: '/assiduite', label: 'Assiduité', end: false },
-  { to: '/reglages', label: 'Réglages', end: false },
 ] as const;
 
 export function Shell() {
   const { state, logout } = useAuth();
   const { pathname, hash } = useLocation();
+  const [more, setMore] = useState(false);
 
   // Chaque écran s'ouvre par son haut, et non à la hauteur où l'on avait laissé le
   // précédent — voir [`useScrollTop`](../lib/scroll.ts) pour ce que ça a coûté de ne pas
@@ -88,6 +81,17 @@ export function Shell() {
                     {item.label}
                   </NavLink>
                 ))}
+                <button
+                  type="button"
+                  className={cx(styles.navLink, styles.navMore, more && styles.navActive)}
+                  aria-haspopup="dialog"
+                  aria-expanded={more}
+                  onClick={() => {
+                    setMore(true);
+                  }}
+                >
+                  Plus
+                </button>
               </nav>
 
               <span className={styles.spacer} />
@@ -115,6 +119,12 @@ export function Shell() {
           </main>
 
           <TabBar />
+          <MoreSheet
+            open={more}
+            onClose={() => {
+              setMore(false);
+            }}
+          />
         </div>
       </EveningFlowProvider>
     </MorningFlowProvider>

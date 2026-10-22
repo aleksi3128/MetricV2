@@ -94,6 +94,14 @@
   }
 }
 
+/* « Plus » est un bouton parmi des liens : même apparence, sans le fond ni le cadre
+   qu'un navigateur donne à un bouton. */
+.navMore {
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
 .navLink {
   font-family: var(--mono);
   font-size: var(--t-meta);

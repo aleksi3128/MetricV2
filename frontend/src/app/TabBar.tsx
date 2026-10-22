@@ -24,29 +24,12 @@
  */
 
 import { useEffect, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { NavLink } from 'react-router';
 
-import { Sheet, SheetGroup, SheetRow } from '@/components/ui';
-import {
-  IconActivity,
-  IconBook,
-  IconCalendar,
-  IconFlag,
-  IconChat,
-  IconDroplet,
-  IconExit,
-  IconGrid,
-  IconHome,
-  IconMore,
-  IconNutrition,
-  IconPlus,
-  IconScale,
-  IconSliders,
-  IconTarget,
-} from '@/components/ui/icons';
-import { useAuth } from '@/lib/auth';
+import { IconActivity, IconChat, IconHome, IconMore, IconPlus } from '@/components/ui/icons';
 import { cx } from '@/lib/cx';
 
+import { MoreSheet } from './MoreSheet';
 import { QuickLog } from './QuickLog';
 import styles from './TabBar.module.css';
 
@@ -63,34 +46,6 @@ const TABS = [
   { to: '/', label: 'Accueil', end: true, icon: IconHome },
   { to: '/activite', label: 'Activité', end: false, icon: IconActivity },
   { to: '/assistant', label: 'Assistant', end: false, icon: IconChat },
-] as const;
-
-/** Ce que la feuille « Plus » contient, groupé par ce à quoi ça sert. */
-const MORE = [
-  {
-    title: 'Mesurer',
-    entries: [
-      { to: '/corps', label: 'Poids & mensurations', icon: IconScale },
-      { to: '/routine', label: 'Hydratation & suppléments', icon: IconDroplet },
-      { to: '/dossier', label: 'Dossier médical', icon: IconBook },
-    ],
-  },
-  {
-    title: 'Décider',
-    entries: [
-      { to: '/nutrition', label: 'Nutrition', icon: IconNutrition },
-      { to: '/objectif', label: 'Objectif', icon: IconTarget },
-      { to: '/planning', label: 'Planning', icon: IconCalendar },
-      { to: '/plan', label: 'Plan de course', icon: IconFlag },
-    ],
-  },
-  {
-    title: 'Regarder en arrière',
-    entries: [
-      { to: '/charge', label: 'Charge & forme', icon: IconActivity },
-      { to: '/assiduite', label: 'Assiduité', icon: IconGrid },
-    ],
-  },
 ] as const;
 
 /** Un champ qui ouvre le clavier système — pas une case, pas un bouton. */
@@ -129,16 +84,9 @@ function useTyping(): boolean {
 }
 
 export function TabBar() {
-  const { state, logout } = useAuth();
   const typing = useTyping();
-  const navigate = useNavigate();
   const [more, setMore] = useState(false);
   const [quick, setQuick] = useState(false);
-
-  function go(path: string): void {
-    setMore(false);
-    void navigate(path);
-  }
 
   return (
     <>
@@ -188,48 +136,12 @@ export function TabBar() {
         </button>
       </nav>
 
-      <Sheet
+      <MoreSheet
         open={more}
         onClose={() => {
           setMore(false);
         }}
-        title="Tout le reste"
-        lede={state.status === 'authenticated' ? `Connecté comme ${state.username}.` : undefined}
-      >
-        {MORE.map((group) => (
-          <SheetGroup key={group.title} title={group.title}>
-            {group.entries.map((entry) => (
-              <SheetRow
-                key={entry.to}
-                icon={<entry.icon size={20} />}
-                label={entry.label}
-                onClick={() => {
-                  go(entry.to);
-                }}
-              />
-            ))}
-          </SheetGroup>
-        ))}
-
-        <SheetGroup title="Compte">
-          <SheetRow
-            icon={<IconSliders size={20} />}
-            label="Réglages"
-            onClick={() => {
-              go('/reglages');
-            }}
-          />
-          <SheetRow
-            icon={<IconExit size={20} />}
-            label="Déconnexion"
-            tone="recover"
-            onClick={() => {
-              setMore(false);
-              void logout();
-            }}
-          />
-        </SheetGroup>
-      </Sheet>
+      />
 
       <QuickLog
         open={quick}
