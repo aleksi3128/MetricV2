@@ -31,8 +31,17 @@
 }
 
 @media (min-width: 960px) {
+  /* Un plancher et non une hauteur : la navigation peut passer sur deux rangées. */
   .headerInner {
-    height: 56px;
+    height: auto;
+    min-height: 56px;
+    padding-block: 6px;
+    /* 10 px et non 20 entre la marque, la navigation et la sortie : sur les 1 048 px de
+       la colonne, ces trois espaces en prenaient 60, et la rangée unique en manquait. */
+    gap: var(--s3);
+    /* Seule la gouttière de gauche aligne quelque chose — la marque sur le titre de
+       l'écran. Celle de droite rend ses 56 px à la navigation. */
+    padding-right: var(--s3);
   }
 }
 
@@ -64,26 +73,14 @@
 }
 
 @media (min-width: 960px) {
+  /* Toutes les entrées, toujours entières : la barre passe à la ligne plutôt que de
+     défiler derrière un dégradé (audit du 17 octobre, fiche 27). */
   .nav {
     display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
     gap: 2px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    scroll-snap-type: x proximity;
-
-    /* La barre demande ~726 px depuis que « Tableau de bord » est devenu « Accueil »,
-       pour ~708 disponibles : elle tient à dix-huit pixels près. Le dégradé reste, parce
-       qu'une entrée dont il manque la moitié se lit comme un défaut d'affichage, et que
-       CSS ne sait pas détecter un débordement pour ne l'afficher qu'au besoin. */
-    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
-  }
-
-  .nav > * {
-    scroll-snap-align: center;
-  }
-
-  .nav::-webkit-scrollbar {
-    display: none;
+    min-width: 0;
   }
 
   .user {
@@ -91,25 +88,21 @@
     align-items: center;
     gap: 10px;
     flex: none;
+    margin-left: auto;
   }
-}
-
-/* « Plus » est un bouton parmi des liens : même apparence, sans le fond ni le cadre
-   qu'un navigateur donne à un bouton. */
-.navMore {
-  background: none;
-  border: none;
-  cursor: pointer;
 }
 
 .navLink {
   font-family: var(--mono);
   font-size: var(--t-meta);
-  letter-spacing: var(--ls-meta);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--ink-low);
   text-decoration: none;
-  padding: 8px 10px;
+  /* 5 px de côté et un interlettrage resserré, contre 10 px et `--ls-meta` : les treize
+     entrées tiennent alors sur une rangée dès que la colonne a sa pleine largeur. Le resserrement reste au-dessus
+     de zéro — c'est encore la voix des surtitres. */
+  padding: 8px 5px;
   border-radius: var(--r-sm);
   white-space: nowrap;
   transition: var(--t);
@@ -129,17 +122,6 @@
 .navActive {
   color: var(--signal);
   background: var(--surface-2);
-}
-
-.spacer {
-  flex: 1;
-}
-
-.username {
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  color: var(--ink-low);
-  letter-spacing: 0.08em;
 }
 
 /* ── Contenu ──────────────────────────────────────── */
@@ -193,4 +175,10 @@
   color: var(--ink-low);
   letter-spacing: var(--ls-meta);
   text-transform: uppercase;
+}
+
+/* La sortie, en icône : une cible carrée au plancher de 44 px. */
+.exit {
+  min-width: var(--tap);
+  padding-inline: 0;
 }

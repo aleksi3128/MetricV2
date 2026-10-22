@@ -1,7 +1,7 @@
-import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { Button } from '@/components/ui';
+import { IconExit } from '@/components/ui/icons';
 import { useAuth } from '@/lib/auth';
 import { cx } from '@/lib/cx';
 import { useScrollTop } from '@/lib/scroll';
@@ -9,7 +9,6 @@ import { EveningFlowProvider } from '@/routes/evening/EveningFlow';
 import { MorningFlowProvider } from '@/routes/morning/MorningFlow';
 
 import styles from './Shell.module.css';
-import { MoreSheet } from './MoreSheet';
 import { TabBar } from './TabBar';
 
 /**
@@ -20,19 +19,20 @@ import { TabBar } from './TabBar';
  * horizontale ci-dessous reprend la main — une souris n'a pas de zone difficile à
  * atteindre, et un écran large a la place d'afficher neuf entrées d'un coup.
  *
- * **Six destinations et « Plus ».** La barre du haut alignait jusqu'à onze entrées :
- * 931 px pour 669 disponibles, mesurés à 1 440 px — « Planning » coupé, « Plan »,
- * « Assiduité » et « Réglages » hors champ derrière le dégradé de bord (audit du
- * 17 octobre, fiche 27). Les lots précédents grattaient des pixels mot par mot ; chaque
- * écran ajouté les reperdait. Ce qui se consulte à froid — le corps, le dossier, le plan
- * de course, l'assiduité, les réglages — passe dans la feuille « Plus », **la même** que
- * sur mobile.
+ * **Toutes les destinations, à découvert.** Sur ordinateur, une souris n'a pas de zone
+ * difficile à atteindre et l'écran a la place : rien ne se range dans une feuille. La
+ * barre a longtemps débordé — onze entrées, 931 px pour 669, « Planning » coupé et la fin
+ * hors champ derrière un dégradé (audit du 17 octobre, fiche 27). Un premier correctif
+ * avait tout rangé sous « Plus » ; l'utilisateur veut la barre complète.
  *
- * **Ce qu'on ouvre tous les jours, et rien d'autre** : l'activité, l'assistant, ce qu'on
- * mange, la routine. Le planning, qui se pose une fois par semaine, est dans « Plus » :
- * avec lui la barre demandait 601 px pour 549 à 960 px, et les deux seuls points de
- * rupture du projet ne laissent pas de palier pour le rattraper. L'assistant y gagne enfin
- * une entrée sur ordinateur : il n'en avait pas, faute de place.
+ * Elle l'est donc, et **ne coupe plus jamais** : elle passe à la ligne quand la fenêtre
+ * est trop étroite pour une seule rangée, au lieu de défiler derrière un dégradé. Une
+ * entrée à moitié visible se lisait comme un défaut ; une seconde rangée se lit comme une
+ * barre.
+ *
+ * **L'ordre suit la fréquence d'usage** : ce qu'on ouvre tous les jours — l'activité,
+ * l'assistant, ce qu'on mange, la routine —, puis ce qui se pose chaque semaine — le
+ * planning, le plan de course, l'objectif —, puis ce qu'on consulte à froid.
  *
  * L'ordre du bas, lui, ne bouge pas : `TabBar` gouverne sous 960 px et n'a que cinq
  * cibles, choisies sur un autre critère — ce qu'on atteint au pouce entre deux exercices.
@@ -44,12 +44,19 @@ const NAV = [
   { to: '/assistant', label: 'Assistant', end: false },
   { to: '/nutrition', label: 'Nutrition', end: false },
   { to: '/routine', label: 'Routine', end: false },
+  { to: '/planning', label: 'Planning', end: false },
+  { to: '/plan', label: 'Plan', end: false },
+  { to: '/objectif', label: 'Objectif', end: false },
+  { to: '/corps', label: 'Corps', end: false },
+  { to: '/charge', label: 'Charge', end: false },
+  { to: '/assiduite', label: 'Assiduité', end: false },
+  { to: '/dossier', label: 'Dossier', end: false },
+  { to: '/reglages', label: 'Réglages', end: false },
 ] as const;
 
 export function Shell() {
   const { state, logout } = useAuth();
   const { pathname, hash } = useLocation();
-  const [more, setMore] = useState(false);
 
   // Chaque écran s'ouvre par son haut, et non à la hauteur où l'on avait laissé le
   // précédent — voir [`useScrollTop`](../lib/scroll.ts) pour ce que ça a coûté de ne pas
@@ -81,32 +88,30 @@ export function Shell() {
                     {item.label}
                   </NavLink>
                 ))}
-                <button
-                  type="button"
-                  className={cx(styles.navLink, styles.navMore, more && styles.navActive)}
-                  aria-haspopup="dialog"
-                  aria-expanded={more}
-                  onClick={() => {
-                    setMore(true);
-                  }}
-                >
-                  Plus
-                </button>
               </nav>
 
-              <span className={styles.spacer} />
-
+              {/* Une icône et non « aleksi · Déconnexion » : les 186 px qu'ils prenaient
+                  manquaient à la navigation pour tenir sur une rangée. Le nom du compte
+                  reste dans l'infobulle et dans le nom accessible. */}
               <div className={styles.user}>
-                {state.status === 'authenticated' && (
-                  <span className={styles.username}>{state.username}</span>
-                )}
                 <Button
                   variant="quiet"
+                  className={styles.exit}
+                  aria-label={
+                    state.status === 'authenticated'
+                      ? `Déconnexion (${state.username})`
+                      : 'Déconnexion'
+                  }
+                  title={
+                    state.status === 'authenticated'
+                      ? `Connecté comme ${state.username} — se déconnecter`
+                      : 'Se déconnecter'
+                  }
                   onClick={() => {
                     void logout();
                   }}
                 >
-                  Déconnexion
+                  <IconExit size={18} />
                 </Button>
               </div>
             </div>
@@ -119,12 +124,6 @@ export function Shell() {
           </main>
 
           <TabBar />
-          <MoreSheet
-            open={more}
-            onClose={() => {
-              setMore(false);
-            }}
-          />
         </div>
       </EveningFlowProvider>
     </MorningFlowProvider>

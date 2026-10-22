@@ -188,8 +188,10 @@ la 32. Un commit par fiche, ou par fiches qui touchent la même fonction — 03 
   arrondie à la seconde.
 - **03** — `ca26125` a cassé le démarrage de l'API par un cycle d'imports que la batterie ne
   voyait pas. Trouvé en lançant le banc ; `test_import_order.py` le garde désormais.
-- **27** — le planning est passé lui aussi dans « Plus » : la barre ne tenait pas à 960 px
-  avec lui, et le projet n'a pas de troisième point de rupture.
+- **27** — un premier correctif rangeait la moitié des écrans sous « Plus ». Repris à la
+  demande de l'utilisateur : la barre du haut est **complète** sur ordinateur, treize
+  entrées. Elle tient sur une rangée dès 1 280 px — sortie en icône, gouttière de droite
+  rendue, entrées resserrées — et passe sur deux rangées en dessous plutôt que de couper.
 - **32** — laissée : ces « 78,4 / 78,6 » sont les graduations de l'axe, et leur passage
   sous 12 px sur téléphone est un arbitrage écrit dans `Chart.module.css`. Le rouvrir est
   une décision de forme.
@@ -208,7 +210,6 @@ aussi « sur 8 pesées » en dur ; « Jours de la fenêtre » passait sur deux l
 | 21 (second volet) | proposer de remplacer la pesée du jour, et la courbe qui trace deux points le même jour |
 | 24 (second volet) | prévenir avant de quitter `/reglages` avec des réglages non enregistrés |
 | 26 | le retour navigateur ferme la feuille au lieu de quitter l'écran — touche toutes les `Sheet` |
-| 27 (second volet) | allumer « Plus » quand l'écran ouvert est rangé dedans |
 | 29 | la heatmap à 12 px de cible — décision de forme |
 | 32 | voir plus haut |
 
