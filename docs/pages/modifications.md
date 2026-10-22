@@ -26,7 +26,7 @@ gagner aucun part.
 | Donnée | `/` | Activité | Assistant | Nutrition | Routine | Planning | Plan | Objectif | Corps | Charge | Assiduité | Réglages | Parcours |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Poids | L ×3 | L | É | — | — | — | — | — | L É | — | — | R (cible) | É |
-| Mensurations | L (courbe) | — | — | — | — | — | — | — | É (dernière valeur) | — | — | — | — |
+| Mensurations | L (courbe) | — | — | — | — | — | — | — | L É (courbe, historique, correction — M-08) | — | — | — | — |
 | FC de repos, VFC | L (nuit) | L (page course) | — | — | — | — | — | — | — | — | — | — | É (matin) |
 | Douleur | L (alertes) | É (après import) | — | — | — | — | — | — | L É | L (frise) | — | — | É |
 | Eau | L ×2 | — | É | — | L É | — | — | — | — | — | L | R | É |
@@ -46,8 +46,9 @@ gagner aucun part.
 
 Trois lignes portent l'essentiel : **la charge** (deux calculs, deux verdicts), **le
 volume hebdomadaire** (six lectures sur trois écrans), et **ce que l'assistant sait de
-toi** (deux endroits). Trois autres montrent des trous : les mensurations et la FC du matin
-s'écrivent sans se relire, la course visée ne parle à aucun autre écran.
+toi** (deux endroits). Trois autres montraient des trous : les mensurations et la FC du
+matin s'écrivaient sans se relire — les mensurations se relisent depuis M-08 —, la course
+visée ne parle à aucun autre écran.
 
 ---
 
@@ -55,9 +56,9 @@ s'écrivent sans se relire, la course visée ne parle à aucun autre écran.
 
 | Id | Sorte | Pages | En une ligne | Prio. |
 |---|---|---|---|---|
-| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier | **P1** |
+| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`), sauf l'assistant | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile, une charge qui ne se contredit pas | **P1** |
-| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables ; les douleurs à leur adresse | **P1** / P2 |
+| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables — **fait** (`ae706b7`) ; les douleurs à leur adresse | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
@@ -116,6 +117,48 @@ un segment dans `MealSheet`. Pas de donnée à migrer.
 **Risque.** L'invariant « le jour vient du serveur » : le respecter en ne laissant au
 client que le **choix** d'un jour servi, ce que le §2 du `CLAUDE.md` autorise
 (« choisir quelle page demander »).
+
+**Fait le 22 octobre** (`331ae7e`), sauf l'assistant. Les lignes citées étaient exactes.
+
+- **Décisions.** Deux jours, aujourd'hui par défaut. `meal.add` n'est pas touché. Le lien
+  du matin : `/nutrition?ajout=hier`. **L'heure d'un repas d'hier est celle de son type**
+  (`TYPICAL_TIME` : 08:00, 12:30, 16:30, 20:00 ; midi pour un type libre) — l'heure de la
+  saisie aurait daté de 07:00 un dîner noté au réveil. Chaque heure tombe dans la fenêtre
+  de `TYPE_BY_HOUR`, un test le tient.
+- **Le contrat.** `GET /api/nutrition` sert `days` (`key`, `date`, `label`). Les deux POST
+  prennent `day` : `today`, `yesterday` ou une date servie ; hors des deux jours,
+  `validation_error` sur `body.day`, rien d'écrit. La feuille renvoie la **date servie**,
+  pas `yesterday` : « hier » choisi à 23 h 58 reste le jour qu'on avait sous les yeux.
+- **Le brouillon** retient le jour (il vit dans `values`). Un jour qui n'est plus servi
+  — un brouillon repris passé minuit — ne sélectionne aucun segment et bloque
+  l'enregistrement, avec une phrase ; il n'est jamais rabattu sur aujourd'hui.
+  « Changer de mode » garde le jour.
+
+**Changé en route.**
+
+- Le jour de l'adresse ne pouvait pas s'écrire dans l'effet d'ouverture (règle
+  `react-hooks/set-state-in-effect`) : la feuille est remontée (`key`) quand l'adresse en
+  impose un, et le prend à l'initialisation. L'état « feuille ouverte » de `/nutrition`
+  est dérivé de l'adresse : le parcours du matin est une feuille globale, son lien peut
+  être suivi depuis `/nutrition` déjà monté.
+- Le lien du matin **ferme le parcours**, qui sinon recouvrirait la feuille ; non fini, il
+  revient à l'ouverture suivante. Écrire un repas invalide aussi le parcours.
+- Le message d'enregistrement dit où va un repas d'hier (« Il compte pour hier : le
+  journal ne montre que la journée ») — sans lui, le repas avait l'air perdu.
+- Vus à l'écran : « Aujourd'hui » servi avec une apostrophe droite ; une note qui passait
+  à la ligne sur « : c'est… ». En passant : « 1 repas notés hier » accordé.
+
+**Reste.**
+
+- **`meal.add` de l'assistant** (M-10) : le service accepte déjà `day="yesterday"`, il
+  suffit de le passer depuis l'`ActionSpec` et de nommer le champ dans son schéma ; la
+  phrase « noter un repas **du jour** » est à changer avec.
+- **Rejouer un favori** se date toujours de l'instant ; si M-23 met les favoris dans la
+  feuille, le rejeu devra recevoir le jour choisi (`replay_favorite` ne le prend pas).
+- **La fiche d'un repas** ne corrige toujours pas l'heure ni le jour.
+- **Aucun écran ne montre l'heure** d'un repas d'hier : le journal et sa fiche ne lisent
+  que la journée. C'est voulu — une heure posée n'a pas à passer pour une mesure —, mais
+  à garder en tête le jour où la fiche s'ouvrira depuis l'historique.
 
 <a id="m-02"></a>
 
@@ -332,6 +375,36 @@ c'est elle qu'on vient voir chaque jour, pas le poids.
 
 **Risque.** (1) `If-Match` sur deux nouvelles écritures : réemployer le motif des pesées.
 (2) Aucun sur les données.
+
+**Point 1 fait le 22 octobre** (`ae706b7`). Les lignes citées étaient exactes ; `api.ts`
+avait déjà `deleteMeasurement`, pas `updateMeasurement`.
+
+- **Ce qui est là.** Une section `routes/body/Measurements.tsx` (Body.tsx passe de 607 à
+  454 lignes) : « Où j'en suis » (tuiles et courbe), le formulaire — « Nouveau relevé » ou
+  « Corriger le relevé du … » —, l'historique (10 relevés, puis « Toutes (N) », qui
+  demande le plafond serveur de 500). Corriger reprend le formulaire comme les pesées ;
+  supprimer reprend `SwipeRow` avec la puce « corriger » du Dossier.
+- **Une correction remplace la ligne.** Une case vidée part à `null` (c'est ce qui
+  efface), la note — que le formulaire ne montre pas — repart telle quelle. Un relevé
+  neuf n'envoie que ce qui est rempli.
+- **La courbe** vient de `GET /api/aggregates/series` (clé = nom de colonne). Des puces
+  pour les seules mesures relevées, la première par défaut dans l'ordre servi, plage
+  « Tout » seule : des relevés mensuels sur un mois font un point.
+
+**Changé en route.** L'ancien panneau n'avait ni attente ni erreur : en panne, six tuiles
+vides se lisaient comme des mesures jamais prises. La section a ses quatre états, la
+courbe aussi (une série en panne n'est pas « un seul relevé »). Vus à l'écran : le titre
+du formulaire passait sous la barre du haut après « corriger » (marge de défilement), et
+la règle « Douleurs » collait à la carte d'avant (`.rule:first-child`, défaut antérieur).
+
+**Reste.**
+
+- **La courbe de l'accueil** (« Tendance », ses six métriques de mensurations) est
+  toujours là : c'est la session 5 (M-06) qui la retire. Rien ne manque plus si elle part.
+- **Point 2** (les douleurs à `/corps/douleurs`) : non fait, comme prévu.
+- La note d'un relevé se lit à l'historique mais ne se saisit ni ne se corrige à l'écran
+  (le formulaire n'a jamais eu ce champ).
+- Mensurations par l'assistant : toujours absentes (M-10 les laisse attendre).
 
 <a id="m-09"></a>
 
@@ -626,8 +699,8 @@ favori sans description ne peut plus être créé à la main ; c'est déjà la r
 ## 5. Dans quel ordre
 
 1. ~~**M-21** — une heure, et l'écran ne dit plus rien de faux.~~ Fait (`3bcde3f`).
-2. **M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
-   défaire.
+2. ~~**M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
+   défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` reste pour M-10.
 3. **M-02 (1–3)** — après avoir tranché le seuil de facile.
 4. **M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.
 5. **M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps

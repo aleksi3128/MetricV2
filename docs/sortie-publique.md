@@ -346,6 +346,10 @@ de `/nutrition`. La convention française écrit `L Ma Me J V S D`.
 et ne l'offre pas : pas de bouton, pas de lien. C'est la moitié de la règle du §2 — il dit
 ce que coûte le prochain geste, mais il faut aller le chercher ailleurs.
 
+**Fait le 22 octobre** (`3bcde3f`, M-21 de [`pages/modifications.md`](pages/modifications.md)) :
+l'état vide nomme le bouton « Ajouter une course », en haut de la même page — « le fichier
+.fit de ta montre, ou les chiffres à la main ».
+
 ### 4.18 — Sur large écran, c'est un mobile étiré
 
 À 1 280 px, la ligne « Eau » met son libellé à gauche et sa valeur `— / 1,5 L` à

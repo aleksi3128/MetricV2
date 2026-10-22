@@ -30,7 +30,7 @@ Haut d'écran rempli : 3 312 px.
 
 | Action | Geste | Écrit | Garde |
 |---|---|---|---|
-| Ajouter un repas | feuille `MealSheet`, trois modes (§3) | `POST /api/nutrition` ou `POST /api/nutrition/composed` | addition |
+| Ajouter un repas | feuille `MealSheet`, trois modes (§3), aujourd'hui ou hier | `POST /api/nutrition` ou `POST /api/nutrition/composed` (champ `day`) | addition |
 | Ouvrir la fiche d'un repas | appui sur la ligne | — | — |
 | Corriger un repas | fiche → Corriger (description, valeurs) | `PATCH /api/nutrition/{id}` | `If-Match` |
 | Mettre un repas en favori | fiche → Ajouter aux favoris | `POST /api/nutrition/favorites` | addition |
@@ -56,15 +56,20 @@ catalogue s'il n'y est pas. Source : `GET /api/nutrition/catalog`,
 | Repas composé | Des aliments du catalogue et leurs poids ; total recalculé à la frappe | non (`POST /api/nutrition/compose`) |
 | Valeurs à la main | Protéines, calories, sucres ; « Plus de valeurs » : AG saturés, fibres | non |
 
-Puis type de repas (proposé selon l'heure) et **Enregistrer le repas**. Brouillon gardé
-quinze minutes dans le navigateur.
+En tête du formulaire, le **jour** : aujourd'hui (par défaut) ou hier, deux jours servis
+par `GET /api/nutrition` (`days`). Pour hier, le serveur pose l'heure type du repas
+(petit-déjeuner 08:00, déjeuner 12:30, collation 16:30, dîner 20:00). `/nutrition?ajout=hier`
+ouvre la feuille sur hier — c'est là que mène le parcours du matin. Puis type de repas
+(proposé selon l'heure) et **Enregistrer le repas**. Brouillon gardé quinze minutes dans le
+navigateur, jour compris.
 
 ## 4. Constats
 
-- **Aucun repas ne se date dans le passé.** Ni la feuille, ni la fiche, ni l'assistant
-  (« noter un repas **du jour** »). La fiche le dit : l'heure ne se corrige pas, parce que
-  la composer à l'écran serait un calcul de date. Le parcours du matin affirme pourtant
-  « Aucun repas noté hier — ils se rattrapent depuis Nutrition » (M-01).
+- ~~**Aucun repas ne se date dans le passé.**~~ Corrigé pour la feuille (M-01,
+  `331ae7e`) : un segment « Aujourd'hui / Hier » servi par le serveur, qui pose l'heure
+  type du repas. Restent la fiche (l'heure ne s'y corrige toujours pas), l'assistant
+  (« noter un repas **du jour** », M-10) et le rejeu d'un favori, toujours daté de
+  l'instant (M-23).
 - **Les favoris ne sont pas dans la feuille d'ajout.** « Rejouer » est sur la page, sous
   l'historique, à ~2 800 px du haut ; la feuille « Ajouter un repas » — là où l'on va pour
   noter — propose trois modes et pas celui-là. Et « Noter » → « Ajouter un repas » mène à

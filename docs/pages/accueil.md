@@ -40,7 +40,7 @@ retour au premier plan s'il est fermé sans être fini ; une porte manuelle exis
 | La douleur (si un épisode est ouvert) | Le suivi du matin de l'épisode, formulaire `PainForm` | `POST /api/pain` |
 | La pesée | Champ poids, rappel de la dernière pesée | `POST /api/body/weight` |
 | La séance | Disponibilité du jour (phrase), puis la **carte du coach** entière, ou la séance prévue | via la carte : accepter / refuser / autre proposition |
-| La journée | Effort de la sortie d'hier (1–10), nombre de repas notés hier, suppléments à cocher, séances prévues | RPE de la course ; `POST /api/supplements/today` |
+| La journée | Effort de la sortie d'hier (1–10), nombre de repas notés hier — à zéro, un lien qui ouvre la feuille d'ajout sur hier —, suppléments à cocher, séances prévues | RPE de la course ; `POST /api/supplements/today` |
 
 Sorties : **Passer** (par étape, `POST /api/morning/pass`), **Pas ce matin** (`POST /api/morning/snooze`).
 
@@ -75,7 +75,8 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 ## 6. Constats
 
 - **La courbe « Tendance » redouble trois écrans.** Six de ses treize métriques sont des
-  mensurations (la courbe de `/corps` ne les a pas, elle) ; poids et hydratation ont déjà
+  mensurations (`/corps` a la sienne depuis M-08, `ae706b7` : la retirer d'ici ne fait
+  plus rien perdre) ; poids et hydratation ont déjà
   leur courbe sur `/corps` et `/routine` ; volume, séances et distance hebdomadaires
   redisent `Entraînement` juste dessous et `/charge`.
 - **« Entraînement » redit `/charge`.** Huit semaines en barres et la répartition par
@@ -96,8 +97,9 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
   une entrée Assistant sur ordinateur depuis `320bcfc`, et la barre basse aussi. Le
   commentaire de [`Dashboard.tsx`](../../frontend/src/routes/Dashboard.tsx) qui affirmait
   le contraire est corrigé (M-21, `3bcde3f`) ; la rangée elle-même attend M-22.
-- **Le matin promet un rattrapage qui n'existe pas.** « Aucun repas noté hier — ils se
-  rattrapent depuis Nutrition » : `/nutrition` n'ajoute qu'au jour même (M-01).
+- ~~**Le matin promet un rattrapage qui n'existe pas.**~~ Corrigé (M-01, `331ae7e`) :
+  « Aucun repas noté hier. » est suivi d'un lien « Rattraper un repas d'hier » qui ferme
+  le parcours et ouvre la feuille d'ajout sur hier (`/nutrition?ajout=hier`).
 - **FC de repos et VFC s'écrivent chaque matin et ne se relisent nulle part** en série :
   ni courbe, ni liste. Elles ne reparaissent qu'en une ligne sur la page d'une course
   (« Le matin ») et dans la phrase de disponibilité (M-09).
