@@ -530,7 +530,18 @@
 
 .swipeAction {
   position: absolute;
-  inset: 0 0 0 auto;
+  /*
+   * **Un pixel en retrait des bords de la ligne, et c'est le correctif d'un liseré.**
+   *
+   * Au repos, l'action est peinte *sous* le contenu, et les deux sont découpés par le
+   * même coin arrondi (`overflow: hidden`). Le bord de ce découpage est anticrénelé deux
+   * fois — le contenu, puis l'action dessous — et la teinte de l'action ressortait sur la
+   * frange : un fin liseré rouge le long des coins droits. Mesuré sur `/corps`, thème
+   * sombre, à 360, 390 et 402 px : 22 pixels teintés par bord, sur la courbe des coins.
+   * Rentrée d'un pixel, l'action n'a plus rien sous la frange ; ouverte, l'écart ne se
+   * voit pas.
+   */
+  inset: 1px 1px 1px auto;
   width: 96px;
   display: flex;
 }
