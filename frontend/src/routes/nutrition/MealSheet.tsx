@@ -29,23 +29,41 @@
  * **Rien n'est écrit avant le dernier appui.** L'estimation ne touche pas au stockage, et
  * les quatre portes de sortie de `Sheet` ferment sans rien laisser — à n'importe quelle
  * étape, y compris pendant l'attente.
+ *
+ * ## Aujourd'hui ou hier (M-01)
+ *
+ * Le dîner oublié se rattrape le lendemain matin. La feuille propose les deux jours que
+ * le serveur sert, **aujourd'hui par défaut**, et renvoie la date reçue : elle ne calcule
+ * ni la veille ni une heure. Le jour vit dans `values`, donc dans le brouillon ; il
+ * survit à « Changer de mode », qui change la façon de noter, pas le repas qu'on note.
  */
 
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { AiBlock, Button, Field, Sheet, SheetRow, Skeleton, Stepper } from '@/components/ui';
+import {
+  AiBlock,
+  Button,
+  Field,
+  Segmented,
+  Sheet,
+  SheetRow,
+  Skeleton,
+  Stepper,
+} from '@/components/ui';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import {
   nutritionApi,
   type Composition,
   type Ingredient,
+  type MealDay,
   type MealEstimate,
   type MealFormValues,
   type Product,
 } from '@/features/nutrition/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
+import { longDate } from '@/lib/format';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Nutrition.module.css';
@@ -139,6 +157,7 @@ const EMPTY: MealFormValues = {
   saturated_fat_g: '',
   fiber_g: '',
   source: 'manual',
+  day: '',
 };
 
 export function MealSheet({
@@ -148,6 +167,8 @@ export function MealSheet({
   suggested,
   types,
   ingredients,
+  days,
+  initialDay,
 }: {
   open: boolean;
   onClose: () => void;
@@ -156,12 +177,24 @@ export function MealSheet({
   types: string[];
   /** Catalogue d'ingrédients, servi avec le reste de l'écran (`NUT-12`). */
   ingredients: Ingredient[];
+  /** Les jours où le repas peut être noté, servis avec l'écran (M-01). */
+  days: MealDay[];
+  /**
+   * Le jour imposé par l'adresse — `/nutrition?ajout=hier`, où mène le parcours du matin.
+   * Une date servie ; il l'emporte sur celui du brouillon, puisque c'est lui qu'on est venu
+   * noter.
+   */
+  initialDay?: string | undefined;
 }) {
   const { notify } = useToast();
   const ai = useAiStatus();
 
   const [mode, setMode] = useState<MealMode | null>(null);
-  const [values, setValues] = useState<MealFormValues>(EMPTY);
+  // Le jour de l'adresse se pose **à l'initialisation** : l'écran remonte la feuille
+  // (`key`) quand l'adresse en impose un, plutôt que de le lui écrire dans un effet.
+  const [values, setValues] = useState<MealFormValues>(() =>
+    initialDay === undefined ? EMPTY : { ...EMPTY, day: initialDay },
+  );
   const [error, setError] = useState<ApiError | null>(null);
   // « Plus de valeurs » : demandé du doigt. Ce que la saisie contient l'ouvre aussi, et
   // c'est calculé au rendu — voir `showLater`.
@@ -218,9 +251,11 @@ export function MealSheet({
    * appelle cette fonction et doit ne se rejouer qu'à l'ouverture. Une fonction recréée à
    * chaque rendu l'y ferait entrer à chaque frappe.
    */
-  const reset = useCallback((): void => {
+  const reset = useCallback((keepDay = false): void => {
     setMode(null);
-    setValues(EMPTY);
+    // « Changer de mode » garde le jour : on change la façon de noter, pas le repas.
+    // Partout ailleurs — enregistré, brouillon périmé — la feuille repart d'aujourd'hui.
+    setValues((current) => (keepDay ? { ...EMPTY, day: current.day } : EMPTY));
     setEstimate(null);
     setProposed([]);
     setRows([]);
@@ -275,10 +310,17 @@ export function MealSheet({
       // Rien, ou plus rien : passé le délai, la feuille repart à zéro même si elle n'a
       // jamais été démontée. Une seule règle vaut mieux que deux durées de vie.
       if (live.current) reset();
-      return;
+    } else if (!live.current) {
+      // Le jour de l'adresse l'emporte sur celui du brouillon : le lien « hier » du matin
+      // ouvre la feuille sur hier même si une saisie d'aujourd'hui traînait. Le segment le
+      // montre, et un appui le change.
+      resume(
+        initialDay === undefined
+          ? draft
+          : { ...draft, values: { ...draft.values, day: initialDay } },
+      );
     }
-    if (!live.current) resume(draft);
-  }, [open, reset, resume]);
+  }, [open, reset, resume, initialDay]);
 
   /**
    * À chaque frappe : ranger. Le délai court depuis la dernière, pas depuis l'ouverture.
@@ -387,9 +429,13 @@ export function MealSheet({
         meal_type: values.meal_type || suggested,
         comment: values.comment.trim(),
         lines: toLines(rows),
+        ...(values.day ? { day: values.day } : {}),
       }),
     onSuccess: () => {
-      notify('Repas composé enregistré. Ses ingrédients sont retenus.', 'effort');
+      notify(
+        `Repas composé enregistré. Ses ingrédients sont retenus.${elsewhere(values.day)}`,
+        'effort',
+      );
       reset();
       onSaved();
     },
@@ -403,8 +449,8 @@ export function MealSheet({
   const save = useMutation({
     mutationFn: (fields: typeof values) =>
       nutritionApi.create({ ...fields, meal_type: fields.meal_type || suggested }),
-    onSuccess: () => {
-      notify('Repas enregistré.', 'effort');
+    onSuccess: (_meal, fields) => {
+      notify(`Repas enregistré.${elsewhere(fields.day)}`, 'effort');
       reset();
       onSaved();
     },
@@ -495,15 +541,33 @@ export function MealSheet({
    */
   const inspected = step.kind === 'food' ? rows.find((row) => row.key === step.key) : undefined;
 
+  /*
+   * Le jour choisi, retrouvé parmi ceux que le serveur sert. Vide veut dire aujourd'hui.
+   * Une date qui n'y est plus — un brouillon d'hier soir repris passé minuit — ne
+   * désigne aucun segment et bloque l'enregistrement : la rabattre sur aujourd'hui
+   * daterait le repas d'un jour que personne n'a choisi.
+   */
+  const today = days.find((day) => day.key === 'today');
+  const chosenDay = values.day === '' ? today : days.find((day) => day.date === values.day);
+  const staleDay = values.day !== '' && chosenDay === undefined;
+  const pastDay = chosenDay !== undefined && chosenDay.key !== 'today' ? chosenDay : undefined;
+
+  /** Ce que le message d'enregistrement ajoute quand le repas ne rejoint pas le journal. */
+  function elsewhere(day: string): string {
+    return days.find((item) => item.date === day)?.key === 'yesterday'
+      ? ' Il compte pour hier : le journal ne montre que la journée.'
+      : '';
+  }
+
   const sentence = estimate === null ? '' : estimateSentence(estimate);
   const composing = mode === 'compose';
   const lines = toLines(rows);
   // Un repas composé a besoin de son nom **et** d'au moins un ingrédient pesé : sans le
   // premier il arriverait au journal sans rien pour le reconnaître, sans le second il n'y
   // aurait rien à composer.
-  const nothingToLog = composing
-    ? values.comment.trim() === '' || lines.length === 0
-    : values.comment.trim() === '';
+  const nothingToLog =
+    staleDay ||
+    (composing ? values.comment.trim() === '' || lines.length === 0 : values.comment.trim() === '');
   const nothingToEstimate = values.comment.trim() === '';
   // `computeTotal` n'en fait **pas** partie : il part tout seul au repos de la frappe, et
   // l'inclure ferait clignoter l'action principale à chaque gramme tapé. L'enregistrement
@@ -589,7 +653,9 @@ export function MealSheet({
       }
       lede={
         mode === null
-          ? 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
+          ? pastDay !== undefined
+            ? `Pour ${pastDay.label.toLowerCase()}, ${longDate(pastDay.date)}. Comment veux-tu le noter ?`
+            : 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
           : step.kind === 'pick'
             ? 'Dans ton catalogue, ou par son code-barres.'
             : step.kind === 'scan'
@@ -671,6 +737,35 @@ export function MealSheet({
             <p className={styles.error} role="alert">
               {error.message}
             </p>
+          )}
+
+          {days.length > 1 && (
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>Jour</span>
+              <Segmented
+                options={days.map((day) => ({ value: day.date, label: day.label }))}
+                value={chosenDay?.date ?? ''}
+                onChange={(next) => {
+                  // Aujourd'hui s'écrit vide : sans jour, le serveur date à l'instant même.
+                  setValues((current) => ({ ...current, day: next === today?.date ? '' : next }));
+                }}
+                label="Jour du repas"
+              />
+              {staleDay ? (
+                <p className={styles.error} role="alert">
+                  Ce brouillon était pour le {longDate(values.day)}, qui ne se note plus. Choisis
+                  aujourd’hui ou hier.
+                </p>
+              ) : pastDay !== undefined ? (
+                <p className={styles.note}>
+                  {longDate(pastDay.date)}, à l’heure habituelle de ce type de repas — elle n’est
+                  pas demandée.
+                </p>
+              ) : null}
+              {error?.messageFor('day') !== undefined && !staleDay && (
+                <p className={styles.error}>{error.messageFor('day')}</p>
+              )}
+            </div>
           )}
 
           <div className={styles.field}>
@@ -921,12 +1016,18 @@ export function MealSheet({
             </Button>
             {/* Revenir en arrière **à n'importe quelle étape**, sans rien écrire. Un
                 second appui — la poignée, le voile, Échap — ferme la feuille entière. */}
-            <Button variant="quiet" disabled={save.isPending} onClick={reset}>
+            <Button
+              variant="quiet"
+              disabled={save.isPending}
+              onClick={() => {
+                reset(true);
+              }}
+            >
               Changer de mode
             </Button>
           </div>
 
-          {nothingToLog && (
+          {nothingToLog && !staleDay && (
             <p className={styles.empty}>
               {composing
                 ? 'Un nom de plat et un ingrédient pesé suffisent. Les valeurs pour 100 g peuvent rester vides.'

@@ -16,7 +16,7 @@ vides — « non relevé », jamais zéro (`STO-04`).
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import StrEnum
 
 from app.storage.model import CsvModel
@@ -172,3 +172,23 @@ TYPE_BY_HOUR: tuple[tuple[int, MealType], ...] = (
     (18, MealType.SNACK),
     (24, MealType.DINNER),
 )
+
+
+#: L'heure posée sur un repas **rattrapé** — noté pour hier (`docs/pages/modifications.md`,
+#: M-01).
+#:
+#: Le serveur ne sait pas à quelle heure on a dîné hier, et le client n'a pas le droit de
+#: composer une heure. Reprendre l'heure de la saisie aurait daté de 07:00 un dîner noté
+#: au réveil, et la répartition par type de l'historique l'aurait rangé au petit matin.
+#: Chaque heure tombe donc **dans la fenêtre de son type** de `TYPE_BY_HOUR` — la suggestion
+#: relue sur ce repas redonne le type choisi, et un test le tient.
+TYPICAL_TIME: dict[MealType, time] = {
+    MealType.BREAKFAST: time(8, 0),
+    MealType.LUNCH: time(12, 30),
+    MealType.SNACK: time(16, 30),
+    MealType.DINNER: time(20, 0),
+}
+
+#: Un type qui n'est pas l'un des quatre — le formulaire accepte un libellé libre — se
+#: pose à midi : le milieu de la journée, faute de mieux, et jamais l'heure de la saisie.
+FALLBACK_TIME = time(12, 0)

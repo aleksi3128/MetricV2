@@ -11,6 +11,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import {
   Badge,
@@ -43,6 +44,8 @@ function useInvalidateNutrition() {
   const client = useQueryClient();
   return () => {
     void client.invalidateQueries({ queryKey: keys.nutrition.all() });
+    // Le parcours du matin compte les repas d'hier : en rattraper un doit le lui dire (M-01).
+    void client.invalidateQueries({ queryKey: keys.morning.flow() });
     for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
   };
 }
@@ -386,7 +389,27 @@ function coverage(known: number, meals: number): string {
 export function Nutrition() {
   const invalidate = useInvalidateNutrition();
   const { notify } = useToast();
-  const [adding, setAdding] = useState(false);
+  /**
+   * `?ajout=hier` ouvre la feuille sur hier — c'est l'adresse où mène « Aucun repas noté
+   * hier » du parcours du matin (M-01). Même motif que `/assistant?ouvre=…` : l'adresse
+   * ouvre, la fermeture la retire, sans quoi « précédent » rouvrirait la feuille.
+   *
+   * « hier » se traduit en **date servie** par `days` ; l'écran ne la calcule pas.
+   */
+  const [params, setParams] = useSearchParams();
+  const askedDay = params.get('ajout') === 'hier' ? 'yesterday' : null;
+  const [opened, setOpened] = useState(false);
+  // Dérivé, pas recopié : le parcours du matin est une feuille globale, et son lien peut
+  // être suivi alors que cet écran est déjà monté — l'adresse change, l'état non.
+  const adding = opened || askedDay !== null;
+
+  function closeSheet(): void {
+    setOpened(false);
+    if (!params.has('ajout')) return;
+    const next = new URLSearchParams(params);
+    next.delete('ajout');
+    setParams(next, { replace: true });
+  }
   // Le repas dont la fiche est ouverte, tel que le serveur l'a rendu en dernier — au
   // journal, puis à la correction (`NUT-15`).
   const [inspected, setInspected] = useState<Meal | null>(null);
@@ -428,7 +451,7 @@ export function Nutrition() {
             variant="primary"
             disabled={data === undefined}
             onClick={() => {
-              setAdding(true);
+              setOpened(true);
             }}
           >
             Ajouter un repas
@@ -629,15 +652,18 @@ export function Nutrition() {
 
       {data !== undefined && (
         <MealSheet
+          // Remontée quand l'adresse impose un jour : c'est à l'initialisation qu'elle le
+          // prend. Le brouillon, lui, survit au remontage — il est dans le navigateur.
+          key={askedDay ?? 'libre'}
           open={adding}
           suggested={data.suggested_type}
           types={data.types}
           ingredients={data.ingredients}
-          onClose={() => {
-            setAdding(false);
-          }}
+          days={data.days}
+          initialDay={data.days.find((day) => day.key === askedDay)?.date}
+          onClose={closeSheet}
           onSaved={() => {
-            setAdding(false);
+            closeSheet();
             invalidate();
           }}
         />

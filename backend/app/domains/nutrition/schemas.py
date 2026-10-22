@@ -161,10 +161,27 @@ class MealEstimate(BaseModel):
     empty: bool = False
 
 
+class MealDay(BaseModel):
+    """Un jour où un repas peut être noté (`docs/pages/modifications.md`, M-01).
+
+    **Servi, jamais composé.** Le client choisit parmi ces jours et renvoie la `date`
+    qu'il a reçue ; il ne calcule ni « hier » ni une heure. Deux jours seulement :
+    le dîner oublié se rattrape le lendemain matin, et au-delà on entrerait dans un
+    sélecteur de date que l'usage ne demande pas.
+    """
+
+    key: Literal["today", "yesterday"]
+    date: date
+    #: « Aujourd'hui », « Hier » — le libellé du segment, écrit ici et pas à l'écran.
+    label: str
+
+
 class NutritionView(BaseModel):
     """Tout l'écran nutrition en une requête."""
 
     date: date
+    #: Les jours offerts à la feuille d'ajout, aujourd'hui en premier.
+    days: list[MealDay] = Field(default_factory=list)
     totals: DayTotals
     meals: list[Meal]
     favorites: list[Favorite]
@@ -379,6 +396,9 @@ class ComposedMealPayload(ComposePayload):
     #: Le nom du plat. Il devient le commentaire du repas — un repas composé sans titre
     #: se retrouverait au journal sans rien pour le reconnaître.
     comment: Label
+    #: `today`, `yesterday`, ou une date servie dans `NutritionView.days`. Absent : maintenant.
+    #: Dix caractères suffisent aux deux formes ; au-delà, ce n'est ni l'une ni l'autre.
+    day: str | None = Field(default=None, max_length=10)
 
 
 class Product(BaseModel):

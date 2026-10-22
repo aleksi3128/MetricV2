@@ -38,15 +38,15 @@
  * elle rejoint l'angle mort d'où celle-ci vient de sortir.
  */
 
-import { Cdp, MIN_TAP, MIN_TEXT, arg, goto, probe } from './audit-mobile.mjs';
+import { Cdp, MIN_TAP, MIN_TEXT, arg, goto, probe } from "./audit-mobile.mjs";
 
 // ── Ce qu'on mesure ──────────────────────────────────
 
 /** Les largeurs par défaut : la cible, le plancher de la charte, un petit Android. */
 const LARGEURS = [
-  [402, 874, 'iPhone 16 Pro'],
-  [390, 844, 'plancher charte'],
-  [360, 780, 'petit Android'],
+  [402, 874, "iPhone 16 Pro"],
+  [390, 844, "plancher charte"],
+  [360, 780, "petit Android"],
 ];
 
 /**
@@ -64,85 +64,109 @@ const SURFACES = [
   // Les deux premières appartiennent à la barre d'onglets, présente sur **tous** les
   // écrans sous 960 px : la route n'est qu'un véhicule, et on en prend une qui rend
   // toujours. Partir de `/` ferait dépendre la mesure de la santé du tableau de bord.
-  ['/activite', 'Noter', 'saisie rapide'],
-  ['/activite', 'Plus', 'navigation « Plus »'],
+  ["/activite", "Noter", "saisie rapide"],
+  ["/activite", "Plus", "navigation « Plus »"],
   // L'assistant de saisie d'une course. Son étape « Course ou Séance ? » est partie avec
   // la musculation saisie à la main : il ne reste qu'une nature, et la feuille ouvre
   // directement sur la première étape du parcours. C'est elle qu'on mesure ; les suivantes
   // demandent de remplir des champs, ce que ce script s'interdit — il ouvre et il mesure,
   // il ne saisit rien.
-  ['/activite', 'Enregistrer une course', 'assistant de course'],
+  ["/activite", "Enregistrer une course", "assistant de course"],
   // Enregistrer une natation (`docs/natation-activite.md`) : le fichier, puis la saisie
   // dans la notation — champ de programme, puces, glossaire replié. « Enregistrer » n'est
   // pas appuyé : ce serait écrire.
-  ['/activite', 'Enregistrer une natation', 'enregistrer une natation'],
+  ["/activite", "Enregistrer une natation", "enregistrer une natation"],
   // L'effort d'une sortie vélo ou marche (`docs/charge-multisport.md`, D8). Comme la fiche
   // d'un repas, le nom porte une date : sans sortie ce jour-là, la ligne rend « bouton
   // introuvable » — on remplace la date par celle d'une sortie réellement notée. Aucune
   // pastille n'est appuyée : ce serait écrire une note.
-  ['/activite', 'Effort de la sortie marche du 18/10/2026', 'effort d’une sortie vélo ou marche'],
-  ['/assistant', 'Mémoire', 'carnet de l’assistant'],
-  ['/assistant', 'Discussions', 'fil de l’assistant'],
+  [
+    "/activite",
+    "Effort de la sortie marche du 18/10/2026",
+    "effort d’une sortie vélo ou marche",
+  ],
+  ["/assistant", "Mémoire", "carnet de l’assistant"],
+  ["/assistant", "Discussions", "fil de l’assistant"],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
   // le jour où elle est écrite, pas le jour où un défaut s'y découvre.
-  ['/nutrition', 'Ajouter un repas', 'modes de saisie d’un repas'],
+  ["/nutrition", "Ajouter un repas", "modes de saisie d’un repas"],
   // Le formulaire du repas composé, et les deux surfaces qui vivent au fond : le choix
   // d'un chemin (`NUT-23`), puis le scan (`NUT-13`). Quatre appuis au plus, tous nommés,
   // et aucun ne remplit ni ne valide quoi que ce soit.
-  ['/nutrition', ['Ajouter un repas', 'Repas composé'], 'repas composé'],
+  ["/nutrition", ["Ajouter un repas", "Repas composé"], "repas composé"],
   [
-    '/nutrition',
-    ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment'],
-    'choisir un aliment',
+    "/nutrition",
+    ["Ajouter un repas", "Repas composé", "Ajouter un aliment"],
+    "choisir un aliment",
   ],
   [
-    '/nutrition',
-    ['Ajouter un repas', 'Repas composé', 'Ajouter un aliment', 'Scanner un code-barres'],
-    'scanner un aliment',
+    "/nutrition",
+    [
+      "Ajouter un repas",
+      "Repas composé",
+      "Ajouter un aliment",
+      "Scanner un code-barres",
+    ],
+    "scanner un aliment",
   ],
+  // Le formulaire d'un repas, qui porte depuis M-01 le segment « Aujourd'hui / Hier » en
+  // tête. « Valeurs à la main » parce que c'est le seul mode offert sans clé d'IA ; aucun
+  // champ n'est rempli, aucun jour n'est appuyé.
+  [
+    "/nutrition",
+    ["Ajouter un repas", "Valeurs à la main"],
+    "formulaire d’un repas",
+  ],
+  // La même feuille ouverte par l'adresse où mène le parcours du matin (M-01) : sur hier,
+  // avec sa phrase d'en-tête. Aucun appui — l'adresse suffit.
+  ["/nutrition?ajout=hier", [], "rattraper un repas d’hier"],
   // La fiche d'un repas, lecture seule (`NUT-15`). Le nom du bouton porte l'heure du repas,
   // donc il dépend des données du jour : sans repas à cette heure, la ligne rend « bouton
   // introuvable » — on remplace alors l'heure par celle d'un repas réellement noté.
   // « Corriger » n'est pas appuyé : l'étape suivante est un formulaire, et ce script ne
   // saisit rien.
-  ['/nutrition', 'Fiche du repas de 12:30', 'fiche d’un repas'],
+  ["/nutrition", "Fiche du repas de 12:30", "fiche d’un repas"],
   // Le détail d'une charge — courbe et ligne de trente points. Le nom du bouton est celui
   // de l'exercice, donc il dépend des données : `Butterfly` est celui de la base réelle.
   // Sur une base où il n'existe pas, la ligne rend « bouton introuvable », ce qui est un
   // constat exact — on remplace alors le nom par un exercice réellement présent.
-  ['/activite/charges', 'Butterfly', 'détail d’une charge'],
+  ["/activite/charges", "Butterfly", "détail d’une charge"],
   // La feuille de story d'une course (`docs/story-course.md`). Elle porte un aperçu de
   // 1080 × 1920 réduit, trois groupes de réglages et l'action de partage : c'est la
   // feuille la plus haute de l'application, et celle qui a le plus de raisons de déborder
   // à 360 px. « Partager l'image » n'est pas appuyé — il ouvrirait la feuille du système.
-  ['/activite/course', 'Faire une story', 'story d’une course'],
+  ["/activite/course", "Faire une story", "story d’une course"],
   // La fiche d'un aliment du catalogue et la feuille d'ajout (`NUT-19`, `NUT-20`). La
   // première dépend des données — le nom du bouton est celui d'un aliment réellement
   // consigné ; sans lui la ligne rend « bouton introuvable », ce qui est un constat exact.
   // La seconde ne dépend de rien, et c'est elle qui porte le plus de champs.
-  ['/nutrition/catalogue', 'Ajouter un aliment', 'ajouter un aliment au catalogue'],
-  ['/nutrition/catalogue', 'Fiche de riz basmati', 'fiche d’un aliment'],
+  [
+    "/nutrition/catalogue",
+    "Ajouter un aliment",
+    "ajouter un aliment au catalogue",
+  ],
+  ["/nutrition/catalogue", "Fiche de riz basmati", "fiche d’un aliment"],
   // Le parcours du matin (`docs/coach-course.md` §5). Il s'ouvre seul entre 6 h et midi ;
   // on l'ouvre ici par sa porte manuelle, pour le mesurer à toute heure. Son étape dépend
   // des données du jour — la nuit sur une base vierge. « Enregistrer » n'est pas appuyé.
-  ['/corps', 'Parcours du matin', 'parcours du matin'],
+  ["/corps", "Parcours du matin", "parcours du matin"],
   // Le point du soir (`docs/notifications-v3.md`). Il s'ouvre seul de 19 h à minuit, et
   // par l'adresse qu'ouvre une relance : `?soir=1`. Aucun appui — un tableau vide —, on
   // mesure la feuille telle que la relance la montre. Ni « C'est noté » ni le report ne
   // sont appuyés : ce serait écrire.
-  ['/activite?soir=1', [], 'point du soir'],
+  ["/activite?soir=1", [], "point du soir"],
   // Le formulaire du planning, passé en feuille avec la natation (`docs/planning-natation.md`
   // §4.2). Il s'ouvre sur une natation, donc avec le champ de programme et ses puces — la
   // rangée la plus large de la feuille. « Planifier » n'est pas réappuyé : ce serait écrire.
-  ['/planning', 'Planifier', 'planifier une séance'],
+  ["/planning", "Planifier", "planifier une séance"],
   // Une natation faite, tour par tour (§6). Elle dépend des données : le bouton n'existe
   // que sur un jour qui porte une natation importée. Sans elle, la ligne rend « bouton
   // introuvable » — on remplace alors la date par celle d'une natation réelle.
-  ['/planning?jour=2026-10-11', 'Les tours', 'une natation, tour par tour'],
+  ["/planning?jour=2026-10-11", "Les tours", "une natation, tour par tour"],
 ];
 
 /** Le panneau d'une feuille. C'est lui qu'on mesure, pas l'écran resté derrière. */
-const PANNEAU = 'document.querySelector(\'[role="dialog"]\')';
+const PANNEAU = "document.querySelector('[role=\"dialog\"]')";
 
 /**
  * **Qui peint le bas de l'écran ?** — la mesure qui manquait.
@@ -158,7 +182,7 @@ const PANNEAU = 'document.querySelector(\'[role="dialog"]\')';
  * sondant qu'un.
  */
 const RECOUVREMENT = `(() => {
-  const panneau = ${'document.querySelector(\'[role="dialog"]\')'};
+  const panneau = ${"document.querySelector('[role=\"dialog\"]')"};
   if (!panneau) return { recouvert: null };
   const h = window.innerHeight;
   const x = window.innerWidth / 2;
@@ -190,46 +214,61 @@ async function ouvrir(cdp, nom) {
 }
 
 async function main() {
-  const base = arg('base', 'http://localhost:5173').replace(/\/$/, '');
-  const token = arg('token', null);
-  const port = arg('cdp', '9222');
-  const theme = arg('theme', null);
-  const largeurs = arg('largeurs', null);
+  const base = arg("base", "http://localhost:5173").replace(/\/$/, "");
+  const token = arg("token", null);
+  const port = arg("cdp", "9222");
+  const theme = arg("theme", null);
+  const largeurs = arg("largeurs", null);
 
-  if (!token) throw new Error('--token est requis : toutes les surfaces sont derrière la session.');
-  if (theme !== null && theme !== 'light' && theme !== 'dark') {
+  if (!token)
+    throw new Error(
+      "--token est requis : toutes les surfaces sont derrière la session.",
+    );
+  if (theme !== null && theme !== "light" && theme !== "dark") {
     throw new Error(`--theme attend « light » ou « dark », pas « ${theme} »`);
   }
 
   const tailles =
     largeurs === null
       ? LARGEURS
-      : largeurs.split(',').map((l) => [Number(l.trim()), 844, `${l.trim()} px`]);
+      : largeurs
+          .split(",")
+          .map((l) => [Number(l.trim()), 844, `${l.trim()} px`]);
 
-  const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  const page = targets.find((t) => t.type === 'page');
-  if (!page) throw new Error('Aucun onglet. Chrome est-il lancé en --headless=new ?');
+  const targets = await (
+    await fetch(`http://127.0.0.1:${port}/json/list`)
+  ).json();
+  const page = targets.find((t) => t.type === "page");
+  if (!page)
+    throw new Error("Aucun onglet. Chrome est-il lancé en --headless=new ?");
 
   const cdp = await Cdp.attach(page.webSocketDebuggerUrl);
-  await cdp.send('Page.enable');
-  await cdp.send('Runtime.enable');
+  await cdp.send("Page.enable");
+  await cdp.send("Runtime.enable");
 
   const lignes = [];
 
   for (const [largeur, hauteur, appareil] of tailles) {
-    await cdp.send('Emulation.setDeviceMetricsOverride', {
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
       width: largeur,
       height: hauteur,
       deviceScaleFactor: 3,
       mobile: true,
     });
-    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    await cdp.send("Emulation.setTouchEmulationEnabled", {
+      enabled: true,
+      maxTouchPoints: 5,
+    });
 
     // La session et le thème se posent sur l'origine de l'application.
     await goto(cdp, `${base}/connexion`);
-    await cdp.eval(`localStorage.setItem('metric.token', ${JSON.stringify(token)})`);
+    await cdp.eval(
+      `localStorage.setItem('metric.token', ${JSON.stringify(token)})`,
+    );
     if (theme !== null) {
-      await cdp.eval(`localStorage.setItem('metric.theme', ${JSON.stringify(theme)})`);
+      await cdp.eval(
+        `localStorage.setItem('metric.theme', ${JSON.stringify(theme)})`,
+      );
     }
 
     for (const [route, bouton, nom] of SURFACES) {
@@ -277,15 +316,21 @@ async function main() {
 // ── Le rapport ───────────────────────────────────────
 
 function rapport(lignes, tailles, theme) {
-  console.log(`\nAudit des surfaces — ${tailles.map(([l]) => `${l}`).join(' · ')} px, DPR 3`);
-  console.log(`Thème — ${theme === null ? 'préférence du navigateur' : `--theme ${theme}`}`);
+  console.log(
+    `\nAudit des surfaces — ${tailles.map(([l]) => `${l}`).join(" · ")} px, DPR 3`,
+  );
+  console.log(
+    `Thème — ${theme === null ? "préférence du navigateur" : `--theme ${theme}`}`,
+  );
 
   let defauts = 0;
 
   for (const [, , appareil] of tailles) {
     console.log(`\n━━ ${appareil} ━━`);
-    console.log('surface                       cibles<44  zoom  min-px  déborde  recouvert');
-    console.log('─'.repeat(77));
+    console.log(
+      "surface                       cibles<44  zoom  min-px  déborde  recouvert",
+    );
+    console.log("─".repeat(77));
 
     for (const l of lignes.filter((x) => x.appareil === appareil)) {
       if (l.absent !== undefined) {
@@ -303,30 +348,34 @@ function rapport(lignes, tailles, theme) {
       // Un panneau dont un point bas rend autre chose que lui est recouvert : le doigt
       // n'atteint pas ce qui s'y trouve, quelle que soit la taille de la cible.
       const couvert = (l.recouvert ?? 0) > 0;
-      const mauvais = l.tapsTotal > 0 || l.zoome.length > 0 || petit || l.deborde || couvert;
+      const mauvais =
+        l.tapsTotal > 0 || l.zoome.length > 0 || petit || l.deborde || couvert;
       if (mauvais) defauts++;
 
       console.log(
         l.nom.padEnd(30) +
           String(l.tapsTotal).padStart(9) +
           String(l.zoome.length).padStart(6) +
-          String(l.minTexte ?? '—').padStart(8) +
-          (l.deborde ? '  OUI' : '   ok') +
-          (couvert ? '        OUI' : '         ok'),
+          String(l.minTexte ?? "—").padStart(8) +
+          (l.deborde ? "  OUI" : "   ok") +
+          (couvert ? "        OUI" : "         ok"),
       );
 
-      for (const t of l.taps) console.log(`   ↳ cible ${t.l}×${t.h} — « ${t.texte} »`);
+      for (const t of l.taps)
+        console.log(`   ↳ cible ${t.l}×${t.h} — « ${t.texte} »`);
       if (l.tapsTotal > l.taps.length) {
         console.log(`   ↳ … et ${l.tapsTotal - l.taps.length} autres cibles`);
       }
-      for (const z of l.zoome) console.log(`   ↳ champ < 16 px, iOS zoomera : ${z}`);
+      for (const z of l.zoome)
+        console.log(`   ↳ champ < 16 px, iOS zoomera : ${z}`);
       if (couvert) {
         console.log(
           `   ↳ ${l.recouvert} des 3 points bas rendent autre chose que la feuille — ` +
-            'elle est recouverte, très probablement par la barre d’onglets',
+            "elle est recouverte, très probablement par la barre d’onglets",
         );
       }
-      if (petit) console.log(`   ↳ texte à ${l.minTexte} px sur « ${l.minTexteOu} »`);
+      if (petit)
+        console.log(`   ↳ texte à ${l.minTexte} px sur « ${l.minTexteOu} »`);
     }
   }
 
@@ -336,7 +385,9 @@ function rapport(lignes, tailles, theme) {
       ? `\n${total}/${total} surfaces sans défaut mesurable — plancher ${MIN_TAP} px, texte ${MIN_TEXT} px.`
       : `\n${total - defauts}/${total} surfaces sans défaut mesurable.`,
   );
-  console.log("Et là encore : regarder les captures trouve ce qu'aucune mesure n'attrape.\n");
+  console.log(
+    "Et là encore : regarder les captures trouve ce qu'aucune mesure n'attrape.\n",
+  );
 }
 
 if (import.meta.main) await main();

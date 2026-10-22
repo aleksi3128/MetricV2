@@ -31,6 +31,7 @@ function draft(fields: Partial<MealDraft> = {}): MealDraft {
       saturated_fat_g: '',
       fiber_g: '',
       source: 'manual',
+      day: '',
     },
     rows: [emptyIngredient()],
     proposed: [],
@@ -189,6 +190,28 @@ describe('la relecture', () => {
     const back = readDraft(1_000_000);
     expect(back?.values.saturated_fat_g).toBe('');
     expect(back?.values.fiber_g).toBe('');
+  });
+
+  it('retient le jour choisi (M-01)', () => {
+    // Un dîner d'hier repris au retour d'un appel doit rester d'hier : sans le jour, le
+    // brouillon le rendrait à aujourd'hui, et la journée en cours gonflerait.
+    writeDraft(draft({ values: { ...draft().values, day: '2026-10-21' } }));
+
+    expect(readDraft(1_000_000)?.values.day).toBe('2026-10-21');
+  });
+
+  it('relit un brouillon d’avant le jour comme un repas d’aujourd’hui', () => {
+    const older = { meal_type: 'dîner', comment: 'pâtes', source: 'manual' };
+    localStorage.setItem('metric.meal-draft', JSON.stringify({ ...draft(), values: older }));
+
+    expect(readDraft(1_000_000)?.values.day).toBe('');
+  });
+
+  it('ne retient pas le jour seul', () => {
+    // Choisir « hier » sans rien taper ne décrit encore aucun repas.
+    expect(
+      worthKeeping(draft({ values: { ...draft().values, comment: '', day: '2026-10-21' } })),
+    ).toBe(false);
   });
 
   it('ne rend rien d’un texte abîmé', () => {

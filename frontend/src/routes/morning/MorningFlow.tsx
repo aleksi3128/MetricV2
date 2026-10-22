@@ -18,14 +18,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { Button, Chip, Empty, Sheet, Stepper, Steps } from '@/components/ui';
+import { Button, Chip, Empty, LinkButton, Sheet, Stepper, Steps } from '@/components/ui';
 import { bodyApi, type Readiness } from '@/features/body/api';
 import { morningApi, type MorningFlow, type StepKey } from '@/features/morning/api';
 import type { PlannedSession } from '@/features/planning/api';
 import { routineApi } from '@/features/routine/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { longDate, num } from '@/lib/format';
+import { longDate, num, plural } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 
 import { RateRun } from '../activity/run/Rate';
@@ -172,6 +172,7 @@ function MorningSheet({ flow, onClose }: { flow: MorningFlow; onClose: () => voi
             onFinish={() => {
               pass.mutate('day');
             }}
+            onLeave={onClose}
           />
         )}
 
@@ -409,7 +410,18 @@ function Session({ flow, busy, onNext }: { flow: MorningFlow; busy: boolean; onN
 
 // ── 4. La journée ─────────────────────────────────────
 
-function Day({ flow, busy, onFinish }: { flow: MorningFlow; busy: boolean; onFinish: () => void }) {
+function Day({
+  flow,
+  busy,
+  onFinish,
+  onLeave,
+}: {
+  flow: MorningFlow;
+  busy: boolean;
+  onFinish: () => void;
+  /** Quitter le parcours pour un autre écran, sans le finir : il revient à l'ouverture suivante. */
+  onLeave: () => void;
+}) {
   const client = useQueryClient();
   const take = useMutation({
     mutationFn: (scheduleId: string) => routineApi.take(scheduleId),
@@ -437,11 +449,20 @@ function Day({ flow, busy, onFinish }: { flow: MorningFlow; busy: boolean; onFin
         </div>
       ))}
 
-      <p className={styles.lead}>
-        {meals === 0
-          ? 'Aucun repas noté hier — ils se rattrapent depuis Nutrition.'
-          : `${String(meals)} repas notés hier.`}
-      </p>
+      {/* La phrase promettait un rattrapage qui n'existait pas (M-01). Il existe : le lien
+          ouvre la feuille d'ajout sur hier, et ferme le parcours — laissé ouvert, il
+          recouvrirait la feuille. Non fini, il revient à l'ouverture suivante, où il dira
+          combien de repas hier compte désormais. */}
+      {meals === 0 ? (
+        <div className={styles.block}>
+          <p className={styles.lead}>Aucun repas noté hier.</p>
+          <LinkButton variant="ghost" to="/nutrition?ajout=hier" onClick={onLeave}>
+            Rattraper un repas d’hier
+          </LinkButton>
+        </div>
+      ) : (
+        <p className={styles.lead}>{`${String(meals)} repas ${plural(meals, 'noté')} hier.`}</p>
+      )}
 
       {supplements.length > 0 && (
         <div className={styles.block}>

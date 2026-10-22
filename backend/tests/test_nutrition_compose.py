@@ -11,11 +11,13 @@ approximativement deux noms.
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.dates import today_local
 from app.domains.nutrition.schemas import ComposePayload, IngredientLine
 from app.domains.nutrition.service import NutritionService
 from app.storage.files import FileStore
@@ -162,6 +164,49 @@ def test_a_composed_meal_lands_in_the_journal(
     # Un repas composé est une saisie, pas une estimation : sa provenance le dit.
     assert meal["source"] == "manual"
     assert "poulet riz" in dav.content_of(MEALS_FILE)
+
+
+def test_a_composed_meal_can_be_noted_for_yesterday(
+    app_client: TestClient, auth: Any, dav: FakeWebDav
+) -> None:
+    """Même champ que la saisie simple (M-01) ; le journal des aliments suit la même date."""
+    yesterday = today_local() - timedelta(days=1)
+
+    response = app_client.post(
+        COMPOSED,
+        json={
+            "meal_type": "dîner",
+            "comment": "poulet riz",
+            "day": yesterday.isoformat(),
+            "lines": [line("poulet", 150, calories_100g=165, protein_100g=31)],
+        },
+        headers=auth,
+    )
+
+    assert response.status_code == 201, response.text
+    noted = datetime.fromisoformat(response.json()["datetime"])
+    assert noted.date() == yesterday
+    assert response.json()["datetime"].split("T")[0] in dav.content_of(
+        "Metric/nutrition/intake.csv"
+    )
+
+
+def test_a_composed_meal_refuses_a_day_that_is_not_served(
+    app_client: TestClient, auth: Any
+) -> None:
+    response = app_client.post(
+        COMPOSED,
+        json={
+            "meal_type": "dîner",
+            "comment": "poulet riz",
+            "day": (today_local() - timedelta(days=3)).isoformat(),
+            "lines": [line("poulet", 150, calories_100g=165)],
+        },
+        headers=auth,
+    )
+
+    assert response.status_code == 422
+    assert [field["field"] for field in response.json()["fields"]] == ["body.day"]
 
 
 def test_the_total_is_recomputed_and_not_taken_from_the_client(

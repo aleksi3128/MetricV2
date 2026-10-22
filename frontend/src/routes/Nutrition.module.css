@@ -86,7 +86,10 @@
   gap: 6px;
 }
 
-.field label {
+/* Le jour du repas (M-01) n'a pas de `<label>` : son segment est un groupe de boutons,
+   nommé par `aria-label`. Le libellé visible en reprend l'apparence. */
+.field label,
+.fieldLabel {
   font-family: var(--mono);
   font-size: var(--t-meta);
   letter-spacing: 0.12em;

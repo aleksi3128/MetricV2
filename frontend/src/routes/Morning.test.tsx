@@ -9,7 +9,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MorningFlow, StepKey } from '@/features/morning/api';
@@ -110,6 +110,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** L'adresse courante, pour voir où mène un lien du parcours. */
+function Where() {
+  const location = useLocation();
+  return (
+    <>
+      <p>écran</p>
+      <p data-testid="where">{`${location.pathname}${location.search}`}</p>
+    </>
+  );
+}
+
 function renderApp() {
   const client = createQueryClient();
   client.setDefaultOptions({ queries: { retry: false } });
@@ -117,7 +128,9 @@ function renderApp() {
     <QueryClientProvider client={client}>
       <MemoryRouter>
         <MorningFlowProvider>
-          <p>écran</p>
+          <Routes>
+            <Route path="*" element={<Where />} />
+          </Routes>
         </MorningFlowProvider>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -265,5 +278,33 @@ describe('le parcours du matin', () => {
     ).toBeInTheDocument();
     expect(within(sheet).getByText(/Aucun repas noté hier/)).toBeInTheDocument();
     expect(within(sheet).getByRole('button', { name: 'Terminer' })).toBeInTheDocument();
+  });
+
+  it('mène au rattrapage d’un repas d’hier, et se ferme pour le laisser voir (M-01)', async () => {
+    // La phrase promettait « ils se rattrapent depuis Nutrition », et rien ne s'y datait.
+    current = flow({
+      resume: 'day',
+      day: { unrated_runs: [], meals_yesterday: 0, supplements: [], planned: [] },
+    });
+    renderApp();
+
+    const sheet = await screen.findByRole('dialog');
+    await userEvent.click(within(sheet).getByRole('link', { name: 'Rattraper un repas d’hier' }));
+
+    expect(screen.getByTestId('where')).toHaveTextContent('/nutrition?ajout=hier');
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('accorde le nombre de repas d’hier', async () => {
+    current = flow({
+      resume: 'day',
+      day: { unrated_runs: [], meals_yesterday: 1, supplements: [], planned: [] },
+    });
+    renderApp();
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('1 repas noté hier.')).toBeInTheDocument();
   });
 });

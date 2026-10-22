@@ -89,6 +89,7 @@ async def create(
     saturated_fat_g: Annotated[float | None, Form(ge=0, le=300)] = None,
     fiber_g: Annotated[float | None, Form(ge=0, le=150)] = None,
     source: Annotated[str, Form(pattern="^(manual|ai)$")] = "manual",
+    day: Annotated[str | None, Form(max_length=10)] = None,
 ) -> Meal:
     """Photo et/ou description, au moins l'un des deux (`NUT-01`).
 
@@ -99,6 +100,9 @@ async def create(
     (`NUT-04`). Elle le reste même corrigée au doigt avant l'enregistrement : ce que la
     colonne raconte, c'est d'où vient la ligne, et une estimation retouchée n'est pas une
     valeur qu'on a lue sur un emballage. Refuser l'estimation la ramène à `manual`.
+
+    `day` rattrape un repas d'hier (M-01) : `today`, `yesterday`, ou la date servie dans
+    `days`. **Jamais une heure** — le serveur la pose lui-même. Absent : maintenant.
     """
     data = await photo.read() if photo is not None else None
     if photo is not None:
@@ -118,6 +122,7 @@ async def create(
         saturated_fat_g=saturated_fat_g,
         fiber_g=fiber_g,
         source=source,
+        day=day,
     )
 
 

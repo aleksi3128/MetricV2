@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from app.core.dates import local_day_of, now_local, tz
+from app.core.exceptions import ValidationFailedError
 from app.domains.ai.images import prepare_data_url
 from app.domains.ai.service import AiService
 from app.domains.app_settings.service import SettingsService
@@ -14,7 +15,9 @@ from app.domains.nutrition.analysis import INSTRUCTION, photo_prompt, read_estim
 from app.domains.nutrition.compose import compose
 from app.domains.nutrition.history import build as build_history
 from app.domains.nutrition.models import (
+    FALLBACK_TIME,
     TYPE_BY_HOUR,
+    TYPICAL_TIME,
     FavoriteRow,
     IngredientRow,
     IntakeRow,
@@ -38,6 +41,7 @@ from app.domains.nutrition.schemas import (
     IngredientPayload,
     IngredientUpdate,
     Meal,
+    MealDay,
     MealEstimate,
     MealPayload,
     NutritionHistory,
@@ -61,6 +65,60 @@ def suggested_type(moment: datetime) -> MealType:
         if moment.hour < until:
             return kind
     return MealType.DINNER
+
+
+# ── Le jour d'un repas (`docs/pages/modifications.md`, M-01) ──
+
+
+def meal_days(today: date) -> list[MealDay]:
+    """Les jours où un repas peut être noté : aujourd'hui, puis hier."""
+    return [
+        MealDay(key="today", date=today, label="Aujourd’hui"),
+        MealDay(key="yesterday", date=today - timedelta(days=1), label="Hier"),
+    ]
+
+
+def resolve_day(raw: str | None, today: date) -> date | None:
+    """Le jour qu'un client a choisi, validé contre ceux que le serveur sert.
+
+    Trois formes acceptées : rien (maintenant), un jour symbolique — `today`,
+    `yesterday`, ce que l'assistant enverra un jour —, ou la **date servie** dans
+    `NutritionView.days`. La dernière est ce que la feuille renvoie, et c'est elle qui tient
+    à minuit : « hier » choisi à 23 h 58 reste le jour qu'on avait sous les yeux, là où le
+    mot `yesterday` aurait glissé d'un jour à l'arrivée.
+
+    Hors des deux jours, refus — avant-hier compris. Un brouillon resté ouvert au passage
+    de minuit peut porter une date qui n'est plus servie : il est refusé avec un message,
+    jamais rabattu en silence sur aujourd'hui.
+    """
+    text = (raw or "").strip()
+    if not text:
+        return None
+    offered = {day.key: day.date for day in meal_days(today)}
+    if text in offered:
+        return offered[text]
+    try:
+        chosen = date.fromisoformat(text)
+    except ValueError:
+        chosen = None
+    if chosen not in offered.values():
+        message = "Un repas se note aujourd'hui ou hier. Choisis l'un des deux."
+        raise ValidationFailedError(message, fields=[("body.day", message)])
+    return chosen
+
+
+def moment_for(day: date | None, meal_type: str, now: datetime) -> datetime:
+    """L'heure posée sur un repas : maintenant aujourd'hui, l'heure type de son repas hier.
+
+    Voir `TYPICAL_TIME` pour ce que l'heure de la saisie aurait faussé.
+    """
+    if day is None or day == now.date():
+        return now
+    try:
+        clock = TYPICAL_TIME[MealType(meal_type)]
+    except ValueError:
+        clock = FALLBACK_TIME
+    return datetime.combine(day, clock, tzinfo=now.tzinfo)
 
 
 class NutritionService:
@@ -222,6 +280,7 @@ class NutritionService:
 
         return NutritionView(
             date=day,
+            days=meal_days(day),
             totals=await self.totals(day),
             meals=[self._to_schema(row) for row in listed],
             favorites=await self.favorites(),
@@ -244,8 +303,10 @@ class NutritionService:
         saturated_fat_g: float | None = None,
         fiber_g: float | None = None,
         source: str = "manual",
+        day: str | None = None,
     ) -> Meal:
-        moment = now_local()
+        now = now_local()
+        moment = moment_for(resolve_day(day, now.date()), meal_type, now)
 
         relative: str | None = None
         if photo:
@@ -420,6 +481,7 @@ class NutritionService:
             calories=total.calories if not total.empty else None,
             saturated_fat_g=total.saturated_fat_g if not total.empty else None,
             fiber_g=total.fiber_g if not total.empty else None,
+            day=payload.day,
         )
         identifiers = await self.remember(payload.lines)
         await self.journal(payload.lines, meal.datetime, identifiers)

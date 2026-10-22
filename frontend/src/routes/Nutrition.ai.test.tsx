@@ -32,6 +32,10 @@ function json(status: number, body: unknown): Response {
 
 const VIEW = {
   date: '2026-07-27',
+  days: [
+    { key: 'today', date: '2026-07-27', label: 'Aujourd’hui' },
+    { key: 'yesterday', date: '2026-07-26', label: 'Hier' },
+  ],
   totals: {
     protein_g: 0,
     protein_target_g: 150,

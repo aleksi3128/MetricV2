@@ -5,15 +5,15 @@ La sécurité du service des photos vit dans `test_photos.py` ; ici, le métier.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.core.dates import today_local, tz
-from app.domains.nutrition.models import MealType
-from app.domains.nutrition.service import suggested_type
+from app.domains.nutrition.models import FALLBACK_TIME, TYPICAL_TIME, MealType
+from app.domains.nutrition.service import moment_for, resolve_day, suggested_type
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider
 from tests.fake_webdav import FakeWebDav
@@ -228,6 +228,118 @@ def test_an_implausible_macro_is_refused(
     )
 
     assert response.status_code == 422
+
+
+# ── Rattraper un repas d'hier (M-01) ──────────────────
+
+
+def test_the_two_days_come_from_the_server(app_client: TestClient, auth: dict[str, str]) -> None:
+    """La feuille choisit parmi ces deux jours ; elle n'en calcule aucun."""
+    today = today_local()
+
+    days = app_client.get(NUTRITION, headers=auth).json()["days"]
+
+    assert days == [
+        {"key": "today", "date": today.isoformat(), "label": "Aujourd’hui"},
+        {
+            "key": "yesterday",
+            "date": (today - timedelta(days=1)).isoformat(),
+            "label": "Hier",
+        },
+    ]
+
+
+def test_a_meal_noted_for_yesterday_lands_yesterday(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """La date servie revient telle quelle ; l'heure est celle du type, posée ici."""
+    yesterday = today_local() - timedelta(days=1)
+
+    meal = log_meal(app_client, auth, meal_type="dîner", day=yesterday.isoformat())
+
+    noted = datetime.fromisoformat(meal["datetime"])
+    assert noted.date() == yesterday
+    assert noted.time() == TYPICAL_TIME[MealType.DINNER]
+    # Il n'appartient pas à la journée en cours : ni au journal, ni aux totaux.
+    view = app_client.get(NUTRITION, headers=auth).json()
+    assert view["meals"] == []
+    assert view["totals"]["meals"] == 0
+
+
+def test_the_symbolic_day_is_accepted(app_client: TestClient, auth: dict[str, str]) -> None:
+    """`yesterday` est la forme que l'assistant enverra : le serveur la résout lui-même."""
+    meal = log_meal(app_client, auth, meal_type="petit-déjeuner", day="yesterday")
+
+    noted = datetime.fromisoformat(meal["datetime"])
+    assert noted.date() == today_local() - timedelta(days=1)
+    assert noted.time() == TYPICAL_TIME[MealType.BREAKFAST]
+
+
+@pytest.mark.parametrize("day", ["today", "TODAY_ISO", ""])
+def test_today_keeps_the_moment_of_the_entry(
+    app_client: TestClient, auth: dict[str, str], day: str
+) -> None:
+    """Aujourd'hui, l'heure reste celle de la saisie — rien ne change pour le cas courant."""
+    value = today_local().isoformat() if day == "TODAY_ISO" else day
+
+    meal = log_meal(app_client, auth, day=value)
+
+    assert len(app_client.get(NUTRITION, headers=auth).json()["meals"]) == 1
+    assert datetime.fromisoformat(meal["datetime"]).date() == today_local()
+
+
+@pytest.mark.parametrize("offset", [2, -1])
+def test_a_day_that_is_not_served_is_refused(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, offset: int
+) -> None:
+    """Avant-hier, ou demain : refusé, et désigné sur le champ. Rien n'est écrit."""
+    day = (today_local() - timedelta(days=offset)).isoformat()
+
+    response = app_client.post(
+        NUTRITION, data={"meal_type": "dîner", "comment": "pâtes", "day": day}, headers=auth
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    assert "aujourd'hui ou hier" in body["message"]
+    assert [field["field"] for field in body["fields"]] == ["body.day"]
+    # Le refus précède toute écriture : le journal n'est même pas créé.
+    assert MEALS_FILE not in dav.files
+
+
+def test_a_day_that_is_not_a_day_is_refused(app_client: TestClient, auth: dict[str, str]) -> None:
+    response = app_client.post(
+        NUTRITION, data={"meal_type": "dîner", "comment": "pâtes", "day": "demain"}, headers=auth
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+
+
+@pytest.mark.parametrize("kind", list(MealType))
+def test_the_typical_time_falls_in_the_window_of_its_type(kind: MealType) -> None:
+    """Relue par la suggestion, l'heure posée redonne le type choisi."""
+    assert suggested_type(datetime.combine(date(2026, 10, 21), TYPICAL_TIME[kind])) is kind
+
+
+def test_a_free_type_is_placed_at_noon() -> None:
+    now = datetime.combine(date(2026, 10, 22), time(7, 5), tzinfo=tz())
+
+    moment = moment_for(date(2026, 10, 21), "goûter d'anniversaire", now)
+
+    assert moment == datetime.combine(date(2026, 10, 21), FALLBACK_TIME, tzinfo=tz())
+
+
+def test_the_served_date_holds_across_midnight() -> None:
+    """« Hier » servi à 23 h 58 et reçu à 00 h 01 : le 20 n'est plus servi, il est refusé ;
+    « aujourd'hui » servi la veille devient hier, et reste le jour qu'on avait choisi."""
+    served_today = date(2026, 10, 21)
+    after_midnight = date(2026, 10, 22)
+
+    assert resolve_day(served_today.isoformat(), after_midnight) == served_today
+    with pytest.raises(Exception, match="aujourd'hui ou hier"):
+        resolve_day(date(2026, 10, 20).isoformat(), after_midnight)
 
 
 # ── Liste du jour (`NUT-07`) ──────────────────────────

@@ -316,8 +316,22 @@ export interface Composition {
   empty: boolean;
 }
 
+/**
+ * Un jour où un repas peut être noté — aujourd'hui, ou hier (M-01).
+ *
+ * **Servi, jamais composé.** La feuille choisit parmi ces jours et renvoie la `date` reçue :
+ * elle ne calcule ni « hier » ni une heure, c'est le serveur qui pose l'heure du repas.
+ */
+export interface MealDay {
+  key: 'today' | 'yesterday';
+  date: string;
+  label: string;
+}
+
 export interface NutritionView {
   date: string;
+  /** Aujourd'hui d'abord, puis hier. */
+  days: MealDay[];
   totals: DayTotals;
   meals: Meal[];
   favorites: Favorite[];
@@ -357,6 +371,13 @@ export interface MealFormValues {
   fiber_g: string;
   /** `ai` quand les macros viennent d'une estimation acceptée (`NUT-04`). */
   source: 'manual' | 'ai';
+  /**
+   * La date **servie** du jour choisi (`MealDay.date`), ou vide : aujourd'hui, maintenant.
+   *
+   * Dans les valeurs du formulaire et non à côté : c'est ce qui la fait entrer d'office
+   * dans le brouillon, qui range `values` entier.
+   */
+  day: string;
 }
 
 /**
@@ -417,6 +438,7 @@ function multipart(values: MealFormValues): FormData {
     if (raw) form.set(field, raw);
   }
   form.set('source', values.source);
+  if (values.day) form.set('day', values.day);
   return form;
 }
 
@@ -479,8 +501,13 @@ export const nutritionApi = {
    * Le total n'est pas envoyé : le serveur le **recalcule**. Le transmettre inviterait à
    * croire qu'il fait foi, alors que ce qui entre dans le fichier vient du serveur.
    */
-  createComposed: (payload: { meal_type: string; comment: string; lines: IngredientLine[] }) =>
-    request<Meal>('/api/nutrition/composed', { method: 'POST', body: payload }),
+  createComposed: (payload: {
+    meal_type: string;
+    comment: string;
+    lines: IngredientLine[];
+    /** Même règle que `MealFormValues.day` : absent, aujourd'hui. */
+    day?: string;
+  }) => request<Meal>('/api/nutrition/composed', { method: 'POST', body: payload }),
 
   /**
    * Propose des macros depuis une description. **N'écrit rien** (`NUT-04`).

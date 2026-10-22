@@ -124,6 +124,9 @@ function parseValues(raw: unknown): MealDraft['values'] {
     fiber_g: text(fields.fiber_g),
     // La provenance ne se devine pas : hors du `ai` explicite, c'est une saisie.
     source: fields.source === 'ai' ? 'ai' : 'manual',
+    // Une date servie, relue telle quelle : si minuit est passé depuis, c'est la feuille
+    // qui le voit — elle n'est plus parmi les jours servis — et le dit (M-01).
+    day: text(fields.day),
   };
 }
 
@@ -190,7 +193,8 @@ function parseEstimate(raw: unknown): MealEstimate | null {
  *
  * Un mode choisi et rien tapé n'en est pas un : le ranger ferait sauter la question du
  * mode à la réouverture, pour un formulaire vide. Le type de repas non plus — il est
- * pré-rempli par le serveur, le retenir seul reviendrait à retenir sa suggestion.
+ * pré-rempli par le serveur, le retenir seul reviendrait à retenir sa suggestion. Le jour
+ * non plus : choisir « hier » sans rien taper ne décrit encore aucun repas.
  */
 export function worthKeeping(draft: MealDraft): boolean {
   if (draft.estimate !== null) return true;

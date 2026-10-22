@@ -42,6 +42,10 @@ function json(status: number, body: unknown): Response {
 
 const VIEW = {
   date: '2026-07-27',
+  days: [
+    { key: 'today', date: '2026-07-27', label: 'Aujourd’hui' },
+    { key: 'yesterday', date: '2026-07-26', label: 'Hier' },
+  ],
   totals: {
     protein_g: 75,
     protein_target_g: 150,
@@ -183,10 +187,10 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
   return fetchMock;
 }
 
-function renderNutrition() {
+function renderNutrition(entry = '/nutrition') {
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <Toaster>
           <Nutrition />
         </Toaster>
@@ -663,6 +667,27 @@ describe('repas composé', () => {
     expect(body.lines).toHaveLength(1);
     expect(body).not.toHaveProperty('calories');
     expect(body).not.toHaveProperty('protein_g');
+  });
+
+  it('envoie le jour choisi avec le plat (M-01)', async () => {
+    stub((url, init) =>
+      init?.method === 'POST' && url === '/api/nutrition/composed'
+        ? json(201, { ...VIEW.meals[0], comment: 'bowl riz', calories: 641 })
+        : undefined,
+    );
+    renderNutrition();
+
+    await fillPlate();
+    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
+
+    const call = await waitFor(() => {
+      const found = calls.find((item) => item.url === '/api/nutrition/composed');
+      expect(found).toBeDefined();
+      return found;
+    });
+    const body = JSON.parse(call?.init?.body as string) as Record<string, unknown>;
+    expect(body.day).toBe('2026-07-26');
   });
 
   it('refuse d’enregistrer un plat sans nom', async () => {
@@ -1637,5 +1662,116 @@ describe('la courbe des protéines', () => {
     expect(
       await screen.findByText(/Deux jours de repas notés suffisent à tracer les protéines/),
     ).toBeInTheDocument();
+  });
+});
+
+describe('rattraper un repas d’hier (M-01)', () => {
+  /** Le POST de création, une fois parti. */
+  async function posted(): Promise<FormData> {
+    return waitFor(() => {
+      const post = calls.find(
+        (call) => call.init?.method === 'POST' && call.url === '/api/nutrition',
+      );
+      expect(post).toBeDefined();
+      return post?.init?.body as FormData;
+    });
+  }
+
+  it('propose les deux jours servis, aujourd’hui d’abord, et n’envoie rien par défaut', async () => {
+    // Sans jour, le serveur date à l'instant : le cas courant ne change pas d'un octet.
+    stub();
+    renderNutrition();
+
+    await openSheet('Description');
+    const group = screen.getByRole('group', { name: 'Jour du repas' });
+    const buttons = within(group).getAllByRole('button');
+    expect(buttons.map((button) => button.textContent)).toEqual(['Aujourd’hui', 'Hier']);
+    expect(buttons[0]).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.type(screen.getByLabelText('Description'), 'salade');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
+
+    expect((await posted()).get('day')).toBeNull();
+  });
+
+  it('envoie la date servie d’hier, jamais une heure, et dit où le repas est allé', async () => {
+    stub((url, init) =>
+      init?.method === 'POST' && url === '/api/nutrition' ? json(201, VIEW.meals[0]) : undefined,
+    );
+    renderNutrition();
+
+    await openSheet('Description');
+    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    expect(screen.getByText(/à l’heure habituelle de ce type de repas/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
+
+    const form = await posted();
+    expect(form.get('day')).toBe('2026-07-26');
+    expect(form.get('datetime')).toBeNull();
+    // Le journal ne montre que la journée : sans ce mot, le repas aurait l'air perdu.
+    expect(await screen.findByText(/Il compte pour hier/)).toBeInTheDocument();
+  });
+
+  it('garde le jour quand on change de mode', async () => {
+    // On change la façon de noter, pas le repas qu'on note.
+    stub();
+    renderNutrition();
+
+    await openSheet('Description');
+    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Changer de mode' }));
+
+    expect(screen.getByText(/^Pour hier,/)).toBeInTheDocument();
+  });
+
+  it('s’ouvre sur hier depuis l’adresse du parcours du matin', async () => {
+    stub();
+    renderNutrition('/nutrition?ajout=hier');
+
+    expect(await screen.findByText(/^Pour hier,/)).toBeInTheDocument();
+    // Le mode « Description » attend le statut de l'IA : il n'est offert qu'avec une clé.
+    await userEvent.click(await screen.findByRole('button', { name: 'Description' }));
+    expect(screen.getByRole('button', { name: 'Hier' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('retient le jour dans le brouillon', async () => {
+    stub();
+    renderNutrition();
+
+    await openSheet('Description');
+    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+
+    expect(screen.getByRole('button', { name: 'Hier' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('refuse un brouillon dont le jour n’est plus servi, sans le rabattre sur aujourd’hui', async () => {
+    // Un brouillon d'avant minuit : son « hier » est devenu avant-hier.
+    stub();
+    localStorage.setItem(
+      'metric.meal-draft',
+      JSON.stringify({
+        mode: 'texte',
+        values: { comment: 'pâtes', day: '2026-07-25' },
+        rows: [],
+        proposed: [],
+        estimate: null,
+        saved_at: Date.now(),
+      }),
+    );
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+
+    expect(screen.getByText(/qui ne se note plus/)).toBeInTheDocument();
+    for (const button of within(screen.getByRole('group', { name: 'Jour du repas' })).getAllByRole(
+      'button',
+    )) {
+      expect(button).toHaveAttribute('aria-pressed', 'false');
+    }
+    expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeDisabled();
   });
 });
