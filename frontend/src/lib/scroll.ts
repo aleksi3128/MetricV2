@@ -34,3 +34,26 @@ export function useScrollTop(key: string, hash = ''): void {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [key, hash]);
 }
+
+/**
+ * Remet le contenu d'une feuille en haut, quand une étape commence.
+ *
+ * Une étape qui succède à une autre gardait la position de défilement de la précédente :
+ * on y arrive en appuyant au bas de celle-ci, et elle s'ouvrait au milieu. Vu deux fois à
+ * 402 px — la correction d'un repas (`MealDetail`), l'étape 2 d'une course après une
+ * capture lue (`NewActivitySheet`, M-14) —, jamais dans un test.
+ *
+ * Le conteneur qui défile est cherché en remontant, plutôt que nommé : il appartient à
+ * `Sheet`, et l'appelant n'a pas à connaître sa structure. `scrollTop` et non
+ * `scrollTo({ behavior })` : `base.css` ne pose `smooth` que sur la racine, et ce
+ * conteneur saute donc en place sans glisser — ce qu'on veut d'une étape qui commence.
+ */
+export function scrollSheetTop(node: HTMLElement | null): void {
+  for (let parent = node?.parentElement; parent; parent = parent.parentElement) {
+    const { overflowY } = getComputedStyle(parent);
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      parent.scrollTop = 0;
+      return;
+    }
+  }
+}

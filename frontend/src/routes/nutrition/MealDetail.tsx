@@ -48,6 +48,7 @@ import { nutritionApi, type Favorite, type Meal, type MealUpdate } from '@/featu
 import { usePhoto } from '@/features/nutrition/usePhoto';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
+import { scrollSheetTop } from '@/lib/scroll';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Nutrition.module.css';
@@ -60,29 +61,6 @@ import {
 import { mealTitle } from './meal-moment';
 import { NutrientGrid } from './NutrientGrid';
 import { NUTRIENTS } from './nutrients';
-
-/**
- * Remet le contenu de la feuille en haut.
- *
- * « Corriger » est au bas de la lecture : on y arrive en faisant défiler. Le formulaire
- * s'ouvrait alors à la même hauteur, le champ « Type » au-dessus du bord — une étape qui
- * commence au milieu. Vu à 402 px après avoir fait défiler la fiche, pas dans un test.
- *
- * Le conteneur qui défile est cherché en remontant, plutôt que nommé : il appartient à
- * `Sheet`, et cette fiche n'a pas à connaître sa structure.
- */
-function scrollSheetTop(node: HTMLElement | null): void {
-  for (let parent = node?.parentElement; parent; parent = parent.parentElement) {
-    const { overflowY } = getComputedStyle(parent);
-    if (overflowY === 'auto' || overflowY === 'scroll') {
-      // `scrollTop` et non `scrollTo({ behavior })` : `base.css` ne pose `smooth` que sur
-      // la racine, et ce conteneur saute donc en place sans glisser — ce qu'on veut d'une
-      // étape qui commence.
-      parent.scrollTop = 0;
-      return;
-    }
-  }
-}
 
 /** La photo en grand, ou sa place réservée pendant qu'elle arrive. */
 function Photo({ meal }: { meal: Meal }) {

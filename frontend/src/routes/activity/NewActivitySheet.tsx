@@ -37,20 +37,30 @@
  * **Corriger une activité n'est pas un assistant.** Reprendre une séance déjà écrite
  * garde le formulaire d'un seul tenant : on vient changer un champ, pas dérouler un
  * parcours. C'est `ActivitySheet` qui s'en charge, inchangée.
+ *
+ * ## La seule porte de la capture (M-14)
+ *
+ * La carte « Import d'une capture » (`AppleImport`) faisait la même chose en bas de
+ * `/activite`, par un autre parcours — et **écrivait plus** : dénivelé, calories, heures,
+ * paliers, `source=apple`, que cette feuille lisait puis jetait. Elle est partie après que
+ * tout ce qu'elle envoyait a été porté ici. Une capture lue passe donc par l'import
+ * (`importsApi.confirm`), une saisie à la main par `createRun`. Seul l'envoi de plusieurs
+ * captures à la fois n'a pas suivi : une suffit à l'usage.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { Button, Field, Sheet, Stepper } from '@/components/ui';
+import { AiBlock, Badge, Button, Field, Sheet, Stepper } from '@/components/ui';
 import { activityApi, type Other, type Run, type SwimDetail } from '@/features/activity/api';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { importsApi, type AppleDraft } from '@/features/imports/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { longDate, meters, num } from '@/lib/format';
+import { duration, longDate, meters, num, shortDate } from '@/lib/format';
 import { fileSize, reduceImage } from '@/lib/image';
 import { CROSS_CUTTING, keys } from '@/lib/query';
+import { scrollSheetTop } from '@/lib/scroll';
 import { useToast } from '@/lib/toast';
 
 import { PainCheck } from '../body/PainCheck';
@@ -114,7 +124,51 @@ interface RunFields {
   pace_min_km: string;
   cadence_spm: string;
   avg_hr: string;
+  /** Ces deux-là ne se demandent qu'après une capture, qui les porte (M-14). */
+  elevation_m: string;
+  calories: string;
   note: string;
+}
+
+/** Noms lisibles des champs qu'une capture peut ne pas porter (`IMP-03`). */
+const MISSING_NAMES: Record<string, string> = {
+  date: 'la date',
+  distance_km: 'la distance',
+  duration_min: 'la durée',
+  avg_hr: 'la FC moyenne',
+  elevation_m: 'le dénivelé',
+  calories: 'les calories',
+};
+
+/** Les champs qu'une capture pré-remplit, et que la marque « proposée » peut porter. */
+const READ_FIELDS = [
+  'date',
+  'duration_min',
+  'distance_km',
+  'pace_min_km',
+  'cadence_spm',
+  'avg_hr',
+  'elevation_m',
+  'calories',
+] as const;
+
+/**
+ * Un nombre lu, en texte de champ — vide s'il n'a pas été lu, jamais zéro. Virgule
+ * décimale, comme ce qu'on tape : le serveur la lit (`ACT-01`), et « 44.2 » détonnait
+ * dans un formulaire en français.
+ */
+function fieldText(value: number | null): string {
+  return value === null ? '' : String(value).replace('.', ',');
+}
+
+/** La majuscule d'un début de phrase — « Le dénivelé n'y était pas ». */
+function sentenceStart(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** Les paliers pleins — le reliquat de fin n'en est pas un, et ne se compte pas avec eux. */
+function fullSplits(draft: AppleDraft): number {
+  return draft.splits.filter((split) => !split.partial).length;
 }
 
 function RunWizard({
@@ -137,15 +191,23 @@ function RunWizard({
   const ai = useAiStatus();
   const client = useQueryClient();
 
-  const [fields, setFields] = useState<RunFields>({
+  const blank: RunFields = {
     date: today,
     duration_min: '',
     distance_km: '',
     pace_min_km: '',
     cadence_spm: '',
     avg_hr: '',
+    elevation_m: '',
+    calories: '',
     note: '',
-  });
+  };
+  const [fields, setFields] = useState<RunFields>(blank);
+  /**
+   * Ce que la capture a rendu, tant qu'on ne l'a pas refusé. Présent, l'enregistrement
+   * passe par l'import : c'est lui qui écrit les paliers, les heures et `source=apple`.
+   */
+  const [draft, setDraft] = useState<AppleDraft | null>(null);
   /** Ce qui vient de la capture et n'a pas encore été retouché (`IMP-02`). */
   const [proposed, setProposed] = useState<string[]>([]);
   /**
@@ -166,18 +228,60 @@ function RunWizard({
   /** Une sortie vélo ou marche qu'un `.fit` vient d'écrire : même suite qu'une course. */
   const [other, setOther] = useState<Other | null>(null);
 
+  /*
+   * On n'envoie que celui qu'on défend, quand les deux sont là. **Sans retouche, c'est la
+   * distance** : l'allure lue sur une capture est arrondie à la seconde, et le serveur,
+   * qui la fait gagner, recalculait 8,14 km en 8,142 (audit du 17 octobre, fiche 02 —
+   * corrigé dans `AppleImport`, jamais ici).
+   */
+  const distance = edited === 'pace' ? null : fields.distance_km || null;
+  const paceSent =
+    edited === 'pace' || fields.distance_km === '' ? fields.pace_min_km || null : null;
+
   const save = useMutation({
-    mutationFn: () =>
-      activityApi.createRun({
+    mutationFn: async () => {
+      if (draft === null) {
+        await activityApi.createRun({
+          date: fields.date,
+          duration_min: fields.duration_min,
+          distance_km: distance,
+          pace_min_km: paceSent,
+          cadence_spm: fields.cadence_spm || null,
+          avg_hr: fields.avg_hr || null,
+          note: fields.note || null,
+        });
+        return;
+      }
+      // Une capture lue : ce qu'elle porte et qu'aucun champ ne montre — calories totales,
+      // heures, paliers — traverse tel quel. Le retoucher au pouce donnerait à l'écran les
+      // moyens de fausser ce que le serveur vient de vérifier. `kind` est `run` : la
+      // feuille enregistre une course, même lue comme une séance.
+      await importsApi.confirm({
+        kind: 'run',
+        type: 'Course',
         date: fields.date,
         duration_min: fields.duration_min,
-        // On n'envoie que celui qu'on défend, quand les deux sont là.
-        distance_km: edited === 'pace' ? null : fields.distance_km || null,
-        pace_min_km: edited === 'distance' ? null : fields.pace_min_km || null,
+        distance_km: distance,
+        pace_min_km: paceSent,
         cadence_spm: fields.cadence_spm || null,
         avg_hr: fields.avg_hr || null,
+        elevation_m: fields.elevation_m || null,
+        calories: fields.calories || null,
         note: fields.note || null,
-      }),
+        total_calories: draft.total_calories,
+        start_time: draft.start_time,
+        end_time: draft.end_time,
+        split_length_km: draft.split_length_km,
+        splits: draft.splits.map((split) => ({
+          index: split.index,
+          duration_s: split.duration_s,
+          pace_min_km: split.pace_min_km,
+          cadence_spm: split.cadence_spm,
+          avg_hr: split.avg_hr,
+          elevation_m: split.elevation_m,
+        })),
+      });
+    },
     onSuccess: () => {
       invalidate();
       notify('Course enregistrée.', 'effort');
@@ -195,6 +299,17 @@ function RunWizard({
     if (name === 'distance_km') setEdited('distance');
     if (name === 'pace_min_km') setEdited('pace');
   };
+
+  /*
+   * L'étape 2 commence en haut. Elle gardait la position de l'étape 1 — d'où l'on vient
+   * d'appuyer sur « Lire la capture », au bas de la feuille —, et la phrase qui dit ce que
+   * la capture ne portait pas restait au-dessus du bord. Vu à 402 px, pas dans un test.
+   * Avant la peinture : un effet ordinaire montrerait d'abord l'ancienne position.
+   */
+  const top = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (step === 2) scrollSheetTop(top.current);
+  }, [step]);
 
   if (other !== null) {
     if (rated) {
@@ -298,29 +413,26 @@ function RunWizard({
           notify(`Sortie importée : ${other.sport}.`, 'effort');
           setOther(other);
         }}
-        onRead={(draft) => {
+        onRead={(read) => {
+          setDraft(read);
           setFields((current) => ({
             ...current,
-            date: draft.date ?? current.date,
-            duration_min: draft.duration_min == null ? '' : String(draft.duration_min),
-            distance_km: draft.distance_km == null ? '' : String(draft.distance_km),
-            pace_min_km: draft.pace_min_km == null ? '' : String(draft.pace_min_km),
-            cadence_spm: draft.cadence_spm == null ? '' : String(draft.cadence_spm),
-            avg_hr: draft.avg_hr == null ? '' : String(draft.avg_hr),
+            // **Une date non lue reste vide** : elle retombait sur aujourd'hui, une date que
+            // personne n'avait lue ni choisie. Le champ le dit, et l'enregistrement attend.
+            date: read.date ?? '',
+            duration_min: fieldText(read.duration_min),
+            distance_km: fieldText(read.distance_km),
+            pace_min_km: fieldText(read.pace_min_km),
+            cadence_spm: fieldText(read.cadence_spm),
+            avg_hr: fieldText(read.avg_hr),
+            elevation_m: fieldText(read.elevation_m),
+            calories: fieldText(read.calories),
           }));
+          // Ce que la capture portait vraiment : un champ lu, et non manquant.
           setProposed(
-            (
-              [
-                'date',
-                'duration_min',
-                'distance_km',
-                'pace_min_km',
-                'cadence_spm',
-                'avg_hr',
-              ] as const
-            )
-              .filter((field) => !draft.missing.includes(field))
-              .map(String),
+            READ_FIELDS.filter(
+              (field) => !read.missing.includes(field) && read[field] !== null,
+            ).map(String),
           );
           setEdited(null);
           onStep(2);
@@ -329,12 +441,87 @@ function RunWizard({
     );
   }
 
+  /** « Pas d'accord » : la lecture part, les champs avec, et l'on revient au choix. */
+  function reject(): void {
+    setDraft(null);
+    setFields(blank);
+    setProposed([]);
+    setEdited(null);
+    setError(null);
+    onStep(1);
+  }
+
+  const missing = draft?.missing.filter((field) => field in MISSING_NAMES) ?? [];
+
   return (
-    <div className={cx(styles.form, wide.grid4)}>
+    <div className={cx(styles.form, wide.grid4)} ref={top}>
       {error !== null && (
         <p className={cx(styles.error, wide.full)} role="alert">
           {error.message}
         </p>
+      )}
+
+      {draft !== null && (
+        <div className={cx(styles.form, wide.full)}>
+          <AiBlock
+            tag="Lecture de la capture"
+            actions={
+              <Button variant="quiet" onClick={reject}>
+                Pas d&apos;accord
+              </Button>
+            }
+          >
+            <p>
+              Les champs en pointillé viennent de la capture.{' '}
+              {missing.length > 0 ? (
+                <>
+                  <strong>
+                    {sentenceStart(missing.map((field) => MISSING_NAMES[field]).join(', '))}
+                  </strong>{' '}
+                  {missing.length > 1 ? 'n’y étaient pas' : 'n’y était pas'} : le champ reste vide
+                  plutôt que deviné.
+                </>
+              ) : (
+                <>Tout y était. Corrige ce qui te semble faux.</>
+              )}
+            </p>
+          </AiBlock>
+
+          {/* Une course, même lue comme une séance : c'est ce que cette feuille enregistre.
+              La carte d'import refusait la séance ; ici, la nature est déjà choisie. */}
+          {draft.kind === 'workout' && (
+            <p className={styles.importNotice} role="status">
+              La capture a été lue comme une séance. Enregistrée ici, elle compte comme une course.
+            </p>
+          )}
+
+          {/* Les paliers se valident en bloc : l'écran dit ce qu'ils sont, et ce que la
+              relecture du serveur en pense. */}
+          {draft.splits.length > 0 && (
+            <p className={styles.duplicate} role="status">
+              {draft.splits_trusted ? (
+                <>
+                  <Badge tone="effort">{fullSplits(draft)} paliers</Badge> relevés
+                  {draft.splits.length > fullSplits(draft) && ' et un reliquat de fin'}. La somme de
+                  leurs temps redonne la durée de la sortie — ils seront enregistrés avec elle.
+                </>
+              ) : (
+                <>
+                  <Badge tone="load">paliers douteux</Badge> {draft.splits_doubts.join(' ; ')}. Ils
+                  seront enregistrés tels quels : compare à ta capture avant d’enregistrer.
+                </>
+              )}
+            </p>
+          )}
+
+          {draft.duplicate !== null && (
+            <p className={styles.duplicate} role="status">
+              <Badge tone="load">doublon probable</Badge> {draft.duplicate.label} du{' '}
+              {shortDate(draft.duplicate.date)}, {duration(draft.duplicate.duration_min)} — déjà au
+              journal. À toi de voir : deux sorties le même jour, cela existe.
+            </p>
+          )}
+        </div>
       )}
 
       <div className={cx(styles.pair, wide.flat)}>
@@ -343,6 +530,7 @@ function RunWizard({
           type="date"
           value={fields.date}
           max={today}
+          hint={draft !== null && fields.date === '' ? 'non lue sur la capture' : undefined}
           error={error?.messageFor('date')}
           onChange={(event) => {
             set('date')(event.target.value);
@@ -351,7 +539,13 @@ function RunWizard({
         <Field
           label="Temps"
           placeholder="44:12 ou 1h30"
-          hint="mm:ss, h:mm:ss ou minutes"
+          hint={
+            // Des minutes décimales — 40,98 — ne se lisent pas : la durée lue se redit
+            // telle qu'une montre l'écrit, tant qu'on ne l'a pas retouchée (fiche 23).
+            draft?.duration_min != null && proposed.includes('duration_min')
+              ? `lue : ${duration(draft.duration_min)}`
+              : 'mm:ss, h:mm:ss ou minutes'
+          }
           value={fields.duration_min}
           error={error?.messageFor('duration_min')}
           onChange={(event) => {
@@ -413,6 +607,33 @@ function RunWizard({
         />
       </div>
 
+      {/* Ce que porte une capture et qu'une saisie à la main ne demande pas : sans elle, ces
+          deux champs n'ont pas de raison d'être là. */}
+      {draft !== null && (
+        <div className={cx(styles.logGrid, wide.flat)}>
+          <Stepper
+            label="Dénivelé (m)"
+            inputMode="numeric"
+            value={fields.elevation_m}
+            onChange={set('elevation_m')}
+            step={10}
+            min={0}
+            proposed={proposed.includes('elevation_m')}
+            error={error?.messageFor('elevation_m')}
+          />
+          <Stepper
+            label="Calories"
+            inputMode="numeric"
+            value={fields.calories}
+            onChange={set('calories')}
+            step={25}
+            min={0}
+            proposed={proposed.includes('calories')}
+            error={error?.messageFor('calories')}
+          />
+        </div>
+      )}
+
       <div className={wide.span2}>
         <Field
           label="Ressenti"
@@ -430,7 +651,9 @@ function RunWizard({
           className={styles.commit}
           busy={save.isPending}
           disabled={
-            fields.duration_min === '' || (fields.distance_km === '' && fields.pace_min_km === '')
+            fields.date === '' ||
+            fields.duration_min === '' ||
+            (fields.distance_km === '' && fields.pace_min_km === '')
           }
           onClick={() => {
             save.mutate();
@@ -448,6 +671,12 @@ function RunWizard({
           Retour
         </Button>
       </div>
+
+      {fields.date === '' && (
+        <p className={cx(styles.empty, wide.full)}>
+          La date manque encore : elle n’était pas sur la capture.
+        </p>
+      )}
 
       {fields.duration_min !== '' && fields.distance_km === '' && fields.pace_min_km === '' && (
         <p className={styles.empty}>
@@ -511,7 +740,11 @@ function AppleStep({
   }, [preview]);
 
   const choose = useMutation({
-    mutationFn: async (chosen: File | null) => (chosen === null ? null : reduceImage(chosen)),
+    // Qualité 0,92, celle de l'ancienne carte d'import : une capture porte des **chiffres**,
+    // et le serveur la réencode une seconde fois. Deux compressions à 0,8 font baver un
+    // « 5:12 » en « 5:l2 » — un import qui rate, plus dur à comprendre qu'un refus.
+    mutationFn: async (chosen: File | null) =>
+      chosen === null ? null : reduceImage(chosen, { quality: 0.92 }),
     onSuccess: (result) => {
       setPreview((current) => {
         if (current) URL.revokeObjectURL(current);
@@ -526,8 +759,9 @@ function AppleStep({
   });
 
   const read = useMutation({
-    // Une seule capture ici : cette étape lit un résumé pour pré-remplir une saisie, et
-    // n'a pas de tableau de paliers à recoller. L'import de `/activite` en accepte deux.
+    // Une seule capture : c'est la seule porte depuis M-14, et l'envoi de plusieurs à la
+    // fois — le résumé, puis la liste des paliers — n'a pas été repris. Des paliers lus sur
+    // une capture unique passent quand même.
     mutationFn: (screenshot: File) => importsApi.analyze([screenshot]),
     onSuccess: onRead,
     onError: (caught: unknown) => {

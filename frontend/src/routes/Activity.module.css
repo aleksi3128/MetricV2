@@ -496,15 +496,6 @@
 
 /* Une capture de téléphone est très haute : la borner évite qu'elle pousse le
    formulaire hors de l'écran, sur mobile où c'est justement le geste suivant. */
-/* Les aperçus, côte à côte dès qu'il y en a deux — le résumé et les paliers. En colonne
-   ils poussaient le bouton « Lire » à 440 px du haut, c'est-à-dire hors de l'écran sur un
-   téléphone : on ne doit pas avoir à défiler pour déclencher ce qu'on vient de préparer. */
-.shots {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: var(--s2);
-}
-
 .shot {
   width: 100%;
   max-height: 220px;
@@ -712,36 +703,6 @@
 
 .runLink:active {
   color: var(--signal);
-}
-
-/* Une vignette et son retrait, à l'étape de vérification. `figure` porte le retrait en
-   surimpression plutôt qu'en dessous : sur une grille de trois captures, un bouton par
-   ligne sous chaque image doublerait la hauteur de l'étape. */
-.shotBox {
-  position: relative;
-  margin: 0;
-}
-
-.shotDrop {
-  position: absolute;
-  inset-inline-end: var(--s2);
-  inset-block-start: var(--s2);
-  min-height: var(--tap);
-  padding-inline: var(--s3);
-  border: 1px solid var(--line);
-  border-radius: var(--r-btn);
-  /* Opaque et non translucide : posé sur une capture d'écran, un fond à demi transparent
-     prend la couleur de ce qu'il recouvre et devient illisible une fois sur deux. */
-  background: var(--surface);
-  color: var(--ink-mid);
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  cursor: pointer;
-}
-
-.shotDrop:active {
-  color: var(--recover);
-  border-color: var(--recover);
 }
 
 /* ── Séances Cadence ──────────────────────────────────

@@ -21,7 +21,6 @@ import { useNavigate } from 'react-router';
 
 import { Button, Card, CardHead, LinkButton, PageHead, Rule } from '@/components/ui';
 import { activityApi, type ActivityItem, type SwimDetail } from '@/features/activity/api';
-import { useAiStatus } from '@/features/ai/useAiStatus';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { keys } from '@/lib/query';
@@ -33,7 +32,6 @@ import { NewActivitySheet } from './activity/NewActivitySheet';
 import { SwimEntrySheet } from './activity/SwimEntrySheet';
 import { OtherSheet } from './activity/OtherSheet';
 import { SwimSheet } from './planning/SwimSheet';
-import { AppleImport } from './activity/AppleImport';
 import { CircuitsSection } from './activity/Circuits.section';
 import { History } from './activity/History';
 import { useInvalidateActivity } from './activity/shared';
@@ -41,7 +39,6 @@ import { useInvalidateActivity } from './activity/shared';
 export function Activity() {
   const invalidate = useInvalidateActivity();
   const { notify } = useToast();
-  const ai = useAiStatus();
   const navigate = useNavigate();
 
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
@@ -183,16 +180,9 @@ export function Activity() {
         }}
       />
 
-      {/* Même intention que le formulaire de course, par une autre porte. Sans clé, la
-          carte n'apparaît pas : un import qui ne peut pas lire n'a rien à proposer, et
-          le formulaire manuel suffit à tout (`IA-07`). L'état de l'assistance se lit
-          dans Réglages. */}
-      {ai.enabled && (
-        <>
-          <Rule>Import</Rule>
-          <AppleImport today={today} />
-        </>
-      )}
+      {/* La carte « Import d'une capture » est partie (M-14) : elle faisait, par un autre
+          parcours, ce que fait l'étape 1 de « Enregistrer une course » — qui envoie
+          désormais tout ce qu'elle envoyait. */}
 
       <OtherSheet
         item={otherOpened}
