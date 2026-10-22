@@ -218,8 +218,7 @@ const TRENDS = {
     easy_share: 0.12,
     moderate_share: 0.1,
     hard_share: 0.78,
-    distribution_text:
-      'Sur 14 jours : 12 % facile, 10 % modéré, 78 % dur. Moins de 70 % de facile : la prochaine sortie est facile.',
+    distribution_text: 'Sur 14 jours : 12 % facile, 10 % modéré, 78 % dur.',
     last_hard: '2026-09-19',
     unmeasured: 0,
     weeks: [
@@ -426,6 +425,18 @@ describe('Toutes tes courses — la charge et ce qui va avec une bonne sortie', 
     expect(shares).toHaveTextContent('Facile');
     expect(shares).toHaveTextContent('78 %');
     expect(screen.getByText(/Dernière séance dure : samedi 19 septembre/)).toBeInTheDocument();
+  });
+
+  it('nomme sa charge de course et renvoie à la charge tous sports (M-02)', async () => {
+    stub(PROGRESS);
+    renderRuns();
+
+    expect(await screen.findByText('Charge de course (FC)')).toBeInTheDocument();
+    expect(screen.queryByText('Charge d’entraînement')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Charge tous sports' })).toHaveAttribute(
+      'href',
+      '/charge',
+    );
   });
 
   it('met les constats passés d’abord, et replie ceux qui attendent', async () => {

@@ -160,11 +160,11 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         easy = (seconds[0] + seconds[1]) / counted
         moderate = seconds[2] / counted
         hard = (seconds[3] + seconds[4]) / counted
+        # Le constat seul (M-02) : conseiller la sortie suivante est le métier du coach, qui
+        # lit la même part contre son propre plancher (`coach/frame.py`).
         distribution_text = (
             f"Sur 14 jours : {_pct(easy)} facile, {_pct(moderate)} modéré, {_pct(hard)} dur."
         )
-        if easy < EASY_SHARE_MIN:
-            distribution_text += " Moins de 70 % de facile : la prochaine sortie est facile."
     else:
         easy = moderate = hard = None  # type: ignore[assignment]
         distribution_text = "Pas de répartition : aucune sortie avec zones sur 14 jours."

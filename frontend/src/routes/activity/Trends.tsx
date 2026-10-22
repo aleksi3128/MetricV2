@@ -1,6 +1,11 @@
 /**
  * La charge des semaines et ce qui va avec une bonne sortie (`docs/coach-course.md` §6).
  *
+ * C'est la charge **de course**, pondérée par zone de FC, et elle le dit dans son titre :
+ * `/charge` porte l'autre, tous sports, par l'effort perçu. Deux charges sous le même mot
+ * se lisaient comme deux verdicts sur la même chose (M-02). Elle ne conseille pas non
+ * plus la sortie suivante : c'est le métier du coach.
+ *
  * Deux cartes, **aucun chiffre décidé ici** : charges, parts, rapport et phrases arrivent
  * calculés et rédigés. La seconde carte est la plus exposée du projet à la valeur inventée
  * — une corrélation sur dix points se lit dans n'importe quel sens —, et c'est pour cela
@@ -10,7 +15,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { Card, Empty, Rule, Skeleton, Stat } from '@/components/ui';
+import { Card, Empty, LinkButton, Rule, Skeleton, Stat } from '@/components/ui';
 import { activityApi, type RunCorrelation, type RunLoad } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -82,6 +87,9 @@ function Load({ load }: { load: RunLoad }) {
             max ni allure seuil pour la compter.
           </p>
         )}
+        <LinkButton className={styles.more} variant="ghost" to="/charge">
+          Charge tous sports
+        </LinkButton>
       </Card>
       <Card>
         <ul className={styles.meters} aria-label="Charge par semaine">
@@ -186,7 +194,7 @@ export function Trends() {
   }
   return (
     <>
-      <Rule>Charge d’entraînement</Rule>
+      <Rule>Charge de course (FC)</Rule>
       <Load load={data.load} />
       <Rule>Ce qui va avec tes bonnes sorties</Rule>
       <Correlations items={data.correlations} />

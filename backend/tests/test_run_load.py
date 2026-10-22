@@ -74,12 +74,13 @@ def test_a_week_twice_the_usual_says_not_to_climb() -> None:
     assert "on ne fait plus que du facile" in summary.ratio_text
 
 
-def test_too_little_easy_running_is_said() -> None:
+def test_the_split_is_stated_and_the_advice_left_to_the_coach() -> None:
+    """M-02 : la page Courses dit la répartition ; la sortie suivante, c'est le coach."""
     hard = load.Session(day=TODAY, run_id="h", duration_min=35, zone_seconds=(0, 40, 200, 1800, 60))
     summary = load.summarize(TODAY, [hard])
 
     assert summary.easy_share is not None and summary.easy_share < 0.7
-    assert "la prochaine sortie est facile" in summary.distribution_text
+    assert summary.distribution_text == "Sur 14 jours : 2 % facile, 10 % modéré, 89 % dur."
     assert summary.last_hard == TODAY
 
 
