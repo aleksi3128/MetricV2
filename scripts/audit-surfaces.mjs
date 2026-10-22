@@ -88,8 +88,13 @@ const SURFACES = [
   ["/assistant", "Mémoire", "carnet de l’assistant"],
   ["/assistant", "Discussions", "fil de l’assistant"],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
-  // le jour où elle est écrite, pas le jour où un défaut s'y découvre.
+  // le jour où elle est écrite, pas le jour où un défaut s'y découvre. Depuis M-23, elle
+  // porte en tête le segment du jour et la bande des favoris : aucune pastille n'est
+  // appuyée — ce serait écrire un repas.
   ["/nutrition", "Ajouter un repas", "modes de saisie d’un repas"],
+  // La même feuille, ouverte par « Ajouter un repas » de « Noter » (M-23) : la barre
+  // d'onglets mène à l'adresse, et l'adresse ouvre. Deux appuis, aucun qui écrive.
+  ["/activite", ["Noter", "Ajouter un repas"], "repas depuis « Noter »"],
   // Le formulaire du repas composé, et les deux surfaces qui vivent au fond : le choix
   // d'un chemin (`NUT-23`), puis le scan (`NUT-13`). Quatre appuis au plus, tous nommés,
   // et aucun ne remplit ni ne valide quoi que ce soit.

@@ -545,8 +545,15 @@ export const nutritionApi = {
     fiber_g?: number | null;
   }) => request<Favorite>('/api/nutrition/favorites', { method: 'POST', body: payload }),
 
-  replayFavorite: (favoriteId: string) =>
-    request<Meal>(`/api/nutrition/favorites/${favoriteId}/replay`, { method: 'POST' }),
+  /**
+   * Rejoue un favori. `day` est une date **servie** dans `days` (M-23) ; absente, le
+   * serveur date à l'instant même — la règle de `create`.
+   */
+  replayFavorite: (favoriteId: string, day?: string) =>
+    request<Meal>(`/api/nutrition/favorites/${favoriteId}/replay`, {
+      method: 'POST',
+      body: day ? { day } : {},
+    }),
 
   removeFavorite: (id: number, token: string) =>
     request<undefined>(`/api/nutrition/favorites/${id}`, {

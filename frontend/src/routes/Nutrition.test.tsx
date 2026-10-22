@@ -415,30 +415,17 @@ describe('écran Nutrition', () => {
     expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeDisabled();
   });
 
-  it('enregistre les sucres d’un repas récurrent', async () => {
-    // Le fichier porte la colonne depuis toujours, la carte ne la demandait pas : un
-    // repas rejoué arrivait donc au journal avec un sucre à vide, et le plafond
-    // quotidien comptait faux sur tout ce qui revient chaque jour.
-    stub();
+  it('ne porte plus de formulaire de création dans la carte Favoris', async () => {
+    // M-23 : un nom et cinq nombres déjà connus du journal. La fiche d'un repas l'y fait
+    // entrer d'un appui — c'est la seule porte, et la carte la nomme quand elle est vide.
+    stub((url) => (url === '/api/nutrition' ? json(200, { ...VIEW, favorites: [] }) : undefined));
     renderNutrition();
 
-    await userEvent.type(await screen.findByLabelText('Nom'), 'Skyr');
-    await userEvent.type(screen.getByLabelText('Protéines'), '32');
-    await userEvent.type(screen.getByLabelText('Sucres'), '12');
-    await userEvent.type(screen.getByLabelText('Calories'), '480');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer en favori' }));
-
-    await waitFor(() => {
-      const post = calls.find(
-        (call) => call.url.includes('/favorites') && call.init?.method === 'POST',
-      );
-      expect(JSON.parse(post?.init?.body as string)).toMatchObject({
-        name: 'Skyr',
-        protein_g: 32,
-        added_sugar_g: 12,
-        calories: 480,
-      });
-    });
+    expect(
+      await screen.findByText(/depuis sa fiche : « Ajouter aux favoris »/),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Nom')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Enregistrer en favori' })).not.toBeInTheDocument();
   });
 
   it('affiche les sucres d’un repas récurrent qui en porte', async () => {
@@ -467,17 +454,77 @@ describe('écran Nutrition', () => {
     });
   });
 
-  it('rejoue un repas récurrent en une action', async () => {
-    // `NUT-10`.
+  it('rejoue un favori d’un appui depuis la feuille, sans confirmation', async () => {
+    // `NUT-10`, déplacé par M-23 : la carte de la page ne rejoue plus.
     stub();
     renderNutrition();
 
-    await userEvent.click(await screen.findByRole('button', { name: /Rejouer Skyr \+ flocons/ }));
+    expect(
+      await screen.findByRole('button', { name: 'Retirer Skyr + flocons' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Rejouer/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un repas' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Ajouter « Skyr + flocons »' }),
+    );
 
     await waitFor(() => {
       const replay = calls.find((call) => call.url.includes('/favorites/f1/replay'));
       expect(replay?.init?.method).toBe('POST');
+      // Aujourd'hui s'écrit sans jour : le serveur date à l'instant même.
+      expect(JSON.parse(replay?.init?.body as string)).toEqual({});
     });
+  });
+
+  it('rejoue un favori au jour choisi dans la feuille', async () => {
+    // Reste de M-01 : le rejeu se datait toujours de l'instant.
+    stub((url) =>
+      url.includes('/favorites/f1/replay')
+        ? json(201, { ...VIEW.meals[1], comment: 'Skyr + flocons' })
+        : undefined,
+    );
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Ajouter « Skyr + flocons » pour hier' }),
+    );
+
+    await waitFor(() => {
+      const replay = calls.find((call) => call.url.includes('/favorites/f1/replay'));
+      expect(JSON.parse(replay?.init?.body as string)).toEqual({ day: '2026-07-26' });
+    });
+    expect(await screen.findByText(/Il compte pour hier/)).toBeInTheDocument();
+  });
+
+  it('dit dans la feuille le refus d’un rejeu', async () => {
+    stub((url) =>
+      url.includes('/favorites/f1/replay')
+        ? json(422, {
+            code: 'validation_error',
+            message: 'Un repas se note aujourd’hui ou hier. Choisis l’un des deux.',
+            fields: [],
+          })
+        : undefined,
+    );
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter « Skyr + flocons »' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('aujourd’hui ou hier');
+  });
+
+  it('ne dessine pas la bande des favoris quand il n’y en a aucun', async () => {
+    stub((url) => (url === '/api/nutrition' ? json(200, { ...VIEW, favorites: [] }) : undefined));
+    renderNutrition();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
+
+    expect(screen.queryByRole('group', { name: 'Favoris' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Rien n’est enregistré avant ta validation/)).toBeInTheDocument();
   });
 
   it('renvoie le jeton de la ligne pour supprimer un repas', async () => {
@@ -1723,6 +1770,18 @@ describe('rattraper un repas d’hier (M-01)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Changer de mode' }));
 
     expect(screen.getByText(/^Pour hier,/)).toBeInTheDocument();
+  });
+
+  it('s’ouvre depuis l’adresse de « Noter », sur le jour par défaut', async () => {
+    // M-23 : « Ajouter un repas » dans « Noter » ouvre la feuille, pas le haut de la page.
+    stub();
+    renderNutrition('/nutrition?ajout=repas');
+
+    expect(await screen.findByRole('group', { name: 'Favoris' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Aujourd’hui' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('s’ouvre sur hier depuis l’adresse du parcours du matin', async () => {

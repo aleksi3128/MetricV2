@@ -401,6 +401,16 @@ class ComposedMealPayload(ComposePayload):
     day: str | None = Field(default=None, max_length=10)
 
 
+class ReplayPayload(BaseModel):
+    """Le jour où rejouer un favori (M-23) — le même champ, et la même règle, que la
+    création d'un repas : `today`, `yesterday` ou une date servie. Absent : maintenant.
+
+    Le corps entier est facultatif : un rejeu sans corps reste ce qu'il était.
+    """
+
+    day: str | None = Field(default=None, max_length=10)
+
+
 class Product(BaseModel):
     """Un produit lu chez Open Food Facts, traduit en ingrédient (`NUT-13`).
 

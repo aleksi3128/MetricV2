@@ -473,6 +473,57 @@ def test_replaying_uses_the_suggested_type(app_client: TestClient, auth: dict[st
     assert meal["meal_type"] in [kind.value for kind in MealType]
 
 
+def test_a_favorite_replayed_for_yesterday_lands_yesterday(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """M-23 : la feuille rejoue au jour choisi. Hier, l'heure est celle du type (M-01)."""
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+    yesterday = today_local() - timedelta(days=1)
+
+    response = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
+        json={"day": yesterday.isoformat()},
+        headers=auth,
+    )
+
+    assert response.status_code == 201, response.text
+    meal = response.json()
+    noted = datetime.fromisoformat(meal["datetime"])
+    assert noted.date() == yesterday
+    assert noted.time() == TYPICAL_TIME[MealType(meal["meal_type"])]
+    assert app_client.get(NUTRITION, headers=auth).json()["meals"] == []
+
+
+def test_a_favorite_replayed_without_a_day_lands_now(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Un corps vide, ou sans jour, garde le rejeu d'avant : maintenant."""
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+
+    meal = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay", json={}, headers=auth
+    ).json()
+
+    assert datetime.fromisoformat(meal["datetime"]).date() == today_local()
+
+
+def test_a_favorite_is_not_replayed_on_a_day_that_is_not_served(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Avant-hier : le même refus que la saisie, sur le même champ, et rien d'écrit."""
+    favorite = app_client.post(f"{NUTRITION}/favorites", json={"name": "Skyr"}, headers=auth).json()
+
+    response = app_client.post(
+        f"{NUTRITION}/favorites/{favorite['favorite_id']}/replay",
+        json={"day": (today_local() - timedelta(days=2)).isoformat()},
+        headers=auth,
+    )
+
+    assert response.status_code == 422
+    assert [field["field"] for field in response.json()["fields"]] == ["body.day"]
+    assert MEALS_FILE not in dav.files
+
+
 def test_replaying_an_unknown_favorite_is_refused(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:

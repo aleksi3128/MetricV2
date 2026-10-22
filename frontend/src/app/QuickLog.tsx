@@ -238,7 +238,9 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
           label="Ajouter un repas"
           hint="→"
           onClick={() => {
-            go('/nutrition');
+            // La feuille d'ajout elle-même, et non le haut de /nutrition, où il fallait
+            // encore trouver le bouton (M-23) — comme « Noter une séance » ci-dessous.
+            go('/nutrition?ajout=repas');
           }}
         />
         <SheetRow

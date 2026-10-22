@@ -18,7 +18,6 @@ import {
   Button,
   Card,
   Empty,
-  Field,
   LinkButton,
   PageHead,
   Ring,
@@ -158,71 +157,23 @@ function MealCard({
   );
 }
 
-// ── Favoris ───────────────────────────────────────────
+// ── Favoris ───────────────────────────────────────
 
 /**
- * Ce qui revient chaque jour, rejoué en une action.
+ * Les favoris, à gérer : les relire, en retirer un.
  *
- * **Les sucres manquaient.** Le fichier les porte depuis toujours — `favorites.csv` a la
- * colonne, le schéma la valide, le service la relit —, mais la carte ne les demandait pas
- * et ne les affichait pas. Un repas récurrent enregistré ici arrivait donc au journal avec
- * ses protéines et ses calories, et un sucre à vide : le plafond quotidien comptait faux
- * pour tout ce qui se rejoue.
+ * **Ils se rejouent dans la feuille d'ajout** (M-23), au jour choisi : un « rejouer » ici,
+ * sous l'historique, était à 2 800 px du haut et datait toujours de l'instant.
+ *
+ * **Le formulaire de création est parti.** Il occupait la carte en permanence — un nom et
+ * cinq nombres déjà connus du journal —, alors que la fiche d'un repas fait entrer un repas
+ * aux favoris d'un appui. C'est la seule porte, et l'état vide la nomme. Un favori sans
+ * description ne se crée donc plus à la main : c'était déjà la règle de la fiche.
  */
 function Favorites({ favorites }: { favorites: Favorite[] }) {
   const invalidate = useInvalidateNutrition();
   const { notify } = useToast();
-  const [name, setName] = useState('');
-  const [protein, setProtein] = useState('');
-  const [sugar, setSugar] = useState('');
-  const [calories, setCalories] = useState('');
-  const [saturatedFat, setSaturatedFat] = useState('');
-  const [fiber, setFiber] = useState('');
   const [armed, setArmed] = useState<number | null>(null);
-
-  /** Un champ de texte vers le nombre que l'API attend, ou `null` s'il est vide. */
-  function decimal(value: string): number | null {
-    const cleaned = value.replace(',', '.').trim();
-    if (cleaned === '') return null;
-    const parsed = Number.parseFloat(cleaned);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  const add = useMutation({
-    mutationFn: () =>
-      nutritionApi.addFavorite({
-        name,
-        protein_g: decimal(protein),
-        added_sugar_g: decimal(sugar),
-        calories: decimal(calories) === null ? null : Math.round(decimal(calories) ?? 0),
-        saturated_fat_g: decimal(saturatedFat),
-        fiber_g: decimal(fiber),
-      }),
-    onSuccess: () => {
-      invalidate();
-      notify('Repas favori enregistré.', 'signal');
-      setName('');
-      setProtein('');
-      setSugar('');
-      setCalories('');
-      setSaturatedFat('');
-      setFiber('');
-    },
-    onError: (caught: unknown) => {
-      notify(caught instanceof ApiError ? caught.message : 'Ajout impossible.', 'recover');
-    },
-  });
-
-  const replay = useMutation({
-    mutationFn: (favorite: Favorite) => nutritionApi.replayFavorite(favorite.favorite_id),
-    onSuccess: (meal) => {
-      invalidate();
-      notify(`« ${meal.comment ?? 'Repas'} » ajouté au journal.`, 'effort');
-    },
-    onError: (caught: unknown) => {
-      notify(caught instanceof ApiError ? caught.message : 'Rejeu impossible.', 'recover');
-    },
-  });
 
   const remove = useMutation({
     mutationFn: (favorite: Favorite) => nutritionApi.removeFavorite(favorite.id, favorite.token),
@@ -246,127 +197,57 @@ function Favorites({ favorites }: { favorites: Favorite[] }) {
         Favoris
       </h3>
 
-      {favorites.length > 0 && (
-        <div className={styles.favorites}>
-          {favorites.map((favorite) => (
-            <div className={styles.favorite} key={favorite.favorite_id}>
-              <span>
-                {favorite.name}
-                <br />
-                <span className={styles.favoriteMacros}>
-                  {favorite.protein_g !== null ? `${num(favorite.protein_g, 0)} g prot.` : '—'}
-                  {favorite.added_sugar_g !== null &&
-                    ` · ${num(favorite.added_sugar_g, 0)} g sucres`}
-                  {favorite.calories !== null && ` · ${integer(favorite.calories)} kcal`}
+      {favorites.length > 0 ? (
+        <>
+          <p className={styles.note}>Ils s’ajoutent d’un appui dans « Ajouter un repas ».</p>
+          <div className={styles.favorites}>
+            {favorites.map((favorite) => (
+              <div className={styles.favorite} key={favorite.favorite_id}>
+                <span>
+                  {favorite.name}
+                  <br />
+                  <span className={styles.favoriteMacros}>
+                    {favorite.protein_g !== null ? `${num(favorite.protein_g, 0)} g prot.` : '—'}
+                    {favorite.added_sugar_g !== null &&
+                      ` · ${num(favorite.added_sugar_g, 0)} g sucres`}
+                    {favorite.calories !== null && ` · ${integer(favorite.calories)} kcal`}
+                  </span>
                 </span>
-              </span>
-              <button
-                type="button"
-                className={styles.iconButton}
-                aria-label={`Rejouer ${favorite.name}`}
-                onClick={() => {
-                  replay.mutate(favorite);
-                }}
-              >
-                rejouer
-              </button>
-              {/* Deux appuis pour détruire : le projet n'a pas d'annulation. Et un
-                  libellé plutôt qu'un « ✕ » — le glyphe faisait une cible de 25 px de
-                  large, et « retirer » dit ce qu'il fait. */}
-              <button
-                type="button"
-                className={cx(
-                  styles.iconButton,
-                  styles.danger,
-                  armed === favorite.id && styles.armed,
-                )}
-                aria-label={
-                  armed === favorite.id
-                    ? `Retirer ${favorite.name} — confirmer`
-                    : `Retirer ${favorite.name}`
-                }
-                disabled={remove.isPending}
-                onClick={() => {
-                  if (armed !== favorite.id) {
-                    setArmed(favorite.id);
-                    return;
+                {/* Deux appuis pour détruire : le projet n'a pas d'annulation. Et un
+                    libellé plutôt qu'un « ✕ » — le glyphe faisait une cible de 25 px de
+                    large, et « retirer » dit ce qu'il fait. */}
+                <button
+                  type="button"
+                  className={cx(
+                    styles.iconButton,
+                    styles.danger,
+                    armed === favorite.id && styles.armed,
+                  )}
+                  aria-label={
+                    armed === favorite.id
+                      ? `Retirer ${favorite.name} — confirmer`
+                      : `Retirer ${favorite.name}`
                   }
-                  remove.mutate(favorite);
-                }}
-              >
-                {armed === favorite.id ? 'confirmer ?' : 'retirer'}
-              </button>
-            </div>
-          ))}
-        </div>
+                  disabled={remove.isPending}
+                  onClick={() => {
+                    if (armed !== favorite.id) {
+                      setArmed(favorite.id);
+                      return;
+                    }
+                    remove.mutate(favorite);
+                  }}
+                >
+                  {armed === favorite.id ? 'confirmer ?' : 'retirer'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className={styles.note}>
+          Aucun favori. Un repas du journal y entre depuis sa fiche : « Ajouter aux favoris ».
+        </p>
       )}
-
-      <form
-        className={styles.form}
-        onSubmit={(event) => {
-          event.preventDefault();
-          add.mutate();
-        }}
-        noValidate
-      >
-        <Field
-          label="Nom"
-          placeholder="Skyr + flocons"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-          }}
-        />
-        {/* Les trois macros, au même rang. Les sucres n'étaient pas là, et le plafond
-            quotidien comptait donc faux sur tout ce qui se rejoue. */}
-        <div className={styles.triple}>
-          <Field
-            label="Protéines"
-            inputMode="decimal"
-            value={protein}
-            onChange={(event) => {
-              setProtein(event.target.value);
-            }}
-          />
-          <Field
-            label="Sucres"
-            inputMode="decimal"
-            value={sugar}
-            onChange={(event) => {
-              setSugar(event.target.value);
-            }}
-          />
-          <Field
-            label="Calories"
-            inputMode="numeric"
-            value={calories}
-            onChange={(event) => {
-              setCalories(event.target.value);
-            }}
-          />
-          {/* `NUT-16` : sans elles, un repas rejoué arriverait au journal sans ses fibres —
-              le défaut des sucres, une seconde fois. */}
-          <Field
-            label="AG saturés"
-            inputMode="decimal"
-            value={saturatedFat}
-            onChange={(event) => {
-              setSaturatedFat(event.target.value);
-            }}
-          />
-          <Field
-            label="Fibres"
-            inputMode="decimal"
-            value={fiber}
-            onChange={(event) => {
-              setFiber(event.target.value);
-            }}
-          />
-        </div>
-        <Button type="submit" variant="ghost" busy={add.isPending} disabled={name.trim() === ''}>
-          Enregistrer en favori
-        </Button>
-      </form>
     </Card>
   );
 }
@@ -390,18 +271,21 @@ export function Nutrition() {
   const invalidate = useInvalidateNutrition();
   const { notify } = useToast();
   /**
-   * `?ajout=hier` ouvre la feuille sur hier — c'est l'adresse où mène « Aucun repas noté
-   * hier » du parcours du matin (M-01). Même motif que `/assistant?ouvre=…` : l'adresse
-   * ouvre, la fermeture la retire, sans quoi « précédent » rouvrirait la feuille.
+   * `?ajout=…` ouvre la feuille : `?ajout=hier` sur hier — l'adresse où mène « Aucun repas
+   * noté hier » du parcours du matin (M-01) —, toute autre valeur sur le jour par défaut
+   * — `?ajout=repas`, où mène « Ajouter un repas » de « Noter » (M-23). Même motif que
+   * `/assistant?ouvre=…` : l'adresse ouvre, la fermeture la retire, sans quoi « précédent »
+   * rouvrirait la feuille.
    *
    * « hier » se traduit en **date servie** par `days` ; l'écran ne la calcule pas.
    */
   const [params, setParams] = useSearchParams();
   const askedDay = params.get('ajout') === 'hier' ? 'yesterday' : null;
   const [opened, setOpened] = useState(false);
-  // Dérivé, pas recopié : le parcours du matin est une feuille globale, et son lien peut
-  // être suivi alors que cet écran est déjà monté — l'adresse change, l'état non.
-  const adding = opened || askedDay !== null;
+  // Dérivé, pas recopié : le parcours du matin et « Noter » sont des feuilles globales, et
+  // leur lien peut être suivi alors que cet écran est déjà monté — l'adresse change, l'état
+  // non.
+  const adding = opened || params.has('ajout');
 
   function closeSheet(): void {
     setOpened(false);
@@ -661,6 +545,7 @@ export function Nutrition() {
           ingredients={data.ingredients}
           days={data.days}
           initialDay={data.days.find((day) => day.key === askedDay)?.date}
+          favorites={data.favorites}
           onClose={closeSheet}
           onSaved={() => {
             closeSheet();

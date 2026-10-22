@@ -36,6 +36,18 @@
  * le serveur sert, **aujourd'hui par défaut**, et renvoie la date reçue : elle ne calcule
  * ni la veille ni une heure. Le jour vit dans `values`, donc dans le brouillon ; il
  * survit à « Changer de mode », qui change la façon de noter, pas le repas qu'on note.
+ *
+ * ## Les favoris en tête (M-23)
+ *
+ * Le petit-déjeuner de tous les jours est le repas le plus court à noter, et il était le
+ * plus loin : « rejouer » vivait sur la page, sous l'historique, à 2 800 px du haut. Il
+ * ouvre maintenant la feuille, **avant** les trois modes, dans une bande qui défile : un
+ * appui rejoue le favori au jour choisi et ferme la feuille. **Sans confirmation** — c'est
+ * une addition, et elle se défait par la suppression du repas. L'ordre est celui que le
+ * serveur sert ; la feuille ne trie rien.
+ *
+ * Le jour se choisit donc **dès cette étape** : un favori rejoué n'a pas de formulaire où
+ * le dire ensuite. Le segment reste aussi en tête du formulaire, sur le même état.
  */
 
 import { useMutation } from '@tanstack/react-query';
@@ -44,6 +56,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AiBlock,
   Button,
+  Chip,
+  ChipStrip,
   Field,
   Segmented,
   Sheet,
@@ -55,6 +69,7 @@ import { useAiStatus } from '@/features/ai/useAiStatus';
 import {
   nutritionApi,
   type Composition,
+  type Favorite,
   type Ingredient,
   type MealDay,
   type MealEstimate,
@@ -169,6 +184,7 @@ export function MealSheet({
   ingredients,
   days,
   initialDay,
+  favorites,
 }: {
   open: boolean;
   onClose: () => void;
@@ -185,6 +201,8 @@ export function MealSheet({
    * noter.
    */
   initialDay?: string | undefined;
+  /** Les favoris, dans l'ordre servi (M-23). Vide : la bande n'est pas dessinée. */
+  favorites: readonly Favorite[];
 }) {
   const { notify } = useToast();
   const ai = useAiStatus();
@@ -460,6 +478,23 @@ export function MealSheet({
   });
 
   /**
+   * Rejouer un favori, au jour du segment (M-23). Il n'a pas de formulaire : l'appui
+   * écrit, comme « rejouer » le faisait sur la page.
+   */
+  const replay = useMutation({
+    mutationFn: (favorite: Favorite) =>
+      nutritionApi.replayFavorite(favorite.favorite_id, values.day || undefined),
+    onSuccess: (meal) => {
+      notify(`« ${meal.comment ?? 'Repas'} » ajouté.${elsewhere(values.day)}`, 'effort');
+      reset();
+      onSaved();
+    },
+    onError: (caught: unknown) => {
+      setError(caught instanceof ApiError ? caught : null);
+    },
+  });
+
+  /**
    * Poser une ligne remplie, et le doigt sur le champ du poids.
    *
    * Trois gestes en plus de l'insertion, et chacun a sa raison :
@@ -653,9 +688,15 @@ export function MealSheet({
       }
       lede={
         mode === null
-          ? pastDay !== undefined
-            ? `Pour ${pastDay.label.toLowerCase()}, ${longDate(pastDay.date)}. Comment veux-tu le noter ?`
-            : 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
+          ? `${pastDay !== undefined ? `Pour ${pastDay.label.toLowerCase()}, ${longDate(pastDay.date)}. ` : ''}${
+              // Un favori écrit dès l'appui : « rien n'est enregistré avant ta validation »
+              // serait faux à côté de lui.
+              favorites.length > 0
+                ? 'Un favori s’ajoute d’un appui. Sinon, comment veux-tu le noter ?'
+                : pastDay !== undefined
+                  ? 'Comment veux-tu le noter ?'
+                  : 'Comment veux-tu le noter ? Rien n’est enregistré avant ta validation.'
+            }`
           : step.kind === 'pick'
             ? 'Dans ton catalogue, ou par son code-barres.'
             : step.kind === 'scan'
@@ -687,6 +728,48 @@ export function MealSheet({
         <FoodDetail row={inspected} onBack={back} />
       ) : mode === null ? (
         <div className={styles.modes}>
+          {error !== null && (
+            <p className={styles.error} role="alert">
+              {error.message}
+            </p>
+          )}
+
+          {/* Le jour et les favoris tiennent ensemble, au-dessus des modes : ils disent
+           *quand* et *quoi*, les modes disent *comment*. */}
+          <div className={styles.modesHead}>
+            {days.length > 1 && (
+              <DayField
+                days={days}
+                value={values.day}
+                stale={staleDay}
+                onChange={(day) => {
+                  setValues((current) => ({ ...current, day }));
+                }}
+              />
+            )}
+
+            {favorites.length > 0 && (
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Favoris</span>
+                <ChipStrip label="Favoris">
+                  {favorites.map((favorite) => (
+                    <Chip
+                      key={favorite.favorite_id}
+                      aria-label={`Ajouter « ${favorite.name} »${pastDay !== undefined ? ` pour ${pastDay.label.toLowerCase()}` : ''}`}
+                      disabled={replay.isPending || staleDay}
+                      onClick={() => {
+                        setError(null);
+                        replay.mutate(favorite);
+                      }}
+                    >
+                      {favorite.name}
+                    </Chip>
+                  ))}
+                </ChipStrip>
+              </div>
+            )}
+          </div>
+
           {MODES.filter((item) => ai.enabled || OFFLINE_MODES.includes(item.value)).map((item) => (
             /* `SheetRow` : c'est la ligne que la charte réserve aux feuilles — pleine
                largeur, `--tap-lg`, libellé à gauche et indice à droite. L'indice y est
@@ -702,6 +785,8 @@ export function MealSheet({
               // nom accessible, qu'il rallongeait d'une phrase entendue à chaque entrée.
               hintExplains
               onClick={() => {
+                // Le refus d'un favori ne suit pas dans le formulaire d'un autre geste.
+                setError(null);
                 setMode(item.value);
                 live.current = true;
               }}
@@ -740,32 +825,16 @@ export function MealSheet({
           )}
 
           {days.length > 1 && (
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Jour</span>
-              <Segmented
-                options={days.map((day) => ({ value: day.date, label: day.label }))}
-                value={chosenDay?.date ?? ''}
-                onChange={(next) => {
-                  // Aujourd'hui s'écrit vide : sans jour, le serveur date à l'instant même.
-                  setValues((current) => ({ ...current, day: next === today?.date ? '' : next }));
-                }}
-                label="Jour du repas"
-              />
-              {staleDay ? (
-                <p className={styles.error} role="alert">
-                  Ce brouillon était pour le {longDate(values.day)}, qui ne se note plus. Choisis
-                  aujourd’hui ou hier.
-                </p>
-              ) : pastDay !== undefined ? (
-                <p className={styles.note}>
-                  {longDate(pastDay.date)}, à l’heure habituelle de ce type de repas — elle n’est
-                  pas demandée.
-                </p>
-              ) : null}
-              {error?.messageFor('day') !== undefined && !staleDay && (
-                <p className={styles.error}>{error.messageFor('day')}</p>
-              )}
-            </div>
+            <DayField
+              days={days}
+              value={values.day}
+              stale={staleDay}
+              explain
+              error={error?.messageFor('day')}
+              onChange={(day) => {
+                setValues((current) => ({ ...current, day }));
+              }}
+            />
           )}
 
           <div className={styles.field}>
@@ -1037,6 +1106,60 @@ export function MealSheet({
         </form>
       )}
     </Sheet>
+  );
+}
+
+/**
+ * Le jour du repas : les deux jours servis, en segment (M-01).
+ *
+ * Aux deux étapes de la feuille depuis M-23 — l'étape du mode, pour les favoris, et le
+ * formulaire —, sur le même état. **Aujourd'hui s'écrit vide** : sans jour, le serveur
+ * date à l'instant même. Une date qui n'est plus servie ne sélectionne rien et le dit.
+ */
+function DayField({
+  days,
+  value,
+  stale,
+  explain = false,
+  error,
+  onChange,
+}: {
+  days: readonly MealDay[];
+  /** Vide pour aujourd'hui, sinon une date servie. */
+  value: string;
+  stale: boolean;
+  /** Dire l'heure posée sur un jour passé — au formulaire seulement : l'étape du mode
+   *  porte déjà la date dans sa phrase d'en-tête. */
+  explain?: boolean;
+  error?: string | undefined;
+  onChange: (day: string) => void;
+}) {
+  const today = days.find((day) => day.key === 'today');
+  const chosen = value === '' ? today : days.find((day) => day.date === value);
+  const past = chosen !== undefined && chosen.key !== 'today' ? chosen : undefined;
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel}>Jour</span>
+      <Segmented
+        options={days.map((day) => ({ value: day.date, label: day.label }))}
+        value={chosen?.date ?? ''}
+        onChange={(next) => {
+          onChange(next === today?.date ? '' : next);
+        }}
+        label="Jour du repas"
+      />
+      {stale ? (
+        <p className={styles.error} role="alert">
+          Ce brouillon était pour le {longDate(value)}, qui ne se note plus. Choisis aujourd’hui ou
+          hier.
+        </p>
+      ) : explain && past !== undefined ? (
+        <p className={styles.note}>
+          {longDate(past.date)}, à l’heure habituelle de ce type de repas — elle n’est pas demandée.
+        </p>
+      ) : null}
+      {error !== undefined && !stale && <p className={styles.error}>{error}</p>}
+    </div>
   );
 }
 

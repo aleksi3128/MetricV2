@@ -29,6 +29,7 @@ from app.domains.nutrition.schemas import (
     NutritionHistory,
     NutritionView,
     Product,
+    ReplayPayload,
 )
 from app.domains.nutrition.service import NutritionService
 from app.storage.errors import StorageConflictError
@@ -302,9 +303,16 @@ async def add_favorite(payload: FavoritePayload, store: StoreDep) -> Favorite:
     status_code=status.HTTP_201_CREATED,
     summary="Rejouer un repas favori",
 )
-async def replay_favorite(favorite_id: str, store: StoreDep) -> Meal:
-    """En une action, sans photo ni IA : couvre les repas identiques du quotidien."""
-    return await NutritionService(store).replay_favorite(favorite_id)
+async def replay_favorite(
+    favorite_id: str, store: StoreDep, payload: ReplayPayload | None = None
+) -> Meal:
+    """En une action, sans photo ni IA : couvre les repas identiques du quotidien.
+
+    Le jour vient de la feuille d'ajout, où le favori se rejoue depuis M-23 : « hier »
+    choisi dans le segment vaut pour le favori comme pour une saisie.
+    """
+    day = payload.day if payload is not None else None
+    return await NutritionService(store).replay_favorite(favorite_id, day=day)
 
 
 @router.delete(

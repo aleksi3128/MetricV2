@@ -818,8 +818,13 @@ class NutritionService:
     async def remove_favorite(self, index: int, token: str) -> None:
         await self._favorites.delete_by_token(index, token)
 
-    async def replay_favorite(self, favorite_id: str) -> Meal:
-        """Rejoue un repas récurrent en une action, sans photo ni IA (`NUT-10`)."""
+    async def replay_favorite(self, favorite_id: str, *, day: str | None = None) -> Meal:
+        """Rejoue un repas récurrent en une action, sans photo ni IA (`NUT-10`).
+
+        `day` suit la règle de `create` (M-01, M-23) : rejoué pour hier, le favori prend
+        l'heure type de son repas. Le type reste celui de l'heure présente — un favori ne
+        porte pas le sien, et la feuille ne le demande pas avant l'appui.
+        """
         favorite = next(
             (item for item in await self.favorites() if item.favorite_id == favorite_id), None
         )
@@ -835,4 +840,5 @@ class NutritionService:
             calories=favorite.calories,
             saturated_fat_g=favorite.saturated_fat_g,
             fiber_g=favorite.fiber_g,
+            day=day,
         )
