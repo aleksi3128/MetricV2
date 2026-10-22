@@ -132,6 +132,14 @@ const SURFACES = [
   // « Corriger » n'est pas appuyé : l'étape suivante est un formulaire, et ce script ne
   // saisit rien.
   ["/nutrition", "Fiche du repas de 12:30", "fiche d’un repas"],
+  // La fiche d'un repas rattrapé, ouverte depuis le journal d'hier : « Hier » est le segment
+  // de la page — lire un autre jour n'écrit rien —, puis la ligne d'un repas dont l'heure
+  // n'a pas été relevée. Sans repas rattrapé hier, « bouton introuvable ».
+  [
+    "/nutrition",
+    ["Hier", "Fiche du repas de heure non relevée"],
+    "fiche d’un repas d’hier",
+  ],
   // Le détail d'une charge — courbe et ligne de trente points. Le nom du bouton est celui
   // de l'exercice, donc il dépend des données : `Butterfly` est celui de la base réelle.
   // Sur une base où il n'existe pas, la ligne rend « bouton introuvable », ce qui est un

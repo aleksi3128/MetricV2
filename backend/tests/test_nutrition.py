@@ -423,6 +423,63 @@ def test_only_the_meals_of_the_day_are_listed(
     assert [meal["comment"] for meal in meals] == ["aujourd'hui"]
 
 
+def test_the_journal_of_yesterday_is_served(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Un repas rattrapé par erreur doit se relire : le journal d'hier, et ses totaux."""
+    yesterday = today_local() - timedelta(days=1)
+    dav.seed(
+        MEALS_FILE,
+        HEADER + f"{moment(yesterday, 20)},dîner,pâtes,,30,,700,manual\n",
+    )
+    log_meal(app_client, auth, comment="aujourd'hui", calories="400")
+
+    for day in (yesterday.isoformat(), "yesterday"):
+        view = app_client.get(NUTRITION, params={"day": day}, headers=auth).json()
+
+        assert view["date"] == yesterday.isoformat()
+        assert [meal["comment"] for meal in view["meals"]] == ["pâtes"]
+        assert view["totals"]["meals"] == 1
+        assert view["totals"]["calories"] == 700
+        # Les jours servis restent ceux du vrai aujourd'hui : le segment ne glisse pas.
+        assert [item["key"] for item in view["days"]] == ["today", "yesterday"]
+        assert view["days"][0]["date"] == today_local().isoformat()
+
+
+def test_a_meal_of_yesterday_keeps_its_row_id(app_client: TestClient, auth: dict[str, str]) -> None:
+    """L'`id` est la position dans tout le CSV : la fiche d'hier corrige la bonne ligne."""
+    caught_up = log_meal(app_client, auth, meal_type="dîner", comment="pâtes", day="yesterday")
+    log_meal(app_client, auth, comment="aujourd'hui")
+
+    listed = app_client.get(NUTRITION, params={"day": "yesterday"}, headers=auth).json()["meals"]
+    assert [(meal["id"], meal["token"]) for meal in listed] == [
+        (caught_up["id"], caught_up["token"])
+    ]
+
+    removed = app_client.delete(
+        f"{NUTRITION}/{listed[0]['id']}", headers={**auth, "If-Match": listed[0]["token"]}
+    )
+    assert removed.status_code == 204
+    assert (
+        app_client.get(NUTRITION, params={"day": "yesterday"}, headers=auth).json()["meals"] == []
+    )
+    assert len(app_client.get(NUTRITION, headers=auth).json()["meals"]) == 1
+
+
+@pytest.mark.parametrize("offset", [2, -1])
+def test_the_journal_of_another_day_is_refused(
+    app_client: TestClient, auth: dict[str, str], offset: int
+) -> None:
+    """Au-delà des deux jours servis, le même refus que l'écriture, désigné sur la requête."""
+    day = (today_local() - timedelta(days=offset)).isoformat()
+
+    response = app_client.get(NUTRITION, params={"day": day}, headers=auth)
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert [field["field"] for field in response.json()["fields"]] == ["query.day"]
+
+
 def test_the_list_can_be_bounded(app_client: TestClient, auth: dict[str, str]) -> None:
     """`NUT-07` : bornée ou complète selon la requête."""
     for index in range(4):

@@ -587,10 +587,10 @@ export function MealSheet({
   const staleDay = values.day !== '' && chosenDay === undefined;
   const pastDay = chosenDay !== undefined && chosenDay.key !== 'today' ? chosenDay : undefined;
 
-  /** Ce que le message d'enregistrement ajoute quand le repas ne rejoint pas le journal. */
+  /** Ce que le message d'enregistrement ajoute quand le repas ne rejoint pas la journée. */
   function elsewhere(day: string): string {
     return days.find((item) => item.date === day)?.key === 'yesterday'
-      ? ' Il compte pour hier : le journal ne montre que la journée.'
+      ? ' Il compte pour hier : « Hier », au-dessus du journal, le montre.'
       : '';
   }
 

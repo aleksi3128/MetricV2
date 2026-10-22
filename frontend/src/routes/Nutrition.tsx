@@ -7,6 +7,11 @@
  * **comment** on veut noter — [MealSheet](./nutrition/MealSheet.tsx).
  *
  * Ce qui reste ici se lit : les totaux, le journal, et les favoris.
+ *
+ * **Le journal et les totaux lisent aujourd'hui ou hier.** Depuis M-01, un repas se
+ * rattrape la veille ; sans le journal d'hier, aucun écran n'ouvrait sa fiche, et un
+ * rattrapage fait par erreur ne se corrigeait ni ne se supprimait. Les deux jours sont ceux
+ * que le serveur sert (`days`) : l'écran choisit, il ne compose aucune date.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,11 +27,12 @@ import {
   PageHead,
   Ring,
   Rule,
+  Segmented,
   Skeleton,
   Stat,
 } from '@/components/ui';
 import { IconStar } from '@/components/ui/icons';
-import { nutritionApi, type Favorite, type Meal } from '@/features/nutrition/api';
+import { nutritionApi, type Favorite, type Meal, type MealDay } from '@/features/nutrition/api';
 import { usePhoto } from '@/features/nutrition/usePhoto';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -282,6 +288,17 @@ export function Nutrition() {
    */
   const [params, setParams] = useSearchParams();
   const askedDay = params.get('ajout') === 'hier' ? 'yesterday' : null;
+
+  function openSheetOn(day: 'hier' | null): void {
+    if (day === null) {
+      setOpened(true);
+      return;
+    }
+    // Par l'adresse, comme le lien du matin : c'est elle qui impose le jour à la feuille.
+    const next = new URLSearchParams(params);
+    next.set('ajout', day);
+    setParams(next, { replace: true });
+  }
   const [opened, setOpened] = useState(false);
   // Dérivé, pas recopié : le parcours du matin et « Noter » sont des feuilles globales, et
   // leur lien peut être suivi alors que cet écran est déjà monté — l'adresse change, l'état
@@ -302,10 +319,34 @@ export function Nutrition() {
   // désarme la précédente, et une confirmation ne reste pas en attente ailleurs.
   const [armed, setArmed] = useState<number | null>(null);
 
+  // La journée en cours : elle porte les jours servis, les favoris et tout ce que la feuille
+  // et la fiche demandent — quel que soit le jour que le journal montre.
   const { data, isPending, error } = useQuery({
     queryKey: keys.nutrition.all(),
     queryFn: () => nutritionApi.day(),
   });
+
+  /**
+   * Le jour que le journal et les totaux lisent. Une **clé** et non une date : la date
+   * vient de `days`, relue avec la journée — passé minuit, « hier » suit le serveur au lieu
+   * de pointer un jour qui ne se sert plus. Rien ne se rabat en silence ici : on lit, on
+   * n'écrit pas.
+   */
+  const [shownKey, setShownKey] = useState<MealDay['key']>('today');
+  const shownDay =
+    shownKey === 'today' ? undefined : data?.days.find((day) => day.key === shownKey);
+  const past = useQuery({
+    queryKey: keys.nutrition.meals(shownDay?.date ?? ''),
+    queryFn: () => nutritionApi.day(shownDay?.date),
+    enabled: shownDay !== undefined,
+  });
+  // Ce que montrent le journal et les totaux. Une requête par jour, et non une seule dont
+  // on changerait la clé : la journée reste chargée pour l'en-tête, la feuille et la fiche,
+  // et le segment ne disparaît pas le temps qu'hier arrive.
+  const shown =
+    shownDay === undefined
+      ? { data, isPending, error }
+      : { data: past.data, isPending: past.isPending, error: past.error };
 
   const remove = useMutation({
     mutationFn: (meal: Meal) => nutritionApi.remove(meal.id, meal.token),
@@ -321,7 +362,7 @@ export function Nutrition() {
     },
   });
 
-  const totals = data?.totals;
+  const totals = shown.data?.totals;
 
   return (
     <div className={cx('wrap', styles.screen)}>
@@ -330,20 +371,25 @@ export function Nutrition() {
           les repas. */}
       <PageHead
         eyebrow="Domaine Nutrition"
-        title="Repas du jour"
+        title={shownDay?.key === 'yesterday' ? 'Repas d’hier' : 'Repas du jour'}
         actions={
           <Button
             variant="primary"
             disabled={data === undefined}
             onClick={() => {
-              setOpened(true);
+              // Devant le journal d'hier, on ajoute à hier : c'est le jour qu'on regarde.
+              openSheetOn(shownDay?.key === 'yesterday' ? 'hier' : null);
             }}
           >
             Ajouter un repas
           </Button>
         }
       >
-        {data !== undefined ? longDate(data.date) : '—'}
+        {shownDay !== undefined
+          ? longDate(shownDay.date)
+          : data !== undefined
+            ? longDate(data.date)
+            : '—'}
       </PageHead>
 
       {/* Les trois totaux d'une même journée disaient zéro de trois façons : « 0 % » dans
@@ -358,7 +404,7 @@ export function Nutrition() {
           affichaient « — » avec « une photo suffit à en ouvrir un » — une invitation qui
           suppose une journée sans repas, alors que l'écran n'a rien pu lire. La section
           entière se tait ; la carte du journal, plus bas, nomme la panne. */}
-      {error === null && (
+      {shown.error === null && (
         <>
           <Rule>Totaux</Rule>
           <div className="grid g2">
@@ -463,6 +509,19 @@ export function Nutrition() {
       <History />
 
       <Rule>Journal</Rule>
+      {/* Au-dessus du journal : c'est lui qu'on vient relire. Le titre et les totaux
+          suivent ; l'historique, qui a sa propre plage, ne bouge pas. */}
+      {data !== undefined && data.days.length > 1 && (
+        <Segmented
+          options={data.days.map((day) => ({ value: day.key, label: day.label }))}
+          value={shownKey}
+          onChange={(key) => {
+            setArmed(null);
+            setShownKey(key);
+          }}
+          label="Jour du journal"
+        />
+      )}
       <div className={styles.split}>
         <Card>
           {/* Quatre états, et non trois. Cette pile s'arrêtait à « chargement / repas /
@@ -470,14 +529,14 @@ export function Nutrition() {
               plus souvent — `isPending` retombait à faux, `data` restait indéfini, et
               l'écran affirmait « Aucun repas aujourd'hui ». Une panne de stockage se
               lisait comme un jeûne, ce qui est crédible et faux. */}
-          {isPending ? (
+          {shown.isPending ? (
             <Skeleton />
-          ) : error ? (
+          ) : shown.error ? (
             <Empty title="Journal indisponible">
-              {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+              {shown.error instanceof Error ? shown.error.message : 'Le serveur n’a pas répondu.'}
             </Empty>
-          ) : data && data.meals.length > 0 ? (
-            data.meals.map((meal) => (
+          ) : shown.data && shown.data.meals.length > 0 ? (
+            shown.data.meals.map((meal) => (
               <MealCard
                 key={`${meal.id}-${meal.token}`}
                 meal={meal}
@@ -496,6 +555,22 @@ export function Nutrition() {
                 removing={remove.isPending}
               />
             ))
+          ) : shownDay?.key === 'yesterday' ? (
+            <Empty
+              title="Aucun repas noté hier"
+              action={
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    openSheetOn('hier');
+                  }}
+                >
+                  Rattraper un repas d’hier
+                </Button>
+              }
+            >
+              Un repas oublié se rattrape ici : une description suffit, l’heure n’est pas demandée.
+            </Empty>
           ) : (
             <Empty title="Aucun repas aujourd'hui">
               Une description suffit. Les chiffres peuvent venir après.

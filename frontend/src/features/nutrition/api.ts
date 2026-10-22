@@ -450,8 +450,12 @@ function multipart(values: MealFormValues): FormData {
 }
 
 export const nutritionApi = {
-  day: (limit?: number) =>
-    request<NutritionView>('/api/nutrition', limit ? { query: { limit } } : {}),
+  /**
+   * Le journal d'un jour. Sans `day`, aujourd'hui ; avec, une date **servie** dans `days` —
+   * le journal d'hier, où un repas rattrapé se relit et se corrige. L'écran choisit parmi
+   * les jours reçus, il n'en compose aucun.
+   */
+  day: (day?: string) => request<NutritionView>('/api/nutrition', day ? { query: { day } } : {}),
 
   /** Grille, courbe et habitudes sur une plage — une seule requête (`NUT-11`). */
   history: (range: HistoryRange) =>

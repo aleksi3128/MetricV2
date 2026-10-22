@@ -31,7 +31,7 @@ from app.domains.nutrition.schemas import (
     Product,
     ReplayPayload,
 )
-from app.domains.nutrition.service import NutritionService
+from app.domains.nutrition.service import NutritionService, resolve_day
 from app.storage.errors import StorageConflictError
 
 router = APIRouter(prefix="/nutrition", tags=["nutrition"])
@@ -67,10 +67,19 @@ def _token(value: str | None) -> str:
 async def read(
     store: StoreDep,
     limit: Annotated[int | None, Query(ge=1, le=200)] = None,
+    day: Annotated[str | None, Query(max_length=10)] = None,
 ) -> NutritionView:
     """Totaux, repas du jour et favoris en une requête. Sans `limit`, la liste est
-    complète (`NUT-07`)."""
-    return await NutritionService(store).view(today_local(), limit=limit)
+    complète (`NUT-07`).
+
+    `day` ouvre le journal d'hier : un repas rattrapé par erreur doit pouvoir se relire,
+    se corriger et se supprimer. Les mêmes deux jours que l'écriture, par la même règle —
+    `today`, `yesterday` ou une date servie dans `days` ; au-delà, `validation_error` sur
+    `query.day`. Ouvrir un jour plus ancien est une autre affaire (l'historique).
+    """
+    today = today_local()
+    chosen = resolve_day(day, today, field="query.day")
+    return await NutritionService(store).view(chosen or today, limit=limit)
 
 
 @router.post(

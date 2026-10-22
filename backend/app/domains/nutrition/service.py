@@ -78,7 +78,7 @@ def meal_days(today: date) -> list[MealDay]:
     ]
 
 
-def resolve_day(raw: str | None, today: date) -> date | None:
+def resolve_day(raw: str | None, today: date, *, field: str = "body.day") -> date | None:
     """Le jour qu'un client a choisi, validé contre ceux que le serveur sert.
 
     Trois formes acceptées : rien (maintenant), un jour symbolique — `today`,
@@ -90,6 +90,9 @@ def resolve_day(raw: str | None, today: date) -> date | None:
     Hors des deux jours, refus — avant-hier compris. Un brouillon resté ouvert au passage
     de minuit peut porter une date qui n'est plus servie : il est refusé avec un message,
     jamais rabattu en silence sur aujourd'hui.
+
+    `field` nomme où le jour est arrivé : le corps d'une écriture, ou la requête du journal
+    (`query.day`), qui lit les mêmes deux jours.
     """
     text = (raw or "").strip()
     if not text:
@@ -103,7 +106,7 @@ def resolve_day(raw: str | None, today: date) -> date | None:
         chosen = None
     if chosen not in offered.values():
         message = "Un repas se note aujourd'hui ou hier. Choisis l'un des deux."
-        raise ValidationFailedError(message, fields=[("body.day", message)])
+        raise ValidationFailedError(message, fields=[(field, message)])
     return chosen
 
 
@@ -290,7 +293,9 @@ class NutritionService:
 
         return NutritionView(
             date=day,
-            days=meal_days(day),
+            # Les jours servis partent du vrai aujourd'hui, pas du jour lu : le journal d'hier
+            # garde son segment, et le parcours du matin lit hier sans décaler la feuille.
+            days=meal_days(today_local()),
             totals=await self.totals(day),
             meals=[self._to_schema(row) for row in listed],
             favorites=await self.favorites(),

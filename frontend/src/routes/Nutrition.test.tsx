@@ -203,6 +203,11 @@ function renderNutrition(entry = '/nutrition') {
   );
 }
 
+/** Le segment du jour **dans la feuille** : la page porte aussi le sien, au-dessus du journal. */
+function sheetDay() {
+  return within(screen.getByRole('group', { name: 'Jour du repas' }));
+}
+
 /**
  * Ouvre la feuille d'ajout sur un mode donné.
  *
@@ -491,7 +496,7 @@ describe('écran Nutrition', () => {
     renderNutrition();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     await userEvent.click(
       screen.getByRole('button', { name: 'Ajouter « Skyr + flocons » pour hier' }),
     );
@@ -729,7 +734,7 @@ describe('repas composé', () => {
     renderNutrition();
 
     await fillPlate();
-    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
 
     const call = await waitFor(() => {
@@ -1752,7 +1757,7 @@ describe('rattraper un repas d’hier (M-01)', () => {
     renderNutrition();
 
     await openSheet('Description');
-    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     expect(screen.getByText(/à l’heure habituelle de ce type de repas/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
@@ -1770,7 +1775,7 @@ describe('rattraper un repas d’hier (M-01)', () => {
     renderNutrition();
 
     await openSheet('Description');
-    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     await userEvent.click(screen.getByRole('button', { name: 'Changer de mode' }));
 
     expect(screen.getByText(/^Pour hier,/)).toBeInTheDocument();
@@ -1782,7 +1787,7 @@ describe('rattraper un repas d’hier (M-01)', () => {
     renderNutrition('/nutrition?ajout=repas');
 
     expect(await screen.findByRole('group', { name: 'Favoris' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Aujourd’hui' })).toHaveAttribute(
+    expect(sheetDay().getByRole('button', { name: 'Aujourd’hui' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -1795,7 +1800,10 @@ describe('rattraper un repas d’hier (M-01)', () => {
     expect(await screen.findByText(/^Pour hier,/)).toBeInTheDocument();
     // Le mode « Description » attend le statut de l'IA : il n'est offert qu'avec une clé.
     await userEvent.click(await screen.findByRole('button', { name: 'Description' }));
-    expect(screen.getByRole('button', { name: 'Hier' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sheetDay().getByRole('button', { name: 'Hier' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('retient le jour dans le brouillon', async () => {
@@ -1803,12 +1811,15 @@ describe('rattraper un repas d’hier (M-01)', () => {
     renderNutrition();
 
     await openSheet('Description');
-    await userEvent.click(screen.getByRole('button', { name: 'Hier' }));
+    await userEvent.click(sheetDay().getByRole('button', { name: 'Hier' }));
     await userEvent.type(screen.getByLabelText('Description'), 'pâtes');
     await userEvent.keyboard('{Escape}');
     await userEvent.click(await screen.findByRole('button', { name: 'Ajouter un repas' }));
 
-    expect(screen.getByRole('button', { name: 'Hier' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sheetDay().getByRole('button', { name: 'Hier' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('refuse un brouillon dont le jour n’est plus servi, sans le rabattre sur aujourd’hui', async () => {
@@ -1836,5 +1847,155 @@ describe('rattraper un repas d’hier (M-01)', () => {
       expect(button).toHaveAttribute('aria-pressed', 'false');
     }
     expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeDisabled();
+  });
+});
+
+describe('le journal d’hier (reste de M-01)', () => {
+  /** Un dîner rattrapé : heure type, non relevée. `id` 2 — sa place dans tout le CSV. */
+  const CAUGHT_UP = {
+    ...VIEW.meals[0],
+    id: 2,
+    token: 'jeton-hier',
+    datetime: '2026-07-26T20:00:00+02:00',
+    meal_type: 'dîner',
+    comment: 'pâtes bolo',
+    photo: null,
+    calories: 750,
+    time_recorded: false,
+    day_label: 'Hier',
+  };
+  const YESTERDAY = {
+    ...VIEW,
+    date: '2026-07-26',
+    totals: { ...VIEW.totals, meals: 1, calories: 750, calories_known: 1 },
+    meals: [CAUGHT_UP],
+  };
+
+  function yesterday(view: unknown) {
+    return (url: string, init?: RequestInit) =>
+      url.includes('day=2026-07-26') && init?.method === 'GET' ? json(200, view) : undefined;
+  }
+
+  it('lit hier à la date servie, et le titre, les totaux et le journal suivent', async () => {
+    stub(yesterday(YESTERDAY));
+    renderNutrition();
+
+    const segment = await screen.findByRole('group', { name: 'Jour du journal' });
+    expect(within(segment).getByRole('button', { name: 'Aujourd’hui' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await userEvent.click(within(segment).getByRole('button', { name: 'Hier' }));
+
+    expect(await screen.findByText('pâtes bolo')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Repas d’hier' })).toBeInTheDocument();
+    expect(screen.queryByText('poulet riz')).toBeNull();
+    expect(screen.getByText(/750 sur 2\s?200 kcal/)).toBeInTheDocument();
+    // La date vient de `days`, jamais composée à l'écran.
+    expect(calls.some((call) => call.url.includes('day=2026-07-26'))).toBe(true);
+  });
+
+  it('ouvre la fiche d’un repas d’hier, qui dit son heure non relevée', async () => {
+    stub(yesterday(YESTERDAY));
+    renderNutrition();
+
+    await userEvent.click(
+      within(await screen.findByRole('group', { name: 'Jour du journal' })).getByRole('button', {
+        name: 'Hier',
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Fiche du repas de heure non relevée' }),
+    );
+
+    expect(await screen.findByText('Hier, heure non relevée')).toBeInTheDocument();
+  });
+
+  it('supprime un repas d’hier en deux appuis, sous If-Match', async () => {
+    stub((url, init) =>
+      init?.method === 'DELETE' ? json(204, undefined) : yesterday(YESTERDAY)(url, init),
+    );
+    renderNutrition();
+
+    await userEvent.click(
+      within(await screen.findByRole('group', { name: 'Jour du journal' })).getByRole('button', {
+        name: 'Hier',
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Supprimer le repas de heure non relevée' }),
+    );
+    expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Supprimer le repas de heure non relevée — confirmer' }),
+    );
+
+    await waitFor(() => {
+      const removal = calls.find((call) => call.init?.method === 'DELETE');
+      expect(removal?.url).toBe('/api/nutrition/2');
+      expect(new Headers(removal?.init?.headers).get('If-Match')).toBe('jeton-hier');
+    });
+  });
+
+  it('dit qu’aucun repas n’est noté hier, et ouvre la feuille sur hier', async () => {
+    stub(
+      yesterday({
+        ...YESTERDAY,
+        meals: [],
+        totals: { ...VIEW.totals, meals: 0, calories_known: 0 },
+      }),
+    );
+    renderNutrition();
+
+    await userEvent.click(
+      within(await screen.findByRole('group', { name: 'Jour du journal' })).getByRole('button', {
+        name: 'Hier',
+      }),
+    );
+    expect(await screen.findByText('Aucun repas noté hier')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Rattraper un repas d’hier' }));
+
+    expect(await screen.findByText(/^Pour hier,/)).toBeInTheDocument();
+    expect(sheetDay().getByRole('button', { name: 'Hier' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('ouvre « Ajouter un repas » sur hier quand c’est hier qu’on regarde', async () => {
+    stub(yesterday(YESTERDAY));
+    renderNutrition();
+
+    await userEvent.click(
+      within(await screen.findByRole('group', { name: 'Jour du journal' })).getByRole('button', {
+        name: 'Hier',
+      }),
+    );
+    await screen.findByText('pâtes bolo');
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un repas' }));
+
+    expect(await screen.findByText(/^Pour hier,/)).toBeInTheDocument();
+  });
+
+  it('nomme la panne au lieu d’affirmer une journée vide', async () => {
+    stub((url, init) =>
+      url.includes('day=2026-07-26') && init?.method === 'GET'
+        ? // Un refus et non une panne : `shouldRetry` relance les 503, ce qui ferait
+          // attendre le test au-delà de son délai.
+          json(422, { code: 'validation_error', message: 'Un repas se note aujourd’hui ou hier.' })
+        : undefined,
+    );
+    renderNutrition();
+
+    await userEvent.click(
+      within(await screen.findByRole('group', { name: 'Jour du journal' })).getByRole('button', {
+        name: 'Hier',
+      }),
+    );
+
+    expect(await screen.findByText('Journal indisponible')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun repas noté hier')).toBeNull();
+    // Les totaux se taisent : ils n'ont rien pu lire.
+    expect(screen.queryByText('Totaux')).toBeNull();
   });
 });
