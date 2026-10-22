@@ -330,10 +330,16 @@ describe('écran Routine', () => {
     expect(
       await screen.findByText('Checklist indisponible', {}, { timeout: 6000 }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Planning indisponible')).toBeInTheDocument();
-    expect(screen.getByText('Hydratation indisponible')).toBeInTheDocument();
+    // Chaque requête échoue après ses propres reprises, pas au même instant : sous charge,
+    // lire les trois d'un coup était une course que la batterie complète perdait.
+    expect(
+      await screen.findByText('Planning indisponible', {}, { timeout: 6000 }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Hydratation indisponible', {}, { timeout: 6000 }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Aucun supplément au planning')).not.toBeInTheDocument();
-  }, 10_000);
+  }, 20_000);
 
   it('affiche la série par item', async () => {
     stub();
