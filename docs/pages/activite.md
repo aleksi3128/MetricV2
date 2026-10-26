@@ -45,12 +45,15 @@ La destination la plus large de l'application : **sept adresses** et sept feuill
 
 | Bloc | Ce qu'il montre | Source |
 |---|---|---|
-| Adresse de Cadence absente | « Adresse de Cadence non renseignée » + **Aller aux réglages** | `GET /api/activity/circuits` (`linkable`) |
+| Adresse de Cadence absente | « Adresse de Cadence non renseignée », le champ et **Enregistrer** sur place (M-04 ; c'était « Aller aux réglages ») | `GET /api/activity/circuits` (`linkable`), `GET /api/settings` |
 | Formulaire (à la demande) | Nom, rounds, repos ; par exercice : nom (recherche au catalogue Cadence), groupe musculaire, durée ou répétitions, repos, note | `GET /api/activity/muscle-groups`, `GET /api/activity/circuits/exercises` |
 | Liste | Chaque séance : Ouvrir dans Cadence, Je l'ai faite, Corriger, Supprimer | — |
 | Coller un lien Cadence | Adresse → **Relire ce lien** | `POST /api/activity/circuits/import` |
+| Adresse de Cadence réglée | Ligne de pied « Adresse de Cadence », l'adresse, **Modifier** (M-04) | `GET /api/settings` |
 
-Écrit : `POST/PATCH/DELETE /api/activity/circuits` (`If-Match`, deux appuis pour supprimer).
+Écrit : `POST/PATCH/DELETE /api/activity/circuits` (`If-Match`, deux appuis pour supprimer) ;
+l'adresse, `PATCH /api/settings` (sa seule clé, jeton partagé de `settings.csv`, la chaîne
+vide l'efface).
 
 ## 3. `/activite/creer` — Composer une séance
 
@@ -79,13 +82,14 @@ jours de séances. Source : `GET /api/activity/loads`, `GET /api/activity/loads/
 | Progression | Meilleur X de chaque sortie, courbe, choix de la distance | progress |
 | Volume par semaine | km et sorties par semaine | progress |
 | Liste | Toutes les courses : date (★ meilleure allure, badge `.fit`), distance, allure | progress |
+| **Repères** (M-04) | Carte repliée « Zones d'intensité » : badge saisis / déduits, FC max, allure seuil, **Enregistrer**. Rendue dans tous les états de la page ; `/activite/courses#reperes` l'ouvre et y descend | `GET /api/settings` ; écrit `PATCH /api/settings` (ses deux clés) |
 
 Action : **Ajouter une course** (même feuille que `/activite`).
 
 ## 6. `/activite/natations` — Toutes tes natations
 
-Quatre dernières semaines (mètres, séances ; tiret pour une semaine sans bassin) ; liste
-des séances (saisie / `.fit`, distance, durée, allure /100 m, tours douteux). Un appui
+Quatre dernières semaines (mètres, séances ; tiret pour une semaine sans bassin) ; un lien
+de pied **Les sigles de nage** → `/planning/sigles` (M-04) ; liste des séances (saisie / `.fit`, distance, durée, allure /100 m, tours douteux). Un appui
 ouvre `SwimSheet` : programme ou tours, effort perçu, **Corriger la séance**, **Supprimer
 cette natation**. Source : `GET /api/activity/swims`, `GET /api/activity/swims/{swim_id}`.
 
@@ -102,7 +106,7 @@ Haut d'écran rempli : 4 749 px.
 | Ce qu'il faut retenir | Constats rédigés par le serveur | `GET /api/activity/runs/{id}/analysis` |
 | Allure et parcours | Courbe liée au tracé, FC ou cadence en superposition | analyse |
 | **Et maintenant** | La carte du coach née de cette sortie | `GET /api/coach/next` |
-| Intensité | Zones d'allure et temps passé ; lien vers les réglages | analyse |
+| Intensité | Zones d'allure et temps passé ; « Corriger les repères » / « Saisir un repère sur la page des courses » → `/activite/courses#reperes` (M-04) | analyse |
 | Foulée, Selon ta montre | Mesures de foulée ; effets aérobie/anaérobie, charge, VO2max… (Garmin) | analyse |
 | Meilleurs efforts | Temps les plus courts de la sortie | analyse |
 | Kilomètre par kilomètre | Paliers, cadence par km | `GET /api/activity/runs/{id}/splits` |

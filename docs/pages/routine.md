@@ -13,11 +13,12 @@ Fichier : [`Routine.tsx`](../../frontend/src/routes/Routine.tsx).
 
 ## 1. Ce que l'écran montre
 
-Haut d'écran rempli : 2 125 px.
+Haut d'écran rempli : 2 125 px à l'inventaire ; 1 706 sur le banc du 26 octobre après
+M-04 (1 633 avant sur ce banc) — voir le `README`.
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| **Hydratation** | Volume du jour contre l'objectif (badge et anneau) ; raccourcis +250 / +500 / +750 ml ; « Autre volume » ; les prises du jour (heure, volume, supprimer) ; objectif du jour ; courbe du volume bu sur 30 jours | `GET /api/hydration` | « Hydratation indisponible » |
+| **Hydratation** | Volume du jour contre l'objectif (badge et anneau) ; raccourcis +250 / +500 / +750 ml ; « Autre volume » ; les prises du jour (heure, volume, supprimer) ; objectif du jour ; courbe du volume bu sur 30 jours ; **au pied, l'objectif et les raccourcis** — une ligne « Objectif 2 L · raccourcis 250, 500, 750 ml » et **Régler**, qui déplie les deux champs (M-04) | `GET /api/hydration` ; `GET /api/settings` pour le pied | « Hydratation indisponible » ; le pied a ses propres états |
 | **Checklist du jour** | Les suppléments dus, groupés par moment (matin, journée, soir), cochables | `GET /api/supplements/today` | « Aucun supplément au planning » |
 | Moyenne · 7 jours | Volume moyen bu | `GET /api/hydration` | « moyenne dès le deuxième jour complet » |
 | **Planning** (des suppléments) | La liste : nom, dose, unité, moment, cadence (tous les jours, N par semaine, fenêtre glissante, descriptive) ; Modifier, supprimer ; « Ajouter au planning » | `GET /api/supplements/schedule`, `GET /api/supplements/units` | « Planning indisponible » |
@@ -30,6 +31,7 @@ Haut d'écran rempli : 2 125 px.
 | Retirer une prise d'eau | deux appuis | `DELETE /api/hydration/{id}` | `If-Match`, deux appuis |
 | Cocher / décocher un supplément | appui | `POST /api/supplements/today` · `DELETE /api/supplements/today/{schedule_id}` | addition / deux appuis |
 | Ajouter, modifier, retirer un supplément | formulaire, Modifier, deux appuis | `POST/PATCH/DELETE /api/supplements/schedule` | `If-Match` |
+| Régler l'objectif d'eau et les raccourcis | Régler → Enregistrer | `PATCH /api/settings` (ses deux clés) | `If-Match`, jeton partagé de `settings.csv` |
 
 ## 3. Liens sortants
 
@@ -46,10 +48,9 @@ lisent sur `/assiduite`.
 - **L'eau est sous « Mesurer » dans « Plus »**, à côté du poids et du dossier médical, alors
   que l'écran dit « Routine du jour ». Rien de grave ; c'est le classement de « Plus » qui
   ne suit pas les écrans (M-12).
-- **L'objectif d'eau et les volumes des raccourcis se règlent dans `/reglages`**, que
-  l'écran ne nomme pas : la carte montre « Objectif du jour » sans dire où il se change, et
-  le champ est à plusieurs milliers de pixels de défilement dans une page de 11 357 px
-  (M-04).
+- ~~**L'objectif d'eau et les volumes des raccourcis se règlent dans `/reglages`.**~~
+  Corrigé (M-04, `3d5c8c8`) : au pied de la carte, replié derrière « Régler ». Le seuil de
+  la piste eau, qui suit l'objectif, le dit dans la feuille de `/assiduite`.
 - **La moyenne sur 7 jours est dite deux fois** sur l'écran : sous l'anneau
   (« moyenne 7 j : … ») et dans la tuile « Moyenne · 7 jours » juste dessous.
 

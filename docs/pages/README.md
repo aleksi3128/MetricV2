@@ -34,7 +34,7 @@ le matin, la séance, le repas, le soir.
 | Assistant | `/assistant` | [`assistant.md`](assistant.md) |
 | Nutrition | `/nutrition`, `/nutrition/catalogue` | [`nutrition.md`](nutrition.md) |
 | Routine | `/routine` | [`routine.md`](routine.md) |
-| Planning | `/planning` | [`planning.md`](planning.md) |
+| Planning | `/planning`, `/planning/sigles` | [`planning.md`](planning.md) |
 | Plan de course | `/plan` | [`plan.md`](plan.md) |
 | Objectif | `/objectif` | [`objectif.md`](objectif.md) |
 | Corps | `/corps`, `/corps/douleurs` | [`corps.md`](corps.md) |
@@ -82,24 +82,31 @@ Dossier, Réglages. « Noter » et « Plus » n'existent pas.
 On n'y arrive que depuis leur page mère : `/activite/seances`, `/activite/creer`,
 `/activite/charges`, `/activite/courses`, `/activite/natations`, `/activite/course/:id`,
 `/nutrition/catalogue`, `/corps/douleurs` (M-08 — on y arrive aussi par les alertes de
-douleur et le rappel de suivi).
+douleur et le rappel de suivi), `/planning/sigles` (M-04 — le glossaire de nage, depuis le
+pied de `/planning` et de `/activite/natations`).
 
 ### Qui mène où
 
 | Depuis | Vers |
 |---|---|
 | Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule (la rangée de trois liens est partie — M-22), chaque alerte — celles de douleur vers `/corps/douleurs` |
-| Activité | ses six sous-pages ; `/reglages` (adresse de Cadence, zones) |
-| Assiduité | `/reglages` (pistes) |
+| Activité | ses six sous-pages ; la page d'une course → `/activite/courses#reperes` (zones, M-04) ; `/activite/natations` → `/planning/sigles` |
+| Assiduité | aucun lien : « Régler les pistes » ouvre une feuille sur place (M-04) |
 | Objectif | `/assistant` |
 | Nutrition | `/nutrition/catalogue` |
 | Corps | `/corps/douleurs` (la porte en tête) ; le parcours du matin (feuille, deux portes : l'en-tête, et l'état vide de « Le matin ») |
 | Douleurs (`/corps/douleurs`) | `/corps` (retour) |
-| Planning, Plan, Charge, Routine, Dossier, Réglages, Assistant | aucun lien vers un autre écran |
+| Planning | `/planning/sigles` (pied, M-04) |
+| Planning (`/planning/sigles`) | `/planning` (retour) |
+| Plan, Charge, Routine, Dossier, Réglages, Assistant | aucun lien vers un autre écran |
 
-Deux déménagements sans lien nouveau : l'agenda et « ce que le coach a changé » sont passés
+Les déménagements sans lien nouveau : l'agenda et « ce que le coach a changé » sont passés
 de `/plan` à `/planning` (M-03), le profil de l'assistant de `/reglages` à la feuille du
-carnet, onglet Profil (M-05). Les adresses `/assistant?ouvre=discussions`, `?ouvre=memoire`
+carnet, onglet Profil (M-05). Avec M-04, plus aucun écran ne mène à `/reglages` : l'adresse
+de Cadence se règle sur `/activite/seances`, les repères en pied de `/activite/courses`,
+l'eau sur la carte Hydratation de `/routine`, les pistes dans une feuille de `/assiduite`,
+le glossaire sur `/planning/sigles`. `/reglages` ne s'atteint plus que par « Plus » et la
+barre du haut. Les adresses `/assistant?ouvre=discussions`, `?ouvre=memoire`
 et `?ouvre=profil` ouvrent leur feuille ; aucun écran n'y mène plus, elles servent aux
 favoris.
 
@@ -117,20 +124,21 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 
 | Écran | Rempli | Vide |
 |---|---|---|
-| `/reglages` | **9 785** ³ | 9 785 ³ |
 | `/corps` | **5 261** ² | 3 246 ² |
-| `/assiduite` | 5 610 | 4 221 |
+| `/reglages` | **4 771** ⁴ | 4 771 ⁴ |
 | `/activite/course/:id` | 4 749 | 874 |
-| `/activite/courses` | 4 029 | 874 |
-| `/planning` | 3 175 ³ | 2 494 ³ |
+| `/assiduite` | 4 225 ⁴ | 4 225 ⁴ |
+| `/activite/courses` | 3 920 ⁴ | 874 ⁴ |
 | `/nutrition` | 3 124 ¹ | 2 609 |
 | `/activite` | 3 100 ¹ | 1 309 |
-| `/routine` | 2 125 | 1 633 |
+| `/planning` | 2 969 ⁴ | 2 562 ⁴ |
+| `/planning/sigles` | 2 326 ⁴ | 2 326 ⁴ |
 | `/` | 2 070 ³ | 1 766 ³ |
 | `/plan` | 1 955 ³ | 874 ³ |
 | `/corps/douleurs` | 1 905 ² | 874 ² |
 | `/charge` | 1 810 | 1 628 |
-| `/activite/seances` | 1 202 | 1 386 |
+| `/routine` | 1 706 ⁴ | 1 706 ⁴ |
+| `/activite/seances` | 1 266 ⁴ | 1 552 ⁴ |
 | `/objectif` | 1 117 | 1 117 |
 | `/activite/charges`, `/activite/creer`, `/activite/natations`, `/assistant`, `/dossier`, `/nutrition/catalogue` | ≤ 929 | ≤ 879 |
 
@@ -154,3 +162,15 @@ même banc, **avant** le lot : `/` 2 223 et 1 919, `/planning` 2 366 et 2 114, `
 la seule section qui en différait était le profil. `/planning` s'allonge (+809 rempli,
 +380 vide) de l'agenda, toujours là, et des changements quand il y en a ; `/plan` perd les
 deux.
+
+⁴ Remesurés le 26 octobre au soir, après M-04, sur un banc semé pour le lot (celui du ³,
+un seul changement du coach cette fois, plus une séance Cadence, son adresse et une plage
+neutralisée). Sur ce même banc, **avant** le lot (mesuré sur une copie de l'arbre à
+`6b0f539`), rempli puis vide : `/reglages` 9 847 et 9 785, `/assiduite` 4 221 et 4 221,
+`/routine` 1 633 et 1 633, `/activite/courses` 3 755 et 874, `/activite/seances` 1 183 et
+1 386, `/planning` 2 987 et 2 494. `/reglages` perd plus de la moitié de sa hauteur ; chaque
+écran d'arrivée gagne ce qu'il porte — la carte « Repères » (+165), le pied de la carte
+Hydratation (+73), la ligne ou le champ de l'adresse de Cadence (+83 ou +166), le lien des
+sigles ; `/planning` rempli perd la carte Agenda dépliée (−18 net, lien compris).
+`/assiduite` ne bouge que de l'écart entre le lien et le bouton : la feuille ne s'ouvre qu'à
+l'appui. Les hauteurs sans ⁴ datent de l'inventaire ou d'un banc antérieur.

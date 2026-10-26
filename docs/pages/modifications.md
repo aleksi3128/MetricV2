@@ -29,7 +29,7 @@ gagner aucun part.
 | Mensurations | — (M-06) | — | — | — | — | — | — | — | L É (courbe, historique, correction — M-08) | — | — | — | — |
 | FC de repos, VFC | L (nuit) | L (page course) | — | — | — | — | — | — | L É (courbe, liste, correction — M-09) | — | — | — | É (matin) |
 | Douleur | L (alertes → `/corps/douleurs`) | É (après import) | — | — | — | — | — | — | L É (`/corps/douleurs`, porte en tête de `/corps` — M-08) | L (frise) | — | — | É |
-| Eau | L ×2 | — | É | — | L É | — | — | — | — | — | L | R | É |
+| Eau | L ×2 | — | É | — | L É R (cible, raccourcis — M-04) | — | — | — | — | — | L | — | É |
 | Suppléments | L | — | É | — | L É R | — | — | — | — | — | L | — | É |
 | Protéines, calories | L ×2 | — | É | L É | — | — | — | — | — | — | — | R | — |
 | Séance prévue | L | L (respect) | É | — | — | L É | É (plan) | — | — | — | — | — | L |
@@ -42,7 +42,7 @@ gagner aucun part.
 | Course visée (A/B/C) | — | — | — | — | — | — | L É | — | — | — | — | — | — |
 | Agenda iCloud, changements du coach | — | — | — | — | — | L É (M-03) | — | — | — | — | — | — | L É (soir) |
 | Ce que l'assistant sait de toi | — | — | L É (profil et carnet, une feuille — M-05) | — | — | — | — | — | — | — | — | — | — |
-| Séances Cadence | — | L É | É | — | — | — | — | — | — | — | L (séries) | R (adresse) | — |
+| Séances Cadence | — | L É R (adresse — M-04) | É | — | — | — | — | — | — | — | L (séries) | — | — |
 
 Trois lignes portent l'essentiel : **la charge** (deux calculs, deux verdicts), **le
 volume hebdomadaire** (six lectures sur trois écrans — une seule tous sports depuis M-07,
@@ -63,7 +63,7 @@ visée ne parle à aucun autre écran.
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`, type au rejeu `d1de02d`) | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning — **fait** (`c9b1433`) | P2 |
-| [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
+| [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle — **fait** (`96f1f8f`, `1d05b4d`, `3d5c8c8`, `58ba44b`, `4d902ce`) | P2 |
 | [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil — **fait** (`c67f06f`) | P2 |
 | [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
 | [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série — **fait** (`96d81d9`) | P2 |
@@ -340,8 +340,8 @@ quand il n'y a rien à montrer.
   fenêtre avancée à 14 h sur le banc seulement, montre toujours le sien, en sombre comme
   en clair.
 
-**Reste.** La carte Agenda reste dépliée une fois reliée : le champ « Changer le lien » y
-est toujours visible. Le risque demandait de replier « quand il n'y a rien à montrer » ;
+**Reste.** ~~La carte Agenda reste dépliée une fois reliée : le champ « Changer le lien » y
+est toujours visible.~~ Repliée depuis, avec M-04 (`6c2e003`). Le risque demandait de replier « quand il n'y a rien à montrer » ;
 l'agenda a toujours un état à dire, et le replier changerait `AgendaCard` au-delà du
 déplacement. `docs/agenda-replanification.md` (D9, et la liste des écrans) dit encore
 `/plan` : c'est le plan d'avant, laissé tel quel.
@@ -385,6 +385,56 @@ Ce qui reste fait une page de réglages de taille ordinaire.
 réglage déplacé doit garder un enregistrement explicite, pas s'écrire à la frappe. Et
 `Tracks.tsx` (840 lignes) est déjà dans la liste des fichiers à découper du `CLAUDE.md`
 §7 : le faire au passage.
+
+**Fait le 26 octobre** (`96f1f8f`, `1d05b4d`, `3d5c8c8`, `58ba44b`, `4d902ce`, puis `af749b1`,
+`38fa723` et, en option, `6c2e003`).
+
+| Section de `/reglages` | Où elle est |
+|---|---|
+| Adresse de Cadence | `/activite/seances` : absente, la carte d'en tête porte le champ ; réglée, une ligne de pied « Adresse de Cadence » + Modifier |
+| FC max, allure seuil | `/activite/courses`, section « Repères » repliée en pied de page (carte « Zones d'intensité ») ; `/activite/courses#reperes` l'ouvre et y descend, et c'est l'adresse des deux liens de la page d'une course |
+| Cible d'eau, volumes des raccourcis | `/routine`, au pied de la carte Hydratation : une ligne « Objectif 2 L · raccourcis … » et « Régler », replié |
+| Glossaire de nage | `/planning/sigles`, sous-page ; lien « Les sigles de nage » en pied de `/planning` et de `/activite/natations`, aucun depuis les feuilles de saisie |
+| Pistes, jours neutralisés, piste mise en avant | `/assiduite`, feuille « Régler les pistes » ouverte par l'en-tête, deux onglets (Pistes, Jours neutralisés) |
+| Cibles de poids, protéines, sucres, calories ; rappels, point du soir ; sécurité et données ; apparence ; assistance | restent dans `/reglages`, titré « Réglages » |
+
+- **Décisions** (par défaut — la session ne pouvait pas poser de questions) : celles de la
+  consigne, sans écart. En plus : le champ texte « Clé de la piste » n'a pas suivi,
+  « Mettre en avant » écrit le même réglage depuis chaque piste ; la feuille des pistes a
+  deux onglets, comme celle du carnet ; le mot « Objectifs » de la section restante de
+  `/reglages` est laissé à M-13.
+- **Un fichier, un jeton.** Chaque formulaire envoie sa `PATCH /api/settings` avec ses
+  seules clés et le jeton de la lecture partagée (`features/settings/useSettingsDraft.ts`) ;
+  toute écriture dans `settings.csv` — réglages, profil, rappels, « Mettre en avant » —
+  invalide les trois lectures du fichier (`afterSettingsFileWrite`). Avant le lot, écrire un
+  objectif n'invalidait pas le profil : l'enregistrement suivant du profil partait en `409`.
+  `routes/SettingsFile.test.tsx` tient un faux serveur à jeton unique qui refuse un jeton
+  périmé : séances → profil → séances (montés ensemble, puis visités l'un après l'autre),
+  routine → courses, « Mettre en avant » → routine, et un conflit qui remonte sans
+  nouvel essai. Retirer l'une ou l'autre invalidation fait échouer le test (essayé).
+- **`Tracks.tsx` découpé** dans `routes/assiduite/` : `Tracks` (431 lignes), `TrackForm`
+  (229), `draft.ts` (69), `OffDays` (201), `TracksSheet` (59). Ses trois `marginTop: 14`
+  sont `--s4` (et `--s5` pour le `marginBottom: 20`) ; le `CLAUDE.md` §7 a perdu ses deux
+  lignes.
+- **Changé en route** : supprimer une piste partait au premier appui — deux appuis ;
+  l'indice du seuil de la piste eau renvoyait « en haut des réglages » — il renvoie à la
+  carte Hydratation ; cinq phrases du serveur disaient « dans les réglages » pour les
+  repères et l'adresse de Cadence (`af749b1`) ; l'ancre `#reperes` laissait l'écran en haut
+  de page une fois sur trois, la page grandissant après le défilement (`38fa723`).
+- **En option, fait** (`6c2e003`) : la carte Agenda de `/planning` se replie une fois
+  reliée (état, créneaux, « Modifier ») ; « Oublier le lien » demande deux appuis ; la carte
+  dit sa panne au lieu de passer pour « non reliée ».
+- Hauteurs à 402 px, banc semé pour le lot (celui de M-03 et M-05, plus une séance Cadence,
+  son adresse et une plage neutralisée), avant → après, rempli puis vide : `/reglages`
+  9 847 → 4 771 et 9 785 → 4 771 ; `/assiduite` 4 221 → 4 225 (les deux) ; `/routine`
+  1 633 → 1 706 (les deux) ; `/activite/courses` 3 755 → 3 920 et 874 → 874 ;
+  `/activite/seances` 1 183 → 1 266 et 1 386 → 1 552 ; `/planning` 2 987 → 2 969 et
+  2 494 → 2 562 ; `/planning/sigles` 2 326.
+
+**Reste.** La fiche 24 de l'audit, second volet (prévenir avant de quitter `/reglages` avec
+une saisie non enregistrée), n'a pas été reprise : la page est devenue courte et sa barre
+collante suffit à la voir. Les formulaires déplacés n'ont pas de barre collante — ce sont
+deux champs au plus, sous leur bouton.
 
 <a id="m-05"></a>
 
@@ -958,11 +1008,11 @@ serveur, contrairement au coût annoncé.
 
 | Document | Recoupement |
 |---|---|
-| [`AUDIT.md`](../../AUDIT.md) et [`correctifs-audit.md`](../correctifs-audit.md) | Rien de reproposé. M-11 et M-23 prolongent la fiche 25 (« Noter » ouvre le formulaire). La fiche 13 (séance muscu depuis des notes) reste une décision de produit ; M-10 en est voisin sans la trancher. La fiche 24, second volet (prévenir avant de quitter `/reglages`), se pose autrement si M-04 est fait. |
-| [`sortie-publique.md`](../sortie-publique.md) | §4.14 (`/reglages` fait 7 794 px — 11 357 aujourd'hui) : M-04 en est la cause et la réponse. §4.17 : M-21 (3). §4.3, §4.4, §4.5 (couleurs, représentations, dates) : de la forme, non repris ici. §3.2 (le matin qui prend l'application en otage) : non repris — il vise un public. |
+| [`AUDIT.md`](../../AUDIT.md) et [`correctifs-audit.md`](../correctifs-audit.md) | Rien de reproposé. M-11 et M-23 prolongent la fiche 25 (« Noter » ouvre le formulaire). La fiche 13 (séance muscu depuis des notes) reste une décision de produit ; M-10 en est voisin sans la trancher. La fiche 24, second volet (prévenir avant de quitter `/reglages`), se pose autrement depuis M-04 : non repris, voir la fiche. |
+| [`sortie-publique.md`](../sortie-publique.md) | §4.14 (`/reglages` fait 7 794 px — 11 357 à l'inventaire) : M-04 en était la cause et la réponse ; 4 771 depuis. §4.17 : M-21 (3). §4.3, §4.4, §4.5 (couleurs, représentations, dates) : de la forme, non repris ici. §3.2 (le matin qui prend l'application en otage) : non repris — il vise un public. |
 | [`charge-multisport.md`](../charge-multisport.md), [`accueil-et-charge.md`](../accueil-et-charge.md) | M-02 rouvre la cohabitation des deux charges qu'ils ont posée ; la relire avant de trancher le seuil. |
 | [`refonte-activite.md`](../refonte-activite.md) | M-14 et M-15 n'y touchent pas aux phases 4 et 6 (suppression de CSV, à la main). |
-| `CLAUDE.md` §7 | `Tracks.tsx` (840 lignes) à découper : M-04 en est l'occasion. `Planning.tsx` n'en faisait plus que 210 — la ligne était périmée, corrigée avec M-03 ; c'est `Assistant.tsx` (852) qu'il a fallu découper, avant M-05 (`ea1aeb4`). |
+| `CLAUDE.md` §7 | `Tracks.tsx` (840 lignes) à découper : fait avec M-04 (`4d902ce`), dans `routes/assiduite/`, et ses trois styles en ligne avec ; les deux lignes du §7 sont parties. `Planning.tsx` n'en faisait plus que 210 — la ligne était périmée, corrigée avec M-03 ; c'est `Assistant.tsx` (852) qu'il a fallu découper, avant M-05 (`ea1aeb4`). |
 
 ## 5. Dans quel ordre
 
@@ -977,9 +1027,9 @@ serveur, contrairement au coût annoncé.
    Reste à part : ouvrir un jour depuis la grille de l'historique.
 5. ~~**M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.~~ Faits (`c67f06f`, `cdeda08`, `96d81d9`).
-6. ~~**M-03**, puis~~ **M-04** ~~+ **M-05** + **M-22**~~ — le grand rangement des réglages.
-   M-03, M-05 et M-22 faits (`c9b1433`, `58cf652`, `fc178f8`), après le découpage
-   d'`Assistant.tsx` (`ea1aeb4`). Reste M-04.
+6. ~~**M-03**, puis **M-04** + **M-05** + **M-22** — le grand rangement des réglages.~~
+   Faits (`c9b1433`, `58cf652`, `fc178f8`, puis M-04 en cinq commits, `96f1f8f` →
+   `4d902ce`), après le découpage d'`Assistant.tsx` (`ea1aeb4`).
 7. **M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
    de déplacer ferait renommer deux fois.
 8. **M-10**, **M-16** à **M-20** : chacun quand sa décision de produit est prise.
