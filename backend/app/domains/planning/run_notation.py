@@ -602,7 +602,7 @@ def _summary(meters: float | None, seconds: float | None, refs: References) -> s
     if meters is None or seconds is None:
         missing = "la distance" if meters is None else "la durée"
         why = (
-            "renseigne ton allure seuil dans les réglages"
+            "renseigne ton allure seuil dans les repères de la page des courses"
             if refs.threshold is None
             else "un bloc n'a pas d'allure"
         )

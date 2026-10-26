@@ -716,7 +716,7 @@ async def _cadence_circuits(store: FileStore, _today: date) -> list[str]:
         # Le dire au modèle plutôt que de le laisser promettre un lien qui n'existera pas.
         lines.append(
             "Adresse de Cadence non réglée : une séance créée maintenant ne sera pas ouvrable "
-            "tant qu'elle n'est pas renseignée dans les réglages."
+            "tant qu'elle n'est pas renseignée sur la page des séances Cadence."
         )
 
     lines.append(

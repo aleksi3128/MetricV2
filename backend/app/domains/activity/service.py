@@ -505,7 +505,8 @@ class RunService:
 
         Deux lectures de plus, et ce sont les seules que l'analyse ne peut pas faire seule :
         les meilleurs efforts **des autres** sorties, pour dire un record, et la référence
-        des zones, qui vit dans les réglages ou se déduit de l'historique.
+        des zones, qui vit dans les réglages (les repères de la page des courses) ou se
+        déduit de l'historique.
         """
         rows = await self._repo.read_all()
         if not 0 <= index < len(rows):
@@ -566,8 +567,8 @@ class RunService:
                 return heart_rate, None
             kind = "pace"
             without_heart_rate = (
-                " Pas de zones cardio sans FC max fiable\u00a0: saisis-la dans les réglages, "
-                "ou cours un effort à fond."
+                " Pas de zones cardio sans FC max fiable\u00a0: saisis-la dans les repères de "
+                "la page des courses, ou cours un effort à fond."
             )
 
         if values.threshold_pace_min_km is not None:
@@ -576,7 +577,7 @@ class RunService:
                     kind=kind,
                     value=values.threshold_pace_min_km,
                     source="settings",
-                    detail="Allure seuil saisie dans les réglages." + without_heart_rate,
+                    detail="Allure seuil saisie dans les repères." + without_heart_rate,
                 ),
                 None,
             )
@@ -585,7 +586,7 @@ class RunService:
             return (
                 None,
                 "Pas de zones sans allure seuil : cours 3 km d'une traite, ou saisis-la "
-                "dans les réglages." + without_heart_rate,
+                "dans les repères de la page des courses." + without_heart_rate,
             )
         pace, day, distance = deduced
         return (
@@ -622,7 +623,7 @@ class RunService:
                 kind="heart_rate",
                 value=saved,
                 source="settings",
-                detail="FC max saisie dans les réglages.",
+                detail="FC max saisie dans les repères.",
             )
 
         stored = await self._metrics.read_all()
