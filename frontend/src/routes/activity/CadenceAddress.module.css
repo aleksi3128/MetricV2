@@ -1,0 +1,58 @@
+/* L'adresse de Cadence, sur la page des séances (M-04). */
+
+.title {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.note {
+  margin-top: var(--s3);
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.6;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+
+/* Réglée, l'adresse n'est plus qu'une ligne en pied de page : on ne la change presque
+   jamais, et une carte entière pousserait la liste des séances pour rien. */
+.line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
+  padding-top: var(--s4);
+  border-top: 1px solid var(--line);
+}
+
+.value {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-mid);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.error {
+  margin-top: var(--s3);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+}

@@ -34,7 +34,6 @@ import { useSearchParams } from 'react-router';
 import type { SyntheticEvent } from 'react';
 
 import {
-  Badge,
   Button,
   Card,
   Chip,
@@ -56,6 +55,7 @@ import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from '../Activity.module.css';
+import { CadenceAddress } from './CadenceAddress';
 import { CircuitCard } from './CircuitCard';
 import { MODES, NEW_LINE, toDrafts, toPayload, useInvalidateActivity, type Draft } from './shared';
 
@@ -254,19 +254,7 @@ export function Circuits() {
 
       {/* L'état de configuration se dit **avant** la liste : sans adresse, aucun bouton
           « Ouvrir » n'existe, et le découvrir ligne par ligne serait une énigme. */}
-      {data !== undefined && !data.linkable && (
-        <Card>
-          <div className="spread">
-            <span className={styles.dayName}>Adresse de Cadence non renseignée</span>
-            <Badge tone="load">en sommeil</Badge>
-          </div>
-          <p className={cx(styles.note, styles.spaced)}>
-            Les séances se créent et se déclarent faites, mais aucune ne s’ouvre. L’adresse se règle
-            une fois.
-          </p>
-          <LinkButton to="/reglages">Aller aux réglages</LinkButton>
-        </Card>
-      )}
+      {data !== undefined && !data.linkable && <CadenceAddress linkable={false} />}
 
       {shown && (
         <Card>
@@ -562,6 +550,10 @@ export function Circuits() {
           </div>
         </Card>
       )}
+
+      {/* Réglée, l'adresse se tient en pied de page (M-04) : la carte d'en tête, elle, ne
+          parle que de son absence. */}
+      {data !== undefined && data.linkable && <CadenceAddress linkable />}
     </div>
   );
 }

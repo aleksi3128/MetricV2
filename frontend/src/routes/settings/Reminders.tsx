@@ -8,6 +8,7 @@ import {
   type ReminderKind,
   type RemindersPayload,
 } from '@/features/notifications/api';
+import { afterSettingsFileWrite } from '@/features/settings/useSettingsDraft';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import {
@@ -170,14 +171,14 @@ export function Reminders() {
   /**
    * Écrire les créneaux change le jeton de `settings.csv`.
    *
-   * Les deux sections de l'écran éditent le **même fichier** : sans cette invalidation,
-   * la section « Objectifs » garderait un jeton périmé et son prochain enregistrement
-   * partirait en `409` sans que rien ne l'explique.
+   * Les objectifs, le profil de l'assistant et les réglages partis vers leurs écrans (M-04)
+   * éditent le **même fichier** : sans cette invalidation, chacun garderait un jeton périmé
+   * et son prochain enregistrement partirait en `409` sans que rien ne l'explique.
    */
   const refresh = (updated?: NotificationsView) => {
     if (updated) client.setQueryData(keys.notifications.view(), updated);
     else void client.invalidateQueries({ queryKey: keys.notifications.all() });
-    void client.invalidateQueries({ queryKey: keys.settings.all() });
+    afterSettingsFileWrite(client, 'notifications');
   };
 
   const save = useMutation({

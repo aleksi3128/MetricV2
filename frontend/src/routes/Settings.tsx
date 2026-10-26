@@ -1,6 +1,3 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
-
 import {
   Badge,
   Button,
@@ -12,19 +9,14 @@ import {
   Segmented,
   Skeleton,
 } from '@/components/ui';
-import {
-  settingsApi,
-  type SettingsPayload,
-  type SettingsValues,
-  type SettingsView,
-} from '@/features/settings/api';
+import type { SettingsView } from '@/features/settings/api';
+import type { SettingsKey } from '@/features/settings/form';
+import { useSettingsDraft } from '@/features/settings/useSettingsDraft';
 import { useAiStatus } from '@/features/ai/useAiStatus';
-import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { num, pace, plural } from '@/lib/format';
+import { num, plural } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useTheme, type ThemeMode } from '@/lib/theme';
-import { useToast } from '@/lib/toast';
 
 import { Reminders } from './settings/Reminders';
 import { Security } from './settings/Security';
@@ -46,7 +38,12 @@ import styles from './Settings.module.css';
  */
 
 interface FieldSpec {
-  key: keyof SettingsValues;
+  key:
+    | 'target_weight_kg'
+    | 'target_protein_g'
+    | 'max_added_sugar_g'
+    | 'target_calories'
+    | 'target_hydration_ml';
   label: string;
   hint: string;
   unit: string;
@@ -84,81 +81,6 @@ const NUMBERS: readonly FieldSpec[] = [
     unit: 'ml',
   },
 ];
-
-/** Champs saisis, sous leur forme texte — un formulaire ne manipule que des chaînes. */
-type Draft = Record<keyof SettingsValues, string>;
-
-function toDraft(values: SettingsValues): Draft {
-  return {
-    target_weight_kg: String(values.target_weight_kg),
-    target_protein_g: String(values.target_protein_g),
-    max_added_sugar_g: String(values.max_added_sugar_g),
-    target_calories: String(values.target_calories),
-    target_hydration_ml: String(values.target_hydration_ml),
-    hydration_presets_ml: values.hydration_presets_ml.join(', '),
-    heatmap_metric: values.heatmap_metric,
-    cadence_base_url: values.cadence_base_url,
-    // Vides quand rien n'est saisi : c'est la déduction, et le champ le montre tel quel
-    // plutôt que d'y écrire une valeur que personne n'a choisie.
-    max_hr: values.max_hr == null ? '' : String(values.max_hr),
-    threshold_pace_min_km:
-      values.threshold_pace_min_km == null ? '' : pace(values.threshold_pace_min_km),
-  };
-}
-
-/**
- * Ce que le formulaire envoie : **seulement ce qui a changé**.
- *
- * L'API accepte une modification partielle, et lui envoyer les six clés à chaque
- * enregistrement écrirait des valeurs de repli dans le fichier — un objectif jamais
- * choisi deviendrait un objectif choisi, et il cesserait de suivre le défaut si celui-ci
- * évoluait.
- */
-function changes(draft: Draft, current: SettingsValues): SettingsPayload {
-  const before = toDraft(current);
-  const payload: SettingsPayload = {};
-
-  for (const spec of NUMBERS) {
-    if (draft[spec.key] === before[spec.key]) continue;
-    const parsed = Number.parseFloat(draft[spec.key].replace(',', '.'));
-    if (Number.isFinite(parsed)) {
-      // Le serveur porte les bornes de vraisemblance (`API-06`) : le client n'en
-      // redéclare aucune, il transmet et affiche le refus.
-      payload[spec.key] = parsed as never;
-    }
-  }
-
-  if (draft.hydration_presets_ml !== before.hydration_presets_ml) {
-    const volumes = draft.hydration_presets_ml
-      .split(',')
-      .map((chunk) => Number.parseInt(chunk.trim(), 10))
-      .filter((value) => Number.isFinite(value));
-    payload.hydration_presets_ml = volumes;
-  }
-
-  if (draft.heatmap_metric !== before.heatmap_metric) {
-    payload.heatmap_metric = draft.heatmap_metric;
-  }
-
-  /*
-   * **Le seul champ dont la chaîne vide part au serveur.** Partout ailleurs, un champ
-   * vidé serait une saisie en cours et le laisser filer écraserait un objectif par rien.
-   * Ici, vide *est* la valeur — « pas d'adresse » — et c'est la seule façon d'effacer un
-   * réglage qui n'a aucun défaut sur lequel retomber.
-   */
-  if (draft.cadence_base_url.trim() !== before.cadence_base_url) {
-    payload.cadence_base_url = draft.cadence_base_url.trim();
-  }
-
-  // Les deux références de course suivent la même règle que l'adresse : vides, elles
-  // **effacent**, et la page Course revient à la déduction. Elles partent en texte — `5:15`
-  // se lit côté serveur comme une allure saisie au clavier.
-  for (const key of ['max_hr', 'threshold_pace_min_km'] as const) {
-    if (draft[key].trim() !== before[key]) payload[key] = draft[key].trim();
-  }
-
-  return payload;
-}
 
 const THEMES: readonly { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'Système' },
@@ -203,69 +125,6 @@ function Appearance() {
             options={THEMES}
             value={mode}
             onChange={setMode}
-          />
-        </div>
-      </Card>
-    </>
-  );
-}
-
-/**
- * Le pont vers Cadence Tabata (**D1**) — une adresse, et rien d'autre.
- *
- * ── Pourquoi ce réglage ne porte pas le badge « valeur par défaut » ────────
- *
- * `Origin` lit `stored`, c'est-à-dire « la clé est-elle dans le fichier ». Ça marche pour
- * un objectif, où la clé absente veut dire « je suis le défaut ». Ça ment ici : effacer
- * l'adresse **écrit** une cellule vide, donc la clé y est, donc `stored` dirait « réglé »
- * d'un champ vide. Le badge lit donc la valeur, qui est la question qu'on se pose vraiment
- * — y a-t-il une adresse, oui ou non.
- *
- * ── Ce que dit la carte quand elle est vide ───────────────────────────────
- *
- * Le prochain geste, et son coût : ouvrir Cadence, copier l'adresse de la barre. Pas un
- * exemple de domaine — un domaine plausible affiché en gris finit par être recopié tel
- * quel, et ce serait une valeur inventée.
- */
-function CadenceCard({
-  value,
-  error,
-  onChange,
-}: {
-  value: string;
-  error: string | undefined;
-  onChange: (event: { target: { value: string } }) => void;
-}) {
-  const set = value.trim() !== '';
-
-  return (
-    <>
-      <Rule>Applications</Rule>
-      <Card>
-        <div className="spread">
-          <span className={styles.name}>Cadence Tabata</span>
-          <Badge tone={set ? 'signal' : 'load'}>{set ? 'renseignée' : 'non renseignée'}</Badge>
-        </div>
-        <p className={cx(styles.note, styles.noteSpaced)}>
-          {set
-            ? 'Les séances s’ouvrent dans cette application. Rien n’y est envoyé : le lien contient la séance entière.'
-            : 'Sans adresse, les séances se créent et se modifient, mais aucune ne s’ouvre. Ouvre Cadence et recopie l’adresse de la barre du navigateur.'}
-        </p>
-        {/* `.row` et non un style en ligne : `noteSpaced` n'espace que par le haut, et
-            sans lui le paragraphe colle à l'étiquette du champ — vu en capture. C'est le
-            même enveloppement que les cartes d'objectifs, pas une seconde façon d'espacer. */}
-        <div className={styles.row}>
-          <Field
-            label="Adresse de l’application"
-            type="url"
-            inputMode="url"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={value}
-            error={error}
-            hint="Une clé dans l’adresse est acceptée, une ancre « # » non · vide pour effacer"
-            onChange={onChange}
           />
         </div>
       </Card>
@@ -335,61 +194,43 @@ function RunningCard({
   );
 }
 
-function Origin({ view, field }: { view: SettingsView; field: keyof SettingsValues }) {
+function Origin({ view, field }: { view: SettingsView; field: SettingsKey }) {
   const chosen = view.stored.includes(field);
   return <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'réglé' : 'valeur par défaut'}</Badge>;
 }
 
+/**
+ * Les clés que cet écran règle encore. Les autres ont rejoint l'écran qu'elles règlent
+ * (M-04) et y ont leur propre formulaire, sous le même jeton de fichier.
+ */
+const FIELDS: readonly SettingsKey[] = [
+  'target_weight_kg',
+  'target_protein_g',
+  'max_added_sugar_g',
+  'target_calories',
+  'target_hydration_ml',
+  'hydration_presets_ml',
+  'heatmap_metric',
+  'max_hr',
+  'threshold_pace_min_km',
+];
+
 export function Settings() {
-  const client = useQueryClient();
-  const { notify } = useToast();
-
-  const { data, isPending, error } = useQuery({
-    queryKey: keys.settings.all(),
-    queryFn: settingsApi.read,
+  const form = useSettingsDraft(FIELDS, {
+    // Un objectif modifié change l'écart au poids cible, l'anneau de protéines et la
+    // grille d'hydratation : les vues transverses doivent être rejouées, sinon le tableau
+    // de bord mentirait jusqu'à la prochaine navigation. Les références de course changent
+    // les zones de chaque sortie.
+    invalidates: [
+      ...CROSS_CUTTING,
+      keys.hydration.all(),
+      keys.nutrition.all(),
+      keys.body.all(),
+      keys.activity.all(),
+    ],
+    saved: 'Réglages enregistrés.',
   });
-
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [refusal, setRefusal] = useState<ApiError | null>(null);
-
-  const save = useMutation({
-    mutationFn: (view: SettingsView) =>
-      settingsApi.update(changes(draft ?? toDraft(view.values), view.values), view.token),
-
-    onSuccess: (updated) => {
-      client.setQueryData(keys.settings.all(), updated);
-      // Un objectif modifié change l'écart au poids cible, l'anneau de protéines et la
-      // grille d'hydratation : les vues transverses doivent être rejouées, sinon le
-      // tableau de bord mentirait jusqu'à la prochaine navigation.
-      for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
-      void client.invalidateQueries({ queryKey: keys.hydration.all() });
-      void client.invalidateQueries({ queryKey: keys.nutrition.all() });
-      void client.invalidateQueries({ queryKey: keys.body.all() });
-      // Les références de course changent les zones de chaque sortie : l'analyse d'une
-      // course déjà ouverte se relirait sinon contre l'ancienne allure seuil.
-      void client.invalidateQueries({ queryKey: keys.activity.all() });
-      // Les rappels vivent dans le **même fichier** (`NOT-03`) : cette écriture change le
-      // jeton que la section « Rappels » détient. Sans cette ligne, son prochain
-      // enregistrement partirait en `409` sans que rien ne l'explique — les deux sections
-      // se marcheraient dessus sur un écran où l'on descend naturellement de l'une à
-      // l'autre.
-      void client.invalidateQueries({ queryKey: keys.notifications.all() });
-
-      setDraft(null);
-      setRefusal(null);
-      notify('Réglages enregistrés.', 'effort');
-    },
-
-    onError: (caught: unknown) => {
-      setRefusal(caught instanceof ApiError ? caught : null);
-      if (caught instanceof ApiError && caught.code === 'conflict') {
-        // La garde a parlé : l'écran doit repartir de ce que le fichier vaut vraiment.
-        void client.invalidateQueries({ queryKey: keys.settings.all() });
-        setDraft(null);
-      }
-      notify(caught instanceof ApiError ? caught.message : 'Enregistrement impossible.', 'recover');
-    },
-  });
+  const { data, isPending, error, refusal } = form;
 
   if (isPending) {
     return (
@@ -416,13 +257,10 @@ export function Settings() {
     );
   }
 
-  const fields = draft ?? toDraft(data.values);
-  const set = (key: keyof SettingsValues) => (event: { target: { value: string } }) => {
-    const value = event.target.value;
-    setDraft((current) => ({ ...(current ?? toDraft(data.values)), [key]: value }));
-  };
-
-  const dirty = Object.keys(changes(fields, data.values)).length > 0;
+  // Toujours là quand la lecture l'est : le brouillon, ou les valeurs en vigueur.
+  const fields = form.values;
+  if (fields === null) return null;
+  const { set, dirty, count } = form;
 
   return (
     <div className={cx('wrap', styles.screen)}>
@@ -436,7 +274,7 @@ export function Settings() {
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          save.mutate(data);
+          form.save();
         }}
         noValidate
       >
@@ -459,7 +297,7 @@ export function Settings() {
                   inputMode="decimal"
                   value={fields[spec.key]}
                   error={refusal?.messageFor(spec.key)}
-                  hint={`${spec.hint} · défaut ${num(data.defaults[spec.key] as number, 1)} ${spec.unit}`}
+                  hint={`${spec.hint} · défaut ${num(data.defaults[spec.key], 1)} ${spec.unit}`}
                   onChange={set(spec.key)}
                 />
               </div>
@@ -499,12 +337,6 @@ export function Settings() {
           </Card>
         </div>
 
-        <CadenceCard
-          value={fields.cadence_base_url}
-          error={refusal?.messageFor('cadence_base_url')}
-          onChange={set('cadence_base_url')}
-        />
-
         <RunningCard
           maxHr={fields.max_hr}
           threshold={fields.threshold_pace_min_km}
@@ -523,23 +355,14 @@ export function Settings() {
         <div className={cx(styles.actions, dirty && styles.actionsPending)}>
           {dirty && (
             <p className={styles.pending}>
-              {(() => {
-                const count = Object.keys(changes(fields, data.values)).length;
-                return `${String(count)} ${plural(count, 'réglage modifié', 'réglages modifiés')}`;
-              })()}
+              {`${String(count)} ${plural(count, 'réglage modifié', 'réglages modifiés')}`}
             </p>
           )}
-          <Button type="submit" variant="primary" busy={save.isPending} disabled={!dirty}>
+          <Button type="submit" variant="primary" busy={form.saving} disabled={!dirty}>
             Enregistrer
           </Button>
           {dirty && (
-            <Button
-              variant="quiet"
-              onClick={() => {
-                setDraft(null);
-                setRefusal(null);
-              }}
-            >
+            <Button variant="quiet" onClick={form.reset}>
               Annuler
             </Button>
           )}

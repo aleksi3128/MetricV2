@@ -98,6 +98,15 @@ describe('écran Réglages', () => {
     expect(calls.some((call) => call.url.includes('/api/assistant/profile'))).toBe(false);
   });
 
+  it('ne porte plus l’adresse de Cadence, partie sur la page des séances (M-04)', async () => {
+    stub();
+    renderSettings();
+
+    await screen.findByDisplayValue('68');
+    expect(screen.queryByText('Cadence Tabata')).toBeNull();
+    expect(screen.queryByLabelText('Adresse de l’application')).toBeNull();
+  });
+
   it('affiche les valeurs en vigueur', async () => {
     stub();
     renderSettings();
@@ -192,38 +201,6 @@ describe('écran Réglages', () => {
 
     await waitFor(() => {
       expect(body(saved())).toEqual({ hydration_presets_ml: [200, 400] });
-    });
-  });
-
-  it('dit que le pont vers Cadence n’a pas d’adresse, sans en inventer une', async () => {
-    // L'invariant : pas de valeur inventée à l'écran. Un domaine plausible affiché en
-    // exemple finirait recopié tel quel, et le lien mènerait nulle part.
-    stub();
-    renderSettings();
-
-    expect(await screen.findByText('non renseignée')).toBeInTheDocument();
-    expect(screen.getByLabelText('Adresse de l’application')).toHaveValue('');
-  });
-
-  it('envoie la chaîne vide quand on efface l’adresse', async () => {
-    // **Le seul champ de cet écran dans ce cas.** Les objectifs retombent sur un défaut ;
-    // celui-ci n'en a pas, donc l'effacement doit voyager jusqu'au fichier.
-    stub((url) =>
-      url.startsWith('/api/settings')
-        ? json(200, {
-            ...SETTINGS,
-            values: { ...SETTINGS.values, cadence_base_url: 'https://cadence.exemple.fr' },
-          })
-        : undefined,
-    );
-    renderSettings();
-
-    const address = await screen.findByDisplayValue('https://cadence.exemple.fr');
-    await userEvent.clear(address);
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-
-    await waitFor(() => {
-      expect(body(saved())).toEqual({ cadence_base_url: '' });
     });
   });
 

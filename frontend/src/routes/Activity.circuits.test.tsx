@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
+import { SETTINGS } from '@/test/fixtures';
 
 import { Circuits } from './activity/Circuits';
 import { CircuitsSection } from './activity/Circuits.section';
@@ -103,10 +104,18 @@ const SUGGESTIONS = [
   { name: 'pull-up', muscle_group: null, body_part: 'back', equipment: 'body weight' },
 ];
 
-function stub(body: unknown = { circuits: [HAUT, GAINAGE], linkable: true }) {
+/** Les réglages, dont l'adresse de Cadence se règle ici depuis M-04. */
+const WITH_ADDRESS = { ...SETTINGS, values: { ...SETTINGS.values, cadence_base_url: BASE } };
+
+function stub(
+  body: unknown = { circuits: [HAUT, GAINAGE], linkable: true },
+  settings: unknown = WITH_ADDRESS,
+) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
     calls.push({ url, init });
+
+    if (url.startsWith('/api/settings')) return Promise.resolve(json(200, settings));
 
     if (url.includes('/muscle-groups')) {
       return Promise.resolve(json(200, ['pectoraux', 'abdos', 'jambes']));
@@ -305,6 +314,46 @@ describe('séances Cadence', () => {
 
     expect(await screen.findByText('Adresse de Cadence non renseignée')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Ouvrir/ })).not.toBeInTheDocument();
+  });
+
+  it('règle l’adresse absente sur place, sous le jeton des réglages (M-04)', async () => {
+    stub({ circuits: [{ ...HAUT, url: null }], linkable: false }, SETTINGS);
+    renderCircuits();
+
+    // Aucune adresse inventée : le champ est vide, et « Enregistrer » attend une saisie.
+    const field = await screen.findByLabelText('Adresse de l’application');
+    expect(field).toHaveValue('');
+    const save = screen.getByRole('button', { name: 'Enregistrer' });
+    expect(save).toBeDisabled();
+    expect(screen.queryByRole('link', { name: 'Aller aux réglages' })).not.toBeInTheDocument();
+
+    await userEvent.type(field, BASE);
+    await userEvent.click(save);
+
+    await waitFor(() => {
+      const patch = calls.find((call) => call.init?.method === 'PATCH');
+      expect(JSON.parse(patch?.init?.body as string)).toEqual({ cadence_base_url: BASE });
+      expect((patch?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-reglages');
+    });
+  });
+
+  it('tient l’adresse réglée en une ligne de pied de page, et l’efface par la chaîne vide', async () => {
+    // Le seul réglage sans défaut : l'effacement doit voyager jusqu'au fichier.
+    stub();
+    renderCircuits();
+
+    expect(await screen.findByText(BASE)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Adresse de l’application')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    const field = screen.getByLabelText('Adresse de l’application');
+    await userEvent.clear(field);
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() => {
+      const patch = calls.find((call) => call.init?.method === 'PATCH');
+      expect(JSON.parse(patch?.init?.body as string)).toEqual({ cadence_base_url: '' });
+    });
   });
 
   it('dit ce que coûte le prochain geste quand il n’y a aucune séance', async () => {

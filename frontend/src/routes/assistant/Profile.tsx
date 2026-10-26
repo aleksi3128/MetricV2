@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { Button, Card, Chip, Empty, Field, Skeleton } from '@/components/ui';
 import { assistantApi, type ProfilePayload, type ProfileView } from '@/features/assistant/api';
+import { afterSettingsFileWrite } from '@/features/settings/useSettingsDraft';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { keys } from '@/lib/query';
@@ -124,10 +125,11 @@ export function Profile() {
   /**
    * Ce qu'une écriture du profil rend périmé — vérifié côté serveur, pas supposé.
    *
-   * **Les réglages** : le profil vit dans `settings.csv`, avec les objectifs et les créneaux
-   * de rappel. Sans cette invalidation croisée, la page des réglages garderait un jeton
-   * périmé et son prochain enregistrement partirait en `409` sans que rien ne l'explique —
-   * le déménagement vers l'assistant n'y change rien, le fichier est le même.
+   * **Les deux autres lectures de `settings.csv`** : les réglages (objectifs, et ceux partis
+   * vers leurs écrans avec M-04) et les créneaux de rappel. Sans cette invalidation croisée,
+   * chacun garderait un jeton périmé et son prochain enregistrement partirait en `409` sans
+   * que rien ne l'explique — le déménagement vers l'assistant n'y change rien, le fichier est
+   * le même.
    *
    * **Rien d'autre**, et c'est délibéré. Le condensé qui part au modèle n'est jamais en cache
    * côté écran : le serveur le reconstruit à chaque question, profil compris ; celui qu'on
@@ -138,7 +140,7 @@ export function Profile() {
   const refresh = (updated?: ProfileView) => {
     if (updated) client.setQueryData(keys.assistant.profile(), updated);
     else void client.invalidateQueries({ queryKey: keys.assistant.profile() });
-    void client.invalidateQueries({ queryKey: keys.settings.all() });
+    afterSettingsFileWrite(client, 'profile');
   };
 
   const save = useMutation({
