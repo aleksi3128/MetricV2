@@ -11,6 +11,8 @@ import { keys } from '@/lib/query';
 
 import { CoachCard } from './coach/CoachCard';
 import styles from './Planning.module.css';
+import { AgendaCard } from './planning/AgendaCard';
+import { Changes } from './planning/Changes';
 import { DayPanel } from './planning/DayPanel';
 import { MonthGrid } from './planning/MonthGrid';
 import { PlanningChat } from './planning/PlanningChat';
@@ -37,10 +39,20 @@ import { SwimSheet } from './planning/SwimSheet';
  * ## L'ordre de la page
  *
  * Le mois d'abord, parce que c'est la question qu'on pose en ouvrant l'écran ; le jour
- * ensuite ; puis le fil du coach, **sous** la grille — il propose des séances qu'on
- * regarde se poser dans la semaine juste au-dessus. La carte « Proposer un planning » a
- * disparu : le fil fait la même chose, mieux, et deux portes vers l'IA sur une page
- * seraient deux vocabulaires pour le même geste.
+ * ensuite ; puis **ce que le coach a changé**, quand il a changé quelque chose — c'est ici
+ * que la séance a bougé, donc ici qu'on veut dire « non, remets »
+ * (`docs/pages/modifications.md`, M-03). La carte est absente sans changement : une carte
+ * vide sous le jour pousserait le reste plus bas pour ne rien dire.
+ *
+ * Viennent ensuite les deux coachs — la séance proposée, puis le fil —, qui proposent des
+ * séances qu'on regarde se poser dans la semaine juste au-dessus. La carte « Proposer un
+ * planning » a disparu : le fil fait la même chose, mieux, et deux portes vers l'IA sur
+ * une page seraient deux vocabulaires pour le même geste.
+ *
+ * L'**agenda** et l'**abonnement** ferment la page, côte à côte : l'un entre (les créneaux
+ * pris d'iCloud, qui font placer et déplacer *toutes* les séances), l'autre sort (le
+ * planning vers le calendrier du téléphone). Ils vivaient sur deux écrans ; l'agenda était
+ * sur `/plan`, où rien ne dit qu'il sert aussi aux séances posées à la main.
  */
 export function Planning() {
   const [params] = useSearchParams();
@@ -70,6 +82,12 @@ export function Planning() {
   const { data: adherence } = useQuery({
     queryKey: keys.planning.adherence(),
     queryFn: () => planningApi.adherence(),
+  });
+
+  /** Lu à part : une panne de cette lecture ne doit pas emporter le calendrier. */
+  const { data: changes } = useQuery({
+    queryKey: keys.planning.changes(),
+    queryFn: planningApi.changes,
   });
 
   const day = useMemo(() => {
@@ -180,11 +198,22 @@ export function Planning() {
             onOpenSwim={setSwimId}
           />
 
-          <PlanningChat />
+          {changes !== undefined && changes.length > 0 && (
+            <Card>
+              <div className="stack">
+                <h3>Ce que le coach a changé</h3>
+                <Changes changes={changes} />
+              </div>
+            </Card>
+          )}
 
           {/* La proposition du coach de course, **à valider** : hors de `plan.csv` tant
               qu'elle n'est pas acceptée. */}
           <CoachCard rule="Séance proposée par le coach" />
+
+          <PlanningChat />
+
+          <AgendaCard />
           <SubscriptionCard />
         </>
       )}

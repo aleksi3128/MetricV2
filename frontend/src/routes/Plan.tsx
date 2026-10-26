@@ -6,6 +6,10 @@
  * phrase qui tranche un conflit viennent du serveur, calculés par règles. L'écran les
  * montre, transmet un oui ou un non, et pose le plan au planning en un geste.
  *
+ * **Ni l'agenda ni « ce que le coach a changé » ne sont ici** : ils servent à toutes les
+ * séances, et vivent sur `/planning` depuis M-03 (`docs/pages/modifications.md`). Cet
+ * écran ne porte que ce qui est propre à une course visée.
+ *
  * **Poser le plan remplace les séances `plan` à venir** — une écriture qui en défait une
  * autre : quand un plan est déjà posé, le geste s'arme puis s'exécute, comme une
  * suppression. La première pose, elle, n'efface rien et se défait en retirant le plan.
@@ -35,15 +39,12 @@ import {
   type Race,
   type RaceList,
 } from '@/features/races/api';
-import { planningApi } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { dayMonth, shortDate } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
-import { AgendaCard } from './planning/AgendaCard';
-import { Changes } from './planning/Changes';
 import styles from './Plan.module.css';
 
 const DISTANCES: readonly { value: Distance; label: string }[] = [
@@ -379,10 +380,6 @@ export function Plan() {
     onSuccess: set,
   });
   const nextA = data?.races.find((race) => race.race_id === data.next_a);
-  const { data: changes } = useQuery({
-    queryKey: keys.planning.changes(),
-    queryFn: planningApi.changes,
-  });
 
   return (
     <div className={cx('wrap', styles.screen)}>
@@ -477,19 +474,7 @@ export function Plan() {
             )}
           </Card>
 
-          {changes !== undefined && changes.length > 0 && (
-            <>
-              <Rule>Ce que le coach a changé</Rule>
-              <Card>
-                <Changes changes={changes} />
-              </Card>
-            </>
-          )}
-
           {nextA !== undefined && <PlanSection raceId={nextA.race_id} name={nextA.name} />}
-
-          <Rule>Agenda</Rule>
-          <AgendaCard />
         </>
       )}
     </div>

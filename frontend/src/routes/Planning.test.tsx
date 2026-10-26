@@ -9,7 +9,9 @@ import type { SwimDetail } from '@/features/activity/api';
 import type { ActionReport, ChatReply } from '@/features/assistant/api';
 import type {
   AdherenceView,
+  AgendaView,
   MonthView,
+  PlanChange,
   PlannedSession,
   SwimCodeEntry,
   SwimProgram,
@@ -191,6 +193,23 @@ const ADHERENCE: AdherenceView = {
 
 const EMPTY_ADHERENCE: AdherenceView = { weeks: [], rate: null, planned: 0, honoured: 0 };
 
+const UNLINKED: AgendaView = {
+  configured: false,
+  hint: null,
+  events: 0,
+  unsupported: 0,
+  error: null,
+};
+
+const CHANGE: PlanChange = {
+  key: 'agenda:s1',
+  action: 'move',
+  summary: 'Seuil — mar. 18/08 18:30 → mar. 18/08 20:30',
+  reason: 'Seuil tombait sur un créneau pris de ton agenda : déplacée à 20:30.',
+  date: '2026-08-18',
+  status: 'pending',
+};
+
 const CODES: SwimCodeEntry[] = [
   {
     code: 'CR',
@@ -351,7 +370,9 @@ function json(status: number, body: unknown): Response {
 function stub(
   options: {
     adherence?: AdherenceView;
+    agenda?: AgendaView;
     aiEnabled?: boolean;
+    changes?: PlanChange[];
     month?: MonthView;
     parsed?: SwimProgram;
     reply?: ChatReply;
@@ -372,6 +393,12 @@ function stub(
       );
     if (url.includes('/api/planning/adherence')) {
       return Promise.resolve(json(200, options.adherence ?? ADHERENCE));
+    }
+    if (url.includes('/api/planning/changes')) {
+      return Promise.resolve(json(200, options.changes ?? []));
+    }
+    if (url.includes('/api/planning/agenda')) {
+      return Promise.resolve(json(200, options.agenda ?? UNLINKED));
     }
     if (url.includes('/api/planning/subscription')) {
       return Promise.resolve(
@@ -867,6 +894,51 @@ describe('le coach du planning', () => {
     expect(await screen.findByText('Assistance indisponible')).toBeInTheDocument();
     expect(screen.queryByLabelText('Ta demande au coach')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Planifier' })).toBeInTheDocument();
+  });
+});
+
+// ── L'agenda et ce que le coach a changé (M-03) ───────
+
+describe('ce que le coach a changé, et l’agenda', () => {
+  it('pose les changements sous le jour choisi, et « non » demande de les défaire', async () => {
+    stub({ changes: [CHANGE] });
+    renderScreen();
+
+    const heading = await screen.findByRole('heading', { name: 'Ce que le coach a changé' });
+    expect(screen.getByText(CHANGE.reason)).toBeInTheDocument();
+    // Sous le jour : le bouton « Planifier » du panneau précède la carte dans le document.
+    const plan = screen.getByRole('button', { name: 'Planifier' });
+    expect(plan.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Non, remets comme avant' }));
+    await waitFor(() => {
+      expect(writes().find((call) => call.url.includes('/api/planning/changes/'))).toBeDefined();
+    });
+    const decided = writes().find((call) => call.url.includes('/api/planning/changes/'));
+    expect(decided?.url).toBe('/api/planning/changes/agenda%3As1');
+    expect(bodyOf(decided)).toEqual({ accept: false });
+  });
+
+  it('n’affiche aucune carte de changements quand le coach n’a rien changé', async () => {
+    stub();
+    renderScreen();
+
+    await screen.findByRole('button', { name: 'Planifier' });
+    await screen.findByRole('heading', { name: 'Agenda' });
+    expect(screen.queryByRole('heading', { name: 'Ce que le coach a changé' })).toBeNull();
+  });
+
+  it('porte l’agenda, à côté de l’abonnement', async () => {
+    stub();
+    renderScreen();
+
+    expect(await screen.findByLabelText('Lien de l’agenda')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Relier l’agenda' })).toBeDisabled();
+    const agenda = screen.getByRole('heading', { name: 'Agenda' });
+    const subscription = await screen.findByRole('heading', { name: 'Abonnement calendrier' });
+    expect(
+      agenda.compareDocumentPosition(subscription) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 

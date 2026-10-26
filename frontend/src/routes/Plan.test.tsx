@@ -174,4 +174,15 @@ describe('le plan de course', () => {
       );
     });
   });
+
+  it('ne porte ni l’agenda ni ce que le coach a changé (M-03)', async () => {
+    // Les deux servent à toutes les séances : ils vivent sur `/planning`. L'écran ne les
+    // demande même plus au serveur.
+    renderPlan();
+    expect(await screen.findByText('6 km EF + 6 × 80 m LD')).toBeInTheDocument();
+
+    expect(screen.queryByText('Agenda')).toBeNull();
+    expect(screen.queryByText('Ce que le coach a changé')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/api/planning/'))).toBe(false);
+  });
 });

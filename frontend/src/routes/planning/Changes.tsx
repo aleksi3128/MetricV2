@@ -5,8 +5,9 @@
  * laisse la modification ; non la défait — sauf si la séance a été retouchée depuis, ce que
  * le serveur dit en toutes lettres, affiché tel quel.
  *
- * Un seul composant pour `/plan` et le point du soir : deux cartes finiraient par ne plus
- * poser la même question.
+ * Un seul composant pour `/planning` et le point du soir : deux cartes finiraient par ne
+ * plus poser la même question. Il vivait sur `/plan` jusqu'à M-03
+ * (`docs/pages/modifications.md`) : c'est sur le calendrier que la séance a bougé.
  */
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
