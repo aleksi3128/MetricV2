@@ -1,0 +1,50 @@
+/* La feuille « Ce que l'assistant sait de toi » (`MemorySheet.tsx`). */
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  padding: var(--s3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.itemBody {
+  flex: 1 1 12rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--t-sub);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+}
+
+.itemActions {
+  display: flex;
+  gap: var(--s2);
+  flex: none;
+}
+
+.memoryForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}

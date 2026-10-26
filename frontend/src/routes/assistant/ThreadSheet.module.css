@@ -1,0 +1,47 @@
+/* La feuille « Tes discussions » (`ThreadSheet.tsx`). */
+
+.hint {
+  color: var(--ink-low);
+  font-size: var(--t-meta);
+  padding-block: var(--s3);
+}
+
+/*
+ * Une discussion, et ce qu'on peut en faire.
+ *
+ * Les deux cibles étaient sur une **ligne** : la ligne d'ouverture prenait ce que le
+ * bouton « Supprimer » lui laissait, soit ~194 px utiles à 360 px de large une fois
+ * retirés la gouttière de la feuille, le retrait de `SheetRow` et les ~100 px du bouton.
+ * Un titre de fil y était tronqué à deux mots. Elles sont maintenant l'une **sous**
+ * l'autre : l'ouverture garde toute la largeur, et la destructive — la plus rare — se
+ * range à droite, où le pouce ne la rencontre pas en visant l'autre.
+ */
+.threadRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.threadRow + .threadRow {
+  margin-top: var(--s3);
+}
+
+.threadActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* L'état armé d'une destruction, dans le ton que la charte lui réserve. Même apparence
+   que la touche de `SwipeRow` et que le retrait d'un exercice : c'est le même acte. */
+.armed {
+  border-color: rgb(var(--recover-rgb) / 0.6);
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  color: var(--recover);
+}
+
+/* Le formulaire de renommage, à la place de la ligne qu'il corrige. */
+.renameForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
