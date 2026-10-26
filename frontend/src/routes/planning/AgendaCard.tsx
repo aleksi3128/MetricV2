@@ -4,6 +4,11 @@
  * Le lien est un **secret** — qui le détient lit l'agenda. Il part au serveur et n'en
  * revient jamais : l'écran n'affiche que l'indice que le serveur en donne, l'hôte et la fin.
  * Le champ reste donc vide après l'enregistrement, et ce n'est pas un oubli.
+ *
+ * **Reliée, la carte se replie** (M-04, le reste de M-03) : l'état, les créneaux de la
+ * semaine, et « Modifier ». Le champ « Changer le lien » restait déplié en permanence pour
+ * un geste qu'on fait une fois. « Oublier le lien » demande deux appuis : le lien est un
+ * secret qu'on ne retrouve qu'en retournant dans iCloud, et le projet n'a aucune annulation.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -12,16 +17,25 @@ import { useState, type SyntheticEvent } from 'react';
 import { Badge, Button, Card, Field, Skeleton } from '@/components/ui';
 import { planningApi } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
+import { cx } from '@/lib/cx';
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
-import styles from './Changes.module.css';
+import styles from './AgendaCard.module.css';
 
 export function AgendaCard() {
   const client = useQueryClient();
   const { notify } = useToast();
   const [url, setUrl] = useState('');
-  const { data, isPending } = useQuery({
+  /** Le formulaire d'un agenda déjà relié, déplié par « Modifier ». */
+  const [editing, setEditing] = useState(false);
+  /** « Oublier le lien » a reçu son premier appui. */
+  const [armed, setArmed] = useState(false);
+  const {
+    data,
+    isPending,
+    error: unreadable,
+  } = useQuery({
     queryKey: keys.planning.agenda(),
     queryFn: planningApi.agenda,
   });
@@ -30,10 +44,14 @@ export function AgendaCard() {
     onSuccess: (view) => {
       client.setQueryData(keys.planning.agenda(), view);
       setUrl('');
+      setEditing(false);
+      setArmed(false);
       notify(view.configured ? 'Agenda relié.' : 'Agenda oublié.', 'effort');
     },
   });
   const error = save.error instanceof ApiError ? save.error : null;
+  const linked = data?.configured === true;
+  const open = data !== undefined && (!linked || editing);
 
   function submit(event: SyntheticEvent) {
     event.preventDefault();
@@ -42,7 +60,7 @@ export function AgendaCard() {
 
   return (
     <Card>
-      <form className={styles.list} onSubmit={submit} noValidate>
+      <form className={styles.form} onSubmit={submit} noValidate>
         <div className="spread">
           <h3>Agenda</h3>
           {data !== undefined && (
@@ -51,8 +69,14 @@ export function AgendaCard() {
             </Badge>
           )}
         </div>
+        {/* Quatre états : une lecture en panne disait « non relié » d'un agenda peut-être
+            relié — la phrase d'explication s'affichait, faute de donnée. */}
         {isPending ? (
           <Skeleton lines={1} />
+        ) : unreadable !== null ? (
+          <p className={styles.error} role="alert">
+            {unreadable instanceof ApiError ? unreadable.message : 'Agenda illisible.'}
+          </p>
         ) : data?.configured ? (
           <p className={styles.reason}>
             {data.error ??
@@ -67,41 +91,76 @@ export function AgendaCard() {
             événement les recouvre. Seuls les créneaux sont lus, jamais les titres.
           </p>
         )}
-        <Field
-          label={data?.configured ? 'Changer le lien' : 'Lien de l’agenda'}
-          placeholder="webcal://p00-caldav.icloud.com/published/…"
-          value={url}
-          autoComplete="off"
-          error={error?.messageFor('url')}
-          onChange={(event) => {
-            setUrl(event.target.value);
-          }}
-        />
-        {error !== null && error.fields.length === 0 && (
-          <p className={styles.error} role="alert">
-            {error.message}
-          </p>
-        )}
-        <div className={styles.actions}>
-          <Button
-            type="submit"
-            variant="primary"
-            busy={save.isPending}
-            disabled={url.trim() === ''}
-          >
-            Relier l’agenda
-          </Button>
-          {data?.configured === true && (
+        {linked && !editing && (
+          <div className={styles.actions}>
             <Button
               variant="quiet"
+              aria-expanded={false}
               onClick={() => {
-                save.mutate('');
+                setEditing(true);
               }}
             >
-              Oublier le lien
+              Modifier
             </Button>
-          )}
-        </div>
+          </div>
+        )}
+        {open && (
+          <>
+            <Field
+              label={linked ? 'Changer le lien' : 'Lien de l’agenda'}
+              placeholder="webcal://p00-caldav.icloud.com/published/…"
+              value={url}
+              autoComplete="off"
+              error={error?.messageFor('url')}
+              onChange={(event) => {
+                setUrl(event.target.value);
+              }}
+            />
+            {error !== null && error.fields.length === 0 && (
+              <p className={styles.error} role="alert">
+                {error.message}
+              </p>
+            )}
+            <div className={styles.actions}>
+              <Button
+                type="submit"
+                variant="primary"
+                busy={save.isPending}
+                disabled={url.trim() === ''}
+              >
+                Relier l’agenda
+              </Button>
+              {linked && (
+                <Button
+                  className={cx(armed && styles.armed)}
+                  aria-label={armed ? 'Oublier le lien — confirmer' : 'Oublier le lien'}
+                  busy={save.isPending && url === ''}
+                  onClick={() => {
+                    if (!armed) {
+                      setArmed(true);
+                      return;
+                    }
+                    save.mutate('');
+                  }}
+                >
+                  {armed ? 'Confirmer l’oubli ?' : 'Oublier le lien'}
+                </Button>
+              )}
+              {linked && (
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    setEditing(false);
+                    setArmed(false);
+                    setUrl('');
+                  }}
+                >
+                  Replier
+                </Button>
+              )}
+            </div>
+          </>
+        )}
       </form>
     </Card>
   );

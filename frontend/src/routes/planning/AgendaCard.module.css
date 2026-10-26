@@ -1,0 +1,35 @@
+/* La carte Agenda du planning (`docs/agenda-replanification.md`, D1). Elle empruntait le
+   module de `Changes` ; elle a le sien depuis qu'elle se replie une fois reliée (M-04). */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.reason {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.error {
+  margin: 0;
+  color: var(--load);
+  font-size: var(--t-sub);
+}
+
+/* « Oublier le lien » armé par un premier appui : le ton des destructions à deux appuis. */
+.armed {
+  border-color: rgb(var(--recover-rgb) / 0.6);
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  color: var(--recover);
+}

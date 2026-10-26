@@ -91,4 +91,49 @@ describe('l’agenda', () => {
     expect(screen.queryByDisplayValue(/SECRET/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain('SECRET');
   });
+
+  it('se replie une fois relié, et n’oublie le lien qu’au second appui (M-04)', async () => {
+    const linked: AgendaView = {
+      configured: true,
+      hint: 'p53-caldav.icloud.com · …abcd',
+      events: 2,
+      unsupported: 0,
+      error: null,
+    };
+    const mock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      Promise.resolve(
+        json(200, init?.method === 'PATCH' ? { ...linked, configured: false, hint: null } : linked),
+      ),
+    );
+    vi.stubGlobal('fetch', mock);
+    wrap(<AgendaCard />);
+
+    // Replié : l'état et « Modifier », aucun champ.
+    expect(await screen.findByText(/2 créneaux occupés cette semaine/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Changer le lien')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    expect(screen.getByLabelText('Changer le lien')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Oublier le lien' }));
+    expect(mock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Oublier le lien — confirmer' }));
+    await waitFor(() => {
+      expect(mock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(true);
+    });
+  });
+
+  it('dit la panne au lieu de passer pour « non relié »', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(json(422, { code: 'validation_error', message: 'Agenda illisible ici.' })),
+      ),
+    );
+    wrap(<AgendaCard />);
+
+    expect(await screen.findByText('Agenda illisible ici.')).toBeInTheDocument();
+    expect(screen.queryByText(/Le lien public de ton agenda iCloud/)).toBeNull();
+    expect(screen.queryByText('non relié')).toBeNull();
+  });
 });
