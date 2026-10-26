@@ -103,6 +103,15 @@ const SERIES = {
   },
 };
 
+/** « Le matin » (M-09), vide ici : la carte a son propre fichier. */
+const MORNING_VIEW = {
+  today: '2026-07-21',
+  since: '2026-06-22',
+  days: 30,
+  series: [],
+  entries: [],
+};
+
 /** La porte des douleurs, en tête d'écran (M-08) ; vide ici, elle a son propre fichier. */
 const PAIN_VIEW = {
   today: '2026-07-21',
@@ -121,6 +130,7 @@ function stubApi(overrides: Partial<Record<string, Response>> = {}) {
     for (const [fragment, response] of Object.entries(overrides)) {
       if (url.includes(fragment) && response) return Promise.resolve(response);
     }
+    if (url.includes('/body/morning/trend')) return Promise.resolve(json(200, MORNING_VIEW));
     if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
     // La courbe des mensurations (M-08) : un seul relevé de taille, donc pas de tracé.
     if (url.includes('/api/aggregates/series'))
@@ -254,6 +264,7 @@ describe('écran Corps', () => {
           }),
         );
       }
+      if (url.includes('/body/morning/trend')) return Promise.resolve(json(200, MORNING_VIEW));
       if (url.includes('/body/measurements')) return Promise.resolve(json(200, MEASUREMENT_VIEW));
       if (url.includes('/api/aggregates/series')) return Promise.resolve(json(200, SERIES));
       if (url.includes('/api/pain/patterns'))

@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.validation import today_local
-from app.domains.body.readiness import MIN_MORNINGS, Morning, assess
+from app.domains.body.readiness import MIN_MORNINGS, Morning, assess, reference
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider
 from tests.fake_webdav import FakeWebDav
@@ -84,6 +84,22 @@ def test_old_mornings_do_not_make_a_reference() -> None:
     assert assess(DAY, [Morning(DAY, 60, 40), *old]).status == "unknown"
 
 
+def test_a_reference_waits_for_ten_values_of_each_measure_apart() -> None:
+    # Dix matins de FC, neuf de VFC : l'une a sa référence, l'autre pas encore. La courbe
+    # de `/corps` (M-09) les trace chacune de son côté, sans les attendre l'une l'autre.
+    mornings = [
+        Morning(DAY - timedelta(days=offset), 50, 60 if offset < MIN_MORNINGS else None)
+        for offset in range(1, MIN_MORNINGS + 1)
+    ]
+    found = reference(DAY, mornings)
+
+    assert found.resting_hr == 50.0
+    assert found.hrv_ms is None
+    assert (found.rhr_count, found.hrv_count) == (MIN_MORNINGS, MIN_MORNINGS - 1)
+    # Le jour lui-même n'entre pas dans sa référence — la même fenêtre qu'`assess`.
+    assert reference(DAY - timedelta(days=1), mornings).rhr_count == MIN_MORNINGS - 1
+
+
 # ── La saisie ─────────────────────────────────────────
 
 
@@ -150,3 +166,75 @@ def test_a_morning_is_corrected_under_if_match_only(
 def test_a_future_morning_is_refused(app_client: TestClient, auth: dict[str, str]) -> None:
     ahead = (today_local() + timedelta(days=1)).isoformat()
     assert post(app_client, auth, date=ahead, resting_hr=50).status_code == 422
+
+
+# ── La série (M-09) ───────────────────────────────────
+
+TREND = f"{MORNING}/trend"
+
+
+def seed_mornings(dav: FakeWebDav, offsets: range, hrv: bool = True) -> None:
+    today = today_local()
+    lines = "".join(
+        f"{today - timedelta(days=offset)},{50 + offset % 3},{60 + offset % 5 if hrv else ''},manual\n"
+        for offset in offsets
+    )
+    dav.seed(MORNING_FILE, "date,resting_hr,hrv_ms,source\n" + lines)
+
+
+def test_the_series_covers_thirty_days_and_lists_them_newest_first(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    seed_mornings(dav, range(0, 40))
+    view = app_client.get(TREND, headers=auth).json()
+
+    today = today_local()
+    assert view["days"] == 30
+    assert view["since"] == (today - timedelta(days=29)).isoformat()
+    rhr, hrv = view["series"]
+    assert (rhr["key"], rhr["unit"], hrv["key"], hrv["unit"]) == (
+        "resting_hr",
+        "bpm",
+        "hrv_ms",
+        "ms",
+    )
+    assert [point["date"] for point in rhr["points"]] == sorted(
+        (today - timedelta(days=offset)).isoformat() for offset in range(30)
+    )
+    assert view["entries"][0]["date"] == today.isoformat()
+    assert len(view["entries"]) == 30
+
+    # Quarante matins : chaque point a dix valeurs avant lui, la ligne est servie entière.
+    assert rhr["reference_line"] is not None
+    assert len(rhr["reference_line"]) == len(rhr["points"])
+    assert rhr["reference"] is not None
+    assert rhr["text"].startswith("Ta référence\u00a0: 5")
+
+
+def test_no_reference_line_while_it_builds_and_the_text_says_what_is_missing(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    seed_mornings(dav, range(1, 6), hrv=False)
+    rhr, hrv = app_client.get(TREND, headers=auth).json()["series"]
+
+    assert len(rhr["points"]) == 5
+    assert rhr["reference_line"] is None
+    assert rhr["reference"] is None
+    assert rhr["needed"] == MIN_MORNINGS - 5
+    assert rhr["text"] == "Ta référence se construit\u00a0: encore 5 matins."
+    # Aucune VFC notée : aucun point, et rien d'inventé à sa place.
+    assert hrv["points"] == []
+    assert hrv["reference_line"] is None
+    assert hrv["needed"] == MIN_MORNINGS
+
+
+def test_a_line_with_holes_is_not_served(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    # Douze matins : les derniers points ont leur référence, les premiers pas. Une ligne qui
+    # commencerait au milieu de la courbe se lirait comme un saut : elle n'est pas servie.
+    seed_mornings(dav, range(0, 12))
+    rhr = app_client.get(TREND, headers=auth).json()["series"][0]
+
+    assert rhr["reference"] is not None
+    assert rhr["reference_line"] is None

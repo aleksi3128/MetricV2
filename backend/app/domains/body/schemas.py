@@ -210,3 +210,38 @@ class MorningView(BaseModel):
     entry: MorningEntry | None = None
     readiness: ReadinessView
     recent: list[MorningEntry] = Field(default_factory=list)
+
+
+class MorningPoint(BaseModel):
+    date: date
+    value: int
+
+
+class MorningSeries(BaseModel):
+    """Une mesure du matin sur la fenêtre de la courbe (M-09).
+
+    `reference_line` donne la référence de chaque point — celle qu'`assess` aurait lue ce
+    matin-là. Elle n'est servie que lorsque **chaque** point a la sienne : pendant qu'elle
+    se construit, l'écran ne trace rien, et `text` dit ce qu'il manque.
+    """
+
+    key: Literal["resting_hr", "hrv_ms"]
+    label: str
+    unit: str
+    points: list[MorningPoint]
+    reference_line: list[float] | None = None
+    #: La référence d'aujourd'hui (les 28 jours d'avant), ou `None` tant qu'elle se construit.
+    reference: float | None = None
+    needed: int = 0
+    text: str
+
+
+class MorningTrendView(BaseModel):
+    """FC de repos et VFC relues en série (`docs/pages/modifications.md`, M-09)."""
+
+    today: date
+    since: date
+    days: int
+    series: list[MorningSeries]
+    #: Les matins de la fenêtre, du plus récent au plus ancien — ce que la carte corrige.
+    entries: list[MorningEntry]

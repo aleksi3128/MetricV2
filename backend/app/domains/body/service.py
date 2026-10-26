@@ -8,12 +8,13 @@ recalculerait la tendance finirait par afficher une autre courbe que le serveur.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from typing import Literal
 
 from app.core.dates import today_local
 from app.core.exceptions import ValidationFailedError
 from app.domains.app_settings.service import SettingsService
 from app.domains.body.models import MEASUREMENT_FIELDS, MeasurementRow, MorningRow, WeightRow
-from app.domains.body.readiness import Morning, assess
+from app.domains.body.readiness import MIN_MORNINGS, Morning, assess, reference
 from app.domains.body.schemas import (
     MeasurementEntry,
     MeasurementIndicator,
@@ -21,6 +22,9 @@ from app.domains.body.schemas import (
     MeasurementView,
     MorningEntry,
     MorningPayload,
+    MorningPoint,
+    MorningSeries,
+    MorningTrendView,
     MorningView,
     ReadinessView,
     WeightEntry,
@@ -340,6 +344,73 @@ class MorningService:
             entry=self._entry(current) if current else None,
             readiness=self._readiness(rows, day),
             recent=[self._entry(row) for row in recent[: self.RECENT]],
+        )
+
+    #: La fenêtre de la courbe de `/corps`, aujourd'hui compris : un mois se lit d'un coup
+    #: d'œil, et couvre la fenêtre de 28 jours d'une référence.
+    TREND_DAYS = 30
+
+    async def trend(self, *, today: date | None = None) -> MorningTrendView:
+        """Les deux mesures sur trente jours, leur référence, et les matins à corriger (M-09)."""
+        day = today or today_local()
+        rows = await self._repo.read_all()
+        history = [Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms) for row in rows]
+        since = day - timedelta(days=self.TREND_DAYS - 1)
+        inside = sorted(
+            (row for row in rows if since <= row.model.date <= day),
+            key=lambda row: (row.model.date, row.index),
+        )
+        return MorningTrendView(
+            today=day,
+            since=since,
+            days=self.TREND_DAYS,
+            series=[
+                self._series("resting_hr", "FC de repos", "bpm", inside, history, day),
+                self._series("hrv_ms", "VFC", "ms", inside, history, day),
+            ],
+            entries=[self._entry(row) for row in reversed(inside)],
+        )
+
+    @staticmethod
+    def _series(
+        key: Literal["resting_hr", "hrv_ms"],
+        label: str,
+        unit: str,
+        rows: list[Row[MorningRow]],
+        history: list[Morning],
+        day: date,
+    ) -> MorningSeries:
+        points = [
+            MorningPoint(date=row.model.date, value=value)
+            for row in rows
+            if (value := getattr(row.model, key)) is not None
+        ]
+        line = [getattr(reference(point.date, history), key) for point in points]
+        today = reference(day, history)
+        current: float | None = getattr(today, key)
+        count = today.rhr_count if key == "resting_hr" else today.hrv_count
+        needed = max(0, MIN_MORNINGS - count)
+        if current is not None:
+            text = f"Ta référence\u00a0: {round(current)} {unit}, la moyenne des 28 jours d'avant."
+        else:
+            text = (
+                f"Ta référence se construit\u00a0: encore {needed} "
+                f"matin{'s' if needed > 1 else ''}."
+            )
+        return MorningSeries(
+            key=key,
+            label=label,
+            unit=unit,
+            points=points,
+            # Une ligne trouée se lirait comme une référence qui s'effondre : tout ou rien.
+            reference_line=(
+                [value for value in line if value is not None]
+                if points and all(value is not None for value in line)
+                else None
+            ),
+            reference=current,
+            needed=needed,
+            text=text,
         )
 
     async def readiness(self, day: date) -> ReadinessView:

@@ -26,6 +26,7 @@ from app.domains.body.schemas import (
     MeasurementView,
     MorningEntry,
     MorningPayload,
+    MorningTrendView,
     MorningView,
     WeightEntry,
     WeightPayload,
@@ -149,6 +150,15 @@ async def read_health(store: StoreDep) -> HealthView:
 @router.get("/morning", response_model=MorningView, summary="FC de repos, VFC et forme du jour")
 async def read_morning(store: StoreDep) -> MorningView:
     return await MorningService(store).view()
+
+
+@router.get(
+    "/morning/trend",
+    response_model=MorningTrendView,
+    summary="FC de repos et VFC sur trente jours, leur référence et les matins à corriger",
+)
+async def read_morning_trend(store: StoreDep) -> MorningTrendView:
+    return await MorningService(store).trend()
 
 
 @router.post(

@@ -1,4 +1,4 @@
-/** Ce que partagent les sections de `/corps` : pesées, mensurations, douleurs. */
+/** Ce que partagent les sections de `/corps` : pesées, matins, mensurations, douleurs. */
 
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -30,5 +30,24 @@ export function useInvalidateBody() {
   return () => {
     void client.invalidateQueries({ queryKey: keys.body.all() });
     for (const key of CROSS_CUTTING) void client.invalidateQueries({ queryKey: key });
+  };
+}
+
+/**
+ * Un matin corrigé change la forme du jour : le coach, le parcours du matin et la page
+ * d'une course (« Le matin ») la relisent — les mêmes clés que le parcours après sa saisie.
+ */
+export function useInvalidateMorning() {
+  const client = useQueryClient();
+  return () => {
+    for (const key of [
+      keys.body.all(),
+      keys.activity.all(),
+      keys.coach.all(),
+      keys.morning.all(),
+      ...CROSS_CUTTING,
+    ]) {
+      void client.invalidateQueries({ queryKey: key });
+    }
   };
 }

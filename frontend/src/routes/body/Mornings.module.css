@@ -1,0 +1,127 @@
+/* « Le matin » de `/corps` (M-09). Module à part, comme celui des mensurations : le dépôt
+   refuse les dépendances de style entre fichiers. Les règles de liste et de formulaire en
+   reprennent les valeurs. */
+
+/* La courbe à gauche, correction et liste à droite — la grille des mensurations. */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--s4);
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .grid {
+    grid-template-columns: 1fr 340px;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+  flex-wrap: wrap;
+  margin-bottom: var(--s4);
+}
+
+/* La phrase de la référence, telle que le serveur l'écrit — « encore 5 matins ». */
+.reference {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+  line-height: 1.5;
+}
+
+.emptyAction {
+  margin-top: var(--s4);
+}
+
+.empty {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+}
+
+.error {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+  border: 1px solid rgb(var(--recover-rgb) / var(--badge-border-a));
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+/* ── Corriger ───────────────────────────────────────── */
+
+/* Le titre « Corriger le matin du … » ne doit pas passer sous la barre du haut. */
+.formAnchor {
+  scroll-margin-top: calc(var(--safe-t) + 48px + var(--s4));
+}
+
+@media (min-width: 960px) {
+  .formAnchor {
+    scroll-margin-top: calc(var(--safe-t) + 120px);
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+}
+
+/* ── La liste ───────────────────────────────────────── */
+
+.flushTitle {
+  padding: 0 12px 14px;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.list > li {
+  border-top: 1px solid var(--line-soft);
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s2) 12px;
+  min-height: var(--tap);
+}
+
+.entryText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.entryDate {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.meta {
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  line-height: 1.5;
+}

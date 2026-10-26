@@ -144,6 +144,37 @@ export interface MorningView {
   recent: MorningEntry[];
 }
 
+export interface MorningPoint {
+  date: string;
+  value: number;
+}
+
+/**
+ * Une mesure du matin sur trente jours (M-09). `reference_line` — la référence de chaque
+ * point — n'est servie que lorsque chacun a la sienne : `null` pendant qu'elle se
+ * construit, et `text` dit ce qu'il manque.
+ */
+export interface MorningSeries {
+  key: 'resting_hr' | 'hrv_ms';
+  label: string;
+  unit: string;
+  points: MorningPoint[];
+  reference_line: number[] | null;
+  reference: number | null;
+  needed: number;
+  text: string;
+}
+
+export interface MorningTrend {
+  /** Le jour du serveur : une correction ne se date pas au-delà. */
+  today: string;
+  since: string;
+  days: number;
+  series: MorningSeries[];
+  /** Les matins de la fenêtre, du plus récent au plus ancien. */
+  entries: MorningEntry[];
+}
+
 export interface MorningPayload {
   date: string;
   resting_hr: number | null;
@@ -160,6 +191,9 @@ export const bodyApi = {
       headers: guard(token),
       body: payload,
     }),
+  morningTrend: () => request<MorningTrend>('/api/body/morning/trend'),
+  deleteMorning: (id: number, token: string) =>
+    request<undefined>(`/api/body/morning/${id}`, { method: 'DELETE', headers: guard(token) }),
   weight: (limit = 50) => request<WeightView>('/api/body/weight', { query: { limit } }),
 
   createWeight: (payload: WeightPayload) =>

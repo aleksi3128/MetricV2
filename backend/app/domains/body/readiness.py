@@ -60,11 +60,43 @@ class Readiness:
     needed: int = 0
 
 
+@dataclass(frozen=True, slots=True)
+class Reference:
+    """La référence d'un jour, mesure par mesure, sans le jugement.
+
+    La courbe de `/corps` en trace une par point (M-09) : celle qu'`assess` aurait lue ce
+    matin-là. `None` tant qu'il manque des valeurs ; `*_count` dit combien la fenêtre en a.
+    """
+
+    resting_hr: float | None
+    hrv_ms: float | None
+    rhr_count: int
+    hrv_count: int
+
+
+def _window(day: date, history: Sequence[Morning]) -> list[Morning]:
+    """Les 28 jours qui précèdent `day`, `day` exclu — la fenêtre d'`assess` et de `reference`."""
+    since = day - timedelta(days=WINDOW_DAYS)
+    return [item for item in history if since <= item.day < day]
+
+
+def reference(day: date, history: Sequence[Morning]) -> Reference:
+    """La référence de `day` : la moyenne de chaque mesure sur sa fenêtre, dès dix valeurs."""
+    window = _window(day, history)
+    beats = [item.resting_hr for item in window if item.resting_hr is not None]
+    hrvs = [item.hrv_ms for item in window if item.hrv_ms is not None]
+    return Reference(
+        resting_hr=round(mean(beats), 1) if len(beats) >= MIN_MORNINGS else None,
+        hrv_ms=round(mean(hrvs), 1) if len(hrvs) >= MIN_MORNINGS else None,
+        rhr_count=len(beats),
+        hrv_count=len(hrvs),
+    )
+
+
 def assess(day: date, history: Sequence[Morning]) -> Readiness:
     """La forme de `day`, contre les 28 jours qui le précèdent."""
     today = next((item for item in history if item.day == day), None)
-    since = day - timedelta(days=WINDOW_DAYS)
-    window = [item for item in history if since <= item.day < day]
+    window = _window(day, history)
     beats = [item.resting_hr for item in window if item.resting_hr is not None]
     hrvs = [item.hrv_ms for item in window if item.hrv_ms is not None]
     mornings = len({item.day for item in window})

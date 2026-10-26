@@ -24,6 +24,7 @@ import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import { Measurements } from './body/Measurements';
+import { Mornings } from './body/Mornings';
 import { PainLink } from './body/PainLink';
 import { useInvalidateBody } from './body/shared';
 import { useOpenMorning } from './morning/context';
@@ -355,6 +356,10 @@ export function Body() {
           />
         </Card>
       </div>
+
+      {/* Sous les indicateurs du poids : FC de repos et VFC se notent au même moment que
+          la pesée, chaque matin (M-09). */}
+      <Mornings />
 
       <Rule>Courbe</Rule>
       <Card>
