@@ -108,10 +108,10 @@ export function PlanningChat() {
     <Card>
       <div className="spread">
         <div>
-          <h3>Le coach du planning</h3>
+          <h3>Demander au planning</h3>
           <p className={styles.note}>
-            Il écrit chaque natation dans la notation — CR, EF, R15 — et propose : rien n&apos;entre
-            au planning avant que tu adoptes.
+            L’assistant écrit chaque natation dans la notation — CR, EF, R15 — et propose : rien
+            n&apos;entre au planning avant que tu adoptes.
           </p>
         </div>
       </div>
@@ -182,7 +182,7 @@ export function PlanningChat() {
             }}
           >
             <TextArea
-              label="Ta demande au coach"
+              label="Ta demande"
               value={question}
               rows={2}
               placeholder="Deux natations cette semaine, pas le mercredi"

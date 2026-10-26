@@ -252,7 +252,7 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
 
     answers = {"pending": "sans réponse", "accepted": "acceptée", "refused": "refusée, défaite"}
     lines.extend(
-        f"Décision du coach du {row.created:%d/%m} : {view.summary} — {view.reason} "
+        f"Décision du coach de course du {row.created:%d/%m} : {view.summary} — {view.reason} "
         f"({answers.get(view.status, view.status)})"
         for row, view in await ReplanService(store).recent()
         if row.created is not None
@@ -271,7 +271,7 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
     proposed = await CoachService(store).active_view(today)
     if proposed is not None:
         lines.append(
-            f"Séance proposée par le coach ({'acceptée' if proposed.status == 'accepted' else 'à valider'}) : "
+            f"Séance proposée par le coach de course ({'acceptée' if proposed.status == 'accepted' else 'à valider'}) : "
             f"{proposed.title}, {proposed.duration_min} min, le {proposed.date:%d/%m/%Y}"
             + (f" — {proposed.adjusted}" if proposed.adjusted else "")
         )

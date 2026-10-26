@@ -831,12 +831,9 @@ describe('planifier une séance', () => {
 
 // ── Le fil du coach (`docs/planning-natation.md` §5) ──
 
-describe('le coach du planning', () => {
+describe('demander au planning', () => {
   async function ask(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(
-      await screen.findByLabelText('Ta demande au coach'),
-      'Deux natations cette semaine',
-    );
+    await user.type(await screen.findByLabelText('Ta demande'), 'Deux natations cette semaine');
     await user.click(screen.getByRole('button', { name: 'Demander' }));
     return screen.findByText('Deux séances pour la semaine.');
   }
@@ -903,7 +900,7 @@ describe('le coach du planning', () => {
     renderScreen();
 
     expect(await screen.findByText('Assistance indisponible')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Ta demande au coach')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Ta demande')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Planifier' })).toBeInTheDocument();
   });
 });
