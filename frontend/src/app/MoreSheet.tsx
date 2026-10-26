@@ -25,27 +25,35 @@ import {
 } from '@/components/ui/icons';
 import { useAuth } from '@/lib/auth';
 
-/** Ce que la feuille « Plus » contient, groupé par ce à quoi ça sert. */
+/**
+ * Ce que la feuille « Plus » contient, groupé par **moment de la journée** (M-12).
+ *
+ * Les groupes d'avant — Mesurer, Décider, Regarder en arrière — rangeaient par nature de
+ * geste, et la nature ne suit pas l'usage : la nutrition était sous « Décider » quand on y
+ * va à chaque repas, l'eau sous « Mesurer » à côté du dossier médical qu'on ouvre deux fois
+ * par an. Ceux-ci suivent la journée : ce qu'on touche chaque jour, ce qu'on prévoit, ce
+ * qu'on relit, et ce qu'on consulte rarement. La barre du haut, sur ordinateur, suit le
+ * même ordre (`Shell.tsx`).
+ */
 const MORE = [
   {
-    title: 'Mesurer',
-    entries: [
-      { to: '/corps', label: 'Poids & mensurations', icon: IconScale },
-      { to: '/routine', label: 'Hydratation & suppléments', icon: IconDroplet },
-      { to: '/dossier', label: 'Dossier médical', icon: IconBook },
-    ],
-  },
-  {
-    title: 'Décider',
+    title: 'Chaque jour',
     entries: [
       { to: '/nutrition', label: 'Nutrition', icon: IconNutrition },
-      { to: '/objectif', label: 'Objectif', icon: IconTarget },
-      { to: '/planning', label: 'Planning', icon: IconCalendar },
-      { to: '/plan', label: 'Plan de course', icon: IconFlag },
+      { to: '/routine', label: 'Hydratation & suppléments', icon: IconDroplet },
+      { to: '/corps', label: 'Poids & mensurations', icon: IconScale },
     ],
   },
   {
-    title: 'Regarder en arrière',
+    title: 'Prévoir',
+    entries: [
+      { to: '/planning', label: 'Planning', icon: IconCalendar },
+      { to: '/plan', label: 'Plan de course', icon: IconFlag },
+      { to: '/objectif', label: 'Objectif', icon: IconTarget },
+    ],
+  },
+  {
+    title: 'Relire',
     entries: [
       { to: '/charge', label: 'Charge & forme', icon: IconActivity },
       { to: '/assiduite', label: 'Assiduité', icon: IconGrid },
@@ -84,7 +92,16 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
         </SheetGroup>
       ))}
 
-      <SheetGroup title="Compte">
+      {/* « Référence » : ce qu'on consulte rarement, et la sortie. Le dossier médical
+          y rejoint les réglages — une référence chiffrée qu'on ouvre deux fois par an. */}
+      <SheetGroup title="Référence">
+        <SheetRow
+          icon={<IconBook size={20} />}
+          label="Dossier médical"
+          onClick={() => {
+            go('/dossier');
+          }}
+        />
         <SheetRow
           icon={<IconSliders size={20} />}
           label="Réglages"

@@ -31,8 +31,9 @@ import { TabBar } from './TabBar';
  * barre.
  *
  * **L'ordre suit la fréquence d'usage** : ce qu'on ouvre tous les jours — l'activité,
- * l'assistant, ce qu'on mange, la routine —, puis ce qui se pose chaque semaine — le
- * planning, le plan de course, l'objectif —, puis ce qu'on consulte à froid.
+ * l'assistant, ce qu'on mange, la routine, le corps —, puis ce qui se pose chaque semaine —
+ * le planning, le plan de course, l'objectif —, puis ce qu'on relit et ce qu'on consulte à
+ * froid. Ce sont les groupes de la feuille « Plus » (M-12), dans le même ordre.
  *
  * L'ordre du bas, lui, ne bouge pas : `TabBar` gouverne sous 960 px et n'a que cinq
  * cibles, choisies sur un autre critère — ce qu'on atteint au pouce entre deux exercices.
@@ -44,10 +45,10 @@ const NAV = [
   { to: '/assistant', label: 'Assistant', end: false },
   { to: '/nutrition', label: 'Nutrition', end: false },
   { to: '/routine', label: 'Routine', end: false },
+  { to: '/corps', label: 'Corps', end: false },
   { to: '/planning', label: 'Planning', end: false },
   { to: '/plan', label: 'Plan', end: false },
   { to: '/objectif', label: 'Objectif', end: false },
-  { to: '/corps', label: 'Corps', end: false },
   { to: '/charge', label: 'Charge', end: false },
   { to: '/assiduite', label: 'Assiduité', end: false },
   { to: '/dossier', label: 'Dossier', end: false },
