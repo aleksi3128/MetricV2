@@ -383,7 +383,7 @@ export function Plan() {
 
   return (
     <div className={cx('wrap', styles.screen)}>
-      <PageHead eyebrow="Courses visées" title="Plan de course">
+      <PageHead eyebrow="Course à pied" title="Plan de course">
         Les courses que tu vises, classées A, B ou C, et le plan qui mène à la prochaine A.
       </PageHead>
 
