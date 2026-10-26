@@ -3,7 +3,7 @@
 **Rôle.** Un seul objectif chiffré, daté de quatre à huit semaines, proposé par le modèle
 à partir des données et adopté à la main ; et le bilan de chaque semaine.
 
-**Comment on y arrive.** « Plus » → Décider → Objectif ; « Détail » ou « Fixer un objectif »
+**Comment on y arrive.** « Plus » → Prévoir → Objectif ; « Détail » ou « Fixer un objectif »
 dans le bloc « Où je vais » de l'accueil ; entrée de la barre du haut sur ordinateur.
 
 Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
@@ -35,11 +35,12 @@ Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
   Le seul repli est la cible de poids de `/reglages`, que l'accueil montre faute de mieux.
 - **Le bilan de la semaine regarde en arrière**, comme `/charge` et `/assiduite` ; il est
   rangé ici parce qu'il se juge contre l'objectif. Défendable — mais personne ne le
-  cherche sous « Objectif » dans « Plus », où il est classé sous « Décider ».
-- **Trois sens d'« objectif » dans l'application** : l'objectif daté (ici), les « Objectifs »
-  de `/reglages` (cibles quotidiennes : poids, protéines, calories, eau, sucres) et la
-  course A de `/plan`. L'accueil les mélange déjà : faute d'objectif, « Où je vais »
-  affiche la cible de poids, et précise que ce n'en est pas un (M-13, M-19).
+  cherche sous « Objectif » dans « Plus », où il est classé sous « Prévoir ».
+- ~~**Trois sens d'« objectif » dans l'application.**~~ Corrigé (M-13, `21a1672`,
+  `6f53740`) : « Objectif » ne désigne plus que l'objectif daté (ici). Les valeurs
+  quotidiennes de `/reglages`, de `/nutrition`, de `/corps` et de la routine sont des
+  « cibles » ; la course A de `/plan` est « la principale », en « priorité A ». Reste que
+  « Où je vais » affiche la cible de poids faute d'objectif, et le dit (M-19).
 
 ## 4. Non vu
 

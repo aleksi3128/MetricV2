@@ -62,7 +62,7 @@ Treize actions ([`actions.py:542`](../../backend/app/domains/assistant/actions.p
   `58cf652`) : profil et carnet sont deux onglets de la même feuille ; « Ce que je suis »
   a quitté `/reglages`. Quand rien n'existe avec le matériel déclaré, la consigne du
   modèle envoie vers « Mémoire, onglet Profil ».
-- **Un second fil d'assistant vit sur `/planning`** (« Le coach du planning »), avec ses
+- **Un second fil d'assistant vit sur `/planning`** (« Demander au planning », M-13), avec ses
   propres suggestions et son propre historique (`GET /api/assistant/threads/planning`). Il
   n'apparaît pas dans « Tes discussions » — c'est le seul fil qu'on ne retrouve pas ici.
 - « noter un repas **du jour** » : l'assistant ne rattrape pas plus que `/nutrition` un repas

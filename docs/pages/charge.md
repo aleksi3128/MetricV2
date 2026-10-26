@@ -3,7 +3,7 @@
 **Rôle.** La charge d'entraînement tous sports : forme, fatigue et fraîcheur (Banister),
 la douleur en frise, l'intensité et le volume des huit dernières semaines.
 
-**Comment on y arrive.** « Plus » → Regarder en arrière → Charge & forme ; « Voir la
+**Comment on y arrive.** « Plus » → Relire → Charge & forme ; « Voir la
 charge » dans le bloc « Forme » de l'accueil ; entrée de la barre du haut sur ordinateur.
 Depuis M-07, c'est la seule maison du volume hebdomadaire tous sports.
 

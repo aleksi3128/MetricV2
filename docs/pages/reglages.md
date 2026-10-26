@@ -4,7 +4,7 @@
 plusieurs écrans, les rappels, la sécurité et les données, l'apparence, l'état de l'IA.
 Depuis M-04, chaque réglage propre à un écran se règle sur cet écran (§2).
 
-**Comment on y arrive.** « Plus » → Compte → Réglages ; entrée de la barre du haut sur
+**Comment on y arrive.** « Plus » → Référence → Réglages ; entrée de la barre du haut sur
 ordinateur. Aucun écran n'y renvoie plus : les liens « Aller aux réglages » de
 `/activite/seances`, de `/assiduite` et de la page d'une course mènent désormais à l'endroit
 où le réglage a déménagé.
@@ -24,7 +24,7 @@ Haut d'écran : **4 771 px**, rempli comme vide, sur le banc du 26 octobre aprè
 
 | Section | Contenu | Source | Écrit |
 |---|---|---|---|
-| **Objectifs** | Poids cible, protéines, plafond de sucres, calories ; l'origine de chaque valeur (réglée ou défaut serveur) | `GET /api/settings` | `PATCH /api/settings` (ses quatre clés seulement), barre « Enregistrer » collante dès qu'un champ change |
+| **Cibles** | Poids cible, protéines, plafond de sucres, calories ; l'origine de chaque valeur (réglée ou défaut serveur) | `GET /api/settings` | `PATCH /api/settings` (ses quatre clés seulement), barre « Enregistrer » collante dès qu'un champ change |
 | **Rappels** | Abonnement de l'appareil, essai ; une heure par rappel (suppléments, hydratation, repas, protéines, séance) | `GET /api/notifications` | `PATCH /api/notifications/reminders`, `/subscribe`, `/test` |
 | Point du soir | Fenêtre, relance, report, heures calmes ; couper | même appel | `PATCH /api/notifications/escalation` |
 | **Sécurité et données** | Passkeys ; export complet ; dernière sauvegarde ; usage de l'IA du mois et son plafond | `GET /api/passkey`, `GET /api/account` | passkey ; `GET /api/export` |
@@ -60,8 +60,8 @@ Un conflit s'affiche ; il ne se force pas. Preuve : `routes/SettingsFile.test.ts
 - ~~**Une page qui en contient sept.**~~ Corrigé (M-04, M-05) : il n'y reste que ce qui ne
   règle aucun écran en particulier.
 - ~~**Le titre « Objectifs & repères » est celui de la première section.**~~ La page
-  s'appelle « Réglages ». Mais la section garde « Objectifs » pour des cibles quotidiennes,
-  quand `/objectif` désigne l'objectif daté (M-13).
+  s'appelle « Réglages », et sa section « Cibles » (M-13, `21a1672`) : « Objectif » ne
+  désigne plus que l'objectif daté de `/objectif`.
 - **La synchro Garmin n'a aucune place à l'écran.** Le serveur sert son état et un
   « synchroniser maintenant » (`GET/POST /api/sync`) ; on ne les lit qu'en `make status`
   et `make sync`, au terminal. La dernière nuit reçue, elle, s'affiche sur l'accueil (M-18).

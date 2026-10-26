@@ -68,12 +68,12 @@ visée ne parle à aucun autre écran.
 | [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
 | [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série — **fait** (`96d81d9`) | P2 |
 | [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant | P2 |
-| [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens | P2 |
+| [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens — **fait** (`21a1672` → `c2f44fa`, `827b293`) | P2 |
 | [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
 | [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning — **fait** (`9f1e991`) | P2 |
 | [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit — **fait** (`ea1aeb4`, `58cf652`) | P3 |
 | [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran | P3 |
-| [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée | P3 |
+| [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée — **fait** (`64e3f49`) | P3 |
 | [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main | P3 |
 | [M-17](#m-17) | ajouter | Plan | Corriger une course visée | P3 |
 | [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran | P3 |
@@ -747,6 +747,14 @@ Les groupes actuels (Mesurer / Décider / Regarder en arrière) rangent Nutritio
 (Charge, Assiduité), **Référence** (Dossier médical, Réglages). Front seul ; à refaire
 après M-13 pour les libellés.
 
+**Fait le 26 octobre** (`64e3f49`), après M-13. Les quatre groupes de la proposition, dans
+cet ordre ; Déconnexion rejoint « Référence ». Les libellés des entrées ne changent pas
+(« Hydratation & suppléments » reste, par défaut). La barre du haut sur ordinateur suit le
+même ordre — Corps remonte après Routine ; la barre d'onglets du bas ne bouge pas. Un test
+d'écran fige l'ordre des groupes et de leurs entrées. Regardée à 402, 390 et 360 px, en
+sombre et en clair : aucune cible sous 44 px, aucun débordement ; « Référence » est sous
+le pli, comme « Compte » l'était.
+
 <a id="m-13"></a>
 
 ### M-13 — Un mot, un sens
@@ -779,6 +787,34 @@ l'assistant reçoit les mêmes mots.
 
 **Coût.** Front : libellés, et les tests qui les cherchent par leur nom. **Risque.** Les
 tests d'écran cherchent souvent par libellé : prévoir le temps de les reprendre.
+
+**Fait le 26 octobre**, un commit par mot, avec les choix par défaut (la session ne posait
+pas de questions) ; seuls les libellés changent, ni adresses, ni identifiants, ni colonnes.
+
+| Mot | Devenu | Commit |
+|---|---|---|
+| Objectif (valeur quotidienne) | **Cible** : la section « Cibles » de `/reglages` ; « Écart à la cible » et « cible 70 kg » sur `/corps` ; « cible 150 g », « cible 2 400 kcal » sur `/nutrition` et son historique ; « Cible du jour », « Cible 2 L · raccourcis… », « cible atteinte » sur `/routine` ; « cible 2 L » dans « Noter » | `21a1672` |
+| Planning (suppléments) | **Mes suppléments** sur `/routine` : titre, « Ajouter le supplément », « Retirer … de mes suppléments », toasts, état vide « Aucun supplément » | `0e51542` |
+| Charges | **Poids des exercices** : titre de `/activite/charges` et lien d'en-tête de `/activite` ; dans la page, le nom commun suit (« Poids », « Aucun poids noté », « Remettre un poids ») | `d654526` |
+| Course (compétition) | **Course visée** partout sur `/plan` ; « A — l'objectif » devient « A — la principale » ; le surtitre « Course à pied » (`827b293` : « Courses visées » répétait le trait de section) | `6f53740`, `827b293` |
+| Coach du planning | **Demander au planning** ; le champ dit « Ta demande » ; « Coach » ne désigne plus que le coach de course | `c2f44fa` |
+
+- **Le serveur suit** là où il rédige une phrase que l'écran affiche : la piste eau suit « la
+  cible d'hydratation » ; « Ce supplément n'est pas dans ta liste. » ; le conflit de deux
+  courses dit « toutes deux classées A » ; la note du jour de course posée par le plan dit
+  « priorité A ». **Son préfixe « Course : » ne bouge pas** : c'est le marqueur par lequel le
+  coach reconnaît le jour de course et ne le déplace jamais (`planning/replan.py`). Le
+  condensé de l'assistant dit « coach de course » pour les décisions et la séance du coach,
+  pour que le modèle — à qui la consigne dit « Tu es le coach personnel… » — ne s'en croie
+  pas l'auteur.
+- **Laissés** : la consigne « Tu es le coach personnel de cette application » (une décision
+  de ton, pas un libellé) ; le groupe « Chargés » de `/activite/charges` ; les notes de jour
+  de course déjà posées, qui gardent « objectif A » (des données écrites) ; la vitrine.
+- **Le coût vu** : « Poids des exercices » passe sur une seconde rangée dans l'en-tête de
+  `/activite` (+58 px, voir le `README`). Les autres écrans touchés gardent leur hauteur.
+- Regardés sur le banc à 402 px, sombre et clair, rempli et vide : `/reglages`, `/corps`,
+  `/nutrition`, `/routine`, `/activite`, `/activite/charges`, `/plan`, `/planning`, et
+  « Noter ».
 
 <a id="m-14"></a>
 
@@ -1030,8 +1066,9 @@ serveur, contrairement au coût annoncé.
 6. ~~**M-03**, puis **M-04** + **M-05** + **M-22** — le grand rangement des réglages.~~
    Faits (`c9b1433`, `58cf652`, `fc178f8`, puis M-04 en cinq commits, `96f1f8f` →
    `4d902ce`), après le découpage d'`Assistant.tsx` (`ea1aeb4`).
-7. **M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
-   de déplacer ferait renommer deux fois.
+7. ~~**M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
+   de déplacer ferait renommer deux fois.~~ Faits (`21a1672` → `c2f44fa`, `827b293`, puis
+   `64e3f49`).
 8. **M-10**, **M-16** à **M-20** : chacun quand sa décision de produit est prise.
 
 ## 6. Écarté, et pourquoi

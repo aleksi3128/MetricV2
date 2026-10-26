@@ -4,7 +4,7 @@
 distance courue, eau, chaque supplément. Elle mesure le respect d'un engagement, pas
 l'activité.
 
-**Comment on y arrive.** « Plus » → Regarder en arrière → Assiduité ; entrée de la barre du
+**Comment on y arrive.** « Plus » → Relire → Assiduité ; entrée de la barre du
 haut sur ordinateur. La série en cours est aussi sur l'accueil (tuile « Assiduité »).
 
 Fichiers : [`Assiduity.tsx`](../../frontend/src/routes/Assiduity.tsx) ;

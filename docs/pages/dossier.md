@@ -4,7 +4,7 @@
 opérations, antécédents et traitements — chiffrés avant d'aller sur Nextcloud, avec une
 clé qui n'y va jamais.
 
-**Comment on y arrive.** « Plus » → Mesurer → Dossier médical ; entrée de la barre du haut
+**Comment on y arrive.** « Plus » → Référence → Dossier médical ; entrée de la barre du haut
 sur ordinateur.
 
 Fichier : [`Dossier.tsx`](../../frontend/src/routes/Dossier.tsx).
@@ -30,8 +30,9 @@ Fichier : [`Dossier.tsx`](../../frontend/src/routes/Dossier.tsx).
 
 ## 3. Constats
 
-- **Rangé sous « Mesurer »** avec le poids et l'eau, alors qu'on n'y mesure rien : c'est
-  une référence qu'on consulte rarement et qu'on écrit encore plus rarement (M-12).
+- ~~**Rangé sous « Mesurer »** avec le poids et l'eau, alors qu'on n'y mesure rien.~~
+  Corrigé (M-12, `64e3f49`) : il est sous « Référence », avec les réglages — ce qu'on
+  consulte rarement.
 - **Les douleurs n'y renvoient pas, ni lui à elles.** Un antécédent au genou et une douleur
   au genou ouverte sur `/corps` sont deux mondes à l'écran ; le coach, lui, lit les deux.
   À garder en tête si les douleurs changent de page (M-08), pas une modification en soi.

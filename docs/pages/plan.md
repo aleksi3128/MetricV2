@@ -3,7 +3,7 @@
 **Rôle.** Les courses qu'on vise (A, B, C), leurs conflits, et le plan périodisé jusqu'à
 la prochaine course A, à poser au planning d'un geste.
 
-**Comment on y arrive.** « Plus » → Décider → Plan de course ; entrée « Plan » de la barre
+**Comment on y arrive.** « Plus » → Prévoir → Plan de course ; entrée « Plan » de la barre
 du haut sur ordinateur. Aucun lien depuis un autre écran.
 
 Fichier : [`Plan.tsx`](../../frontend/src/routes/Plan.tsx).
@@ -17,8 +17,8 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| Conflit (s'il y en a) | « Deux objectifs A » et la phrase qui tranche ; **Oui, fais-le** / non | `GET /api/races` | — |
-| **Courses visées** | Nom, date, distance, priorité, chrono visé ; supprimer ; **Ajouter une course** (formulaire en place) | même appel | « Aucune course visée » |
+| Conflit (s'il y en a) | « Deux courses visées en A » et la phrase qui tranche ; **Oui, fais-le** / non | `GET /api/races` | — |
+| **Courses visées** | Nom, date, distance, priorité, chrono visé ; supprimer ; **Ajouter une course visée** (formulaire en place) | même appel | « Aucune course visée » |
 | ~~**Ce que le coach a changé**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
 | **Plan jusqu'à la course A** | Synthèse (semaines, volume de départ et de pic, affûtage), avertissement de préparation courte ; les quatre semaines qui viennent, séance par séance en notation ; les autres repliées ; **Poser au planning** | `GET /api/races/plan/{race_id}` | « Plan indisponible » |
 | ~~**Agenda**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
@@ -41,10 +41,13 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
   l'agenda et « Ce que le coach a changé » sont sur `/planning`. L'écran ne porte plus que
   les courses visées, leurs conflits et le plan, et n'appelle plus aucune route du
   planning.
-- **Le mot « course » désigne ici une compétition**, et partout ailleurs une sortie
-  (« Enregistrer une course », « Toutes tes courses »). « Ajouter une course » sur `/plan` et
-  « Ajouter une course » sur `/activite/courses` sont deux boutons au même libellé qui
-  n'écrivent pas la même chose (M-13).
+- ~~**Le mot « course » désigne ici une compétition**, et partout ailleurs une sortie.~~
+  Corrigé (M-13, `6f53740`, `827b293`) : sur `/plan`, c'est une « course visée » partout
+  (« Ajouter une course visée », « Nouvelle course visée », « Deux courses visées en A ») ;
+  le surtitre dit « Course à pied ». « Ajouter une course » ne reste que sur
+  `/activite/courses`, où c'est une sortie. La pastille « A — l'objectif » dit « A — la
+  principale », et la note du jour de course posée par le plan « priorité A » — son
+  préfixe « Course : » reste, c'est le marqueur que lit le coach.
 - **Le plan et l'objectif ne se parlent pas à l'écran.** Une course A datée est l'objectif
   le plus concret qui soit ; `/objectif` et le bloc « Où je vais » de l'accueil n'en disent
   rien (M-19).

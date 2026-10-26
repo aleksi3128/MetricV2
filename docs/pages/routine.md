@@ -3,7 +3,7 @@
 **Rôle.** Ce qui se fait tous les jours sans formulaire : boire, prendre ses suppléments,
 et régler la liste de ce qu'on prend.
 
-**Comment on y arrive.** « Plus » → Mesurer → Hydratation & suppléments ; lignes « Eau » et
+**Comment on y arrive.** « Plus » → Chaque jour → Hydratation & suppléments ; lignes « Eau » et
 « Suppléments » de l'accueil ; « Boire un verre » (état vide de l'accueil) ; entrée de la
 barre du haut sur ordinateur. Les deux gestes du jour existent aussi dans « Noter ».
 
@@ -18,10 +18,10 @@ M-04 (1 633 avant sur ce banc) — voir le `README`.
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| **Hydratation** | Volume du jour contre l'objectif (badge et anneau) ; raccourcis +250 / +500 / +750 ml ; « Autre volume » ; les prises du jour (heure, volume, supprimer) ; objectif du jour ; courbe du volume bu sur 30 jours ; **au pied, l'objectif et les raccourcis** — une ligne « Objectif 2 L · raccourcis 250, 500, 750 ml » et **Régler**, qui déplie les deux champs (M-04) | `GET /api/hydration` ; `GET /api/settings` pour le pied | « Hydratation indisponible » ; le pied a ses propres états |
+| **Hydratation** | Volume du jour contre la cible (badge et anneau « Cible du jour ») ; raccourcis +250 / +500 / +750 ml ; « Autre volume » ; les prises du jour (heure, volume, supprimer) ; cible du jour ; courbe du volume bu sur 30 jours ; **au pied, l'objectif et les raccourcis** — une ligne « Objectif 2 L · raccourcis 250, 500, 750 ml » et **Régler**, qui déplie les deux champs (M-04) | `GET /api/hydration` ; `GET /api/settings` pour le pied | « Hydratation indisponible » ; le pied a ses propres états |
 | **Checklist du jour** | Les suppléments dus, groupés par moment (matin, journée, soir), cochables | `GET /api/supplements/today` | « Aucun supplément au planning » |
 | Moyenne · 7 jours | Volume moyen bu | `GET /api/hydration` | « moyenne dès le deuxième jour complet » |
-| **Planning** (des suppléments) | La liste : nom, dose, unité, moment, cadence (tous les jours, N par semaine, fenêtre glissante, descriptive) ; Modifier, supprimer ; « Ajouter au planning » | `GET /api/supplements/schedule`, `GET /api/supplements/units` | « Planning indisponible » |
+| **Mes suppléments** | La liste : nom, dose, unité, moment, cadence (tous les jours, N par semaine, fenêtre glissante, descriptive) ; Modifier, supprimer ; « Ajouter le supplément » | `GET /api/supplements/schedule`, `GET /api/supplements/units` | « Planning indisponible » |
 
 ## 2. Actions
 
@@ -43,11 +43,10 @@ lisent sur `/assiduite`.
 - **Le même geste à quatre endroits** : `/routine`, « Noter », le parcours du matin (étape
   « La journée »), l'assistant. C'est voulu (« Noter » est un raccourci, la routine la
   maison) et ça tient : une seule écriture derrière.
-- **« Planning » nomme ici la liste des suppléments**, et ailleurs le calendrier des
-  séances (`/planning`). Deux sens pour un mot qu'on lit à l'écran voisin (M-13).
-- **L'eau est sous « Mesurer » dans « Plus »**, à côté du poids et du dossier médical, alors
-  que l'écran dit « Routine du jour ». Rien de grave ; c'est le classement de « Plus » qui
-  ne suit pas les écrans (M-12).
+- ~~**« Planning » nomme ici la liste des suppléments.**~~ Corrigé (M-13, `0e51542`) : la
+  carte s'appelle « Mes suppléments » ; « Planning » ne désigne plus que `/planning`.
+- ~~**L'eau est sous « Mesurer » dans « Plus »**, à côté du dossier médical.~~ Corrigé
+  (M-12, `64e3f49`) : sous « Chaque jour », avec la nutrition et le corps.
 - ~~**L'objectif d'eau et les volumes des raccourcis se règlent dans `/reglages`.**~~
   Corrigé (M-04, `3d5c8c8`) : au pied de la carte, replié derrière « Régler ». Le seuil de
   la piste eau, qui suit l'objectif, le dit dans la feuille de `/assiduite`.

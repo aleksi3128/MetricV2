@@ -64,18 +64,22 @@ chiffre, sans changer d'écran :
 
 **Plus** ([`MoreSheet.tsx`](../../frontend/src/app/MoreSheet.tsx)) — « Tout le reste » :
 
+Rangés par moment de la journée depuis M-12 (`64e3f49`) ; avant, Mesurer, Décider, Regarder
+en arrière et Compte.
+
 | Groupe | Entrées |
 |---|---|
-| Mesurer | Poids & mensurations (`/corps`), Hydratation & suppléments (`/routine`), Dossier médical |
-| Décider | Nutrition, Objectif, Planning, Plan de course |
-| Regarder en arrière | Charge & forme, Assiduité |
-| Compte | Réglages, Déconnexion |
+| Chaque jour | Nutrition, Hydratation & suppléments (`/routine`), Poids & mensurations (`/corps`) |
+| Prévoir | Planning, Plan de course, Objectif |
+| Relire | Charge & forme, Assiduité |
+| Référence | Dossier médical, Réglages, Déconnexion |
 
 ### Sur ordinateur (960 px et plus) — la barre du haut
 
-Treize entrées dans [`Shell.tsx`](../../frontend/src/app/Shell.tsx) : Accueil, Activité,
-Assistant, Nutrition, Routine, Planning, Plan, Objectif, Corps, Charge, Assiduité,
-Dossier, Réglages. « Noter » et « Plus » n'existent pas.
+Treize entrées dans [`Shell.tsx`](../../frontend/src/app/Shell.tsx), dans l'ordre des
+groupes de « Plus » (M-12) : Accueil, Activité, Assistant, Nutrition, Routine, Corps,
+Planning, Plan, Objectif, Charge, Assiduité, Dossier, Réglages. « Noter » et « Plus »
+n'existent pas.
 
 ### Les pages sans entrée de navigation
 
@@ -130,7 +134,7 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 | `/assiduite` | 4 225 ⁴ | 4 225 ⁴ |
 | `/activite/courses` | 3 920 ⁴ | 874 ⁴ |
 | `/nutrition` | 3 124 ¹ | 2 609 |
-| `/activite` | 3 100 ¹ | 1 309 |
+| `/activite` | 2 392 ⁵ | 1 367 ⁵ |
 | `/planning` | 2 969 ⁴ | 2 562 ⁴ |
 | `/planning/sigles` | 2 326 ⁴ | 2 326 ⁴ |
 | `/` | 2 070 ³ | 1 766 ³ |
@@ -173,4 +177,11 @@ neutralisée). Sur ce même banc, **avant** le lot (mesuré sur une copie de l'a
 Hydratation (+73), la ligne ou le champ de l'adresse de Cadence (+83 ou +166), le lien des
 sigles ; `/planning` rempli perd la carte Agenda dépliée (−18 net, lien compris).
 `/assiduite` ne bouge que de l'écart entre le lien et le bouton : la feuille ne s'ouvre qu'à
-l'appui. Les hauteurs sans ⁴ datent de l'inventaire ou d'un banc antérieur.
+l'appui. Les hauteurs sans ⁴ ni ⁵ datent de l'inventaire ou d'un banc antérieur.
+
+⁵ Remesurés le 26 octobre tard, après M-13 et M-12, sur le banc du ⁴. Renommer n'a déplacé
+qu'un écran de plus de 50 px : `/activite`, dont le lien d'en-tête « Poids des exercices »
+(« Charges » avant) passe sur une seconde rangée — 2 334 → 2 392 rempli, 1 309 → 1 367 vide,
+l'avant mesuré sur une copie de l'arbre à `d575cde`. Les autres écrans touchés gardent leur
+hauteur du ⁴ (`/reglages`, `/routine`, `/planning`, `/plan` 1 955 et 874 ; `/corps` 5 242 et
+3 228, `/nutrition` 2 675 et 2 675 sur ce banc).

@@ -3,7 +3,7 @@
 **Rôle.** Noter ce qu'on mange aujourd'hui, voir où en sont protéines et calories, relire
 les jours passés, tenir le catalogue des aliments.
 
-**Comment on y arrive.** « Plus » → Décider → Nutrition ; « Ajouter un repas » dans la
+**Comment on y arrive.** « Plus » → Chaque jour → Nutrition ; « Ajouter un repas » dans la
 feuille « Noter », qui ouvre directement la feuille d'ajout (`?ajout=repas`, M-23) ; la ligne « Protéines » de l'accueil ; entrée de la barre du haut sur
 ordinateur.
 

@@ -14,7 +14,7 @@ La destination la plus large de l'application : **sept adresses** et sept feuill
 | `/activite` | Courses & séances | [`Activity.tsx`](../../frontend/src/routes/Activity.tsx) |
 | `/activite/seances` | Séances Cadence | [`activity/Circuits.tsx`](../../frontend/src/routes/activity/Circuits.tsx) |
 | `/activite/creer` | Composer une séance (IA) | [`activity/Compose.tsx`](../../frontend/src/routes/activity/Compose.tsx) |
-| `/activite/charges` | Charges des exercices | [`activity/Loads.tsx`](../../frontend/src/routes/activity/Loads.tsx) |
+| `/activite/charges` | Poids des exercices | [`activity/Loads.tsx`](../../frontend/src/routes/activity/Loads.tsx) |
 | `/activite/courses` | Toutes tes courses | [`activity/Runs.tsx`](../../frontend/src/routes/activity/Runs.tsx) |
 | `/activite/natations` | Toutes tes natations | [`activity/Swims.tsx`](../../frontend/src/routes/activity/Swims.tsx) |
 | `/activite/course` et `/activite/course/:id` | Une course (la dernière, ou une précise) | [`activity/Run.tsx`](../../frontend/src/routes/activity/Run.tsx), [`activity/run/`](../../frontend/src/routes/activity/run/) |
@@ -25,7 +25,7 @@ La destination la plus large de l'application : **sept adresses** et sept feuill
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| En-tête | Liens Courses, Natation, Charges | — | — |
+| En-tête | Liens Courses, Natation, Poids des exercices (sur une seconde rangée à 402 px) | — | — |
 | **Séances Cadence** | Les trois premières séances : nom, durée (≈ si répétitions), rounds, exercices ; **Ouvrir dans Cadence**, **Je l'ai faite** | `GET /api/activity/circuits` | « Aucune séance » ; liens **Créer une séance**, **Composer avec l'assistant** |
 | **Sortie** | Deux boutons : Enregistrer une course, Enregistrer une natation | — | — |
 | **Historique** | Toutes les activités fusionnées (course, séance, natation, vélo/marche) : date, libellé, distance, durée, allure ; puces détail / corriger / noter l'effort | `GET /api/activity` | « Aucune activité » ; erreur dite |
@@ -62,11 +62,11 @@ proposition en `AiBlock`, chaque valeur en `Stepper` `proposed`, ajustable → *
 la séance**. Écrit : `POST /api/activity/circuits/propose` (rien) puis
 `POST /api/activity/circuits`.
 
-## 4. `/activite/charges` — Charges
+## 4. `/activite/charges` — Poids des exercices
 
 Recherche d'exercice ; trois groupes : **À renseigner**, **Chargés**, **Poids du corps** ;
 une quatrième, **Plus dans aucune séance** (orphelines, seules supprimables). Pas-à-pas
-local, **Enregistrer** écrit. Feuille par exercice : historique de la charge, 30 derniers
+local, **Enregistrer** écrit. Feuille par exercice : historique du poids, 30 derniers
 jours de séances. Source : `GET /api/activity/loads`, `GET /api/activity/loads/detail`.
 Écrit : `POST/PATCH/DELETE /api/activity/loads`.
 

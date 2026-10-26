@@ -4,7 +4,7 @@
 douleurs — épisodes ouverts, suivi, patterns — sur leur sous-page depuis M-08
 (`cdeda08`), dont `/corps` garde la porte en tête.
 
-**Comment on y arrive.** « Plus » → Mesurer → Poids & mensurations ; « Noter une pesée »
+**Comment on y arrive.** « Plus » → Chaque jour → Poids & mensurations ; « Noter une pesée »
 (état vide de l'accueil) ; entrée de la barre du haut sur ordinateur. La pesée seule se
 note aussi dans « Noter » et au parcours du matin. `/corps/douleurs` : la porte en tête de
 `/corps`, les alertes de douleur de l'accueil, le rappel de suivi de midi.
