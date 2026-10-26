@@ -1203,7 +1203,7 @@ async def _search_cadence_exercises(store: FileStore, query: str) -> list[str]:
             return [
                 f"Catalogue Cadence : des exercices existent pour « {query} », mais aucun "
                 f"avec le matériel déclaré ({', '.join(possede)}). Propose autre chose, ou "
-                "dis-lui d'ajouter son matériel dans Réglages, section « Ce que je suis »."
+                "dis-lui d'ajouter son matériel dans l'assistant : Mémoire, onglet Profil."
             ]
         return [
             f"Catalogue Cadence : aucun exercice pour « {query} ». Cherche en anglais et "

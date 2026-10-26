@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { Button, Card, Chip, Empty, Field, Rule, Skeleton } from '@/components/ui';
+import { Button, Card, Chip, Empty, Field, Skeleton } from '@/components/ui';
 import { assistantApi, type ProfilePayload, type ProfileView } from '@/features/assistant/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -11,7 +11,16 @@ import { useToast } from '@/lib/toast';
 import styles from './Profile.module.css';
 
 /**
- * « Ce que je suis » (`IA-10` a contrario) — une section de `/reglages`.
+ * « Ce que je suis » (`IA-10` a contrario) — l'onglet « Profil » de la feuille « Ce que
+ * l'assistant sait de toi », à côté du carnet.
+ *
+ * ── Pourquoi ici et plus dans `/reglages` ─────────────────────────────────
+ *
+ * Ce que l'assistant sait de toi vivait en deux morceaux : le carnet ici, le profil au
+ * milieu de dix sections de réglages. Quand l'assistant propose une séance avec du matériel
+ * qu'on n'a pas, c'est la feuille de l'assistant qu'on ouvre pour corriger — et le
+ * matériel n'y était pas (`docs/pages/modifications.md`, M-05). Le composant a déménagé tel
+ * quel, avec ses quatre états ; seul le titre de section est parti, l'onglet le porte.
  *
  * ── Pourquoi ces champs se saisissent, et ne se devinent pas ──────────────
  *
@@ -21,7 +30,7 @@ import styles from './Profile.module.css';
  * qu'on en déduit ; un jour d'entraînement inventé change tout le planning proposé. Rien
  * ici ne vient du modèle, et aucune action de son catalogue n'y touche.
  *
- * ── Aucun défaut, et c'est la différence avec les objectifs juste au-dessus ─
+ * ── Aucun défaut, et c'est la différence avec les objectifs des réglages ───
  *
  * Un poids cible non réglé retombe sur une valeur de repli, parce qu'un objectif doit
  * exister pour qu'un écran ait quelque chose à montrer. Une taille non saisie n'a pas de
@@ -113,15 +122,22 @@ export function Profile() {
   const [allEquipment, setAllEquipment] = useState(false);
 
   /**
-   * Le profil vit dans `settings.csv`, avec les objectifs et les créneaux de rappel.
+   * Ce qu'une écriture du profil rend périmé — vérifié côté serveur, pas supposé.
    *
-   * Sans cette invalidation croisée, la section « Objectifs » garderait un jeton périmé et
-   * son prochain enregistrement partirait en `409` sans que rien ne l'explique. C'est le
-   * même arrangement que la section « Rappels », et pour la même raison.
+   * **Les réglages** : le profil vit dans `settings.csv`, avec les objectifs et les créneaux
+   * de rappel. Sans cette invalidation croisée, la page des réglages garderait un jeton
+   * périmé et son prochain enregistrement partirait en `409` sans que rien ne l'explique —
+   * le déménagement vers l'assistant n'y change rien, le fichier est le même.
+   *
+   * **Rien d'autre**, et c'est délibéré. Le condensé qui part au modèle n'est jamais en cache
+   * côté écran : le serveur le reconstruit à chaque question, profil compris ; celui qu'on
+   * relit sous une réponse est ce qui est parti *ce jour-là*, figé avec elle. Le coach de
+   * course ne lit pas le profil (son cadre vient des sorties et du plan), et le compositeur
+   * de séances le lit à chaque demande.
    */
   const refresh = (updated?: ProfileView) => {
     if (updated) client.setQueryData(keys.assistant.profile(), updated);
-    else void client.invalidateQueries({ queryKey: keys.assistant.all() });
+    else void client.invalidateQueries({ queryKey: keys.assistant.profile() });
     void client.invalidateQueries({ queryKey: keys.settings.all() });
   };
 
@@ -145,25 +161,19 @@ export function Profile() {
 
   if (isPending) {
     return (
-      <>
-        <Rule>Ce que je suis</Rule>
-        <Card>
-          <Skeleton />
-        </Card>
-      </>
+      <Card>
+        <Skeleton />
+      </Card>
     );
   }
 
   if (error || !data) {
     return (
-      <>
-        <Rule>Ce que je suis</Rule>
-        <Card>
-          <Empty title="Profil indisponible">
-            {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
-          </Empty>
-        </Card>
-      </>
+      <Card>
+        <Empty title="Profil indisponible">
+          {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+        </Empty>
+      </Card>
     );
   }
 
@@ -171,7 +181,7 @@ export function Profile() {
   const dirty = !same(fields, toDraft(data));
 
   /** `Field` rend l'événement natif : on en extrait la valeur ici, comme la section
-   *  « Rappels » juste au-dessous, plutôt que d'inventer une seconde convention. */
+   *  « Rappels » des réglages, plutôt que d'inventer une seconde convention. */
   const set =
     (key: 'height_cm' | 'birth_year' | 'training_days' | 'preferences' | 'constraints') =>
     (event: { target: { value: string } }) => {
@@ -215,8 +225,6 @@ export function Profile() {
 
   return (
     <>
-      <Rule>Ce que je suis</Rule>
-
       <Card>
         <p className={styles.note}>
           Ce que l’assistant sait de toi et qui ne change pas. Il part avant les chiffres, à chaque
@@ -335,9 +343,8 @@ export function Profile() {
               save.mutate(data);
             }}
           >
-            {/* Nommé, comme « Enregistrer les rappels » juste au-dessous : trois sections
-                de cet écran portent un bouton d'enregistrement, et trois « Enregistrer »
-                nus ne se distinguent pas à la synthèse vocale. */}
+            {/* Nommé : la feuille porte aussi le « Noter » du carnet, et la synthèse vocale
+                doit dire lequel des deux enregistre quoi. */}
             Enregistrer le profil
           </Button>
           {dirty && (

@@ -1,8 +1,8 @@
-/* Section « Ce que je suis » de l'écran Réglages.
-   Les classes reprennent celles de `Reminders.module.css`, qui reprenaient elles-mêmes
-   celles de `Settings.module.css` : les trois sections vivent sur le même écran et doivent
-   se ressembler trait pour trait. Redéclarées plutôt qu'importées — un module CSS ne
-   s'hérite pas, et un `composes` vers un autre écran créerait une dépendance invisible. */
+/* L'onglet « Profil » de la feuille de l'assistant (« Ce que je suis »).
+   Les classes reprennent celles de `settings/Reminders.module.css` : la section vivait sur
+   l'écran des réglages jusqu'à M-05, et ses traits n'ont pas changé en déménageant.
+   Redéclarées plutôt qu'importées — un module CSS ne s'hérite pas, et un `composes` vers
+   un autre écran créerait une dépendance invisible. */
 
 .name {
   color: var(--ink);

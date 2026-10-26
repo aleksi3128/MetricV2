@@ -218,7 +218,9 @@ describe('réglage des pistes', () => {
     expect(threshold).toBeDisabled();
     expect(threshold).toHaveValue('2000');
     expect(
-      screen.getByText(/l’objectif d’hydratation — il se règle dans le profil/),
+      screen.getByText(
+        /l’objectif d’hydratation — il se règle dans « Objectifs », en haut des réglages/,
+      ),
     ).toBeInTheDocument();
   });
 

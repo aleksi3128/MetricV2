@@ -1,8 +1,19 @@
 /**
- * « Ce que l'assistant sait de toi » (`IA-11`) — la feuille du carnet de `/assistant`.
+ * « Ce que l'assistant sait de toi » — la feuille du carnet (`IA-11`) et du profil.
  *
- * Sortie d'`Assistant.tsx` quand l'écran a passé les 800 lignes (`CLAUDE.md` §4), telle
- * quelle : l'écran garde l'état d'ouverture et l'adresse (`?ouvre=memoire`).
+ * Deux onglets, **Profil** et **Carnet** (`docs/pages/modifications.md`, M-05). Les deux
+ * partent avec chaque question, et vivaient à deux endroits : le carnet ici, le profil dans
+ * `/reglages`. On venait corriger le matériel ici, après une séance proposée avec un banc
+ * qu'on n'a pas — et il n'y était pas.
+ *
+ * Le carnet s'ouvre par défaut : c'est ce que l'en-tête « Mémoire » a toujours ouvert, et
+ * ce qui change le plus souvent. L'écran tient l'onglet et l'adresse — `?ouvre=memoire`
+ * ouvre le carnet, `?ouvre=profil` le profil.
+ *
+ * **Les deux panneaux restent montés** pendant que la feuille est ouverte ; l'inactif est
+ * seulement caché. Un profil en cours de saisie survit ainsi à un coup d'œil au carnet —
+ * démonté, il aurait perdu son brouillon sans rien dire, et le profil ne s'écrit qu'au
+ * bouton, jamais à la frappe.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +26,7 @@ import {
   ChipStrip,
   Empty,
   Field,
+  Segmented,
   Sheet,
   SheetGroup,
   Skeleton,
@@ -26,6 +38,23 @@ import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './MemorySheet.module.css';
+import { Profile } from './Profile';
+
+export type MemoryTab = 'carnet' | 'profil';
+
+const TABS = [
+  { value: 'profil', label: 'Profil' },
+  { value: 'carnet', label: 'Carnet' },
+] as const;
+
+/** Ce que dit l'en-tête, onglet par onglet : chacun a sa règle, et une seule phrase pour les
+ *  deux en aurait tu une. Deux lignes chacune à 360 px : une phrase plus courte d'un côté
+ *  ferait remonter les segments au changement d'onglet, sous le doigt. */
+const LEDE: Record<MemoryTab, string> = {
+  carnet:
+    'Ce carnet part avec chaque question. Jamais un chiffre — il serait faux le mois suivant.',
+  profil: 'Taille, jours, matériel, contraintes : ce qui ne change pas. Toi seul l’écris.',
+};
 
 function useInvalidateMemory() {
   const client = useQueryClient();
@@ -41,7 +70,17 @@ function useInvalidateMemory() {
  * dépasser pour revenir à la question. Il se lit et s'écrit **sans clé API** — c'est
  * `IA-07` pris au mot, et la feuille ne change rien à cela.
  */
-export function MemorySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function MemorySheet({
+  open,
+  onClose,
+  tab,
+  onTab,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tab: MemoryTab;
+  onTab: (tab: MemoryTab) => void;
+}) {
   const invalidate = useInvalidateMemory();
   const { notify } = useToast();
 
@@ -105,153 +144,163 @@ export function MemorySheet({ open, onClose }: { open: boolean; onClose: () => v
   const entries = data?.memories ?? [];
 
   return (
-    <Sheet
-      open={open}
-      onClose={onClose}
-      title="Ce que l’assistant sait de toi"
-      lede="Ce carnet part avec chaque question. Jamais un chiffre — il serait faux le mois suivant."
-    >
-      {/* Quatre états : en panne, « Carnet vide » affirmait qu'aucune note n'existait
-          alors qu'aucune n'avait pu être lue (audit du 17 octobre, fiche 06). */}
-      {isPending ? (
-        <Skeleton lines={3} />
-      ) : error ? (
-        <Empty title="Carnet indisponible">
-          {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
-        </Empty>
-      ) : entries.length === 0 ? (
-        <Empty title="Carnet vide">
-          Note ce qui explique tes chiffres sans y figurer. L’assistant en retient aussi tout seul
-          au fil des questions — tu peux corriger ou oublier ce qu’il garde.
-        </Empty>
-      ) : (
-        <ul className={styles.list}>
-          {entries.map((entry) => (
-            <li key={entry.memory_id} className={styles.item}>
-              <div className={styles.itemBody}>
-                <div className={styles.meta}>
-                  <span>{entry.topic}</span>
-                  {entry.source === 'ai' && <Badge tone="signal">retenue seule</Badge>}
-                  {/* Une note résolue reste au carnet, et le dit. La retirer perdrait ce
-                      qu'elle apprend — ce qui a déjà lâché est ce qu'un coach surveille. */}
-                  {entry.resolved !== null && (
-                    <Badge tone="load">résolu le {shortDate(`${entry.resolved}T12:00:00`)}</Badge>
-                  )}
-                  {entry.created !== null && <span>{shortDate(`${entry.created}T12:00:00`)}</span>}
-                </div>
-                <span>{entry.note}</span>
-              </div>
+    <Sheet open={open} onClose={onClose} title="Ce que l’assistant sait de toi" lede={LEDE[tab]}>
+      <Segmented
+        label="Ce que l’assistant sait de toi"
+        value={tab}
+        onChange={onTab}
+        options={TABS}
+      />
 
-              <div className={styles.itemActions}>
-                {/* Le nom accessible désigne **quelle** note : deux « Corriger » nus ne se
+      <div hidden={tab !== 'profil'} className={styles.panel}>
+        <Profile />
+      </div>
+
+      <div hidden={tab !== 'carnet'} className={styles.panel}>
+        {/* Quatre états : en panne, « Carnet vide » affirmait qu'aucune note n'existait
+          alors qu'aucune n'avait pu être lue (audit du 17 octobre, fiche 06). */}
+        {isPending ? (
+          <Skeleton lines={3} />
+        ) : error ? (
+          <Empty title="Carnet indisponible">
+            {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
+          </Empty>
+        ) : entries.length === 0 ? (
+          <Empty title="Carnet vide">
+            Note ce qui explique tes chiffres sans y figurer. L’assistant en retient aussi tout seul
+            au fil des questions — tu peux corriger ou oublier ce qu’il garde.
+          </Empty>
+        ) : (
+          <ul className={styles.list}>
+            {entries.map((entry) => (
+              <li key={entry.memory_id} className={styles.item}>
+                <div className={styles.itemBody}>
+                  <div className={styles.meta}>
+                    <span>{entry.topic}</span>
+                    {entry.source === 'ai' && <Badge tone="signal">retenue seule</Badge>}
+                    {/* Une note résolue reste au carnet, et le dit. La retirer perdrait ce
+                      qu'elle apprend — ce qui a déjà lâché est ce qu'un coach surveille. */}
+                    {entry.resolved !== null && (
+                      <Badge tone="load">résolu le {shortDate(`${entry.resolved}T12:00:00`)}</Badge>
+                    )}
+                    {entry.created !== null && (
+                      <span>{shortDate(`${entry.created}T12:00:00`)}</span>
+                    )}
+                  </div>
+                  <span>{entry.note}</span>
+                </div>
+
+                <div className={styles.itemActions}>
+                  {/* Le nom accessible désigne **quelle** note : deux « Corriger » nus ne se
                     distinguent pas à la synthèse vocale, et le carnet en porte autant que
                     de lignes. Même règle que le bouton d'oubli juste à côté. */}
-                <Button
-                  variant="quiet"
-                  aria-label={`Corriger ${entry.note}`}
-                  onClick={() => {
-                    setEditing(entry);
-                    setTopic(entry.topic);
-                    setNote(entry.note);
-                  }}
-                >
-                  Corriger
-                </Button>
-                <Button
-                  variant="quiet"
-                  busy={resolve.isPending}
-                  aria-label={
-                    entry.resolved === null
-                      ? `Marquer résolu : ${entry.note}`
-                      : `Réactiver : ${entry.note}`
-                  }
-                  onClick={() => {
-                    resolve.mutate(entry);
-                  }}
-                >
-                  {entry.resolved === null ? 'Résolu' : 'Réactiver'}
-                </Button>
-                {/* Deux appuis pour détruire : le projet n'a pas d'annulation. */}
-                <Button
-                  variant="quiet"
-                  busy={forget.isPending}
-                  aria-label={
-                    armed === entry.id
-                      ? `Oublier ${entry.note} — confirmer`
-                      : `Oublier ${entry.note}`
-                  }
-                  onClick={() => {
-                    if (armed !== entry.id) {
-                      setArmed(entry.id);
-                      return;
+                  <Button
+                    variant="quiet"
+                    aria-label={`Corriger ${entry.note}`}
+                    onClick={() => {
+                      setEditing(entry);
+                      setTopic(entry.topic);
+                      setNote(entry.note);
+                    }}
+                  >
+                    Corriger
+                  </Button>
+                  <Button
+                    variant="quiet"
+                    busy={resolve.isPending}
+                    aria-label={
+                      entry.resolved === null
+                        ? `Marquer résolu : ${entry.note}`
+                        : `Réactiver : ${entry.note}`
                     }
-                    forget.mutate(entry);
+                    onClick={() => {
+                      resolve.mutate(entry);
+                    }}
+                  >
+                    {entry.resolved === null ? 'Résolu' : 'Réactiver'}
+                  </Button>
+                  {/* Deux appuis pour détruire : le projet n'a pas d'annulation. */}
+                  <Button
+                    variant="quiet"
+                    busy={forget.isPending}
+                    aria-label={
+                      armed === entry.id
+                        ? `Oublier ${entry.note} — confirmer`
+                        : `Oublier ${entry.note}`
+                    }
+                    onClick={() => {
+                      if (armed !== entry.id) {
+                        setArmed(entry.id);
+                        return;
+                      }
+                      forget.mutate(entry);
+                    }}
+                  >
+                    {armed === entry.id ? 'Confirmer ?' : 'Oublier'}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <SheetGroup title={editing ? 'Corriger la note' : 'Noter quelque chose'}>
+          <form
+            className={styles.memoryForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              save.mutate();
+            }}
+          >
+            <ChipStrip label="Sujet">
+              {(data?.topics ?? []).map((option) => (
+                <Chip
+                  key={option}
+                  selected={topic === option}
+                  onClick={() => {
+                    setTopic(option);
                   }}
                 >
-                  {armed === entry.id ? 'Confirmer ?' : 'Oublier'}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                  {option}
+                </Chip>
+              ))}
+            </ChipStrip>
 
-      <SheetGroup title={editing ? 'Corriger la note' : 'Noter quelque chose'}>
-        <form
-          className={styles.memoryForm}
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
-        >
-          <ChipStrip label="Sujet">
-            {(data?.topics ?? []).map((option) => (
-              <Chip
-                key={option}
-                selected={topic === option}
-                onClick={() => {
-                  setTopic(option);
-                }}
-              >
-                {option}
-              </Chip>
-            ))}
-          </ChipStrip>
+            <Field
+              label="La note"
+              value={note}
+              placeholder="Genou droit sensible depuis le 12 juillet"
+              hint="Ce qu’aucun fichier ne porte, et qui vaudra encore dans six mois."
+              onChange={(event) => {
+                setNote(event.target.value);
+              }}
+            />
 
-          <Field
-            label="La note"
-            value={note}
-            placeholder="Genou droit sensible depuis le 12 juillet"
-            hint="Ce qu’aucun fichier ne porte, et qui vaudra encore dans six mois."
-            onChange={(event) => {
-              setNote(event.target.value);
-            }}
-          />
-
-          <div className="row">
-            <Button
-              type="submit"
-              variant="primary"
-              busy={save.isPending}
-              disabled={note.trim() === ''}
-            >
-              {editing ? 'Enregistrer' : 'Noter'}
-            </Button>
-            {editing && (
+            <div className="row">
               <Button
-                variant="quiet"
-                onClick={() => {
-                  setEditing(null);
-                  setNote('');
-                  setTopic('autre');
-                }}
+                type="submit"
+                variant="primary"
+                busy={save.isPending}
+                disabled={note.trim() === ''}
               >
-                Annuler
+                {editing ? 'Enregistrer' : 'Noter'}
               </Button>
-            )}
-          </div>
-        </form>
-      </SheetGroup>
+              {editing && (
+                <Button
+                  variant="quiet"
+                  onClick={() => {
+                    setEditing(null);
+                    setNote('');
+                    setTopic('autre');
+                  }}
+                >
+                  Annuler
+                </Button>
+              )}
+            </div>
+          </form>
+        </SheetGroup>
+      </div>
     </Sheet>
   );
 }

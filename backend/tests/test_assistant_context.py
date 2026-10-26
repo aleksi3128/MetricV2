@@ -996,7 +996,10 @@ async def test_rien_avec_son_materiel_ne_se_dit_pas_comme_rien_du_tout(
     lines = await context.slices(store, [Need("exercices_cadence", query="smith machine")])
 
     assert "aucun avec le matériel déclaré" in lines[0]
-    assert "Réglages" in lines[0]
+    # Le profil a quitté les réglages pour la feuille de l'assistant (M-05) : le modèle doit
+    # envoyer là où la case se coche.
+    assert "Mémoire, onglet Profil" in lines[0]
+    assert "Réglages" not in lines[0]
 
 
 async def test_une_tranche_cherchee_ne_se_deroule_sur_aucune_periode(store: FileStore) -> None:

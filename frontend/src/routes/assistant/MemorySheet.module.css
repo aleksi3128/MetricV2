@@ -1,4 +1,18 @@
-/* La feuille « Ce que l'assistant sait de toi » (`MemorySheet.tsx`). */
+/* La feuille « Ce que l'assistant sait de toi » (`MemorySheet.tsx`) : profil et carnet. */
+
+/* Un onglet sous les segments. `[hidden]` doit l'emporter sur le `display` posé ici, sans
+   quoi le panneau caché resterait dessiné : la règle de l'agent utilisateur perd face à
+   n'importe quelle classe. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s4);
+}
+
+.panel[hidden] {
+  display: none;
+}
 
 .list {
   list-style: none;

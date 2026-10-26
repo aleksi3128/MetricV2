@@ -5,12 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import type { ProfileView } from '@/features/assistant/api';
-import { createQueryClient } from '@/lib/query';
+import { createQueryClient, keys } from '@/lib/query';
 
 import { Profile } from './Profile';
 
 /**
- * Section « Ce que je suis ».
+ * « Ce que je suis » — l'onglet Profil de la feuille de l'assistant (M-05).
  *
  * Ce que ces tests portent, et qu'aucun test d'API ne verrait : qu'un champ vide **reste**
  * vide au lieu de recevoir un défaut, et que ce qui part au modèle est montré.
@@ -240,6 +240,58 @@ describe('profil', () => {
     await waitFor(() => {
       const body = JSON.parse(writes()[0]?.init?.body as string) as Record<string, unknown>;
       expect(body.height_cm).toBeNull();
+    });
+  });
+
+  it('dit sa panne au lieu d’un profil vide', async () => {
+    // Quatre états : en panne, des champs vides affirmeraient un profil jamais rempli alors
+    // qu'aucun n'a pu être lu.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 503,
+          json: () =>
+            Promise.resolve({ code: 'storage_unavailable', message: 'Stockage injoignable.' }),
+        } as Response),
+      ),
+    );
+    const client = createQueryClient();
+    client.setDefaultOptions({ queries: { retry: false } });
+    render(
+      <QueryClientProvider client={client}>
+        <Toaster>
+          <Profile />
+        </Toaster>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Profil indisponible')).toBeInTheDocument();
+    expect(screen.getByText('Stockage injoignable.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Taille (cm)')).toBeNull();
+  });
+
+  it('rend les réglages périmés à l’enregistrement : ils partagent le même fichier', async () => {
+    // Sans cela, la page des réglages garderait un jeton périmé et son prochain
+    // enregistrement partirait en `409` sans rien qui l'explique.
+    const user = userEvent.setup();
+    stub();
+    const client = createQueryClient();
+    client.setQueryData(keys.settings.all(), { token: 'ancien' });
+    render(
+      <QueryClientProvider client={client}>
+        <Toaster>
+          <Profile />
+        </Toaster>
+      </QueryClientProvider>,
+    );
+
+    await user.type(await screen.findByLabelText('Contraintes à respecter'), 'pas de banc');
+    await user.click(screen.getByRole('button', { name: 'Enregistrer le profil' }));
+
+    await waitFor(() => {
+      expect(client.getQueryState(keys.settings.all())?.isInvalidated).toBe(true);
     });
   });
 });

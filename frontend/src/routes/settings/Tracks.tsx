@@ -207,12 +207,13 @@ function TrackForm({
         label={`Seuil de validation (${source?.unit ?? ''})`}
         inputMode="decimal"
         value={draft.threshold}
-        // La piste eau valide à l'objectif d'hydratation, réglé dans le profil : un seul
-        // chiffre pour la même journée (audit du 17 octobre, fiche 05).
+        // La piste eau valide à l'objectif d'hydratation, réglé dans « Objectifs » : un seul
+        // chiffre pour la même journée (audit du 17 octobre, fiche 05). « Le profil » disait
+        // autrefois la même chose ; depuis M-05, c'est l'onglet de l'assistant, sans eau.
         disabled={draft.thresholdFollows !== null}
         hint={
           draft.thresholdFollows !== null
-            ? `C’est ${draft.thresholdFollows} — il se règle dans le profil`
+            ? `C’est ${draft.thresholdFollows} — il se règle dans « Objectifs », en haut des réglages`
             : 'Au-delà, la journée est validée'
         }
         error={refusal?.messageFor('validation_threshold')}

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
-import type { AssistantView, ChatReply } from '@/features/assistant/api';
+import type { AssistantView, ChatReply, ProfileView } from '@/features/assistant/api';
 import { createQueryClient } from '@/lib/query';
 
 import { Assistant } from './Assistant';
@@ -110,6 +110,24 @@ function json(status: number, body: unknown): Response {
   return { ok: status < 400, status, json: () => Promise.resolve(body) } as Response;
 }
 
+/** Un profil rempli, tel que le serveur le sert (`GET /api/assistant/profile`). */
+const PROFILE: ProfileView = {
+  height_cm: 178,
+  birth_year: 1995,
+  training_days: 'lundi, mercredi, samedi',
+  equipment: ['dumbbell'],
+  equipment_unknown: [],
+  equipment_catalogue: [
+    { value: 'body weight', common: true },
+    { value: 'dumbbell', common: true },
+  ],
+  preferences: '',
+  constraints: '',
+  age: 31,
+  lines: ['Taille : 178 cm', 'Matériel dont je dispose : dumbbell'],
+  token: 'jeton-profil',
+};
+
 function stub(
   options: {
     memory?: AssistantView;
@@ -152,6 +170,9 @@ function stub(
     }
     if (url.includes('/api/assistant/threads')) {
       return Promise.resolve(json(200, options.threads ?? THREADS));
+    }
+    if (url.includes('/api/assistant/profile')) {
+      return Promise.resolve(json(200, PROFILE));
     }
     if (url.includes('/api/assistant/actions/confirm')) {
       return Promise.resolve(
@@ -911,6 +932,55 @@ describe('carnet', () => {
     expect(await screen.findByText(storedNote())).toBeInTheDocument();
     expect(screen.getByText(/résolu le/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: `Réactiver : ${storedNote()}` })).toBeInTheDocument();
+  });
+});
+
+// ── Profil et carnet, une feuille (M-05) ──────────────
+
+describe('profil et carnet', () => {
+  it('ouvre le carnet par l’en-tête, et le profil à un onglet de là', async () => {
+    const user = userEvent.setup();
+    stub();
+    renderScreen();
+    await openMemory();
+
+    expect(await screen.findByText(storedNote())).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Carnet' })).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Profil' }));
+
+    expect(await screen.findByLabelText('Taille (cm)')).toBeVisible();
+    expect(screen.getByText(storedNote())).not.toBeVisible();
+    expect(screen.getByText('Matériel dont je dispose : dumbbell')).toBeVisible();
+  });
+
+  it('s’ouvre sur le profil par son adresse, et sur le carnet par la sienne', async () => {
+    stub();
+    const { unmount } = renderScreen('/assistant?ouvre=profil');
+
+    expect(await screen.findByLabelText('Taille (cm)')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Profil' })).toHaveAttribute('aria-pressed', 'true');
+    unmount();
+
+    renderScreen('/assistant?ouvre=memoire');
+    expect(await screen.findByText(storedNote())).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Carnet' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('garde un profil en cours de saisie quand on passe au carnet, sans rien écrire', async () => {
+    // Le profil ne s'écrit qu'au bouton. Démonté au changement d'onglet, il aurait perdu
+    // son brouillon sans le dire.
+    const user = userEvent.setup();
+    stub();
+    renderScreen('/assistant?ouvre=profil');
+
+    await user.type(await screen.findByLabelText('Contraintes à respecter'), 'pas de banc');
+    await user.click(screen.getByRole('button', { name: 'Carnet' }));
+    await user.click(screen.getByRole('button', { name: 'Profil' }));
+
+    expect(screen.getByLabelText('Contraintes à respecter')).toHaveValue('pas de banc');
+    expect(writes()).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Enregistrer le profil' })).toBeEnabled();
   });
 });
 

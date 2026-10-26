@@ -43,7 +43,7 @@ import { keys } from '@/lib/query';
 
 import styles from './Assistant.module.css';
 import { PendingTurn, TurnView } from './assistant/Conversation';
-import { MemorySheet } from './assistant/MemorySheet';
+import { MemorySheet, type MemoryTab } from './assistant/MemorySheet';
 import { ThreadSheet } from './assistant/ThreadSheet';
 import { pastFrom, useConversation } from './assistant/useConversation';
 
@@ -57,8 +57,9 @@ export function Assistant() {
 
   const [question, setQuestion] = useState('');
   /**
-   * Les deux feuilles s'ouvrent **par l'adresse** — `?ouvre=memoire` — et un fil s'ouvre
-   * de même — `?fil=<identifiant>`.
+   * Les deux feuilles s'ouvrent **par l'adresse** — `?ouvre=discussions`, `?ouvre=memoire`
+   * pour le carnet, `?ouvre=profil` pour le profil (M-05) — et un fil s'ouvre de même —
+   * `?fil=<identifiant>`.
    *
    * Le tableau de bord y mène directement, et une surface qu'on atteint depuis un autre
    * écran a besoin d'être adressable : sans cela, le lien ouvrirait la conversation et
@@ -96,7 +97,8 @@ export function Assistant() {
     setChosen(id);
   }
   const [threadsOpen, setThreadsOpen] = useState(asked === 'discussions');
-  const [memoryOpen, setMemoryOpen] = useState(asked === 'memoire');
+  const [memoryOpen, setMemoryOpen] = useState(asked === 'memoire' || asked === 'profil');
+  const [memoryTab, setMemoryTab] = useState<MemoryTab>(asked === 'profil' ? 'profil' : 'carnet');
 
   function forget(): void {
     if (!params.has('ouvre') && !params.has('fil')) return;
@@ -277,6 +279,9 @@ export function Assistant() {
             aria-haspopup="dialog"
             aria-expanded={memoryOpen}
             onClick={() => {
+              // L'en-tête ouvre le carnet, comme il l'a toujours fait ; le profil est à un
+              // onglet de là.
+              setMemoryTab('carnet');
               setMemoryOpen(true);
             }}
           >
@@ -311,7 +316,8 @@ export function Assistant() {
           <Empty title="Assistance indisponible">
             {message}
             <br />
-            Le carnet, lui, reste utilisable : il se lit et s’écrit à la main.
+            Le carnet et le profil, eux, restent utilisables : ils se lisent et s’écrivent à la
+            main.
           </Empty>
         )}
 
@@ -422,6 +428,8 @@ export function Assistant() {
 
       <MemorySheet
         open={memoryOpen}
+        tab={memoryTab}
+        onTab={setMemoryTab}
         onClose={() => {
           setMemoryOpen(false);
           forget();

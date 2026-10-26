@@ -86,6 +86,10 @@ const SURFACES = [
     "effort d’une sortie vélo ou marche",
   ],
   ["/assistant", "Mémoire", "carnet de l’assistant"],
+  // La même feuille sur son onglet Profil (M-05) : le formulaire « Ce que je suis », venu
+  // de `/reglages`, avec ses 28 pastilles de matériel repliées. « Profil » est un segment —
+  // changer d'onglet n'écrit rien ; « Enregistrer le profil » n'est pas appuyé.
+  ["/assistant", ["Mémoire", "Profil"], "profil de l’assistant"],
   ["/assistant", "Discussions", "fil de l’assistant"],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
   // le jour où elle est écrite, pas le jour où un défaut s'y découvre. Depuis M-23, elle

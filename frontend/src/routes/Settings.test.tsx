@@ -22,24 +22,6 @@ function json(status: number, body: unknown): Response {
   return { ok: status < 400, status, json: () => Promise.resolve(body) } as Response;
 }
 
-/** Le profil, vide : cet écran-ci ne le teste pas, il doit seulement pouvoir le rendre. */
-const PROFILE = {
-  height_cm: null,
-  birth_year: null,
-  training_days: '',
-  equipment: [],
-  equipment_unknown: [],
-  equipment_catalogue: [
-    { value: 'body weight', common: true },
-    { value: 'dumbbell', common: true },
-  ],
-  preferences: '',
-  constraints: '',
-  age: null,
-  lines: [],
-  token: 'jeton-reglages',
-};
-
 function stub(custom?: (url: string, init?: RequestInit) => Response | undefined) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
@@ -53,7 +35,6 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
     // réglages à tout ferait planter les trois autres sur un champ absent — et le test
     // dirait « écran cassé » sans que l'écran le soit.
     if (url.includes('/api/heatmap/tracks')) return Promise.resolve(json(200, TRACKS));
-    if (url.includes('/api/assistant/profile')) return Promise.resolve(json(200, PROFILE));
     if (url.includes('/api/notifications')) return Promise.resolve(json(200, NOTIFICATIONS));
     // La section « Natation » lit le glossaire ; ces cas ne portent pas sur elle.
     if (url.includes('/api/planning/swim/codes')) return Promise.resolve(json(200, { codes: [] }));
@@ -107,6 +88,16 @@ afterEach(() => {
 });
 
 describe('écran Réglages', () => {
+  it('ne porte plus le profil de l’assistant, parti à côté du carnet (M-05)', async () => {
+    stub();
+    renderSettings();
+
+    await screen.findByDisplayValue('68');
+    expect(screen.queryByText('Ce que je suis')).toBeNull();
+    expect(screen.queryByLabelText('Taille (cm)')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/api/assistant/profile'))).toBe(false);
+  });
+
   it('affiche les valeurs en vigueur', async () => {
     stub();
     renderSettings();
