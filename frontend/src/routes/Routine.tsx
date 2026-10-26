@@ -312,7 +312,7 @@ function Checklist() {
           {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
         </Empty>
       ) : items.length === 0 ? (
-        <Empty title="Aucun supplément au planning">
+        <Empty title="Aucun supplément">
           Ajoute ce que tu prends, et la checklist se remplit toute seule chaque matin.
         </Empty>
       ) : (
@@ -344,7 +344,7 @@ function Checklist() {
   );
 }
 
-// ── Planning ──────────────────────────────────────────
+// ── Mes suppléments ───────────────────────────────────
 
 /**
  * Les formes de cadence d'un complément. « Les jours d'entraînement » n'en est pas : la
@@ -407,7 +407,7 @@ function Schedule() {
     },
     onSuccess: () => {
       invalidate();
-      notify(editing ? 'Planning corrigé.' : 'Supplément ajouté au planning.', 'effort');
+      notify(editing ? 'Supplément corrigé.' : 'Supplément ajouté.', 'effort');
       reset();
     },
     onError: (caught: unknown) => {
@@ -419,7 +419,7 @@ function Schedule() {
     mutationFn: (item: Supplement) => routineApi.removeSupplement(item.id, item.token),
     onSuccess: () => {
       invalidate();
-      notify("Retiré du planning. L'historique des prises est conservé.", 'signal');
+      notify("Supplément retiré. L'historique des prises est conservé.", 'signal');
     },
     onError: (caught: unknown) => {
       notify(caught instanceof ApiError ? caught.message : 'Retrait impossible.', 'recover');
@@ -432,14 +432,14 @@ function Schedule() {
 
   return (
     <Card>
-      <h3>Planning</h3>
+      <h3>Mes suppléments</h3>
       <p className={styles.note}>
         La cadence vit ici et nulle part ailleurs : la grille d'assiduité la lira au même endroit,
         elles ne pourront pas diverger.
       </p>
 
       {unreadable !== null && (
-        <Empty title="Planning indisponible">
+        <Empty title="Suppléments indisponibles">
           {unreadable instanceof Error ? unreadable.message : 'Le serveur n’a pas répondu.'}
         </Empty>
       )}
@@ -449,7 +449,7 @@ function Schedule() {
       {(schedule ?? []).map((item) => (
         <SwipeRow
           key={item.schedule_id}
-          actionLabel={`Retirer ${item.name} du planning`}
+          actionLabel={`Retirer ${item.name} de mes suppléments`}
           busy={remove.isPending}
           onAction={() => {
             remove.mutate(item);
@@ -546,7 +546,7 @@ function Schedule() {
             busy={save.isPending}
             disabled={fields.name.trim() === '' || fields.dose === ''}
           >
-            {editing ? 'Enregistrer la correction' : 'Ajouter au planning'}
+            {editing ? 'Enregistrer la correction' : 'Ajouter le supplément'}
           </Button>
           {editing !== null && (
             <Button variant="quiet" onClick={reset}>

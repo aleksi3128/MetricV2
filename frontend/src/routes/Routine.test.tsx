@@ -224,10 +224,12 @@ describe('écran Routine', () => {
     stub();
     renderRoutine();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Retirer Whey du planning' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Retirer Whey de mes suppléments' }),
+    );
     expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Retirer Whey du planning — confirmer' }),
+      screen.getByRole('button', { name: 'Retirer Whey de mes suppléments — confirmer' }),
     );
 
     await waitFor(() => {
@@ -283,7 +285,7 @@ describe('écran Routine', () => {
 
     await userEvent.type(await screen.findByLabelText('Nom'), 'Zinc');
     await userEvent.type(screen.getByLabelText('Dose'), '15');
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter au planning' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter le supplément' }));
 
     expect(
       await screen.findByText(/une fenêtre ne peut pas exiger plus de prises/),
@@ -320,7 +322,7 @@ describe('écran Routine', () => {
     expect(screen.getByText('journée complète')).toBeInTheDocument();
   });
 
-  it('dit la panne au lieu d’afficher un planning vide', async () => {
+  it('dit la panne au lieu d’afficher une liste de suppléments vide', async () => {
     // Audit du 17 octobre, fiche 06 : stockage injoignable, l'écran affirmait « Aucun
     // supplément au planning » — la façon la plus crédible de mentir (CLAUDE.md §4).
     const down = json(503, {
@@ -336,12 +338,12 @@ describe('écran Routine', () => {
     // Chaque requête échoue après ses propres reprises, pas au même instant : sous charge,
     // lire les trois d'un coup était une course que la batterie complète perdait.
     expect(
-      await screen.findByText('Planning indisponible', {}, { timeout: 6000 }),
+      await screen.findByText('Suppléments indisponibles', {}, { timeout: 6000 }),
     ).toBeInTheDocument();
     expect(
       await screen.findByText('Hydratation indisponible', {}, { timeout: 6000 }),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Aucun supplément au planning')).not.toBeInTheDocument();
+    expect(screen.queryByText('Aucun supplément')).not.toBeInTheDocument();
   }, 20_000);
 
   it('affiche la série par item', async () => {
@@ -420,7 +422,7 @@ describe('écran Routine', () => {
     expect(await screen.findByText('un jour sur deux')).toBeInTheDocument();
   });
 
-  it('reste lisible sans aucun supplément au planning', async () => {
+  it('reste lisible sans aucun supplément', async () => {
     stub((url) =>
       url.includes('/supplements/today')
         ? json(200, {
@@ -432,7 +434,7 @@ describe('écran Routine', () => {
     );
     renderRoutine();
 
-    expect(await screen.findByText('Aucun supplément au planning')).toBeInTheDocument();
+    expect(await screen.findByText('Aucun supplément')).toBeInTheDocument();
   });
 
   it('replie l’objectif et les raccourcis derrière « Régler » (M-04)', async () => {

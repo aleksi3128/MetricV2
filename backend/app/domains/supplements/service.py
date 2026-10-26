@@ -89,7 +89,7 @@ class SupplementService:
     async def update(self, index: int, token: str, payload: SupplementPayload) -> Supplement:
         rows = await self._schedule.read_all(fresh=True)
         if not 0 <= index < len(rows):
-            raise StorageNotFoundError("Ce supplément n'est pas au planning.")
+            raise StorageNotFoundError("Ce supplément n'est pas dans ta liste.")
         existing = rows[index].model
 
         row = await self._schedule.replace_by_token(
@@ -186,7 +186,7 @@ class SupplementService:
         planned = await self.schedule()
         supplement = next((item for item in planned if item.schedule_id == schedule_id), None)
         if supplement is None:
-            raise StorageNotFoundError("Ce supplément n'est pas au planning.")
+            raise StorageNotFoundError("Ce supplément n'est pas dans ta liste.")
 
         day = today_local()
         current = await self.checklist(day)
