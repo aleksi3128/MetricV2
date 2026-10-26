@@ -39,11 +39,35 @@ export function RunReferences() {
     saved: 'Repères enregistrés.',
   });
 
-  // Venu par le lien d'une course : la section naît ouverte (`useState(asked)`) ; on y
-  // descend une fois la lecture arrivée — avant, la page n'a pas encore sa hauteur.
+  // Venu par le lien d'une course : la section naît ouverte (`useState(asked)`), et l'écran
+  // s'y aligne **tant que la page grandit**, deux secondes et demie au plus, jusqu'au premier
+  // geste. Vu sur le banc : descendre une seule fois, même « quand plus rien ne charge »,
+  // laissait l'écran en haut de page — les tuiles, la charge et les records arrivent en
+  // plusieurs vagues et repoussent la section après coup.
   const ready = form.data !== undefined;
   useEffect(() => {
-    if (asked && ready) section.current?.scrollIntoView({ block: 'start' });
+    const target = section.current;
+    if (!asked || !ready || target === null) return;
+    let done = false;
+    const align = () => {
+      if (!done) target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    };
+    const stop = () => {
+      done = true;
+    };
+    align();
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(align) : null;
+    observer?.observe(document.body);
+    const timer = window.setTimeout(stop, 2500);
+    window.addEventListener('touchstart', stop, { passive: true });
+    window.addEventListener('wheel', stop, { passive: true });
+    return () => {
+      stop();
+      observer?.disconnect();
+      window.clearTimeout(timer);
+      window.removeEventListener('touchstart', stop);
+      window.removeEventListener('wheel', stop);
+    };
   }, [asked, ready]);
 
   const values = form.values;
@@ -66,7 +90,7 @@ export function RunReferences() {
         }}
       >
         <summary>
-          <span className={styles.title}>Repères</span>
+          <span className={styles.title}>Zones d’intensité</span>
           {form.data !== undefined && (
             <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'saisis' : 'déduits'}</Badge>
           )}
