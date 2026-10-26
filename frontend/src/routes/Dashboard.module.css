@@ -9,19 +9,6 @@
   flex-direction: column;
 }
 
-.note {
-  color: var(--ink-mid);
-  font-size: var(--t-sub);
-  margin-top: 2px;
-}
-
-.empty {
-  color: var(--ink-low);
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  margin-top: var(--s4);
-}
-
 .warn {
   color: var(--recover);
   font-family: var(--mono);
@@ -346,38 +333,4 @@
    cadre qui ne contenait rien : le cadre annonçait un contenu, il n'y en avait pas. */
 .doors {
   gap: var(--s3);
-}
-
-/* ── Graphique ────────────────────────────────────── */
-
-.graphHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--s4);
-  flex-wrap: wrap;
-  margin-bottom: var(--s4);
-}
-
-.metrics {
-  margin-bottom: var(--s4);
-}
-
-.seriesStats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s4);
-  margin-top: var(--s4);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--line-soft);
-  color: var(--ink-low);
-  font-family: var(--mono);
-  font-size: var(--t-meta);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.seriesStats b {
-  color: var(--ink);
-  font-weight: 500;
 }

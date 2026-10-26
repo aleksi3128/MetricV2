@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
-import type { MetricDescriptor, SeriesView } from '@/features/aggregates/api';
 import { createQueryClient } from '@/lib/query';
 import { DASHBOARD } from '@/test/fixtures';
 
@@ -21,41 +20,6 @@ const calls: Call[] = [];
 function json(status: number, body: unknown): Response {
   return { ok: status < 400, status, json: () => Promise.resolve(body) } as Response;
 }
-
-const CATALOGUE: MetricDescriptor[] = [
-  { key: 'weight', label: 'Poids', unit: 'kg', granularity: 'day', subjects: [] },
-  { key: 'hydration', label: 'Hydratation', unit: 'ml', granularity: 'day', subjects: [] },
-  {
-    key: 'exercise_load',
-    label: 'Charge par exercice',
-    unit: 'kg',
-    granularity: 'day',
-    subjects: [{ key: 'e1', label: 'Développé couché' }],
-  },
-];
-
-const HYDRATION_SERIES: SeriesView = {
-  metric: 'hydration',
-  label: 'Hydratation',
-  unit: 'ml',
-  granularity: 'day',
-  subject: null,
-  range: '3m',
-  points: [
-    { date: '2026-07-25', value: 2100 },
-    { date: '2026-07-26', value: 1400 },
-    { date: '2026-07-27', value: 1250 },
-  ],
-  stats: {
-    latest: 1250,
-    latest_date: '2026-07-27',
-    change: -850,
-    average: 1583.33,
-    minimum: 1250,
-    maximum: 2100,
-    count: 3,
-  },
-};
 
 /** L'assistance disponible, telle que `/api/ai/status` la rend (`IA-07`). */
 const AI_ON = { enabled: true, message: 'L’assistance IA est disponible.' };
@@ -97,8 +61,6 @@ function stub(dashboard: unknown = DASHBOARD, brief: unknown = ABSENT, ai: unkno
     calls.push({ url, init });
 
     if (url.includes('/aggregates/dashboard')) return Promise.resolve(json(200, dashboard));
-    if (url.includes('/aggregates/metrics')) return Promise.resolve(json(200, CATALOGUE));
-    if (url.includes('/aggregates/series')) return Promise.resolve(json(200, HYDRATION_SERIES));
     // Sans clé OpenRouter, la lecture du jour ne s'affiche pas du tout (`IA-07`) : les
     // tests qui ne s'y intéressent pas partent donc de l'assistance **disponible**, pour
     // que la carte soit là, et de `brief` absent, qui est l'état d'une installation neuve.
@@ -122,11 +84,9 @@ function renderDashboard(client = createQueryClient()) {
   );
 }
 
-/** Les appels d'agrégats, catalogue du sélecteur exclu. */
+/** Les appels d'agrégats. */
 function aggregateCalls() {
-  return calls.filter(
-    (call) => call.url.includes('/aggregates/') && !call.url.includes('/aggregates/metrics'),
-  );
+  return calls.filter((call) => call.url.includes('/aggregates/'));
 }
 
 beforeEach(() => {
@@ -258,7 +218,7 @@ describe('la lecture du jour', () => {
     stub(DASHBOARD, ABSENT, AI_OFF);
     renderDashboard();
 
-    await screen.findByText('Huit dernières semaines');
+    await screen.findByText(/−1,2 kg sur 8 pesées/);
 
     expect(screen.queryByRole('button', { name: 'Demander la lecture' })).toBeNull();
     expect(calls.some((call) => call.url.includes('/api/brief'))).toBe(false);
@@ -275,7 +235,6 @@ describe('la lecture du jour', () => {
         const url = input as string;
         calls.push({ url, init: undefined });
         if (url.includes('/aggregates/dashboard')) return Promise.resolve(json(200, DASHBOARD));
-        if (url.includes('/aggregates/metrics')) return Promise.resolve(json(200, CATALOGUE));
         if (url.includes('/ai/status')) return Promise.resolve(json(200, AI_ON));
         if (url.includes('/api/brief'))
           return Promise.resolve(
@@ -511,12 +470,11 @@ describe('où je vais', () => {
 describe('tableau de bord', () => {
   it("ne fait qu'un seul appel d'agrégats au chargement", async () => {
     // `AGG-01`, la raison d'être du lot. Dix appels parallèles au chargement d'un écran
-    // signifieraient dix allers-retours vers Nextcloud — et c'est précisément ce que le
-    // graphique inclus dans la réponse permet d'éviter.
+    // signifieraient dix allers-retours vers Nextcloud.
     stub();
     renderDashboard();
 
-    await screen.findByText('Huit dernières semaines');
+    await screen.findByText(/−1,2 kg sur 8 pesées/);
 
     expect(aggregateCalls()).toHaveLength(1);
     expect(aggregateCalls()[0]?.url).toContain('/api/aggregates/dashboard');
@@ -537,22 +495,20 @@ describe('tableau de bord', () => {
     expect(screen.getByText(/record 41 · 180 jours suivis/)).toBeInTheDocument();
   });
 
-  it('trace la série livrée avec le tableau de bord', async () => {
+  it('ne redit plus la tendance ni l’entraînement, et garde le chiffre de la semaine', async () => {
+    // M-06 et M-07 : la courbe à treize métriques et les deux cartes d'entraînement
+    // redisaient `/corps`, `/routine`, `/nutrition` et `/charge`. Seule la tuile
+    // « Semaine » reste — un chiffre, sans barres.
     stub();
     renderDashboard();
 
-    expect(await screen.findByRole('img', { name: 'Poids' })).toBeInTheDocument();
-    expect(screen.getByText(/−3,8/)).toBeInTheDocument();
-  });
-
-  it('nomme les deux parts de la répartition', async () => {
-    // Deux et non trois depuis le rebranchement : le champ `type` libre d'une séance
-    // n'existe plus dans la source, donc plus de part « autre » à nommer.
-    stub();
-    renderDashboard();
-
-    expect(await screen.findByText('Course')).toBeInTheDocument();
-    expect(screen.getByText('Tabata')).toBeInTheDocument();
+    expect(await screen.findByText(/2 séances · 8,4 km/)).toBeInTheDocument();
+    expect(screen.queryByText('Tendance')).toBeNull();
+    expect(screen.queryByText('Entraînement')).toBeNull();
+    expect(screen.queryByText('Huit dernières semaines')).toBeNull();
+    expect(screen.queryByText('Répartition')).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Poids' })).toBeNull();
+    expect(calls.some((call) => /\/aggregates\/(metrics|series)/.test(call.url))).toBe(false);
   });
 
   it('signale un dépassement du plafond de sucres', async () => {
@@ -562,38 +518,6 @@ describe('tableau de bord', () => {
     expect(
       await screen.findByText(/Plafond de sucres dépassé : 38 g sur 30 g/),
     ).toBeInTheDocument();
-  });
-
-  it('demande une nouvelle série quand la plage change, et rien d’autre', async () => {
-    stub();
-    renderDashboard();
-
-    await screen.findByText('Huit dernières semaines');
-    await userEvent.click(screen.getByRole('button', { name: '1 mois' }));
-
-    await waitFor(() => {
-      const series = calls.filter((call) => call.url.includes('/aggregates/series'));
-      expect(series).toHaveLength(1);
-      expect(series[0]?.url).toContain('range=1m');
-    });
-
-    // Le tableau de bord n'a pas été rechargé : seule la série l'a été.
-    expect(calls.filter((call) => call.url.includes('/aggregates/dashboard'))).toHaveLength(1);
-  });
-
-  it('propose les métriques publiées par le serveur, pas une liste en dur', async () => {
-    stub();
-    renderDashboard();
-
-    // La charge par exercice exige un sujet : elle n'a pas sa place dans ce sélecteur.
-    expect(await screen.findByRole('button', { name: 'Hydratation' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Charge par exercice' })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Hydratation' }));
-
-    await waitFor(() => {
-      expect(calls.some((call) => call.url.includes('metric=hydration'))).toBe(true);
-    });
   });
 
   it('annonce une journée vide sans inventer de chiffre', async () => {

@@ -7,6 +7,12 @@
  *
  * La page Course garde sa charge **de course** ; celle-ci compte la nage, le renfo, le
  * vélo et la marche — chacune dit son nom.
+ *
+ * C'est aussi la seule maison du **volume tous sports** (`docs/pages/modifications.md`,
+ * M-07) : l'accueil a rendu ses huit semaines en barres et sa répartition, et n'en garde
+ * que le chiffre de la semaine. Courses et Natations gardent le volume de leur sport.
+ * La répartition par sport sur huit semaines n'a pas suivi : `/api/training` ne la sert
+ * pas, et chaque semaine dit déjà son détail.
  */
 
 import { useQuery } from '@tanstack/react-query';

@@ -14,8 +14,14 @@
  * 2. **il reste aujourd'hui** — l'eau, les protéines, les suppléments et la séance prévue,
  *    avec l'écart qui reste sur chacun ;
  * 3. **où je vais** — l'objectif en cours et sa progression, qui n'étaient sur aucun écran
- *    d'accueil ;
- * 4. la tendance et l'entraînement.
+ *    d'accueil.
+ *
+ * **La tendance et l'entraînement en sont partis** (`docs/pages/modifications.md`, M-06 et
+ * M-07). Chacune de leurs lectures redisait un écran de domaine : poids et mensurations
+ * `/corps`, eau `/routine`, calories `/nutrition`, volume tous sports `/charge`. Le bas
+ * de l'accueil répondait à « comment ça a évolué », que ces écrans disent mieux ; il
+ * coûtait les deux tiers du défilement. Le volume de la semaine reste, en un chiffre, dans
+ * la bande de `Today`.
  *
  * La carte « Sept derniers jours » a quitté la tendance. Elle redisait en sept cases ce
  * que la bande du jour donne déjà en un chiffre — `Today` affiche la série courante, son
@@ -41,29 +47,11 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
 
-import {
-  Bars,
-  Card,
-  Chart,
-  Chip,
-  ChipStrip,
-  Empty,
-  LinkButton,
-  PageHead,
-  Rule,
-  Segmented,
-  Skeleton,
-} from '@/components/ui';
-import {
-  aggregatesApi,
-  type DashboardView,
-  type RangeKey,
-  type SeriesView,
-} from '@/features/aggregates/api';
+import { Empty, LinkButton, PageHead, Rule, Skeleton } from '@/components/ui';
+import { aggregatesApi } from '@/features/aggregates/api';
 import { cx } from '@/lib/cx';
-import { dayMonth, delta, hoursMinutes, integer, longDate, num, plural } from '@/lib/format';
+import { longDate } from '@/lib/format';
 import { keys } from '@/lib/query';
 
 import { Aim } from './dashboard/Aim';
@@ -72,195 +60,11 @@ import { Shape } from './dashboard/Shape';
 import { Today } from './dashboard/Today';
 import styles from './Dashboard.module.css';
 
-/** Les trois plages du contrat `AGG-04`. Le serveur refuse tout le reste. */
-const RANGES = [
-  { value: '1m', label: '1 mois' },
-  { value: '3m', label: '3 mois' },
-  { value: 'all', label: 'Tout' },
-] as const satisfies readonly { value: RangeKey; label: string }[];
-
-// ── Graphique croisé (`AGG-04`) ───────────────────────
-
-function Graph({ shipped }: { shipped: SeriesView }) {
-  // L'état part **vide** : la métrique et la plage affichées sont celles que le serveur a
-  // livrées avec le tableau de bord. Le client ne code donc aucun défaut, et le premier
-  // rendu ne déclenche aucune seconde requête (`AGG-01`).
-  const [choice, setChoice] = useState<{ metric: string; range: RangeKey } | null>(null);
-
-  const { data: catalogue } = useQuery({
-    queryKey: keys.aggregates.metrics(),
-    queryFn: aggregatesApi.metrics,
-  });
-
-  const metric = choice?.metric ?? shipped.metric;
-  const range = choice?.range ?? shipped.range;
-
-  const custom = useQuery({
-    queryKey: keys.aggregates.series(metric, range),
-    queryFn: () => aggregatesApi.series(metric, range),
-    // Tant que rien n'a été choisi, la série livrée avec le tableau de bord suffit :
-    // cette requête ne part pas, et le chargement de l'écran reste un seul appel.
-    enabled: choice !== null,
-  });
-
-  const series = choice === null ? shipped : custom.data;
-
-  // Les métriques paramétrées — la charge d'un exercice — demandent un sujet que ce
-  // sélecteur ne propose pas encore : elles vivent sur l'écran Activité.
-  const options = (catalogue ?? []).filter((entry) => entry.subjects.length === 0);
-
-  return (
-    <Card>
-      <div className={styles.graphHead}>
-        <div>
-          <h3>{series?.label ?? shipped.label}</h3>
-          <p className={styles.note}>
-            {series && series.stats.count > 0
-              ? `${integer(series.stats.count)} ${plural(series.stats.count, 'relevé')} sur la plage`
-              : 'Aucun relevé sur cette plage.'}
-          </p>
-        </div>
-        <Segmented
-          options={RANGES}
-          value={range}
-          onChange={(next) => {
-            setChoice({ metric, range: next });
-          }}
-          label="Plage du graphique"
-        />
-      </div>
-
-      {/* Treize métriques dans une liste qui passe à la ligne prenaient **neuf lignes et
-          470 px** sur un téléphone — plus d'une demi-hauteur d'écran pour un sélecteur —
-          et chaque bouton faisait 28 px de haut. Une bande qui se tire au pouce en prend
-          50, et chaque pastille respecte le plancher tactile. */}
-      {options.length > 1 && (
-        <div className={styles.metrics}>
-          <ChipStrip label="Métrique du graphique">
-            {options.map((entry) => (
-              <Chip
-                key={entry.key}
-                selected={entry.key === metric}
-                onClick={() => {
-                  setChoice({ metric: entry.key, range });
-                }}
-              >
-                {entry.label}
-              </Chip>
-            ))}
-          </ChipStrip>
-        </div>
-      )}
-
-      {custom.isPending && choice !== null ? (
-        <Skeleton lines={4} />
-      ) : series === undefined || series.points.length < 2 ? (
-        <p className={styles.empty}>
-          Deux relevés suffisent pour tracer une courbe. Il en manque encore.
-        </p>
-      ) : (
-        <>
-          <Chart
-            labels={series.points.map((point) => dayMonth(point.date))}
-            primary={{
-              label: series.label,
-              values: series.points.map((point) => point.value),
-              tone: 'signal',
-              unit: series.unit,
-              format: (value) => num(value, 1),
-            }}
-          />
-          <div className={styles.seriesStats}>
-            {/* Tous ces chiffres viennent du serveur : le client n'en dérive aucun. */}
-            <span>
-              dernier <b className="num">{num(series.stats.latest ?? 0, 1)}</b> {series.unit}
-            </span>
-            {series.stats.change !== null && (
-              <span>
-                variation{' '}
-                <b className="num">
-                  {delta(series.stats.change)} {series.unit}
-                </b>
-              </span>
-            )}
-            {series.stats.average !== null && (
-              <span>
-                moyenne <b className="num">{num(series.stats.average, 1)}</b> {series.unit}
-              </span>
-            )}
-            {series.stats.minimum !== null && series.stats.maximum !== null && (
-              <span>
-                amplitude{' '}
-                <b className="num">
-                  {num(series.stats.minimum, 1)} – {num(series.stats.maximum, 1)}
-                </b>
-              </span>
-            )}
-          </div>
-        </>
-      )}
-    </Card>
-  );
-}
-
-// ── Entraînement ──────────────────────────────────────
-
-function Training({ training }: { training: DashboardView['training'] }) {
-  return (
-    <div className="grid g2">
-      <Card>
-        <div className="spread">
-          <div>
-            <h3>Huit dernières semaines</h3>
-            <p className={styles.note}>
-              {integer(training.sessions_total)} {plural(training.sessions_total, 'séance')} depuis
-              le début, soit {hoursMinutes(training.minutes_total)}.
-            </p>
-          </div>
-        </div>
-
-        {training.sessions_total === 0 ? (
-          <p className={styles.empty}>Une première séance, et l’histogramme démarre.</p>
-        ) : (
-          <Bars
-            rows={training.weeks.map((week) => ({
-              label: dayMonth(week.week_start),
-              // **Servie.** Elle était dérivée d'un `Math.max` sur la série entière, ce
-              // qui est un calcul métier — le défaut que ce lot corrige.
-              ratio: week.ratio,
-              value: week.minutes > 0 ? hoursMinutes(week.minutes) : '—',
-              tone: 'effort' as const,
-            }))}
-          />
-        )}
-      </Card>
-
-      <Card>
-        <h3>Répartition</h3>
-        <p className={styles.note}>Course, tabata et natation, en séances et en minutes.</p>
-
-        {training.split.length === 0 ? (
-          <p className={styles.empty}>Rien à répartir pour l’instant.</p>
-        ) : (
-          <Bars
-            rows={training.split.map((part) => ({
-              label: part.label,
-              ratio: part.ratio,
-              value: `${integer(part.sessions)} · ${hoursMinutes(part.minutes)}`,
-              tone: part.kind === 'run' ? ('signal' as const) : ('effort' as const),
-            }))}
-          />
-        )}
-      </Card>
-    </div>
-  );
-}
-
 // ── Écran ─────────────────────────────────────────────
 
 export function Dashboard() {
   // **Un seul appel pour les indicateurs** (`AGG-01`) : chiffres du jour, journée à finir,
-  // objectif, séance à venir, assiduité et série du graphique arrivent ensemble.
+  // objectif, séance à venir et assiduité arrivent ensemble.
   const { data, isPending, error } = useQuery({
     queryKey: keys.aggregates.dashboard(),
     queryFn: () => aggregatesApi.dashboard(),
@@ -306,12 +110,6 @@ export function Dashboard() {
       <Shape />
 
       <Aim data={data} />
-
-      <Rule>Tendance</Rule>
-      <Graph shipped={data.series} />
-
-      <Rule>Entraînement</Rule>
-      <Training training={data.training} />
 
       {/* Les deux portes de côté de l'assistant, et la sienne propre.
           Elles restent **quoi qu'il arrive** : sans clé OpenRouter la lecture du jour ne
