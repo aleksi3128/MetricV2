@@ -1,0 +1,14 @@
+/* La feuille « Régler les pistes » (M-04) : deux onglets, pistes et jours neutralisés. */
+
+/* Un onglet sous les segments. `[hidden]` doit l'emporter sur le `display` posé ici, sans
+   quoi le panneau caché resterait dessiné — même règle que la feuille du carnet. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-top: var(--s2);
+}
+
+.panel[hidden] {
+  display: none;
+}

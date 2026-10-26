@@ -1,12 +1,12 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
-import { DAY_DETAIL, GRIDS } from '@/test/fixtures';
+import { DAY_DETAIL, GRIDS, TRACKS } from '@/test/fixtures';
 
 import { Assiduity } from './Assiduity';
 
@@ -47,6 +47,7 @@ function stub(custom?: (url: string) => Response | undefined) {
     if (override) return Promise.resolve(override);
 
     if (url.includes('/day/')) return Promise.resolve(json(200, DAY_DETAIL));
+    if (url.includes('/api/heatmap/tracks')) return Promise.resolve(json(200, TRACKS));
     return Promise.resolve(json(200, GRIDS));
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -200,5 +201,30 @@ describe('écran Assiduité', () => {
     renderScreen();
 
     expect(await screen.findByText('Cette piste n’existe plus.')).toBeInTheDocument();
+  });
+
+  it('règle les pistes dans une feuille, sans quitter la grille (M-04)', async () => {
+    stub();
+    renderScreen();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Régler les pistes' }));
+
+    // La feuille s'ouvre sur les pistes, la grille reste derrière.
+    const sheet = within(await screen.findByRole('dialog', { name: 'Régler les pistes' }));
+    expect(await sheet.findByRole('heading', { name: /Eau/ })).toBeInTheDocument();
+    expect(sheet.getByRole('button', { name: 'Pistes' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('link', { name: /Régler les pistes/ })).toBeNull();
+  });
+
+  it('garde la porte des réglages quand les grilles sont en panne', async () => {
+    stub((url) =>
+      url.includes('/api/heatmap?') || url.endsWith('/api/heatmap')
+        ? json(422, { code: 'validation_error', message: 'Plage illisible.' })
+        : undefined,
+    );
+    renderScreen();
+
+    expect(await screen.findByText('Assiduité indisponible')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Régler les pistes' })).toBeInTheDocument();
   });
 });

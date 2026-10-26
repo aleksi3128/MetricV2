@@ -91,6 +91,11 @@ const SURFACES = [
   // changer d'onglet n'écrit rien ; « Enregistrer le profil » n'est pas appuyé.
   ["/assistant", ["Mémoire", "Profil"], "profil de l’assistant"],
   ["/assistant", "Discussions", "fil de l’assistant"],
+  // La feuille « Régler les pistes » de `/assiduite` (M-04), venue de `/reglages`, et son
+  // second onglet. « Jours neutralisés » est un segment — changer d'onglet n'écrit rien ;
+  // ni « Modifier », ni « Neutraliser », ni « Supprimer » ne sont appuyés.
+  ["/assiduite", "Régler les pistes", "régler les pistes"],
+  ["/assiduite", ["Régler les pistes", "Jours neutralisés"], "jours neutralisés"],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
   // le jour où elle est écrite, pas le jour où un défaut s'y découvre. Depuis M-23, elle
   // porte en tête le segment du jour et la bande des favoris : aucune pastille n'est

@@ -1,4 +1,6 @@
-/* Réglage des pistes d'assiduité (`L11-10`, `L11-11`). */
+/* Réglage des pistes d'assiduité (`L11-10`, `L11-11`) et jours neutralisés — la feuille
+   « Régler les pistes » de `/assiduite` (M-04). Partagé par `Tracks`, `TrackForm` et
+   `OffDays`, une seule surface. */
 
 .list {
   display: flex;
@@ -156,4 +158,24 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--s3);
+}
+
+/* La phrase d'en-tête de chaque onglet. Elle portait un style en ligne (`marginTop: 14`,
+   `marginBottom: 20`) hors de l'échelle ; ce sont `--s4` et `--s5`. */
+.lede {
+  margin-top: var(--s4);
+  margin-bottom: var(--s5);
+}
+
+/* Les boutons du panneau de recalcul, sous la liste de ses conséquences. */
+.impactActions {
+  margin-top: var(--s4);
+}
+
+/* « Supprimer » armé par un premier appui : le ton de la récupération, comme les autres
+   destructions à deux appuis. */
+.armed {
+  border-color: rgb(var(--recover-rgb) / 0.6);
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  color: var(--recover);
 }

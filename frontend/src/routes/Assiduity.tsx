@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
 
 import { Badge, Button, Card, Empty, Heatmap, PageHead, Rule, Skeleton } from '@/components/ui';
 import { heatmapApi, type DayEntry, type Grid } from '@/features/heatmap/api';
@@ -10,6 +9,7 @@ import { keys } from '@/lib/query';
 import { cx } from '@/lib/cx';
 
 import styles from './Assiduity.module.css';
+import { TracksSheet, type TracksTab } from './assiduite/TracksSheet';
 
 /**
  * Écran Assiduité (`L11-06` → `L11-09`).
@@ -259,6 +259,44 @@ function TrackCard({
 
 export function Assiduity() {
   const [opened, setOpened] = useState<{ trackId: string; day: string } | null>(null);
+  /** La feuille « Régler les pistes » (M-04) et son onglet. */
+  const [settings, setSettings] = useState(false);
+  const [tab, setTab] = useState<TracksTab>('pistes');
+
+  // Les pistes se règlent ici, dans une feuille, et non plus dans `/reglages` (M-04). La
+  // porte est dans l'en-tête des trois états : une grille en panne se règle quand même —
+  // c'est parfois une piste mal réglée qui la fait tomber.
+  const head = (
+    <PageHead
+      eyebrow="Assiduité"
+      title="Ce que tu tiens"
+      actions={
+        <Button
+          variant="quiet"
+          onClick={() => {
+            setTab('pistes');
+            setSettings(true);
+          }}
+        >
+          Régler les pistes
+        </Button>
+      }
+    >
+      Une heatmap ne mesure pas l’activité, elle mesure le respect d’un engagement. Le gris y
+      domine, et ne dit rien de mauvais : il dit qu’on n’attendait rien ce jour-là.
+    </PageHead>
+  );
+
+  const sheet = (
+    <TracksSheet
+      open={settings}
+      onClose={() => {
+        setSettings(false);
+      }}
+      tab={tab}
+      onTab={setTab}
+    />
+  );
 
   const { data, isPending, error } = useQuery({
     queryKey: keys.heatmap.screen(),
@@ -271,8 +309,9 @@ export function Assiduity() {
         {/* L'en-tête est là **avant** la donnée. Un écran qui n'affiche qu'un
           « chargement… » sur fond noir ne dit pas où l'on vient d'arriver, et la seconde
           d'attente se lit comme un écran qui n'a pas répondu. */}
-        <PageHead eyebrow="Assiduité" title="Ce que tu tiens" />
+        {head}
         <Skeleton lines={4} />
+        {sheet}
       </div>
     );
   }
@@ -280,33 +319,23 @@ export function Assiduity() {
   if (error || !data) {
     return (
       <div className={cx('wrap', styles.screen)}>
-        <PageHead eyebrow="Assiduité" title="Ce que tu tiens" />
+        {head}
         <Empty title="Assiduité indisponible">
           {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
         </Empty>
+        {sheet}
       </div>
     );
   }
 
   return (
     <div className={cx('wrap', styles.screen)}>
-      <PageHead
-        eyebrow="Assiduité"
-        title="Ce que tu tiens"
-        actions={
-          <Link to="/reglages" className={styles.settingsLink}>
-            Régler les pistes, les cadences et les seuils
-          </Link>
-        }
-      >
-        Une heatmap ne mesure pas l’activité, elle mesure le respect d’un engagement. Le gris y
-        domine, et ne dit rien de mauvais : il dit qu’on n’attendait rien ce jour-là.
-      </PageHead>
+      {head}
 
       {data.grids.length === 0 ? (
         <Empty title="Aucune piste active">
-          Toutes les pistes sont désactivées. Réactive-en une depuis les réglages pour retrouver ta
-          grille — l’historique n’a pas bougé.
+          Toutes les pistes sont désactivées. Réactive-en une par « Régler les pistes », en haut de
+          page, pour retrouver ta grille — l’historique n’a pas bougé.
         </Empty>
       ) : (
         <>
@@ -336,6 +365,8 @@ export function Assiduity() {
           }}
         />
       )}
+
+      {sheet}
     </div>
   );
 }

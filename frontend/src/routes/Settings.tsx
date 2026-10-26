@@ -20,16 +20,18 @@ import { useTheme, type ThemeMode } from '@/lib/theme';
 
 import { Reminders } from './settings/Reminders';
 import { Security } from './settings/Security';
-import { Tracks } from './settings/Tracks';
 
 import styles from './Settings.module.css';
 
 /**
- * Les réglages généralistes (`L08-08`) et les pistes d'assiduité (`L11-10`).
+ * Les réglages de l'application (`L08-08`) — ce qui ne règle pas un écran en particulier.
  *
- * Les deux vivent sur le même écran parce qu'ils répondent à la même question — « qu'est-ce
- * que je vise ? » — et parce que la piste mise en avant *est* le réglage `heatmap_metric`.
- * Les séparer aurait obligé à expliquer deux fois où se règle la même chose.
+ * L'écran portait sept pages. Depuis M-04 (`docs/pages/modifications.md`), chaque réglage
+ * propre à un écran vit à côté de lui : l'adresse de Cadence sur `/activite/seances`, les
+ * repères de course sur `/activite/courses`, l'eau sur `/routine`, le glossaire de nage sur
+ * `/planning/sigles`, les pistes et les jours neutralisés dans la feuille de `/assiduite`,
+ * le profil dans celle de l'assistant (M-05). Restent les cibles qui servent à plusieurs
+ * écrans, les rappels, la sécurité, l'apparence et l'état de l'IA.
  *
  * Un principe tient tout l'écran : **aucune valeur de repli n'est écrite côté client.**
  * Les défauts arrivent du serveur avec les valeurs effectives, et l'écran se contente de
@@ -134,7 +136,6 @@ const FIELDS: readonly SettingsKey[] = [
   'target_protein_g',
   'max_added_sugar_g',
   'target_calories',
-  'heatmap_metric',
 ];
 
 export function Settings() {
@@ -153,7 +154,7 @@ export function Settings() {
         {/* L'en-tête est là **avant** la donnée. Un écran qui n'affiche qu'un
           « chargement… » sur fond noir ne dit pas où l'on vient d'arriver, et la seconde
           d'attente se lit comme un écran qui n'a pas répondu. */}
-        <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>} />
+        <PageHead eyebrow="Compte" title="Réglages" />
         <Skeleton lines={4} />
         <Appearance />
       </div>
@@ -163,7 +164,7 @@ export function Settings() {
   if (error || !data) {
     return (
       <div className={cx('wrap', styles.screen)}>
-        <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>} />
+        <PageHead eyebrow="Compte" title="Réglages" />
         <Empty title="Réglages indisponibles">
           {error instanceof Error ? error.message : 'Le serveur n’a pas répondu.'}
         </Empty>
@@ -179,12 +180,19 @@ export function Settings() {
 
   return (
     <div className={cx('wrap', styles.screen)}>
-      <PageHead eyebrow="Réglages" title={<>Objectifs &amp; repères</>}>
-        Ces valeurs servent de référence à tous les écrans. Tant qu’un réglage n’est pas renseigné,
-        c’est le défaut du serveur qui s’applique — et il est affiché tel quel, jamais deviné.
+      <PageHead eyebrow="Compte" title="Réglages">
+        Ce qui vaut pour toute l’application. Un réglage propre à un écran se règle sur cet écran :
+        l’eau sur la routine, les pistes sur l’assiduité, les repères sur la page des courses.
       </PageHead>
 
+      {/* « Objectifs » nomme ici des cibles quotidiennes, pas l’objectif daté de `/objectif` :
+          le mot se tranche avec M-13, pas en passant. */}
       <Rule>Objectifs</Rule>
+
+      <p className={cx(styles.note, styles.intro)}>
+        Elles servent à plusieurs écrans. Tant qu’une cible n’est pas renseignée, c’est le défaut du
+        serveur qui s’applique — et il est affiché tel quel, jamais deviné.
+      </p>
 
       <form
         onSubmit={(event) => {
@@ -220,24 +228,6 @@ export function Settings() {
           ))}
         </div>
 
-        <Rule>Saisie</Rule>
-
-        <div className="grid g2">
-          <Card>
-            <div className="spread">
-              <span className={styles.name}>Métrique mise en avant</span>
-              <Origin view={data} field="heatmap_metric" />
-            </div>
-            <Field
-              label="Clé de la piste"
-              value={fields.heatmap_metric}
-              error={refusal?.messageFor('heatmap_metric')}
-              hint={`Se règle aussi d’un clic depuis les pistes, plus bas · défaut ${data.defaults.heatmap_metric}`}
-              onChange={set('heatmap_metric')}
-            />
-          </Card>
-        </div>
-
         {/* **Collante dès qu'un champ change** (audit du 17 octobre, fiche 24) : un seul
             « Enregistrer » pour dix champs sur trois écrans de hauteur, et modifier les
             raccourcis d'eau n'enregistrait rien tant qu'on n'avait pas trouvé le bouton,
@@ -258,11 +248,6 @@ export function Settings() {
           )}
         </div>
       </form>
-
-      <Tracks />
-
-      {/* « Ce que je suis » est parti à côté du carnet, dans la feuille de l'assistant
-          (M-05) : `/assistant?ouvre=profil`. */}
 
       <Reminders />
 

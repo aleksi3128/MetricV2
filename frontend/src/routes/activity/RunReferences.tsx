@@ -9,7 +9,7 @@ import { keys } from '@/lib/query';
 import styles from './RunReferences.module.css';
 
 /** L'ancre de la section : la page d'une course y renvoie pour corriger ses zones. */
-export const REFERENCES_ANCHOR = 'reperes';
+const REFERENCES_ANCHOR = 'reperes';
 
 /**
  * Les repères des zones de course — FC max et allure seuil (`docs/analyse-course.md`,

@@ -9,9 +9,10 @@ import { Toaster } from '@/components/ui';
 import type { ProfileView } from '@/features/assistant/api';
 import type { SettingsView } from '@/features/settings/api';
 import { createQueryClient } from '@/lib/query';
-import { SETTINGS } from '@/test/fixtures';
+import { SETTINGS, TRACKS } from '@/test/fixtures';
 
 import { CadenceAddress } from './activity/CadenceAddress';
+import { TracksSheet } from './assiduite/TracksSheet';
 import { RunReferences } from './activity/RunReferences';
 import { Profile } from './assistant/Profile';
 import { HydrationSettings } from './routine/HydrationSettings';
@@ -71,6 +72,18 @@ function serve() {
       const method = init?.method ?? 'GET';
       const ifMatch = (init?.headers as Record<string, string> | undefined)?.['If-Match'];
       const record = (status: number) => calls.push({ url, method, ifMatch, status });
+
+      // « Mettre en avant » une piste : le serveur écrit `heatmap_metric` dans le fichier par
+      // sa propre route, sans `If-Match` de réglages — le jeton change quand même.
+      if (url.includes('/api/heatmap/tracks/') && url.endsWith('/highlight')) {
+        version += 1;
+        record(200);
+        return Promise.resolve(json(200, TRACKS));
+      }
+      if (url.startsWith('/api/heatmap')) {
+        record(200);
+        return Promise.resolve(json(200, TRACKS));
+      }
 
       if (method !== 'GET' && ifMatch !== token()) {
         record(409);
@@ -268,6 +281,42 @@ describe('un fichier de réglages, plusieurs écrans', () => {
       ['fichier-v1', 200],
       ['fichier-v2', 200],
     ]);
+  });
+
+  it('relit le jeton après « Mettre en avant », que le serveur écrit dans le fichier', async () => {
+    serve();
+    render(
+      <Screen client={createQueryClient()}>
+        <section aria-label="routine">
+          <HydrationSettings />
+        </section>
+        <TracksSheet open onClose={() => undefined} tab="pistes" onTab={() => undefined} />
+      </Screen>,
+    );
+    const routine = within(await screen.findByRole('region', { name: 'routine' }));
+    await userEvent.click(await routine.findByRole('button', { name: 'Régler' }));
+
+    // Sur `/assiduite` : mettre la piste Torse en avant.
+    const sheet = within(screen.getByRole('dialog', { name: 'Régler les pistes' }));
+    const torse = await sheet.findByRole('heading', { name: /Torse/ });
+    const edit = torse.closest('div')?.parentElement?.querySelector('button');
+    if (!edit) throw new Error('pas de « Modifier » pour Torse');
+    await userEvent.click(edit);
+    await userEvent.click(sheet.getByRole('button', { name: 'Mettre en avant' }));
+    await waitFor(() => {
+      expect(writes().some((call) => call.url.endsWith('/highlight'))).toBe(true);
+    });
+
+    // Puis la cible d'eau, sur `/routine` : sous le jeton que la mise en avant a rendu.
+    const target = routine.getByLabelText('ml');
+    await userEvent.clear(target);
+    await userEvent.type(target, '2800');
+    await userEvent.click(routine.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => {
+      expect(writes().filter((call) => call.url === '/api/settings')).toHaveLength(1);
+    });
+    const patch = writes().find((call) => call.url === '/api/settings');
+    expect([patch?.ifMatch, patch?.status]).toEqual(['fichier-v2', 200]);
   });
 
   it('remonte un conflit sans le forcer', async () => {

@@ -82,3 +82,9 @@
 .noteSpaced {
   margin-top: var(--s3);
 }
+
+/* La phrase sous « Objectifs » : elle était l'en-tête de la page quand ses cibles en
+   étaient la première section et lui donnaient son titre. */
+.intro {
+  margin-bottom: var(--s4);
+}

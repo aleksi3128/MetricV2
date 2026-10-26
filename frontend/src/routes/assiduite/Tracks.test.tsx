@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,7 +10,18 @@ import type { TrackImpact } from '@/features/heatmap/api';
 import { createQueryClient } from '@/lib/query';
 import { TRACKS } from '@/test/fixtures';
 
-import { Tracks } from './Tracks';
+import { TracksSheet, type TracksTab } from './TracksSheet';
+
+/** La feuille « Régler les pistes » ouverte, comme l'en-tête de `/assiduite` l'ouvre (M-04). */
+function OpenSheet() {
+  const [tab, setTab] = useState<TracksTab>('pistes');
+  return <TracksSheet open onClose={() => undefined} tab={tab} onTab={setTab} />;
+}
+
+/** Passe à l'onglet des jours neutralisés. */
+async function showOffDays() {
+  await userEvent.click(await screen.findByRole('button', { name: 'Jours neutralisés' }));
+}
 
 /**
  * Réglage des pistes (`L11-10`, `L11-11`).
@@ -83,7 +95,7 @@ function renderTracks() {
     <QueryClientProvider client={createQueryClient()}>
       <MemoryRouter>
         <Toaster>
-          <Tracks />
+          <OpenSheet />
         </Toaster>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -219,7 +231,7 @@ describe('réglage des pistes', () => {
     expect(threshold).toHaveValue('2000');
     expect(
       screen.getByText(
-        /l’objectif d’hydratation — il se règle dans « Objectifs », en haut des réglages/,
+        /l’objectif d’hydratation — il se règle sur la routine, carte Hydratation, « Régler »/,
       ),
     ).toBeInTheDocument();
   });
@@ -259,6 +271,7 @@ describe('réglage des pistes', () => {
     stub();
     renderTracks();
     await screen.findByRole('heading', { name: /Eau/ });
+    await showOffDays();
 
     await userEvent.type(screen.getByLabelText('Du'), '2026-07-01');
     await userEvent.type(screen.getByLabelText('Au'), '2026-07-05');
@@ -272,6 +285,7 @@ describe('réglage des pistes', () => {
   it('liste les plages déjà neutralisées et permet de les rétablir', async () => {
     stub();
     renderTracks();
+    await showOffDays();
 
     // La raison est notée dans le fichier pour qu'on s'en souvienne dans six mois.
     expect((await screen.findAllByText(/grippe/)).length).toBeGreaterThan(0);
@@ -305,5 +319,22 @@ describe('réglage des pistes', () => {
     // toast — l'un reste sous les yeux, l'autre signale que quelque chose vient d'arriver.
     expect((await screen.findAllByText('Ce seuil est invraisemblable.')).length).toBe(2);
     expect(patched()).toHaveLength(0);
+  });
+
+  it('supprime une piste en deux appuis, jamais en un (M-04)', async () => {
+    // La suppression partait au premier appui ; le projet n'a aucune annulation.
+    stub();
+    renderTracks();
+    await openEditor('Eau');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer la piste Eau' }));
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Supprimer la piste Eau — confirmer' }),
+    );
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'DELETE')).toBe(true);
+    });
   });
 });

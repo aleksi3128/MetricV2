@@ -114,6 +114,17 @@ describe('écran Réglages', () => {
     expect(calls.some((call) => call.url.includes('/api/planning/swim/codes'))).toBe(false);
   });
 
+  it('ne porte plus les pistes ni les jours neutralisés, partis sur l’assiduité (M-04)', async () => {
+    stub();
+    renderSettings();
+
+    await screen.findByDisplayValue('68');
+    expect(screen.getByRole('heading', { name: 'Réglages' })).toBeInTheDocument();
+    expect(screen.queryByText('Pistes d’assiduité')).toBeNull();
+    expect(screen.queryByLabelText('Clé de la piste')).toBeNull();
+    expect(calls.some((call) => call.url.includes('/api/heatmap'))).toBe(false);
+  });
+
   it('affiche les valeurs en vigueur', async () => {
     stub();
     renderSettings();
@@ -129,10 +140,10 @@ describe('écran Réglages', () => {
     renderSettings();
 
     expect(await screen.findByText('réglé')).toBeInTheDocument();
-    // Poids, protéines, sucres, calories et la piste mise en avant ; l'eau et ses
-    // raccourcis sont partis sur `/routine` (M-04). Seul le poids cible est réglé dans le
-    // fixture.
-    expect(screen.getAllByText('valeur par défaut')).toHaveLength(4);
+    // Poids, protéines, sucres, calories ; l'eau et ses raccourcis sont partis sur
+    // `/routine`, la piste mise en avant sur `/assiduite` (M-04). Seul le poids cible est
+    // réglé dans le fixture.
+    expect(screen.getAllByText('valeur par défaut')).toHaveLength(3);
     expect(screen.getByText(/défaut 70 kg/)).toBeInTheDocument();
   });
 
