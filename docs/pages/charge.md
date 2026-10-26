@@ -5,6 +5,7 @@ la douleur en frise, l'intensité et le volume des huit dernières semaines.
 
 **Comment on y arrive.** « Plus » → Regarder en arrière → Charge & forme ; « Voir la
 charge » dans le bloc « Forme » de l'accueil ; entrée de la barre du haut sur ordinateur.
+Depuis M-07, c'est la seule maison du volume hebdomadaire tous sports.
 
 Fichier : [`Load.tsx`](../../frontend/src/routes/Load.tsx).
 
@@ -35,15 +36,23 @@ Haut d'écran rempli : 1 810 px.
 - ~~**Deux cibles de facile.**~~ Corrigé (M-02, `1fa151b`) : `EASY_TARGET`, 80 %, est la
   seule cible, et la phrase se rédige depuis elle. La page Courses ne juge plus ; le
   coach garde son plancher de 70 % (`coach/frame.py`), qui n'est pas une cible.
-- **« Huit semaines, par sport » redit l'accueil.** La carte « Entraînement » du tableau de
-  bord porte huit semaines en minutes et la répartition par sport ; `/activite/courses` a
-  son « Volume par semaine » et sa « Charge par semaine » ; `/activite/natations` ses
-  quatre semaines (M-06, M-07).
+- ~~**« Huit semaines, par sport » redit l'accueil.**~~ Corrigé (M-06, M-07, `c67f06f`) :
+  l'accueil a rendu ses huit semaines en barres et sa répartition ; `/charge` est la seule
+  maison du volume tous sports. `/activite/courses` (« Volume par semaine », « Charge par
+  semaine ») et `/activite/natations` (quatre semaines) gardent le volume de leur sport,
+  qui est leur sujet. La répartition par sport sur la période n'a pas suivi :
+  `/api/training` ne la sert pas.
 - ~~**L'état vide affirme quelque chose de faux.**~~ Corrigé (M-21, `3bcde3f`) : sans
   aucune séance sur 4 semaines, le serveur tait « Toutes les séances des 4 semaines ont un
   effort perçu », et l'écran ne dessine rien à sa place. La phrase de forme suit
   (`3930cfb`) : sans aucune séance, « aucune séance enregistrée », et non plus « aucune
   séance n'a d'effort perçu ».
+- **Trois défauts vus à l'écran le 26 octobre, laissés** (hors du lot M-06/M-07, qui n'a
+  pas touché cet écran) : la tuile « Fatigue » dit 7 quand la phrase dessous dit
+  « fatigue 6 » — le serveur sert `atl = 6.5`, que la phrase arrondit à l'entier pair
+  (`round` de Python) et la tuile au-dessus (`num(…, 0)`) ; un chiffre servi déjà arrondi
+  ôterait l'écart ; les cartes « Forme et fatigue » et « Rapport et monotonie » se touchent, sans
+  espace entre elles ; l'étiquette « 10 » de la frise de douleur déborde à gauche du cadre.
 - **L'écran dépend d'un geste qu'aucun écran ne réclame clairement.** Toute la page se
   remplit par l'effort perçu ; « Je l'ai faite » sur une séance Cadence ne le demande pas,
   un import `.fit` le propose en fin de feuille avec « Plus tard ». Le point du soir est le

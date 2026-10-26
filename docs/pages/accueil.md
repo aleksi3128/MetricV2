@@ -16,7 +16,8 @@ Fichiers : [`Dashboard.tsx`](../../frontend/src/routes/Dashboard.tsx) et
 
 ## 1. Le tableau de bord
 
-Haut d'écran rempli : 2 847 px à 402 px de large.
+Haut d'écran rempli : 2 847 px à 402 px de large à l'inventaire ; 2 207 px depuis M-06
+(3 198 avant, sur le banc du 26 octobre — voir le `README`).
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
@@ -25,8 +26,8 @@ Haut d'écran rempli : 2 847 px à 402 px de large.
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
 | **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une |
 | **Où je vais** (`Aim`) | L'objectif en cours (anneau, résumé, fenêtre, jours restants) ; à défaut la cible de poids ; à défaut l'état vide | même appel (`goal`, `weight.to_target_kg`) | « Aucun objectif en cours » + **Fixer un objectif** |
-| **Tendance** (`Graph`) | Une courbe au choix parmi **13 métriques** — poids, hydratation, protéines, calories, volume hebdo, séances/semaine, distance hebdo, six mensurations — sur 1 mois, 3 mois ou tout ; dernier, variation, moyenne, amplitude | série livrée avec le tableau de bord, puis `GET /api/aggregates/series` | « Deux relevés suffisent… » |
-| **Entraînement** (`Training`) | Huit dernières semaines en minutes (barres) ; répartition course / tabata / natation en séances et minutes | même appel (`training`) | « Une première séance, et l'histogramme démarre » |
+| ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
+| ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
 | **Assistant** | Trois liens : Ouvrir l'assistant, Discussions, Mémoire | — | toujours là |
 
 ## 2. Le parcours du matin — feuille « Bonjour »
@@ -63,29 +64,24 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 |---|---|---|---|
 | Demander la lecture | bouton | `POST /api/brief` (appel modèle) | addition |
 | Répondre à la lecture | appui sur le corps du bloc | ouvre un fil d'assistant semé (`POST /api/brief/thread`) | addition |
-| Choisir métrique / plage | puces, segments | rien (lecture) | — |
 | Ouvrir une ligne du jour | ligne entière | rien — navigue vers `/routine`, `/nutrition`, `/planning` | — |
 | Toutes les saisies des parcours | voir §2 et §3 | — | additions, sans confirmation |
 
 ## 5. Liens sortants
 
 `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`,
-`/objectif`, `/corps` et `/routine` (état vide), `/assistant` ×3, un lien par alerte.
+`/objectif`, `/corps` et `/routine` (état vide), `/assistant` ×3, un lien par alerte —
+celles de douleur mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 
 ## 6. Constats
 
-- **La courbe « Tendance » redouble trois écrans.** Six de ses treize métriques sont des
-  mensurations (`/corps` a la sienne depuis M-08, `ae706b7` : la retirer d'ici ne fait
-  plus rien perdre) ; poids et hydratation ont déjà
-  leur courbe sur `/corps` et `/routine` ; volume, séances et distance hebdomadaires
-  redisent `Entraînement` juste dessous et `/charge`.
-- **« Entraînement » redit `/charge`.** Huit semaines en barres et la répartition par
-  sport : `/charge` a « Huit semaines, par sport » avec la même découpe, et la page
-  Courses un « Volume par semaine ». Cinq lectures du volume hebdomadaire dans
-  l'application (voir [`modifications.md`](modifications.md), M-06).
-- **Deux poids, deux variations sur le même écran.** La bande dit « +0,4 kg sur 8 pesées »,
-  la courbe juste dessous « variation +1,9 kg » (fenêtre de la plage). Les deux sont
-  justes, rien ne dit qu'ils ne mesurent pas la même chose.
+- ~~**La courbe « Tendance » redouble trois écrans.**~~ Retirée (M-06, `c67f06f`) : ses
+  treize métriques ont chacune leur courbe sur leur écran — poids et mensurations
+  `/corps`, eau `/routine`, calories `/nutrition`, volume `/charge`.
+- ~~**« Entraînement » redit `/charge`.**~~ Retiré (M-06, M-07, `c67f06f`) : le volume tous
+  sports n'habite plus que `/charge` ; l'accueil garde la tuile « Semaine », un chiffre.
+- ~~**Deux poids, deux variations sur le même écran.**~~ Parti avec la courbe : seule la
+  bande dit la variation du poids.
 - ~~**La Forme peut contredire la page Courses.**~~ En partie corrigé (M-02, `385871a`) :
   la page Courses ne conseille plus la sortie suivante, nomme sa charge « Charge de
   course (FC) » et renvoie à `/charge`. **Reste** l'écart de fond (M-02, point 4, ouvert) :
@@ -102,9 +98,9 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 - ~~**Le matin promet un rattrapage qui n'existe pas.**~~ Corrigé (M-01, `331ae7e`) :
   « Aucun repas noté hier. » est suivi d'un lien « Rattraper un repas d'hier » qui ferme
   le parcours et ouvre la feuille d'ajout sur hier (`/nutrition?ajout=hier`).
-- **FC de repos et VFC s'écrivent chaque matin et ne se relisent nulle part** en série :
-  ni courbe, ni liste. Elles ne reparaissent qu'en une ligne sur la page d'une course
-  (« Le matin ») et dans la phrase de disponibilité (M-09).
+- ~~**FC de repos et VFC s'écrivent chaque matin et ne se relisent nulle part.**~~ Corrigé
+  (M-09, `96d81d9`) : la carte « Le matin » de `/corps` les trace sur trente jours, avec la
+  référence quand elle existe, et les corrige.
 
 ## 7. Non vu
 

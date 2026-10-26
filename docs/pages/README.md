@@ -37,7 +37,7 @@ le matin, la séance, le repas, le soir.
 | Planning | `/planning` | [`planning.md`](planning.md) |
 | Plan de course | `/plan` | [`plan.md`](plan.md) |
 | Objectif | `/objectif` | [`objectif.md`](objectif.md) |
-| Corps | `/corps` | [`corps.md`](corps.md) |
+| Corps | `/corps`, `/corps/douleurs` | [`corps.md`](corps.md) |
 | Charge | `/charge` | [`charge.md`](charge.md) |
 | Assiduité | `/assiduite` | [`assiduite.md`](assiduite.md) |
 | Dossier médical | `/dossier` | [`dossier.md`](dossier.md) |
@@ -81,18 +81,20 @@ Dossier, Réglages. « Noter » et « Plus » n'existent pas.
 
 On n'y arrive que depuis leur page mère : `/activite/seances`, `/activite/creer`,
 `/activite/charges`, `/activite/courses`, `/activite/natations`, `/activite/course/:id`,
-`/nutrition/catalogue`.
+`/nutrition/catalogue`, `/corps/douleurs` (M-08 — on y arrive aussi par les alertes de
+douleur et le rappel de suivi).
 
 ### Qui mène où
 
 | Depuis | Vers |
 |---|---|
-| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` (×3 + la lecture du jour), chaque alerte |
+| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` (×3 + la lecture du jour), chaque alerte — celles de douleur vers `/corps/douleurs` |
 | Activité | ses six sous-pages ; `/reglages` (adresse de Cadence, zones) |
 | Assiduité | `/reglages` (pistes) |
 | Objectif | `/assistant` |
 | Nutrition | `/nutrition/catalogue` |
-| Corps | le parcours du matin (feuille) |
+| Corps | `/corps/douleurs` (la porte en tête) ; le parcours du matin (feuille, deux portes : l'en-tête, et l'état vide de « Le matin ») |
+| Douleurs (`/corps/douleurs`) | `/corps` (retour) |
 | Planning, Plan, Charge, Routine, Dossier, Réglages, Assistant | aucun lien vers un autre écran |
 
 ### Les surfaces qui s'ouvrent seules
@@ -110,16 +112,17 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 | Écran | Rempli | Vide |
 |---|---|---|
 | `/reglages` | **11 357** | 11 060 |
-| `/corps` | **6 168** | 2 573 |
+| `/corps` | **5 261** ² | 3 246 ² |
 | `/assiduite` | 5 610 | 4 221 |
 | `/activite/course/:id` | 4 749 | 874 |
 | `/activite/courses` | 4 029 | 874 |
 | `/nutrition` | 3 124 ¹ | 2 609 |
 | `/activite` | 3 100 ¹ | 1 309 |
-| `/` | 2 847 | 2 529 |
 | `/planning` | 2 316 | 2 114 |
 | `/plan` | 2 287 | 1 069 |
+| `/` | 2 207 ² | 1 919 ² |
 | `/routine` | 2 125 | 1 633 |
+| `/corps/douleurs` | 1 905 ² | 874 ² |
 | `/charge` | 1 810 | 1 628 |
 | `/activite/seances` | 1 202 | 1 386 |
 | `/objectif` | 1 117 | 1 117 |
@@ -129,3 +132,10 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 favori retirés), sur un autre banc rempli que le reste du tableau : onze courses, trois
 natations, aucune séance Cadence ; deux repas et quatre favoris. Les colonnes « vide » se
 comparent directement.
+
+² Remesurés le 26 octobre, après M-06, M-07, M-08 (2) et M-09, sur un banc semé pour le
+lot : six semaines de pesées, trois mensurations, cinq matins, une douleur refermée puis
+revenue, huit courses `.fit` dont quatre avec un effort perçu. Sur ce même banc, **avant**
+le lot : `/` 3 198 rempli et 2 529 vide (2 847 à l'inventaire), `/corps` 5 926 et 3 153
+(6 168 et 2 573 à l'inventaire). En route, `/corps` est passé par 4 540 et 2 870 — les
+douleurs parties, avant la carte « Le matin ».

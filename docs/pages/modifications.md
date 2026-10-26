@@ -26,9 +26,9 @@ gagner aucun part.
 | Donnée | `/` | Activité | Assistant | Nutrition | Routine | Planning | Plan | Objectif | Corps | Charge | Assiduité | Réglages | Parcours |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | Poids | L ×3 | L | É | — | — | — | — | — | L É | — | — | R (cible) | É |
-| Mensurations | L (courbe) | — | — | — | — | — | — | — | L É (courbe, historique, correction — M-08) | — | — | — | — |
-| FC de repos, VFC | L (nuit) | L (page course) | — | — | — | — | — | — | — | — | — | — | É (matin) |
-| Douleur | L (alertes) | É (après import) | — | — | — | — | — | — | L É | L (frise) | — | — | É |
+| Mensurations | — (M-06) | — | — | — | — | — | — | — | L É (courbe, historique, correction — M-08) | — | — | — | — |
+| FC de repos, VFC | L (nuit) | L (page course) | — | — | — | — | — | — | L É (courbe, liste, correction — M-09) | — | — | — | É (matin) |
+| Douleur | L (alertes → `/corps/douleurs`) | É (après import) | — | — | — | — | — | — | L É (`/corps/douleurs`, porte en tête de `/corps` — M-08) | L (frise) | — | — | É |
 | Eau | L ×2 | — | É | — | L É | — | — | — | — | — | L | R | É |
 | Suppléments | L | — | É | — | L É R | — | — | — | — | — | L | — | É |
 | Protéines, calories | L ×2 | — | É | L É | — | — | — | — | — | — | — | R | — |
@@ -36,7 +36,7 @@ gagner aucun part.
 | Proposition du coach | — | L (page course) | — | — | — | L | — | — | — | — | — | — | L (matin) |
 | Effort perçu | — | É ×4 | — | — | — | — | — | — | — | L | — | — | É |
 | **Charge d'entraînement** | L (forme) | **L (course, FC)** | — | — | — | — | — | — | — | **L (tous sports, RPE)** | — | — | — |
-| **Volume hebdomadaire** | **L ×2** | **L ×3** | — | — | — | — | — | — | — | **L** | — | — | — |
+| **Volume hebdomadaire** | L (tuile « Semaine ») | L ×3 (de leur sport) | — | — | — | — | — | — | — | **L (tous sports — M-07)** | — | — | — |
 | Facile / modéré / dur | — | L (constat, 14 j — M-02) | — | — | — | — | — | — | — | L (80 %, 28 j) | — | — | — |
 | Objectif daté | L | — | (condensé) | — | — | — | — | L É | — | — | — | — | — |
 | Course visée (A/B/C) | — | — | — | — | — | — | L É | — | — | — | — | — | — |
@@ -45,9 +45,10 @@ gagner aucun part.
 | Séances Cadence | — | L É | É | — | — | — | — | — | — | — | L (séries) | R (adresse) | — |
 
 Trois lignes portent l'essentiel : **la charge** (deux calculs, deux verdicts), **le
-volume hebdomadaire** (six lectures sur trois écrans), et **ce que l'assistant sait de
+volume hebdomadaire** (six lectures sur trois écrans — une seule tous sports depuis M-07,
+les autres sont un chiffre ou le volume d'un sport), et **ce que l'assistant sait de
 toi** (deux endroits). Trois autres montraient des trous : les mensurations et la FC du
-matin s'écrivaient sans se relire — les mensurations se relisent depuis M-08 —, la course
+matin s'écrivaient sans se relire — les deux se relisent depuis M-08 et M-09 —, la course
 visée ne parle à aucun autre écran.
 
 ---
@@ -58,14 +59,14 @@ visée ne parle à aucun autre écran.
 |---|---|---|---|---|
 | [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), sauf l'assistant | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`), sauf le point 4 | **P1** |
-| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables — **fait** (`ae706b7`) ; les douleurs à leur adresse | **P1** / P2 |
+| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables, les douleurs à leur adresse — **fait** (`ae706b7`, `cdeda08`) | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`, type au rejeu `d1de02d`) | P2 |
 | [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
 | [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
-| [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil | P2 |
-| [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` | P2 |
-| [M-09](#m-09) | ajouter | Corps (ou Charge) | FC de repos et VFC relues en série | P2 |
+| [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil — **fait** (`c67f06f`) | P2 |
+| [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
+| [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série — **fait** (`96d81d9`) | P2 |
 | [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant | P2 |
 | [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens | P2 |
 | [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
@@ -407,6 +408,26 @@ que `GET /api/aggregates/series` et `/metrics` n'ont alors plus d'appelant à l'
 (« poids et calories sur trois mois ») ; il disparaît. Si ce croisement sert, le garder
 sur `/charge` ou `/corps` plutôt que sur l'accueil.
 
+**Fait le 26 octobre** (`c67f06f`), avec M-07. Les blocs cités étaient exacts ; la courbe
+des mensurations était sur `/corps` depuis `ae706b7`, rien ne s'est perdu.
+
+- **Décision** (par défaut) : le croisement de métriques ne va nulle part — poids et
+  mensurations sont sur `/corps`, l'eau sur `/routine`, les calories sur `/nutrition`,
+  le volume sur `/charge`.
+- **Changé en route** : `GET /api/aggregates/series` **garde** un appelant — la courbe des
+  mensurations de `/corps` (M-08) —, contrairement à ce que disait le coût.
+- **Ce qui n'a plus d'appelant à l'écran**, laissé au serveur (décision par défaut : ne
+  rien supprimer) :
+  - `GET /api/aggregates/metrics` (le catalogue du sélecteur de métriques) ;
+  - les paramètres `metric` et `range` de `GET /api/aggregates/dashboard` ;
+  - dans `DashboardView` : `series`, `training.weeks`, `training.split`,
+    `training.sessions_total`, `training.minutes_total` (`training.week` sert encore la
+    tuile « Semaine ») — avec `highlight` et `streak.last_seven`, déjà sans lecteur.
+
+  Les retirer touche le contrat `AGG-01` et ses tests : un lot serveur à part.
+- L'accueil passe de 3 198 à 2 207 px rempli, de 2 529 à 1 919 vide (banc du 26 octobre,
+  voir le `README`).
+
 <a id="m-07"></a>
 
 ### M-07 — Le volume hebdomadaire n'a qu'une maison
@@ -426,6 +447,16 @@ Natations gardent le volume **de leur sport** (km, mètres), qui est leur sujet.
 garde sa tuile « Semaine », un chiffre, et plus de barres (M-06).
 
 **Coût.** Front, avec M-06. **Risque.** Aucun.
+
+**Fait le 26 octobre** (`c67f06f`), avec M-06 : l'accueil ne garde que la tuile
+« Semaine ». Rien n'a changé sur `/charge`, Courses ni Natations.
+
+- **Décision** (par défaut) : la répartition par sport sur huit semaines (carte
+  « Répartition » de l'accueil) **part** — `GET /api/training` ne la sert pas ; il sert,
+  par semaine, les minutes de chaque sport et leur phrase, que « Huit semaines, par
+  sport » affiche déjà.
+- **Reste.** Une répartition par sport sur la période (séances et minutes) n'existe plus à
+  l'écran. Si elle manque, elle s'ajoute au service de `/api/training`, pas au client.
 
 <a id="m-08"></a>
 
@@ -485,12 +516,38 @@ la règle « Douleurs » collait à la carte d'avant (`.rule:first-child`, défa
 
 **Reste.**
 
-- **La courbe de l'accueil** (« Tendance », ses six métriques de mensurations) est
-  toujours là : c'est la session 5 (M-06) qui la retire. Rien ne manque plus si elle part.
-- **Point 2** (les douleurs à `/corps/douleurs`) : non fait, comme prévu.
+- ~~**La courbe de l'accueil** (« Tendance », ses six métriques de mensurations) est
+  toujours là : c'est la session 5 (M-06) qui la retire.~~ Retirée (`c67f06f`).
+- ~~**Point 2** (les douleurs à `/corps/douleurs`) : non fait, comme prévu.~~ Fait
+  (`cdeda08`), ci-dessous.
 - La note d'un relevé se lit à l'historique mais ne se saisit ni ne se corrige à l'écran
   (le formulaire n'a jamais eu ce champ).
 - Mensurations par l'assistant : toujours absentes (M-10 les laisse attendre).
+
+**Point 2 fait le 26 octobre** (`cdeda08`).
+
+- **Ce qui est là.** `/corps/douleurs` (`routes/body/Pains.tsx`), rangée comme les
+  sous-pages d'Activité : déclarée dans `App.tsx`, sans entrée de navigation, « Retour au
+  corps », le bouton système « précédent ». `PainSection` y garde ses quatre états, perd
+  sa règle de tête et gagne « En cours » et « Refermées ». En tête de `/corps`, une porte
+  (`PainLink`) qui nomme chaque épisode ouvert, l'état servi et le suivi dû — ou « Aucune
+  douleur en cours », ou le message du serveur en panne : la porte reste.
+- **Ce qui y mène.** La porte ; les trois alertes de douleur de l'accueil (arrêt, retour,
+  pattern) et le rappel de suivi de midi, dont le serveur servait `/corps` et sert
+  maintenant `/corps/douleurs` (`alerts.PAIN_PAGE`). Aucun autre lien ne menait à la
+  section. Le parcours du matin et le point du soir gardent leurs formulaires.
+- **Décisions** (par défaut) : l'adresse et le titre « Douleurs » ; aucune entrée dans
+  « Plus » ni dans la barre (M-12, M-13).
+- **Vérifié à l'écran.** Un appui sur l'alerte « Douleur qui revient » arrive sur la
+  sous-page. Le liseré de `SwipeRow` (`e1a0a1c`), remesuré à la nouvelle adresse : zéro
+  pixel teinté au bord droit des trois premières lignes, à 360, 390 et 402 px, dans les
+  deux thèmes, en émulation tactile — la sonde, éprouvée sur un bouton rouge, le voit.
+- **Changé en route.** `STATUS` (le mot et le ton d'un épisode) est passé dans
+  `body/shared.ts` : exporté de `Pain.tsx` pour la porte, il coûtait le rechargement à
+  chaud. `audit-mobile.mjs` gagne l'adresse ; aucune feuille ne change de contenu, la
+  table `SURFACES` ne bouge pas.
+- `/corps` passe de 5 926 à 4 540 px rempli (avant M-09), la sous-page fait 1 905 px
+  remplie, 874 vide.
 
 <a id="m-09"></a>
 
@@ -515,6 +572,31 @@ lecture à ajouter au service. Front : une carte.
 
 **Risque.** Ne pas tracer de référence tant qu'elle se construit : un tiret et ce qu'il
 manque, comme ailleurs.
+
+**Fait le 26 octobre** (`96d81d9`).
+
+- **Le serveur.** `GET /api/body/morning` ne servait pas de série : `recent`, les quatorze
+  derniers matins, et une référence pour le seul jour mesuré. Comme `MorningView` est
+  aussi embarquée dans `/api/morning` (le parcours), la série est une lecture à part :
+  `GET /api/body/morning/trend` — trente jours, aujourd'hui compris ; par mesure, les
+  points, la **ligne de référence** (celle qu'`assess` aurait lue chaque matin), la
+  référence du jour et sa phrase ; les matins de la fenêtre, du plus récent au plus
+  ancien. `readiness.reference()` partage la fenêtre d'`assess`.
+- **La référence.** La ligne n'est servie que si **chaque** point a la sienne : pendant la
+  construction, aucune ligne, et la phrase dit ce qu'il manque (« Ta référence se
+  construit : encore 5 matins »), mesure par mesure — la FC peut être prête avant la VFC.
+  Une ligne trouée se serait lue comme une référence qui s'effondre.
+- **L'écran.** « Le matin », sous les indicateurs du poids : un segment FC de repos /
+  VFC, la courbe, la phrase servie, puis la liste. « corriger » ouvre le formulaire (date,
+  FC, VFC ; une case vidée part à `null`) ; `SwipeRow` supprime en deux appuis — la route
+  existait. Les deux sous `If-Match`, et l'invalidation du parcours, du coach et de la page
+  d'une course. Pas de formulaire d'ajout : la porte d'un matin est le parcours.
+- **Vérifié à l'écran**, au doigt : une FC corrigée de 52 à 51, un matin supprimé après
+  armement ; le liseré, zéro sur dix-huit bords.
+- **Reste.** La liste ne montre que la fenêtre : un matin de plus de trente jours ne se
+  corrige plus à l'écran (le parcours ne rouvre que le jour même). Il ne compte plus dans
+  aucune référence, qui s'arrête à 28 jours ; si le besoin vient, « Tous (N) » comme aux
+  mensurations.
 
 <a id="m-10"></a>
 
@@ -837,8 +919,8 @@ serveur, contrairement au coût annoncé.
    `9f1e991`, `ded7779`), avec deux restes de M-01 (`7c895ff`) et le liseré de `SwipeRow`
    (`e1a0a1c`) ; puis le journal d'hier et le type d'un favori rejoué (`74dfc9d`, `d1de02d`).
    Reste à part : ouvrir un jour depuis la grille de l'historique.
-5. **M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
-   réorganisé.
+5. ~~**M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
+   réorganisé.~~ Faits (`c67f06f`, `cdeda08`, `96d81d9`).
 6. **M-03**, puis **M-04 + M-05 + M-22** — le grand rangement des réglages.
 7. **M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
    de déplacer ferait renommer deux fois.
