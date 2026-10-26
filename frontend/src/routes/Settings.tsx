@@ -132,68 +132,6 @@ function Appearance() {
   );
 }
 
-/**
- * Les références des zones de course (`docs/analyse-course.md`, **A9**).
- *
- * **Vides, elles ne sont pas « non réglées » : elles sont déduites.** La page Course dit
- * alors d'où vient la valeur qu'elle utilise — la plus haute FC relevée, l'allure estimée
- * depuis un meilleur effort. Le badge lit donc la valeur et non `stored`, pour la raison de
- * l'adresse de Cadence : effacer écrit une cellule vide, et `stored` dirait « réglé ».
- */
-function RunningCard({
-  maxHr,
-  threshold,
-  errors,
-  onMaxHr,
-  onThreshold,
-}: {
-  maxHr: string;
-  threshold: string;
-  errors: { maxHr: string | undefined; threshold: string | undefined };
-  onMaxHr: (event: { target: { value: string } }) => void;
-  onThreshold: (event: { target: { value: string } }) => void;
-}) {
-  const chosen = maxHr.trim() !== '' || threshold.trim() !== '';
-  return (
-    <>
-      <Rule>Course</Rule>
-      <Card>
-        <div className="spread">
-          <span className={styles.name}>Zones d’intensité</span>
-          <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'saisies' : 'déduites'}</Badge>
-        </div>
-        <p className={cx(styles.note, styles.noteSpaced)}>
-          Vides, elles se déduisent de tes sorties : la plus haute fréquence cardiaque relevée,
-          l’allure tenable une heure estimée depuis ton meilleur 3 km. Une saisie l’emporte.
-        </p>
-        <div className={styles.row}>
-          <Field
-            label="FC max (bpm)"
-            inputMode="numeric"
-            value={maxHr}
-            error={errors.maxHr}
-            hint="Zones cardio, quand le fichier en porte · vide pour déduire"
-            onChange={onMaxHr}
-          />
-        </div>
-        <div className={styles.row}>
-          <Field
-            label="Allure seuil (min/km)"
-            inputMode="text"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={threshold}
-            error={errors.threshold}
-            hint="Zones d’allure · 5:15 ou 5,25 · vide pour déduire"
-            onChange={onThreshold}
-          />
-        </div>
-      </Card>
-    </>
-  );
-}
-
 function Origin({ view, field }: { view: SettingsView; field: SettingsKey }) {
   const chosen = view.stored.includes(field);
   return <Badge tone={chosen ? 'signal' : 'load'}>{chosen ? 'réglé' : 'valeur par défaut'}</Badge>;
@@ -211,23 +149,14 @@ const FIELDS: readonly SettingsKey[] = [
   'target_hydration_ml',
   'hydration_presets_ml',
   'heatmap_metric',
-  'max_hr',
-  'threshold_pace_min_km',
 ];
 
 export function Settings() {
   const form = useSettingsDraft(FIELDS, {
     // Un objectif modifié change l'écart au poids cible, l'anneau de protéines et la
     // grille d'hydratation : les vues transverses doivent être rejouées, sinon le tableau
-    // de bord mentirait jusqu'à la prochaine navigation. Les références de course changent
-    // les zones de chaque sortie.
-    invalidates: [
-      ...CROSS_CUTTING,
-      keys.hydration.all(),
-      keys.nutrition.all(),
-      keys.body.all(),
-      keys.activity.all(),
-    ],
+    // de bord mentirait jusqu'à la prochaine navigation.
+    invalidates: [...CROSS_CUTTING, keys.hydration.all(), keys.nutrition.all(), keys.body.all()],
     saved: 'Réglages enregistrés.',
   });
   const { data, isPending, error, refusal } = form;
@@ -336,17 +265,6 @@ export function Settings() {
             />
           </Card>
         </div>
-
-        <RunningCard
-          maxHr={fields.max_hr}
-          threshold={fields.threshold_pace_min_km}
-          errors={{
-            maxHr: refusal?.messageFor('max_hr'),
-            threshold: refusal?.messageFor('threshold_pace_min_km'),
-          }}
-          onMaxHr={set('max_hr')}
-          onThreshold={set('threshold_pace_min_km')}
-        />
 
         {/* **Collante dès qu'un champ change** (audit du 17 octobre, fiche 24) : un seul
             « Enregistrer » pour dix champs sur trois écrans de hauteur, et modifier les

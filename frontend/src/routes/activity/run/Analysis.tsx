@@ -319,8 +319,8 @@ function Zones({ zones, missing }: { zones: RunZones | null; missing: string | n
         <Empty title="Pas encore de zones">
           {missing ?? 'Ce fichier ne permet pas de les lire.'}
         </Empty>
-        <Link className={styles.settingsLink} to="/reglages">
-          Saisir une référence dans les réglages
+        <Link className={styles.settingsLink} to="/activite/courses#reperes">
+          Saisir un repère sur la page des courses
         </Link>
       </Card>
     );
@@ -351,8 +351,8 @@ function Zones({ zones, missing }: { zones: RunZones | null; missing: string | n
       </ul>
       <p className={styles.note}>
         {zones.detail}{' '}
-        <Link className={styles.inlineLink} to="/reglages">
-          {zones.source === 'settings' ? 'Modifier' : 'Corriger'} dans les réglages
+        <Link className={styles.inlineLink} to="/activite/courses#reperes">
+          {zones.source === 'settings' ? 'Modifier' : 'Corriger'} les repères
         </Link>
       </p>
     </Card>

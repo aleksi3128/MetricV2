@@ -52,6 +52,7 @@ import { useToast } from '@/lib/toast';
 
 import { SwimSheet } from '../planning/SwimSheet';
 import { NewActivitySheet } from './NewActivitySheet';
+import { RunReferences } from './RunReferences';
 import { SwimEntrySheet } from './SwimEntrySheet';
 import styles from './run/Run.module.css';
 import { Trends } from './Trends';
@@ -377,6 +378,11 @@ export function Runs() {
           </Card>
         </>
       )}
+
+      {/* Les repères des zones (M-04), quel que soit l'état de la liste : ils se règlent
+          avant la première sortie comme après la centième. */}
+      <Rule>Repères</Rule>
+      <RunReferences />
 
       {today !== undefined && (
         <NewActivitySheet

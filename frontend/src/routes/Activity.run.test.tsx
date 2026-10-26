@@ -566,9 +566,10 @@ describe('page Course — ce que le fichier dit de la gestion', () => {
       screen.getByText(/Allure seuil estimée depuis ton 5 km du 21 août\./),
     ).toBeInTheDocument();
     // Une référence déduite se corrige ; le lien le dit.
-    expect(screen.getByRole('link', { name: 'Corriger dans les réglages' })).toHaveAttribute(
+    // Les repères vivent en pied de la page des courses depuis M-04 : le lien y descend.
+    expect(screen.getByRole('link', { name: 'Corriger les repères' })).toHaveAttribute(
       'href',
-      '/reglages',
+      '/activite/courses#reperes',
     );
   });
 
@@ -744,7 +745,7 @@ describe('page Course — une sortie de montre', () => {
     renderRun();
 
     expect(await screen.findByText(/FC max réglée dans ta montre/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Corriger dans les réglages' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Corriger les repères' })).toBeInTheDocument();
   });
 });
 

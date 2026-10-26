@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
+import { SETTINGS } from '@/test/fixtures';
 
 import { Runs } from './activity/Runs';
 
@@ -248,12 +249,25 @@ const TRENDS = {
   ],
 };
 
+/** Les réglages, dont les repères des zones se règlent en pied de page depuis M-04. */
+let settings: unknown = SETTINGS;
+const writes: { body: unknown; ifMatch: string | undefined }[] = [];
+
 function stub(body: unknown, status = 200) {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = input as string;
       calls.push({ url, method: init?.method ?? 'GET' });
+      if (url.startsWith('/api/settings')) {
+        if (init?.method === 'PATCH') {
+          writes.push({
+            body: JSON.parse(init.body as string),
+            ifMatch: (init.headers as Record<string, string>)['If-Match'],
+          });
+        }
+        return Promise.resolve(json(200, settings));
+      }
       if (url.includes('/efforts/rebuild')) {
         return Promise.resolve(json(200, { runs: 3, efforts: 10, splits: 16 }));
       }
@@ -263,10 +277,10 @@ function stub(body: unknown, status = 200) {
   );
 }
 
-function renderRuns() {
+function renderRuns(entry = '/activite/courses') {
   render(
     <QueryClientProvider client={createQueryClient()}>
-      <MemoryRouter initialEntries={['/activite/courses']}>
+      <MemoryRouter initialEntries={[entry]}>
         <Toaster>
           <Routes>
             <Route path="/activite/courses" element={<Runs />} />
@@ -279,6 +293,10 @@ function renderRuns() {
 
 beforeEach(() => {
   calls.length = 0;
+  writes.length = 0;
+  settings = SETTINGS;
+  // L'ancre `#reperes` fait descendre jusqu'aux repères ; jsdom ne défile pas.
+  Element.prototype.scrollIntoView = vi.fn();
   localStorage.setItem('metric.token', 'jeton');
 });
 
@@ -451,5 +469,44 @@ describe('Toutes tes courses — la charge et ce qui va avec une bonne sortie', 
     expect(screen.getByRole('list', { name: 'Facteurs en attente' })).toHaveTextContent(
       '10 nécessaires, dont 5 de chaque côté',
     );
+  });
+
+  it('replie les repères, déduits tant que rien n’est saisi (M-04)', async () => {
+    // Vides, les repères ne sont pas « non réglés » : la page d'une course les déduit des
+    // sorties, et aucun chiffre de manuel ne s'affiche à leur place.
+    stub(PROGRESS);
+    renderRuns();
+
+    expect(await screen.findByText('déduits')).toBeInTheDocument();
+    expect(document.getElementById('reperes')).not.toHaveAttribute('open');
+    expect(screen.getByLabelText('FC max (bpm)')).toHaveValue('');
+    expect(screen.getByLabelText('Allure seuil (min/km)')).toHaveValue('');
+  });
+
+  it('ouvre les repères quand la page d’une course y renvoie', async () => {
+    stub(PROGRESS);
+    renderRuns('/activite/courses#reperes');
+
+    await screen.findByText('déduits');
+    expect(document.getElementById('reperes')).toHaveAttribute('open');
+  });
+
+  it('envoie l’allure seuil telle qu’écrite, et la chaîne vide pour revenir à la déduction', async () => {
+    settings = { ...SETTINGS, values: { ...SETTINGS.values, max_hr: 188 } };
+    stub(PROGRESS);
+    renderRuns('/activite/courses#reperes');
+
+    expect(await screen.findByText('saisis')).toBeInTheDocument();
+    await userEvent.clear(screen.getByDisplayValue('188'));
+    // `5:15` part en texte : le serveur le lit comme une allure saisie au clavier, et le
+    // client n'a pas de second analyseur de durées.
+    await userEvent.type(screen.getByLabelText('Allure seuil (min/km)'), '5:15');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() => {
+      expect(writes).toEqual([
+        { body: { max_hr: '', threshold_pace_min_km: '5:15' }, ifMatch: 'jeton-reglages' },
+      ]);
+    });
   });
 });

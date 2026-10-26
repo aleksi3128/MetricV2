@@ -204,35 +204,13 @@ describe('écran Réglages', () => {
     });
   });
 
-  it('dit que les zones de course se déduisent tant que rien n’est saisi', async () => {
-    // Vides, les références ne sont pas « non réglées » : la page Course les déduit des
-    // sorties, et aucun chiffre de manuel ne s'affiche à leur place.
+  it('ne porte plus les repères de course, partis sur la page des courses (M-04)', async () => {
     stub();
     renderSettings();
 
-    expect(await screen.findByText('déduites')).toBeInTheDocument();
-    expect(screen.getByLabelText('FC max (bpm)')).toHaveValue('');
-    expect(screen.getByLabelText('Allure seuil (min/km)')).toHaveValue('');
-  });
-
-  it('envoie l’allure seuil telle qu’écrite, et la chaîne vide pour revenir à la déduction', async () => {
-    stub((url) =>
-      url.startsWith('/api/settings')
-        ? json(200, { ...SETTINGS, values: { ...SETTINGS.values, max_hr: 188 } })
-        : undefined,
-    );
-    renderSettings();
-
-    const hr = await screen.findByDisplayValue('188');
-    await userEvent.clear(hr);
-    // `5:15` part en texte : le serveur le lit comme une allure saisie au clavier, et le
-    // client n'a pas de second analyseur de durées.
-    await userEvent.type(screen.getByLabelText('Allure seuil (min/km)'), '5:15');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-
-    await waitFor(() => {
-      expect(body(saved())).toEqual({ max_hr: '', threshold_pace_min_km: '5:15' });
-    });
+    await screen.findByDisplayValue('68');
+    expect(screen.queryByLabelText('FC max (bpm)')).toBeNull();
+    expect(screen.queryByLabelText('Allure seuil (min/km)')).toBeNull();
   });
 
   it('n’active « Enregistrer » que si quelque chose a changé', async () => {
