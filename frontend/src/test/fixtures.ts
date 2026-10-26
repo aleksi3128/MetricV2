@@ -396,7 +396,7 @@ export const TRACKS: TracksView = {
       unit: 'ml',
       filter: '',
       validation_threshold: 2000,
-      threshold_follows: 'l’objectif d’hydratation',
+      threshold_follows: 'la cible d’hydratation',
       levels: [1000, 1500, 2000, 2500],
       binary: false,
       accent: 'signal',

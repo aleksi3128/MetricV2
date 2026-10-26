@@ -148,7 +148,7 @@ export interface Track {
   unit: string;
   filter: string;
   validation_threshold: number;
-  /** D'où vient le seuil quand il ne se règle pas ici — « l'objectif d'hydratation ». */
+  /** D'où vient le seuil quand il ne se règle pas ici — « la cible d'hydratation ». */
   threshold_follows: string | null;
   levels: number[];
   binary: boolean;

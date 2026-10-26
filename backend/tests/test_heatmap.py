@@ -180,7 +180,7 @@ def test_the_water_track_validates_at_the_hydration_goal(
     eau = by_id(app_client, auth)["eau"]
 
     assert eau["validation_threshold"] == 2000
-    assert eau["threshold_follows"] == "l’objectif d’hydratation"
+    assert eau["threshold_follows"] == "la cible d’hydratation"
     assert eau["levels"] == [1000, 1500, 2000, 2500]
     assert eau["cadence"]["type"] == "daily"
 

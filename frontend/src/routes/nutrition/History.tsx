@@ -255,7 +255,7 @@ function Tiles({ data, wide }: { data: NutritionHistory; wide: boolean }) {
           unit={stats.avg_calories === null ? undefined : 'kcal'}
           detail={
             measured > 0
-              ? `objectif ${integer(stats.target_calories)} kcal`
+              ? `cible ${integer(stats.target_calories)} kcal`
               : 'aucun jour chiffré sur la plage'
           }
         />
@@ -451,7 +451,7 @@ function ProteinCurve({ data }: { data: NutritionHistory }) {
             ]
           : []),
         {
-          label: `Objectif ${num(target, 0)} g`,
+          label: `Cible ${num(target, 0)} g`,
           unit: 'g',
           values: series.map(() => target),
           tone: 'signal' as const,
@@ -486,7 +486,7 @@ function WeekdayProfile({ data }: { data: NutritionHistory }) {
           se rapporte maintenant à l'objectif, comme la couleur le faisait déjà. */}
       <p className={styles.note}>
         Moyenne d’un lundi, d’un mardi… sur la plage. Barre pleine ={' '}
-        {integer(data.stats.target_calories)} kcal, l’objectif.
+        {integer(data.stats.target_calories)} kcal, la cible.
       </p>
       {measured > 0 ? (
         <div className={styles.habit}>

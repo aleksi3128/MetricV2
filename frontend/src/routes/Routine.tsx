@@ -165,7 +165,7 @@ function Hydration() {
             // tableau de bord — un jour qui débute n'est pas un objectif manqué, et la
             // charte tient déjà ce discours sur la grille d'assiduité.
             ratio={stats.today_ml > 0 ? stats.ratio : null}
-            label="Objectif du jour"
+            label="Cible du jour"
             detail={
               stats.average_7d_ml !== null
                 ? `moyenne 7 j : ${volume(stats.average_7d_ml)}`
@@ -205,7 +205,7 @@ function Hydration() {
         />
       )}
 
-      {/* L'objectif et les raccourcis se règlent ici, repliés (M-04) : la carte disait
+      {/* La cible et les raccourcis se règlent ici, repliés (M-04) : la carte disait
           « Objectif du jour » sans dire où il se change. */}
       <HydrationSettings />
     </Card>
@@ -589,7 +589,7 @@ export function Routine() {
               // 0 » n'apprendrait rien. Le premier jour, c'est ce que dit le tiret.
               detail={
                 stats && stats.days_counted > 0
-                  ? `objectif atteint ${stats.days_reached} ${plural(stats.days_reached, 'jour')} sur ${stats.days_counted}`
+                  ? `cible atteinte ${stats.days_reached} ${plural(stats.days_reached, 'jour')} sur ${stats.days_counted}`
                   : stats
                     ? 'moyenne dès le deuxième jour complet'
                     : undefined

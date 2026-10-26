@@ -177,7 +177,7 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
             />
             {hydration.data !== undefined && (
               <p className={styles.tally}>
-                <b className="num">{volume(hydration.data.stats.today_ml)}</b> aujourd’hui, objectif{' '}
+                <b className="num">{volume(hydration.data.stats.today_ml)}</b> aujourd’hui, cible{' '}
                 <b className="num">{volume(hydration.data.stats.target_ml)}</b>
               </p>
             )}

@@ -368,7 +368,7 @@ export function Reminders() {
                     — « actif » était carrément **faux** sans clé VAPID : un créneau réglé
                       n'y déclenche rien, et l'écran aurait affirmé le contraire.
                     « réglé » est vrai dans les deux cas, et c'est déjà le mot que la
-                    section « Objectifs » emploie plus haut sur le même écran. */}
+                    section « Cibles » emploie plus haut sur le même écran. */}
                 <Badge tone={fields[spec.kind] === '' ? 'load' : 'effort'}>
                   {fields[spec.kind] === '' ? 'éteint' : 'réglé'}
                 </Badge>

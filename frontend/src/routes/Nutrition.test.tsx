@@ -1733,7 +1733,7 @@ describe("l'historique et ce qu'il donne à lire", () => {
 });
 
 describe('la courbe des protéines', () => {
-  it('trace les protéines contre leur objectif, sans attendre un écran large', async () => {
+  it('trace les protéines contre leur cible, sans attendre un écran large', async () => {
     // Elles n'existaient qu'en couche de contexte sur la courbe des calories, et
     // seulement au-delà de 600 px — donc jamais sur l'écran visé, où `matchMedia` rend
     // faux. La seule macro suivie toute la journée dans un anneau n'avait aucune courbe.
@@ -1741,7 +1741,7 @@ describe('la courbe des protéines', () => {
     renderNutrition();
 
     expect(await screen.findByText('Protéines par jour (g)')).toBeInTheDocument();
-    expect(screen.getByText('Objectif 150 g')).toBeInTheDocument();
+    expect(screen.getByText('Cible 150 g')).toBeInTheDocument();
   });
 
   it('ne trace rien avec un seul jour noté', async () => {

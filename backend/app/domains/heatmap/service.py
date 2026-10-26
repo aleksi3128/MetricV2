@@ -671,7 +671,7 @@ class TrackService:
             unit=source.unit if source else "",
             filter=model.filter,
             validation_threshold=model.validation_threshold,
-            threshold_follows="l’objectif d’hydratation" if model.id == WATER_TRACK else None,
+            threshold_follows="la cible d’hydratation" if model.id == WATER_TRACK else None,
             levels=[] if model.binary else levels_from_text(model.levels),
             binary=model.binary,
             accent=model.accent if model.accent in ACCENTS else "signal",

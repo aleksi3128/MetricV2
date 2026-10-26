@@ -420,7 +420,7 @@ export function Nutrition() {
                   detail={
                     totals.meals > 0
                       ? `${num(totals.protein_g, 0)} g sur ${num(totals.protein_target_g, 0)} g`
-                      : `objectif ${num(totals.protein_target_g, 0)} g`
+                      : `cible ${num(totals.protein_target_g, 0)} g`
                   }
                   tone={totals.protein_ratio >= 1 ? 'effort' : 'signal'}
                 />
@@ -438,7 +438,7 @@ export function Nutrition() {
                   detail={
                     totals.calories_known > 0
                       ? `${integer(totals.calories)} sur ${integer(totals.calories_target)} kcal`
-                      : `objectif ${integer(totals.calories_target)} kcal`
+                      : `cible ${integer(totals.calories_target)} kcal`
                   }
                   tone={totals.calories_ratio >= 1 ? 'load' : 'signal'}
                 />

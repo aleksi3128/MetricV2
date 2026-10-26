@@ -105,13 +105,13 @@ export function TrackForm({
         label={`Seuil de validation (${source?.unit ?? ''})`}
         inputMode="decimal"
         value={draft.threshold}
-        // La piste eau valide à l'objectif d'hydratation : un seul chiffre pour la même
+        // La piste eau valide à la cible d’hydratation : un seul chiffre pour la même
         // journée (audit du 17 octobre, fiche 05). Il se règle sur la carte Hydratation de
         // `/routine` depuis M-04 — l'indice disait « en haut des réglages ».
         disabled={draft.thresholdFollows !== null}
         hint={
           draft.thresholdFollows !== null
-            ? `C’est ${draft.thresholdFollows} — il se règle sur la routine, carte Hydratation, « Régler »`
+            ? `C’est ${draft.thresholdFollows} — elle se règle sur la routine, carte Hydratation, « Régler »`
             : 'Au-delà, la journée est validée'
         }
         error={refusal?.messageFor('validation_threshold')}

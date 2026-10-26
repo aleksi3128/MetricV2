@@ -172,10 +172,10 @@ describe('écran Corps', () => {
 
     // Attendre un texte qui ne peut exister qu'une fois les données arrivées : un
     // libellé statique s'affiche avant la requête et ne prouverait rien.
-    expect(await screen.findByText(/objectif 70 kg/)).toBeInTheDocument();
+    expect(await screen.findByText(/cible 70 kg/)).toBeInTheDocument();
     expect(screen.getAllByText(/68,4/).length).toBeGreaterThan(0);
     expect(screen.getByText('−2,1')).toBeInTheDocument(); // variation sur 8 pesées
-    expect(screen.getByText('−1,6')).toBeInTheDocument(); // écart à l'objectif
+    expect(screen.getByText('−1,6')).toBeInTheDocument(); // écart à la cible
   });
 
   it("n'affiche aucune valeur inventée quand l'historique est vide", async () => {

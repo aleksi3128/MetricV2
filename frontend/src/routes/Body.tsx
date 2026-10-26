@@ -334,10 +334,10 @@ export function Body() {
         <Card>
           <Stat
             compact
-            label="Écart à l'objectif"
+            label="Écart à la cible"
             value={stats?.to_target_kg != null ? delta(stats.to_target_kg) : '—'}
             unit={stats?.to_target_kg != null ? 'kg' : undefined}
-            detail={stats !== undefined ? `objectif ${num(stats.target_kg, 1)} kg` : undefined}
+            detail={stats !== undefined ? `cible ${num(stats.target_kg, 1)} kg` : undefined}
           />
         </Card>
         <Card>

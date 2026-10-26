@@ -99,7 +99,7 @@ function Appearance() {
       <Card>
         <div className="spread">
           <span className={styles.name}>Thème</span>
-          {/* Même vocabulaire que les objectifs plus haut : ce qui est choisi porte
+          {/* Même vocabulaire que les cibles plus haut : ce qui est choisi porte
               « réglé », ce qui suit un défaut dit lequel il suit. */}
           <Badge tone={mode === 'system' ? 'load' : 'signal'}>
             {mode === 'system' ? `système · ${theme === 'light' ? 'clair' : 'sombre'}` : 'réglé'}
@@ -185,9 +185,9 @@ export function Settings() {
         l’eau sur la routine, les pistes sur l’assiduité, les repères sur la page des courses.
       </PageHead>
 
-      {/* « Objectifs » nomme ici des cibles quotidiennes, pas l’objectif daté de `/objectif` :
-          le mot se tranche avec M-13, pas en passant. */}
-      <Rule>Objectifs</Rule>
+      {/* « Cibles » et non plus « Objectifs » (M-13) : ce sont des valeurs quotidiennes, et
+          « Objectif » ne désigne plus que l’objectif daté de `/objectif`. */}
+      <Rule>Cibles</Rule>
 
       <p className={cx(styles.note, styles.intro)}>
         Elles servent à plusieurs écrans. Tant qu’une cible n’est pas renseignée, c’est le défaut du

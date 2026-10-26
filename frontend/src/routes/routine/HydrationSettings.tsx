@@ -25,7 +25,7 @@ export function HydrationSettings() {
   const [open, setOpen] = useState(false);
   const form = useSettingsDraft(['target_hydration_ml', 'hydration_presets_ml'], {
     invalidates: [keys.hydration.all(), ...CROSS_CUTTING],
-    saved: 'Objectif d’eau enregistré.',
+    saved: 'Cible d’eau enregistrée.',
     onSaved: () => {
       setOpen(false);
     },
@@ -40,8 +40,8 @@ export function HydrationSettings() {
       <div className={styles.bar}>
         <span className={styles.summary}>
           {data === undefined
-            ? 'Objectif et raccourcis'
-            : `Objectif ${volume(data.values.target_hydration_ml)} · raccourcis ${data.values.hydration_presets_ml.map((ml) => integer(ml)).join(', ')} ml`}
+            ? 'Cible et raccourcis'
+            : `Cible ${volume(data.values.target_hydration_ml)} · raccourcis ${data.values.hydration_presets_ml.map((ml) => integer(ml)).join(', ')} ml`}
         </span>
         <Button
           variant="quiet"
@@ -79,7 +79,7 @@ export function HydrationSettings() {
           )}
 
           <div className={styles.head}>
-            <span className={styles.label}>Objectif par jour</span>
+            <span className={styles.label}>Cible par jour</span>
             <Origin view={data} field="target_hydration_ml" />
           </div>
           <Field

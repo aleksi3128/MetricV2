@@ -231,7 +231,7 @@ describe('réglage des pistes', () => {
     expect(threshold).toHaveValue('2000');
     expect(
       screen.getByText(
-        /l’objectif d’hydratation — il se règle sur la routine, carte Hydratation, « Régler »/,
+        /la cible d’hydratation — elle se règle sur la routine, carte Hydratation, « Régler »/,
       ),
     ).toBeInTheDocument();
   });
