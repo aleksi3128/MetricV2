@@ -237,7 +237,7 @@ def test_a_plan_is_placed_replaced_and_cleared(
     sessions = [item for day in planned["days"] for item in day["planned"]]
     race_day = [item for item in sessions if item["title"] == "10 km"]
     assert race_day and race_day[0]["source"] == "plan"
-    assert "Course : 10 km — objectif A" in race_day[0]["note"]
+    assert "Course : 10 km — priorité A" in race_day[0]["note"]
 
     cleared = store_client.delete("/api/races/plan", headers=auth).json()
     assert cleared["removed"] == again["created"]

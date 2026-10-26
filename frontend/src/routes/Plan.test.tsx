@@ -153,8 +153,8 @@ describe('le plan de course', () => {
 
   it('ne choisit ni la distance ni la priorité d’office', async () => {
     renderPlan();
-    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter une course' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Ajouter la course' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter une course visée' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter la course visée' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Il manque le nom, la date, la distance, la priorité.',

@@ -258,7 +258,10 @@ def _race_week(
         Session(
             race_day,
             name,
-            f"Course : {spec.label} — objectif {priority}",
+            # « Course : » est un marqueur, pas un libellé : le coach reconnaît le jour de
+            # course à ce préfixe (`planning/replan.py`) et ne le déplace jamais. M-13 n'a
+            # renommé que la suite — « objectif A » disait un troisième sens d'« objectif ».
+            f"Course : {spec.label} — priorité {priority}",
             _minutes(spec.run_km * pace * 0.9),
             spec.run_km,
             race=True,

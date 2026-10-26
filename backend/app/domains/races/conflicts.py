@@ -61,7 +61,7 @@ def _conflict(key: str, first: Race, second: Race, weeks: float, spacing: int) -
         demote=demote.race_id,
         text=(
             f"{first.name} ({first.day:%d/%m}) et {second.name} ({second.day:%d/%m}) sont "
-            f"tous deux en objectif A, à {gap} semaine{'s' if gap > 1 else ''} d'écart : il en "
+            f"toutes deux classées A, à {gap} semaine{'s' if gap > 1 else ''} d'écart : il en "
             f"faudrait {spacing} pour préparer, affûter et récupérer de chacun sans que les "
             f"blocs se chevauchent. Je garde {keep.name} en A — {kept.label}, le plus "
             f"exigeant des deux — et je passe {demote.name} en B : couru sans affûtage "

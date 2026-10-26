@@ -166,7 +166,7 @@ function RaceForm({ today, onDone }: { today: string; onDone: (list: RaceList) =
             }}
           >
             {item === 'A'
-              ? 'A — l’objectif'
+              ? 'A — la principale'
               : item === 'B'
                 ? 'B — important'
                 : 'C — pour le plaisir'}
@@ -189,7 +189,7 @@ function RaceForm({ today, onDone }: { today: string; onDone: (list: RaceList) =
         </p>
       )}
       <Button variant="primary" type="submit" busy={save.isPending} className={styles.finish}>
-        Ajouter la course
+        Ajouter la course visée
       </Button>
     </form>
   );
@@ -201,7 +201,7 @@ function RaceRow({ race, onRemoved }: { race: Race; onRemoved: (list: RaceList) 
     mutationFn: () => racesApi.remove(race.id, race.token),
     onSuccess: (list) => {
       onRemoved(list);
-      notify('Course retirée.', 'signal');
+      notify('Course visée retirée.', 'signal');
     },
     onError: (caught: unknown) => {
       notify(caught instanceof ApiError ? caught.message : 'Suppression impossible.', 'recover');
@@ -209,7 +209,7 @@ function RaceRow({ race, onRemoved }: { race: Race; onRemoved: (list: RaceList) 
   });
   return (
     <SwipeRow
-      actionLabel={`Retirer la course ${race.name}`}
+      actionLabel={`Retirer la course visée ${race.name}`}
       busy={remove.isPending}
       onAction={() => {
         remove.mutate();
@@ -383,7 +383,7 @@ export function Plan() {
 
   return (
     <div className={cx('wrap', styles.screen)}>
-      <PageHead eyebrow="Courses" title="Plan de course">
+      <PageHead eyebrow="Courses visées" title="Plan de course">
         Les courses que tu vises, classées A, B ou C, et le plan qui mène à la prochaine A.
       </PageHead>
 
@@ -393,7 +393,7 @@ export function Plan() {
         </Card>
       ) : error ? (
         <Card>
-          <Empty title="Courses indisponibles">
+          <Empty title="Courses visées indisponibles">
             {error instanceof ApiError ? error.message : 'Le serveur n’a pas répondu.'}
           </Empty>
         </Card>
@@ -402,7 +402,7 @@ export function Plan() {
           {data.conflicts.map((conflict) => (
             <Card key={conflict.key}>
               <div className={styles.stack}>
-                <h3>Deux objectifs A</h3>
+                <h3>Deux courses visées en A</h3>
                 <p className={styles.text}>{conflict.text}</p>
                 <div className={styles.actions}>
                   <Button
@@ -431,7 +431,7 @@ export function Plan() {
           <Card flush={data.races.length > 0}>
             {data.races.length === 0 ? (
               <Empty title="Aucune course visée">
-                Une course et sa date, et le plan se calcule jusqu’à elle.
+                Une course visée et sa date, et le plan se calcule jusqu’à elle.
               </Empty>
             ) : (
               <ul className={styles.list}>
@@ -446,7 +446,7 @@ export function Plan() {
           <Card>
             {adding ? (
               <>
-                <h3>Nouvelle course</h3>
+                <h3>Nouvelle course visée</h3>
                 <RaceForm
                   today={data.today}
                   onDone={(list) => {
@@ -469,7 +469,7 @@ export function Plan() {
                   setAdding(true);
                 }}
               >
-                Ajouter une course
+                Ajouter une course visée
               </Button>
             )}
           </Card>

@@ -170,7 +170,7 @@ def test_a_stopping_pain_turns_the_week_into_rest_but_never_the_race() -> None:
     sessions = [
         planned("a", MONDAY + timedelta(days=1), "Seuil"),
         planned("b", MONDAY + timedelta(days=3)),
-        planned("r", MONDAY + timedelta(days=6), "10 km", note="Course : 10 km — objectif A"),
+        planned("r", MONDAY + timedelta(days=6), "10 km", note="Course : 10 km — priorité A"),
     ]
     found = replan.changes(MONDAY, sessions, set(), pain="stop", pain_text="Douleur vive.")
 
