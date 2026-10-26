@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
+import { SETTINGS } from '@/test/fixtures';
 
 import { Routine } from './Routine';
 
@@ -121,6 +122,8 @@ function stub(custom?: (url: string, init?: RequestInit) => Response | undefined
     if (url.includes('/supplements/schedule')) return Promise.resolve(json(200, SCHEDULE));
     if (url.includes('/supplements/units')) return Promise.resolve(json(200, ['g', 'mg']));
     if (url.includes('/hydration')) return Promise.resolve(json(200, HYDRATION));
+    // La cible d'eau et ses raccourcis se règlent sur la carte depuis M-04.
+    if (url.startsWith('/api/settings')) return Promise.resolve(json(200, SETTINGS));
     return Promise.resolve(json(200, {}));
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -430,5 +433,38 @@ describe('écran Routine', () => {
     renderRoutine();
 
     expect(await screen.findByText('Aucun supplément au planning')).toBeInTheDocument();
+  });
+
+  it('replie l’objectif et les raccourcis derrière « Régler » (M-04)', async () => {
+    stub();
+    renderRoutine();
+
+    // Replié : une ligne qui dit ce qu'on vise, et aucun champ.
+    expect(await screen.findByText(/raccourcis 250, 500, 750 ml/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Volumes, séparés par des virgules')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Régler' }));
+    expect(screen.getByLabelText('Volumes, séparés par des virgules')).toHaveValue('250, 500, 750');
+    // Un défaut ne passe pas pour un choix, et il vient du serveur.
+    expect(screen.getAllByText('valeur par défaut')).toHaveLength(2);
+    expect(screen.getByText(/défaut 250, 500, 750 ml/)).toBeInTheDocument();
+  });
+
+  it('découpe la liste de raccourcis, et n’envoie que ce qui a changé, sous If-Match', async () => {
+    stub();
+    renderRoutine();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Régler' }));
+    const presets = screen.getByLabelText('Volumes, séparés par des virgules');
+    await userEvent.clear(presets);
+    await userEvent.type(presets, '200, 400');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() => {
+      const patch = calls.find((call) => call.init?.method === 'PATCH');
+      expect(patch?.url).toBe('/api/settings');
+      expect(JSON.parse(patch?.init?.body as string)).toEqual({ hydration_presets_ml: [200, 400] });
+      expect((patch?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-reglages');
+    });
   });
 });

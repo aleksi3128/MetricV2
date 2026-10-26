@@ -12,7 +12,9 @@ import { createQueryClient } from '@/lib/query';
 import { SETTINGS } from '@/test/fixtures';
 
 import { CadenceAddress } from './activity/CadenceAddress';
+import { RunReferences } from './activity/RunReferences';
 import { Profile } from './assistant/Profile';
+import { HydrationSettings } from './routine/HydrationSettings';
 
 /**
  * **Un seul fichier, un seul jeton** (M-04).
@@ -227,6 +229,44 @@ describe('un fichier de réglages, plusieurs écrans', () => {
       ['fichier-v1', 200],
       ['fichier-v2', 200],
       ['fichier-v3', 200],
+    ]);
+  });
+
+  it('écrit sur `/routine`, puis sur `/activite/courses`, sans que le second parte périmé', async () => {
+    // L'exemple de la fiche M-04 : la carte Hydratation et les repères de course, montés
+    // ensemble, chacun avec son formulaire et sa `PATCH`.
+    serve();
+    render(
+      <Screen client={createQueryClient()}>
+        <section aria-label="routine">
+          <HydrationSettings />
+        </section>
+        <section aria-label="courses">
+          <RunReferences />
+        </section>
+      </Screen>,
+    );
+    const routine = within(await screen.findByRole('region', { name: 'routine' }));
+    const courses = within(screen.getByRole('region', { name: 'courses' }));
+
+    await userEvent.click(await routine.findByRole('button', { name: 'Régler' }));
+    const presets = routine.getByLabelText('Volumes, séparés par des virgules');
+    await userEvent.clear(presets);
+    await userEvent.type(presets, '330, 500');
+    await userEvent.click(routine.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => {
+      expect(writes()).toHaveLength(1);
+    });
+
+    await userEvent.type(courses.getByLabelText('Allure seuil (min/km)'), '5:15');
+    await userEvent.click(courses.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => {
+      expect(writes()).toHaveLength(2);
+    });
+
+    expect(writes().map((call) => [call.ifMatch, call.status])).toEqual([
+      ['fichier-v1', 200],
+      ['fichier-v2', 200],
     ]);
   });
 

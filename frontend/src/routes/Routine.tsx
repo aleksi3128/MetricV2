@@ -37,6 +37,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './Routine.module.css';
+import { HydrationSettings } from './routine/HydrationSettings';
 
 /** Découpage de la journée, repris de la charte (section 08). */
 const MOMENTS = [
@@ -203,6 +204,10 @@ function Hydration() {
           label="Volume bu sur 30 jours"
         />
       )}
+
+      {/* L'objectif et les raccourcis se règlent ici, repliés (M-04) : la carte disait
+          « Objectif du jour » sans dire où il se change. */}
+      <HydrationSettings />
     </Card>
   );
 }

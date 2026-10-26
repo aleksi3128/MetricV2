@@ -113,7 +113,6 @@ describe('écran Réglages', () => {
 
     expect(await screen.findByDisplayValue('68')).toBeInTheDocument();
     expect(screen.getByDisplayValue('150')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('250, 500, 750')).toBeInTheDocument();
   });
 
   it('distingue un réglage choisi d’une valeur de repli', async () => {
@@ -123,12 +122,11 @@ describe('écran Réglages', () => {
     renderSettings();
 
     expect(await screen.findByText('réglé')).toBeInTheDocument();
-    // Six depuis que l'objectif de calories existe : poids, protéines, sucres,
-    // calories, hydratation, raccourcis. Seul le poids cible est réglé dans le
+    // Poids, protéines, sucres, calories et la piste mise en avant ; l'eau et ses
+    // raccourcis sont partis sur `/routine` (M-04). Seul le poids cible est réglé dans le
     // fixture.
-    expect(screen.getAllByText('valeur par défaut')).toHaveLength(6);
+    expect(screen.getAllByText('valeur par défaut')).toHaveLength(4);
     expect(screen.getByText(/défaut 70 kg/)).toBeInTheDocument();
-    expect(screen.getByText(/défaut 250, 500, 750 ml/)).toBeInTheDocument();
   });
 
   it('n’envoie que ce qui a changé', async () => {
@@ -190,18 +188,13 @@ describe('écran Réglages', () => {
     });
   });
 
-  it('découpe la liste de raccourcis', async () => {
+  it('ne porte plus l’eau ni ses raccourcis, partis sur la carte Hydratation (M-04)', async () => {
     stub();
     renderSettings();
 
-    const presets = await screen.findByDisplayValue('250, 500, 750');
-    await userEvent.clear(presets);
-    await userEvent.type(presets, '200, 400');
-    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
-
-    await waitFor(() => {
-      expect(body(saved())).toEqual({ hydration_presets_ml: [200, 400] });
-    });
+    await screen.findByDisplayValue('68');
+    expect(screen.queryByText('Hydratation par jour')).toBeNull();
+    expect(screen.queryByDisplayValue('250, 500, 750')).toBeNull();
   });
 
   it('ne porte plus les repères de course, partis sur la page des courses (M-04)', async () => {

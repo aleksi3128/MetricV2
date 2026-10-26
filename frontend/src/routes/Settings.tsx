@@ -38,12 +38,7 @@ import styles from './Settings.module.css';
  */
 
 interface FieldSpec {
-  key:
-    | 'target_weight_kg'
-    | 'target_protein_g'
-    | 'max_added_sugar_g'
-    | 'target_calories'
-    | 'target_hydration_ml';
+  key: 'target_weight_kg' | 'target_protein_g' | 'max_added_sugar_g' | 'target_calories';
   label: string;
   hint: string;
   unit: string;
@@ -73,12 +68,6 @@ const NUMBERS: readonly FieldSpec[] = [
     label: 'Calories par jour',
     hint: 'Anneau du jour, et couleur de la grille',
     unit: 'kcal',
-  },
-  {
-    key: 'target_hydration_ml',
-    label: 'Hydratation par jour',
-    hint: 'Objectif de l’anneau et de la grille',
-    unit: 'ml',
   },
 ];
 
@@ -146,8 +135,6 @@ const FIELDS: readonly SettingsKey[] = [
   'target_protein_g',
   'max_added_sugar_g',
   'target_calories',
-  'target_hydration_ml',
-  'hydration_presets_ml',
   'heatmap_metric',
 ];
 
@@ -156,7 +143,7 @@ export function Settings() {
     // Un objectif modifié change l'écart au poids cible, l'anneau de protéines et la
     // grille d'hydratation : les vues transverses doivent être rejouées, sinon le tableau
     // de bord mentirait jusqu'à la prochaine navigation.
-    invalidates: [...CROSS_CUTTING, keys.hydration.all(), keys.nutrition.all(), keys.body.all()],
+    invalidates: [...CROSS_CUTTING, keys.nutrition.all(), keys.body.all()],
     saved: 'Réglages enregistrés.',
   });
   const { data, isPending, error, refusal } = form;
@@ -237,20 +224,6 @@ export function Settings() {
         <Rule>Saisie</Rule>
 
         <div className="grid g2">
-          <Card>
-            <div className="spread">
-              <span className={styles.name}>Raccourcis d’hydratation</span>
-              <Origin view={data} field="hydration_presets_ml" />
-            </div>
-            <Field
-              label="Volumes, séparés par des virgules"
-              value={fields.hydration_presets_ml}
-              error={refusal?.messageFor('hydration_presets_ml')}
-              hint={`Un à six boutons · défaut ${data.defaults.hydration_presets_ml.join(', ')} ml`}
-              onChange={set('hydration_presets_ml')}
-            />
-          </Card>
-
           <Card>
             <div className="spread">
               <span className={styles.name}>Métrique mise en avant</span>
