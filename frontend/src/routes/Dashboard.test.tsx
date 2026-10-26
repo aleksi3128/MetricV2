@@ -97,26 +97,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('bloc assistant (C01)', () => {
-  it('porte trois portes, dont une seule principale', async () => {
-    // Le paragraphe qui énumérait ce que l'assistant lit est parti : six lignes de texte
-    // au-dessus d'un bouton de 44 px, pour décrire ce que l'assistant montre lui-même.
+describe('la rangée « Assistant » (M-22)', () => {
+  it('n’est plus sur l’accueil : la barre du haut et la barre basse y mènent', async () => {
     stub();
     renderDashboard();
 
-    expect(await screen.findByRole('link', { name: 'Ouvrir l’assistant' })).toHaveAttribute(
-      'href',
-      '/assistant',
-    );
-    expect(screen.getByRole('link', { name: 'Discussions' })).toHaveAttribute(
-      'href',
-      '/assistant?ouvre=discussions',
-    );
-    expect(screen.getByRole('link', { name: 'Mémoire' })).toHaveAttribute(
-      'href',
-      '/assistant?ouvre=memoire',
-    );
-    expect(screen.queryByText(/L’assistant lit ton poids/)).toBeNull();
+    await screen.findByText(/−1,2 kg sur 8 pesées/);
+    expect(screen.queryByRole('link', { name: 'Ouvrir l’assistant' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Discussions' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Mémoire' })).toBeNull();
   });
 });
 
@@ -222,8 +211,6 @@ describe('la lecture du jour', () => {
 
     expect(screen.queryByRole('button', { name: 'Demander la lecture' })).toBeNull();
     expect(calls.some((call) => call.url.includes('/api/brief'))).toBe(false);
-    // Les portes de l'assistant restent : sur ordinateur, c'est la seule entrée.
-    expect(screen.getByRole('link', { name: 'Ouvrir l’assistant' })).toBeInTheDocument();
   });
 
   it('affiche le message du serveur quand la lecture est en panne', async () => {

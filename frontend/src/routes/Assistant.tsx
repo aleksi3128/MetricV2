@@ -61,9 +61,9 @@ export function Assistant() {
    * pour le carnet, `?ouvre=profil` pour le profil (M-05) — et un fil s'ouvre de même —
    * `?fil=<identifiant>`.
    *
-   * Le tableau de bord y mène directement, et une surface qu'on atteint depuis un autre
-   * écran a besoin d'être adressable : sans cela, le lien ouvrirait la conversation et
-   * l'utilisateur aurait un appui de plus à faire, sans savoir lequel.
+   * Une surface qu'on atteint depuis ailleurs — un favori, un lien gardé ; le tableau de
+   * bord y menait jusqu'à M-22 — a besoin d'être adressable : sans cela, le lien ouvrirait
+   * la conversation et l'utilisateur aurait un appui de plus à faire, sans savoir lequel.
    *
    * **`?fil` est ce qui fait tenir la lecture du jour.** La carte d'accueil ouvre un fil
    * dont le premier message est celui de l'assistant, et l'écran doit arriver *dedans* :

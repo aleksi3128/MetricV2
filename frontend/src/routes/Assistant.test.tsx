@@ -542,9 +542,9 @@ describe('feuille des discussions', () => {
   });
 
   it('s’ouvre directement depuis une adresse', async () => {
-    // Le tableau de bord y mène : une feuille qu'on atteint depuis un autre écran doit
-    // être adressable, sinon le lien ouvre la conversation et laisse un appui de plus à
-    // faire, sans dire lequel.
+    // Un favori ou un lien gardé y mène (l'accueil le faisait jusqu'à M-22) : une feuille
+    // qu'on atteint depuis ailleurs doit être adressable, sinon le lien ouvre la
+    // conversation et laisse un appui de plus à faire, sans dire lequel.
     stub();
     renderScreen('/assistant?ouvre=discussions');
 

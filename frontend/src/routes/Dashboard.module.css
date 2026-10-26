@@ -326,11 +326,3 @@
   font-size: var(--t-sub);
   text-wrap: pretty;
 }
-
-/* ── Les portes de l'assistant ────────────────────── */
-
-/* Une rangée de liens, et rien d'autre. L'ancienne carte enfermait trois boutons dans un
-   cadre qui ne contenait rien : le cadre annonçait un contenu, il n'y en avait pas. */
-.doors {
-  gap: var(--s3);
-}

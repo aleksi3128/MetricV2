@@ -16,6 +16,12 @@
  * 3. **où je vais** — l'objectif en cours et sa progression, qui n'étaient sur aucun écran
  *    d'accueil.
  *
+ * **La rangée « Assistant » en est partie** (M-22). Trois liens — Ouvrir l'assistant,
+ * Discussions, Mémoire — tenaient lieu d'entrée sur ordinateur, où la barre du haut n'en
+ * avait pas ; elle en a une depuis `320bcfc`, la barre basse aussi, et « Mémoire » est un
+ * bouton de l'en-tête de `/assistant`. Les adresses `?ouvre=discussions` et
+ * `?ouvre=memoire` restent lues par l'assistant : un favori ou un lien gardé y mène encore.
+ *
  * **La tendance et l'entraînement en sont partis** (`docs/pages/modifications.md`, M-06 et
  * M-07). Chacune de leurs lectures redisait un écran de domaine : poids et mensurations
  * `/corps`, eau `/routine`, calories `/nutrition`, volume tous sports `/charge`. Le bas
@@ -48,7 +54,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { Empty, LinkButton, PageHead, Rule, Skeleton } from '@/components/ui';
+import { Empty, PageHead, Skeleton } from '@/components/ui';
 import { aggregatesApi } from '@/features/aggregates/api';
 import { cx } from '@/lib/cx';
 import { longDate } from '@/lib/format';
@@ -110,26 +116,6 @@ export function Dashboard() {
       <Shape />
 
       <Aim data={data} />
-
-      {/* Les deux portes de côté de l'assistant, et la sienne propre.
-          Elles restent **quoi qu'il arrive** : sans clé OpenRouter la lecture du jour ne
-          s'affiche pas (`IA-07`). Elles ne sont plus la seule entrée vers `/assistant` sur
-          ordinateur — la barre du haut en a une depuis `320bcfc` — et la rangée doit
-          partir (M-22).
-          Une adresse et non un état d'écran : la feuille s'ouvre à l'arrivée, le bouton
-          système « précédent » la referme, et le lien se garde en favori. */}
-      <Rule>Assistant</Rule>
-      <div className={cx('row', styles.doors)}>
-        <LinkButton variant="ghost" to="/assistant">
-          Ouvrir l’assistant
-        </LinkButton>
-        <LinkButton variant="ghost" to="/assistant?ouvre=discussions">
-          Discussions
-        </LinkButton>
-        <LinkButton variant="ghost" to="/assistant?ouvre=memoire">
-          Mémoire
-        </LinkButton>
-      </div>
     </div>
   );
 }
