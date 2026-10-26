@@ -187,7 +187,7 @@ export function Loads() {
     onSuccess: (_result, load) => {
       setError(null);
       invalidate();
-      notify(`${load.name} · charge retirée`, 'signal');
+      notify(`${load.name} · poids retiré`, 'signal');
     },
     onError: (failure: unknown) => {
       if (failure instanceof ApiError) setError(failure);
@@ -246,7 +246,7 @@ export function Loads() {
 
         <div className={styles.loadControl}>
           <Stepper
-            label="Charge"
+            label="Poids"
             labelHidden
             unit="kg"
             value={draft}
@@ -300,7 +300,7 @@ export function Loads() {
     <div className={cx('wrap', styles.screen)}>
       <PageHead
         eyebrow="Activité"
-        title="Charges"
+        title="Poids des exercices"
         actions={
           <LinkButton variant="quiet" to="/activite">
             Retour à l’activité
@@ -335,7 +335,7 @@ export function Loads() {
       {isPending && <p className={styles.note}>Chargement…</p>}
 
       {unreadable !== null && !isPending && (
-        <Empty title="Charges indisponibles">
+        <Empty title="Poids des exercices indisponibles">
           {unreadable instanceof ApiError
             ? unreadable.message
             : 'Le stockage n’a pas répondu. Réessaie dans un instant.'}
@@ -350,7 +350,7 @@ export function Loads() {
           title="Aucune séance tabata"
           action={<LinkButton to="/activite/seances?creer">Créer une séance</LinkButton>}
         >
-          Les charges se notent sur les exercices d’une séance Cadence. Crées-en une, ses exercices
+          Les poids se notent sur les exercices d’une séance Cadence. Crées-en une, ses exercices
           apparaîtront ici.
         </Empty>
       )}
@@ -410,8 +410,8 @@ export function Loads() {
                   <button
                     type="button"
                     className={styles.loadIcon}
-                    aria-label={`${load.name} : remettre une charge`}
-                    title="Remettre une charge"
+                    aria-label={`${load.name} : remettre un poids`}
+                    title="Remettre un poids"
                     onClick={() => {
                       setReweighing((current) => [...current, load.name]);
                     }}
@@ -436,7 +436,7 @@ export function Loads() {
               courbe : six lignes sur un téléphone, au-dessus d'une liste de deux
               entrées qu'on vient ranger. */}
           <p className={styles.note}>
-            Aucun circuit n’emploie plus ces exercices. Si le nom revient, c’est cette charge-là qui
+            Aucun circuit n’emploie plus ces exercices. Si le nom revient, c’est ce poids-là qui
             s’affichera.
           </p>
           <Card className={styles.strays}>
@@ -444,7 +444,7 @@ export function Loads() {
               id === null || token === null ? null : (
                 <SwipeRow
                   key={load.name}
-                  actionLabel={`Retirer la charge de ${load.name}`}
+                  actionLabel={`Retirer le poids de ${load.name}`}
                   busy={remove.isPending && remove.variables?.name === load.name}
                   onAction={() => {
                     remove.mutate({ id, token, name: load.name });
@@ -558,7 +558,7 @@ function LoadDetailBody({ detail }: { detail: LoadDetail }) {
         {detail.state === 'bodyweight'
           ? 'Au poids du corps'
           : detail.weight_kg === null
-            ? 'Aucune charge notée'
+            ? 'Aucun poids noté'
             : `${num(detail.weight_kg, 1)} kg`}
       </p>
       {/* Moins de deux points n'est pas une évolution. Tracer une ligne d'un seul point
@@ -567,7 +567,7 @@ function LoadDetailBody({ detail }: { detail: LoadDetail }) {
         <Chart
           labels={points.map((point) => dayMonth(point.date))}
           primary={{
-            label: 'Charge',
+            label: 'Poids',
             values: points.map((point) => point.weight_kg ?? 0),
             tone: 'load',
             unit: 'kg',
@@ -577,8 +577,8 @@ function LoadDetailBody({ detail }: { detail: LoadDetail }) {
       ) : (
         <p className={styles.note}>
           {points.length === 1 && points[0] !== undefined
-            ? `Une seule charge notée, le ${dayMonth(points[0].date)}. La courbe demande un second point.`
-            : 'Aucune charge notée pour l’instant.'}
+            ? `Un seul poids noté, le ${dayMonth(points[0].date)}. La courbe demande un second point.`
+            : 'Aucun poids noté pour l’instant.'}
         </p>
       )}
 

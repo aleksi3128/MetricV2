@@ -155,7 +155,7 @@ describe('charges des exercices de tabata', () => {
 
     // Le champ porte un tiret et rien d'autre. Un `0` y passerait pour une mesure, et
     // partirait tel quel dans le 4ᵉ champ du lien de la séance.
-    const champs = screen.getAllByLabelText('Charge');
+    const champs = screen.getAllByLabelText('Poids');
     expect(champs[0]).toHaveValue('');
     expect(champs[0]).toHaveAttribute('placeholder', '—');
   });
@@ -196,7 +196,7 @@ describe('charges des exercices de tabata', () => {
 
     // La valeur vit dans le champ, à droite, et à un seul endroit : la pastille qui la
     // répétait a disparu avec la disposition en deux colonnes.
-    expect(screen.getAllByLabelText('Charge')[1]).toHaveValue('12');
+    expect(screen.getAllByLabelText('Poids')[1]).toHaveValue('12');
   });
 
   it('crée sans jeton la première charge, et corrige avec', async () => {
@@ -204,7 +204,7 @@ describe('charges des exercices de tabata', () => {
     renderLoads();
 
     // Fentes n'a pas de ligne : `id` et `token` sont à `null`, c'est un POST.
-    const steppers = await screen.findAllByLabelText('Charge');
+    const steppers = await screen.findAllByLabelText('Poids');
     await userEvent.type(steppers[0] as HTMLElement, '20');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
@@ -218,7 +218,7 @@ describe('charges des exercices de tabata', () => {
     stub();
     renderLoads();
 
-    const steppers = await screen.findAllByLabelText('Charge');
+    const steppers = await screen.findAllByLabelText('Poids');
     await userEvent.clear(steppers[1] as HTMLElement);
     await userEvent.type(steppers[1] as HTMLElement, '16');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -235,7 +235,7 @@ describe('charges des exercices de tabata', () => {
     stub();
     renderLoads();
 
-    const steppers = await screen.findAllByLabelText('Charge');
+    const steppers = await screen.findAllByLabelText('Poids');
     await userEvent.type(steppers[0] as HTMLElement, '20');
 
     expect(sent('POST')).toBeUndefined();
@@ -253,7 +253,7 @@ describe('charges des exercices de tabata', () => {
     expect(screen.queryByRole('button', { name: 'Enregistrer' })).not.toBeInTheDocument();
 
     await userEvent.click(
-      screen.getAllByRole('button', { name: 'Charge : augmenter' })[1] as HTMLElement,
+      screen.getAllByRole('button', { name: 'Poids : augmenter' })[1] as HTMLElement,
     );
 
     expect(screen.getByRole('button', { name: 'Enregistrer' })).toBeInTheDocument();
@@ -303,15 +303,15 @@ describe('charges des exercices de tabata', () => {
     renderLoads();
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Gainage : remettre une charge' }),
+      await screen.findByRole('button', { name: 'Gainage : remettre un poids' }),
     );
 
     expect(sent('PATCH')).toBeUndefined();
 
     // Gainage a rejoint les cartes : il porte maintenant son propre champ de charge.
-    expect(screen.getAllByLabelText('Charge')).toHaveLength(3);
+    expect(screen.getAllByLabelText('Poids')).toHaveLength(3);
 
-    await userEvent.type(screen.getAllByLabelText('Charge')[2] as HTMLElement, '8');
+    await userEvent.type(screen.getAllByLabelText('Poids')[2] as HTMLElement, '8');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() => {
@@ -403,7 +403,7 @@ describe('charges des exercices de tabata', () => {
     renderLoads();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Rowing' }));
-    const chart = await screen.findByRole('img', { name: /Charge/ });
+    const chart = await screen.findByRole('img', { name: /Poids/ });
 
     expect(within(chart).getAllByText('8 kg')).toHaveLength(1);
   });
@@ -465,7 +465,7 @@ describe('les charges plus dans aucune séance', () => {
     renderLoads();
 
     const action = await screen.findByRole('button', {
-      name: 'Retirer la charge de Butterfly',
+      name: 'Retirer le poids de Butterfly',
     });
 
     // Le premier appui **arme** : rien n'est parti. C'est `SwipeRow`, et le projet n'a
@@ -476,7 +476,7 @@ describe('les charges plus dans aucune séance', () => {
     // Le second appui exécute. Le nom accessible change avec l'armement, ce qui est ce
     // qu'entend la synthèse vocale.
     await userEvent.click(
-      screen.getByRole('button', { name: 'Retirer la charge de Butterfly — confirmer' }),
+      screen.getByRole('button', { name: 'Retirer le poids de Butterfly — confirmer' }),
     );
 
     await waitFor(() => {

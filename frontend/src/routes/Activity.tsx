@@ -105,7 +105,7 @@ export function Activity() {
             {/* Pas de lien vers `/activite/seances` ici : la section juste en dessous en
                 porte un, au pied de ses cartes, et deux portes vers la même page dans le
                 même écran font hésiter au lieu d'aider. */}
-            <LinkButton to="/activite/charges">Charges</LinkButton>
+            <LinkButton to="/activite/charges">Poids des exercices</LinkButton>
           </>
         }
       />

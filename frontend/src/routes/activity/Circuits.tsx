@@ -398,7 +398,7 @@ export function Circuits() {
                     **La charge ne se retape pas ici.** Elle vient de `circuit_loads.csv`
                     et se joint à la note au moment de fabriquer le lien : l'écrire à la
                     main la figerait, et elle cesserait de suivre les changements de la
-                    page Charges. */}
+                    page des poids. */}
                 <Field
                   // Sans indice, comme « Secondes » et « Repos après » juste au-dessus :
                   // la carte porte déjà « Exercice 1 », et trois libellés numérotés sur
@@ -406,7 +406,7 @@ export function Circuits() {
                   label="Note pendant l’effort"
                   value={line.note}
                   maxLength={60}
-                  hint="Ce que Cadence montre sous le nom. La charge s’y ajoute toute seule."
+                  hint="Ce que Cadence montre sous le nom. Le poids s’y ajoute tout seul."
                   placeholder="genoux au sol, tempo lent…"
                   onChange={(event) => {
                     setLine(index, { note: event.target.value });

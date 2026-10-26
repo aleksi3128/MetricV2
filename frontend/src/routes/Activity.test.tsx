@@ -254,7 +254,7 @@ describe('écran Activité', () => {
       'href',
       '/activite/courses',
     );
-    expect(screen.getByRole('link', { name: 'Charges' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Poids des exercices' })).toHaveAttribute(
       'href',
       '/activite/charges',
     );
