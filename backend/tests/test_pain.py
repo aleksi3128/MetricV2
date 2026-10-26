@@ -357,4 +357,4 @@ def test_the_noon_reminder_says_what_is_not_noted() -> None:
     reminder = compose(checkpoint, DaySnapshot(pain_due=("Achille droit",)))
     assert reminder is not None
     assert reminder.body == "Suivi pas encore noté aujourd'hui : Achille droit."
-    assert reminder.payload()["url"] == "/corps"
+    assert reminder.payload()["url"] == "/corps/douleurs"

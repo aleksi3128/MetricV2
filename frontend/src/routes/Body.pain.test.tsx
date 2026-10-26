@@ -19,6 +19,8 @@ import { createQueryClient } from '@/lib/query';
 
 import { PainSection } from './body/Pain';
 import { PainCheck } from './body/PainCheck';
+import { PainLink } from './body/PainLink';
+import { Pains } from './body/Pains';
 
 const posted: { url: string; method: string; body: unknown }[] = [];
 
@@ -195,6 +197,54 @@ describe('la section Douleurs', () => {
       limp: false,
       source: 'manual',
     });
+  });
+});
+
+describe('la porte des douleurs, en tête de /corps (M-08)', () => {
+  it('mène à la sous-page et dit qu’aucune douleur n’est en cours', async () => {
+    renderWith(<PainLink />);
+
+    expect(await screen.findByText('Aucune douleur en cours.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Douleurs/ })).toHaveAttribute(
+      'href',
+      '/corps/douleurs',
+    );
+  });
+
+  it('nomme l’épisode ouvert, son état servi, et le suivi dû', async () => {
+    current = view({ open: [EPISODE], closed: [{ ...EPISODE, pain_id: 'p0', status: 'closed' }] });
+    renderWith(<PainLink />);
+
+    const link = await screen.findByRole('link', { name: /Achille · droit/ });
+    expect(within(link).getByText('séance adaptée')).toBeInTheDocument();
+    expect(within(link).getByText('suivi à noter aujourd’hui')).toBeInTheDocument();
+    // Une douleur refermée ne s'annonce pas en tête d'écran.
+    expect(within(link).queryByText('refermée')).toBeNull();
+  });
+
+  it('reste une porte quand la lecture échoue, et dit pourquoi', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(json(422, { code: 'validation_failed', message: 'Douleurs illisibles.' })),
+      ),
+    );
+    renderWith(<PainLink />);
+
+    const link = await screen.findByRole('link', { name: /Douleurs illisibles\./ });
+    expect(link).toHaveAttribute('href', '/corps/douleurs');
+  });
+});
+
+describe('la sous-page /corps/douleurs (M-08)', () => {
+  it('porte son titre, son retour, et range les épisodes en cours et refermés', async () => {
+    current = view({ open: [EPISODE], closed: [{ ...EPISODE, pain_id: 'p0', status: 'closed' }] });
+    renderWith(<Pains />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Douleurs' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Retour au corps' })).toHaveAttribute('href', '/corps');
+    expect(await screen.findByText('En cours')).toBeInTheDocument();
+    expect(screen.getByText('Refermées')).toBeInTheDocument();
   });
 });
 

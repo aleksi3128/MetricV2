@@ -24,7 +24,7 @@ import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import { Measurements } from './body/Measurements';
-import { PainSection } from './body/Pain';
+import { PainLink } from './body/PainLink';
 import { useInvalidateBody } from './body/shared';
 import { useOpenMorning } from './morning/context';
 import styles from './Body.module.css';
@@ -268,6 +268,10 @@ export function Body() {
         }
       />
 
+      {/* Les douleurs ont leur sous-page (M-08) ; il en reste ici la porte, en tête : c'est
+          elle qu'on vient voir chaque jour pendant un épisode, pas le poids. */}
+      <PainLink />
+
       <Rule>Indicateurs</Rule>
 
       {error !== null && (
@@ -447,8 +451,6 @@ export function Body() {
       </div>
 
       <Measurements />
-
-      <PainSection />
     </div>
   );
 }

@@ -2,7 +2,16 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 
+import type { Tone } from '@/components/ui';
+import type { PainStatus } from '@/features/pain/api';
 import { CROSS_CUTTING, keys } from '@/lib/query';
+
+/** L'état d'un épisode, servi ; l'écran n'en choisit que le mot et le ton. */
+export const STATUS: Record<PainStatus, { label: string; tone: Tone }> = {
+  stop: { label: 'arrêt', tone: 'recover' },
+  adapt: { label: 'séance adaptée', tone: 'load' },
+  closed: { label: 'refermée', tone: 'effort' },
+};
 
 /** Écrire une douleur change le coach et le parcours du matin : les trois se relisent. */
 export function useInvalidatePain() {

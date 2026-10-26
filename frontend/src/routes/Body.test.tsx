@@ -103,7 +103,7 @@ const SERIES = {
   },
 };
 
-/** La section Douleurs vit en bas de l'écran ; vide ici, elle a son propre fichier. */
+/** La porte des douleurs, en tête d'écran (M-08) ; vide ici, elle a son propre fichier. */
 const PAIN_VIEW = {
   today: '2026-07-21',
   open: [],

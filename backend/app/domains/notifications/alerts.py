@@ -19,6 +19,11 @@ from app.storage.files import FileStore
 #: « revient » (NOT-05). Deux mois : au-delà, c'est une autre histoire.
 RETURN_WINDOW_DAYS = 60
 
+#: Où mène une alerte de douleur : la sous-page des douleurs, et non plus le bas de `/corps`
+#: (`docs/pages/modifications.md`, M-08). L'alerte arrivait sur la pesée, et l'épisode
+#: qu'elle nommait était le dernier bloc d'un écran de près de 6 000 px.
+PAIN_PAGE = "/corps/douleurs"
+
 
 async def collect(store: FileStore, today: date, *, budget: float = 0.0) -> list[AlertView]:
     from app.domains.pain.service import PainService
@@ -40,7 +45,7 @@ async def collect(store: FileStore, today: date, *, budget: float = 0.0) -> list
                     priority="critical",
                     title="Douleur : arrêt",
                     body=item.text,
-                    url="/corps",
+                    url=PAIN_PAGE,
                 )
             )
         if item.status == "closed":
@@ -66,7 +71,7 @@ async def collect(store: FileStore, today: date, *, budget: float = 0.0) -> list
                         f"{item.title} : déjà notée du {last.opened:%d/%m} au "
                         f"{last.closed_on:%d/%m}, elle revient. {item.text}"
                     ),
-                    url="/corps",
+                    url=PAIN_PAGE,
                 )
             )
     # Un pattern qui apparaît (MED-04). La clé tient à la zone et au facteur, pas au seuil :
@@ -80,7 +85,7 @@ async def collect(store: FileStore, today: date, *, budget: float = 0.0) -> list
                         priority="critical",
                         title="Pattern de douleur",
                         body=finding.text,
-                        url="/corps",
+                        url=PAIN_PAGE,
                     )
                 )
     # Le plafond de dépense IA (`docs/exploitation-securite.md`, D9) : une alerte à 80 %,

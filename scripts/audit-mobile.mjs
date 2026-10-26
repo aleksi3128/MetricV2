@@ -68,6 +68,8 @@ const PUBLIC_ROUTES = [
 const PRIVATE_ROUTES = [
   ['/', 'accueil'],
   ['/corps', 'corps'],
+  // La sous-page des douleurs (M-08), sortie du bas de `/corps`.
+  ['/corps/douleurs', 'corps-douleurs'],
   ['/activite', 'activite'],
   // Les sous-pages d'Activité. Même règle que la table `SURFACES` de
   // `audit-surfaces.mjs` : une page qui s'ajoute à l'application s'ajoute ici, sans quoi

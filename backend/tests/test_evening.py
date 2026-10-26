@@ -315,3 +315,5 @@ def test_a_pain_back_in_the_same_place_is_an_alert(
     back = [item for item in alerts if item["key"] == "pain-back:a2"]
     assert back and back[0]["priority"] == "critical"
     assert "revient" in back[0]["body"]
+    # La sous-page des douleurs, pas le haut de `/corps` (M-08).
+    assert back[0]["url"] == "/corps/douleurs"

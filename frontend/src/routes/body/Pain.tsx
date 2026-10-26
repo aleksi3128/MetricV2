@@ -1,5 +1,9 @@
 /**
- * La section Douleurs de `/corps` (`docs/douleurs.md`, D10).
+ * Les douleurs (`docs/douleurs.md`, D10) — le corps de `/corps/douleurs`.
+ *
+ * Section du bas de `/corps` jusqu'à M-08 (`docs/pages/modifications.md`) : le bloc que
+ * lisent le coach, le matin et le soir arrivait en dernier, sous la pesée et les
+ * mensurations. Il a sa sous-page ; `/corps` n'en garde qu'une porte (`PainLink`).
  *
  * Les épisodes ouverts d'abord, avec la réponse graduée telle que le serveur l'a rédigée —
  * l'écran ne juge rien, il choisit seulement un ton de badge sur l'état reçu. Puis la
@@ -11,8 +15,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Badge, Button, Card, Empty, Rule, Skeleton, SwipeRow } from '@/components/ui';
-import type { Tone } from '@/components/ui';
-import { painApi, type PainEntry, type PainEpisode, type PainStatus } from '@/features/pain/api';
+import { painApi, type PainEntry, type PainEpisode } from '@/features/pain/api';
 import { ApiError } from '@/lib/api';
 import { shortDate } from '@/lib/format';
 import { keys } from '@/lib/query';
@@ -21,13 +24,7 @@ import { useToast } from '@/lib/toast';
 import styles from './Pain.module.css';
 import { PainForm } from './PainForm';
 import { Patterns } from './Patterns';
-import { useInvalidatePain } from './shared';
-
-const STATUS: Record<PainStatus, { label: string; tone: Tone }> = {
-  stop: { label: 'arrêt', tone: 'recover' },
-  adapt: { label: 'séance adaptée', tone: 'load' },
-  closed: { label: 'refermée', tone: 'effort' },
-};
+import { STATUS, useInvalidatePain } from './shared';
 
 /** Refermées montrées d'emblée : assez pour relire le dernier mois. */
 const CLOSED_SHOWN = 5;
@@ -121,11 +118,7 @@ export function PainSection() {
   const closed = data ? (allClosed ? data.closed : data.closed.slice(0, CLOSED_SHOWN)) : [];
 
   return (
-    <section className={styles.section} aria-labelledby="douleurs">
-      <Rule>
-        <span id="douleurs">Douleurs</span>
-      </Rule>
-
+    <section className={styles.section} aria-label="Douleurs">
       {isPending ? (
         <Card>
           <Skeleton />
@@ -147,6 +140,7 @@ export function PainSection() {
             </Card>
           )}
 
+          {data.open.length > 0 && <Rule>En cours</Rule>}
           {data.open.map((episode) => (
             <Episode key={episode.pain_id} episode={episode} today={data.today} />
           ))}
@@ -188,6 +182,7 @@ export function PainSection() {
 
           <Patterns today={data.today} />
 
+          {closed.length > 0 && <Rule>Refermées</Rule>}
           {closed.map((episode) => (
             <Episode key={episode.pain_id} episode={episode} today={data.today} />
           ))}

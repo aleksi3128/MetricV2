@@ -12,6 +12,7 @@ import { Swims } from '@/routes/activity/Swims';
 import { Assiduity } from '@/routes/Assiduity';
 import { Assistant } from '@/routes/Assistant';
 import { Body } from '@/routes/Body';
+import { Pains } from '@/routes/body/Pains';
 import { Dashboard } from '@/routes/Dashboard';
 import { Dossier } from '@/routes/Dossier';
 import { Load } from '@/routes/Load';
@@ -51,6 +52,9 @@ export function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/corps" element={<Body />} />
+        {/* Une sous-page, comme celles d'Activité : ni dans `NAV` ni dans `MORE`. On y
+            arrive par la porte en tête de `/corps` et par les alertes de douleur (M-08). */}
+        <Route path="/corps/douleurs" element={<Pains />} />
         <Route path="/dossier" element={<Dossier />} />
         <Route path="/charge" element={<Load />} />
         <Route path="/activite" element={<Activity />} />

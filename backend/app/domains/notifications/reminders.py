@@ -114,7 +114,8 @@ DESTINATIONS: dict[str, str] = {
     "workout_soon": "/activite",
     "praise": "/activite",
     "tomorrow_run": "/planning",
-    "pain": "/corps",
+    # La sous-page des douleurs (M-08), comme les alertes : `alerts.PAIN_PAGE`.
+    "pain": "/corps/douleurs",
 }
 
 #: L'heure de l'annonce de la veille : assez tôt pour préparer ses affaires, assez tard pour
