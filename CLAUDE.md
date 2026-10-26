@@ -341,7 +341,7 @@ ce qui a été mesuré, ce qui a été écarté et pourquoi, et finit par ce qui
 |---|---|
 | Un écran encore sur `className="wrap"` : `NotFound.tsx` | il n'a qu'un enfant — lui créer un module CSS pour une seule classe coûterait plus que le défaut |
 | Trois styles en ligne dans `routes/settings/Tracks.tsx` | `marginTop: 14`, qui contournent l'échelle `--s1`…`--s8` |
-| `Tracks.tsx` (856 l.) et `Planning.tsx` (919 l.) | à découper par section |
+| `Tracks.tsx` (840 l.) | à découper par section, avec M-04 |
 | Les phases 4 et 6 de [`refonte-activite.md`](docs/refonte-activite.md) | la copie de sauvegarde, puis la suppression de `workouts.csv`, `exercises.csv` et `exercise_log.csv`. **À la main, par l'utilisateur** — ce sont de vraies données de santé et le projet n'a aucune annulation |
 | La démonstration d'un exercice ne s'affiche que sur un nom **exact** du catalogue | `exercise_media.py` ; un rapprochement approximatif reproduirait celui de Cadence, ce que le dépôt refuse en toutes lettres |
 | Aucun écran n'a jamais été touché sur un **vrai téléphone** | l'émulation ne reproduit ni le pouce, ni le clavier système, ni la latence |

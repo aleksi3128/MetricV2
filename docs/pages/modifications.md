@@ -40,14 +40,14 @@ gagner aucun part.
 | Facile / modéré / dur | — | L (constat, 14 j — M-02) | — | — | — | — | — | — | — | L (80 %, 28 j) | — | — | — |
 | Objectif daté | L | — | (condensé) | — | — | — | — | L É | — | — | — | — | — |
 | Course visée (A/B/C) | — | — | — | — | — | — | L É | — | — | — | — | — | — |
-| Agenda iCloud, changements du coach | — | — | — | — | — | — | L É | — | — | — | — | — | L É (soir) |
-| Ce que l'assistant sait de toi | — | — | L É (carnet) | — | — | — | — | — | — | — | — | É (profil) | — |
+| Agenda iCloud, changements du coach | — | — | — | — | — | L É (M-03) | — | — | — | — | — | — | L É (soir) |
+| Ce que l'assistant sait de toi | — | — | L É (profil et carnet, une feuille — M-05) | — | — | — | — | — | — | — | — | — | — |
 | Séances Cadence | — | L É | É | — | — | — | — | — | — | — | L (séries) | R (adresse) | — |
 
 Trois lignes portent l'essentiel : **la charge** (deux calculs, deux verdicts), **le
 volume hebdomadaire** (six lectures sur trois écrans — une seule tous sports depuis M-07,
 les autres sont un chiffre ou le volume d'un sport), et **ce que l'assistant sait de
-toi** (deux endroits). Trois autres montraient des trous : les mensurations et la FC du
+toi** (deux endroits — un seul depuis M-05). Trois autres montraient des trous : les mensurations et la FC du
 matin s'écrivaient sans se relire — les deux se relisent depuis M-08 et M-09 —, la course
 visée ne parle à aucun autre écran.
 
@@ -62,7 +62,7 @@ visée ne parle à aucun autre écran.
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables, les douleurs à leur adresse — **fait** (`ae706b7`, `cdeda08`) | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
 | [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`, type au rejeu `d1de02d`) | P2 |
-| [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | P2 |
+| [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning — **fait** (`c9b1433`) | P2 |
 | [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | P2 |
 | [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil — **fait** (`c67f06f`) | P2 |
 | [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
@@ -71,7 +71,7 @@ visée ne parle à aucun autre écran.
 | [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens | P2 |
 | [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
 | [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning — **fait** (`9f1e991`) | P2 |
-| [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit | P3 |
+| [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit — **fait** (`ea1aeb4`, `58cf652`) | P3 |
 | [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran | P3 |
 | [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée | P3 |
 | [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main | P3 |
@@ -79,7 +79,7 @@ visée ne parle à aucun autre écran.
 | [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran | P3 |
 | [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » | P3 |
 | [M-20](#m-20) | fusionner | Planning | Un seul coach sur le planning | P3 |
-| [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil | P3 |
+| [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil — **fait** (`fc178f8`) | P3 |
 
 ---
 
@@ -322,6 +322,30 @@ soir garde ses changements — c'est la même composante, qui ne bouge pas.
 **Risque.** Aucun sur les données. `/planning` s'allonge de deux cartes ; les poser repliées
 quand il n'y a rien à montrer.
 
+**Fait le 26 octobre** (`c9b1433`).
+
+- **Décisions** (par défaut) : `/planning` se lit mois → jour choisi → **Ce que le coach a
+  changé** (carte absente quand il n'y a rien) → séance proposée par le coach → coach du
+  planning → **Agenda** → abonnement calendrier. La séance du coach passe ainsi avant le
+  fil, l'inverse d'avant. `/plan` garde les courses visées, les conflits et le plan
+  jusqu'à la course A, et n'appelle plus aucune route du planning.
+- Mêmes composants, mêmes appels ; le point du soir garde `Changes`, qui n'a pas bougé.
+  Sur `/planning`, la carte porte son titre en `h3`, comme l'agenda et l'abonnement — sur
+  `/plan` c'était un trait de section.
+- Hauteurs, banc rempli à 402 px (agenda relié par une doublure, deux changements — une
+  séance allégée pour la douleur, une déplacée par un créneau pris) : `/planning` 2 366 →
+  3 175, `/plan` 2 839 → 1 955 ; vide : 2 114 → 2 494 et 1 069 → 874.
+- Éprouvé sur le banc : « Non, remets comme avant » sur le déplacement par l'agenda remet
+  la séance à 18:30 et retire la ligne, l'autre changement reste. Le point du soir, sa
+  fenêtre avancée à 14 h sur le banc seulement, montre toujours le sien, en sombre comme
+  en clair.
+
+**Reste.** La carte Agenda reste dépliée une fois reliée : le champ « Changer le lien » y
+est toujours visible. Le risque demandait de replier « quand il n'y a rien à montrer » ;
+l'agenda a toujours un état à dire, et le replier changerait `AgendaCard` au-delà du
+déplacement. `docs/agenda-replanification.md` (D9, et la liste des écrans) dit encore
+`/plan` : c'est le plan d'avant, laissé tel quel.
+
 <a id="m-04"></a>
 
 ### M-04 — Chaque réglage à côté de l'écran qu'il règle
@@ -342,7 +366,7 @@ natation. Le défilement de 11 000 px est le symptôme ; la cause est le rangeme
 | Section | Nouvelle place |
 |---|---|
 | Pistes d'assiduité, jours neutralisés | `/assiduite`, dans une feuille « Régler les pistes » |
-| Ce que je suis (profil) | `/assistant`, à côté du carnet (M-05) |
+| ~~Ce que je suis (profil)~~ | `/assistant`, à côté du carnet — **fait** avec M-05 (`58cf652`) |
 | Glossaire de nage | `/planning`, feuille ouverte depuis le clavier de sigles |
 | FC max, allure seuil | la page Courses, et le lien « Corriger dans les réglages » de la page d'une course y mène |
 | Adresse de Cadence | `/activite/seances` (là où son absence est déjà signalée) |
@@ -379,6 +403,33 @@ dans `/reglages`. L'en-tête du profil se définit d'ailleurs par contraste avec
 **Profil** et **Carnet**. C'est la partie « profil » de M-04.
 
 **Coût.** Front seul. **Risque.** Aucun.
+
+**Fait le 26 octobre** (`58cf652`), après un découpage sans changement de comportement :
+`Assistant.tsx` faisait 852 lignes, ses deux feuilles sont sorties dans
+`routes/assistant/` (`ea1aeb4`).
+
+- **Décisions** (par défaut) : un `Segmented` en tête de la feuille, **Carnet** ouvert par
+  défaut — l'en-tête « Mémoire » ouvre le carnet ; `?ouvre=memoire` ouvre le carnet,
+  `?ouvre=profil` le profil. Le profil garde son bouton « Enregistrer le profil » sous
+  `If-Match`, aucune écriture à la frappe. Aucun lien ne menait au profil dans
+  `/reglages` : rien à rediriger.
+- `Profile` a déménagé tel quel, quatre états compris ; seul son trait de section « Ce que
+  je suis » est parti, l'onglet le porte. Les deux panneaux restent montés tant que la
+  feuille est ouverte : un brouillon de profil survit à un coup d'œil au carnet. L'en-tête
+  de la feuille change de phrase avec l'onglet, à hauteur égale — les segments ne bougent
+  pas sous le doigt (mesuré à 360, 390 et 402 px).
+- **Les invalidations**, vérifiées côté serveur : écrire le profil invalide les réglages
+  (même fichier, `settings.csv`, même jeton). Rien d'autre : le condensé n'est jamais en
+  cache à l'écran, le coach de course ne lit pas le profil, le compositeur de séances le
+  lit à la demande.
+- **Coût réel** : une phrase serveur en plus. La consigne du modèle (`context.py`), quand
+  rien n'existe avec le matériel déclaré, envoyait vers « Réglages, section Ce que je
+  suis » ; elle envoie vers « l'assistant : Mémoire, onglet Profil ». En route, l'indice
+  de la piste eau disait « il se règle dans le profil » — déjà faux, l'objectif d'eau est
+  dans « Objectifs » ; il le dit.
+- `/reglages` : 11 235 → 9 785 px rempli, 11 060 → 9 785 vide. `audit-surfaces` gagne la
+  ligne « profil de l'assistant » : sans défaut, comme le carnet, à 402, 390 et 360 px, en
+  sombre et en clair.
 
 <a id="m-06"></a>
 
@@ -856,6 +907,11 @@ n'avait pas d'entrée Assistant. Il en a une, la barre basse aussi ; le seul qui
 quelque chose est « Mémoire », et c'est déjà un bouton de l'en-tête de `/assistant`. La
 rangée part.
 
+**Fait le 26 octobre** (`fc178f8`). La rangée, son trait de section et sa classe partent.
+**Décision** (par défaut) : `?ouvre=discussions` et `?ouvre=memoire` restent lus par
+`/assistant` — un favori ou un lien gardé y mène encore. `/` : 2 223 → 2 070 px rempli,
+1 919 → 1 766 vide.
+
 <a id="m-23"></a>
 
 ### M-23 — Les favoris dans la feuille « Ajouter un repas »
@@ -906,7 +962,7 @@ serveur, contrairement au coût annoncé.
 | [`sortie-publique.md`](../sortie-publique.md) | §4.14 (`/reglages` fait 7 794 px — 11 357 aujourd'hui) : M-04 en est la cause et la réponse. §4.17 : M-21 (3). §4.3, §4.4, §4.5 (couleurs, représentations, dates) : de la forme, non repris ici. §3.2 (le matin qui prend l'application en otage) : non repris — il vise un public. |
 | [`charge-multisport.md`](../charge-multisport.md), [`accueil-et-charge.md`](../accueil-et-charge.md) | M-02 rouvre la cohabitation des deux charges qu'ils ont posée ; la relire avant de trancher le seuil. |
 | [`refonte-activite.md`](../refonte-activite.md) | M-14 et M-15 n'y touchent pas aux phases 4 et 6 (suppression de CSV, à la main). |
-| `CLAUDE.md` §7 | `Tracks.tsx` et `Planning.tsx` à découper : M-04 et M-03 en sont l'occasion. |
+| `CLAUDE.md` §7 | `Tracks.tsx` (840 lignes) à découper : M-04 en est l'occasion. `Planning.tsx` n'en faisait plus que 210 — la ligne était périmée, corrigée avec M-03 ; c'est `Assistant.tsx` (852) qu'il a fallu découper, avant M-05 (`ea1aeb4`). |
 
 ## 5. Dans quel ordre
 
@@ -921,7 +977,9 @@ serveur, contrairement au coût annoncé.
    Reste à part : ouvrir un jour depuis la grille de l'historique.
 5. ~~**M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.~~ Faits (`c67f06f`, `cdeda08`, `96d81d9`).
-6. **M-03**, puis **M-04 + M-05 + M-22** — le grand rangement des réglages.
+6. ~~**M-03**, puis~~ **M-04** ~~+ **M-05** + **M-22**~~ — le grand rangement des réglages.
+   M-03, M-05 et M-22 faits (`c9b1433`, `58cf652`, `fc178f8`), après le découpage
+   d'`Assistant.tsx` (`ea1aeb4`). Reste M-04.
 7. **M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
    de déplacer ferait renommer deux fois.
 8. **M-10**, **M-16** à **M-20** : chacun quand sa décision de produit est prise.

@@ -17,7 +17,8 @@ Fichiers : [`Dashboard.tsx`](../../frontend/src/routes/Dashboard.tsx) et
 ## 1. Le tableau de bord
 
 Haut d'écran rempli : 2 847 px à 402 px de large à l'inventaire ; 2 207 px depuis M-06
-(3 198 avant, sur le banc du 26 octobre — voir le `README`).
+(3 198 avant, sur le banc du 26 octobre — voir le `README`) ; 2 070 depuis M-22 (2 223
+avant, sur le banc du lot M-03).
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
@@ -28,7 +29,7 @@ Haut d'écran rempli : 2 847 px à 402 px de large à l'inventaire ; 2 207 px de
 | **Où je vais** (`Aim`) | L'objectif en cours (anneau, résumé, fenêtre, jours restants) ; à défaut la cible de poids ; à défaut l'état vide | même appel (`goal`, `weight.to_target_kg`) | « Aucun objectif en cours » + **Fixer un objectif** |
 | ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
 | ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
-| **Assistant** | Trois liens : Ouvrir l'assistant, Discussions, Mémoire | — | toujours là |
+| ~~**Assistant**~~ | Retirée (M-22, `fc178f8`) : la barre du haut et la barre basse ont leur entrée, « Mémoire » est un bouton de l'en-tête de `/assistant` | — | — |
 
 ## 2. Le parcours du matin — feuille « Bonjour »
 
@@ -53,7 +54,7 @@ S'ouvre seul dans la fenêtre du soir, ou par la relance `/?soir=1`.
 |---|---|---|
 | Tes séances | Chaque séance du jour et son effort perçu (1–10) | RPE course / natation / autre |
 | Ta douleur | `PainCheck` sur la séance du jour | `POST /api/pain` ou « aucune douleur » |
-| Ce que j'ai changé | Les déplacements du coach, avec « Non, remets comme avant » | `POST /api/planning/changes/{key}` |
+| Ce que j'ai changé | Les déplacements du coach, avec « Non, remets comme avant » — le même composant que sur `/planning` (M-03) | `POST /api/planning/changes/{key}` |
 | Demain | Lignes rédigées par le serveur | — |
 
 Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min** (`POST /api/evening/snooze`).
@@ -70,8 +71,9 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 ## 5. Liens sortants
 
 `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`,
-`/objectif`, `/corps` et `/routine` (état vide), `/assistant` ×3, un lien par alerte —
-celles de douleur mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
+`/objectif`, `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule
+(la rangée de trois liens est partie avec M-22), un lien par alerte — celles de douleur
+mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 
 ## 6. Constats
 
@@ -91,10 +93,9 @@ celles de douleur mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 - **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
   « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
   enregistre les deux sans changer d'écran.
-- **La rangée « Assistant » en pied d'écran a perdu sa raison d'être.** La barre du haut a
-  une entrée Assistant sur ordinateur depuis `320bcfc`, et la barre basse aussi. Le
-  commentaire de [`Dashboard.tsx`](../../frontend/src/routes/Dashboard.tsx) qui affirmait
-  le contraire est corrigé (M-21, `3bcde3f`) ; la rangée elle-même attend M-22.
+- ~~**La rangée « Assistant » en pied d'écran a perdu sa raison d'être.**~~ Retirée (M-22,
+  `fc178f8`). Les adresses `?ouvre=discussions` et `?ouvre=memoire` restent lues par
+  `/assistant`.
 - ~~**Le matin promet un rattrapage qui n'existe pas.**~~ Corrigé (M-01, `331ae7e`) :
   « Aucun repas noté hier. » est suivi d'un lien « Rattraper un repas d'hier » qui ferme
   le parcours et ouvre la feuille d'ajout sur hier (`/nutrition?ajout=hier`).

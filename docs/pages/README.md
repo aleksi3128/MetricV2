@@ -88,7 +88,7 @@ douleur et le rappel de suivi).
 
 | Depuis | Vers |
 |---|---|
-| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` (×3 + la lecture du jour), chaque alerte — celles de douleur vers `/corps/douleurs` |
+| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule (la rangée de trois liens est partie — M-22), chaque alerte — celles de douleur vers `/corps/douleurs` |
 | Activité | ses six sous-pages ; `/reglages` (adresse de Cadence, zones) |
 | Assiduité | `/reglages` (pistes) |
 | Objectif | `/assistant` |
@@ -96,6 +96,12 @@ douleur et le rappel de suivi).
 | Corps | `/corps/douleurs` (la porte en tête) ; le parcours du matin (feuille, deux portes : l'en-tête, et l'état vide de « Le matin ») |
 | Douleurs (`/corps/douleurs`) | `/corps` (retour) |
 | Planning, Plan, Charge, Routine, Dossier, Réglages, Assistant | aucun lien vers un autre écran |
+
+Deux déménagements sans lien nouveau : l'agenda et « ce que le coach a changé » sont passés
+de `/plan` à `/planning` (M-03), le profil de l'assistant de `/reglages` à la feuille du
+carnet, onglet Profil (M-05). Les adresses `/assistant?ouvre=discussions`, `?ouvre=memoire`
+et `?ouvre=profil` ouvrent leur feuille ; aucun écran n'y mène plus, elles servent aux
+favoris.
 
 ### Les surfaces qui s'ouvrent seules
 
@@ -111,17 +117,17 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 
 | Écran | Rempli | Vide |
 |---|---|---|
-| `/reglages` | **11 357** | 11 060 |
+| `/reglages` | **9 785** ³ | 9 785 ³ |
 | `/corps` | **5 261** ² | 3 246 ² |
 | `/assiduite` | 5 610 | 4 221 |
 | `/activite/course/:id` | 4 749 | 874 |
 | `/activite/courses` | 4 029 | 874 |
+| `/planning` | 3 175 ³ | 2 494 ³ |
 | `/nutrition` | 3 124 ¹ | 2 609 |
 | `/activite` | 3 100 ¹ | 1 309 |
-| `/planning` | 2 316 | 2 114 |
-| `/plan` | 2 287 | 1 069 |
-| `/` | 2 207 ² | 1 919 ² |
 | `/routine` | 2 125 | 1 633 |
+| `/` | 2 070 ³ | 1 766 ³ |
+| `/plan` | 1 955 ³ | 874 ³ |
 | `/corps/douleurs` | 1 905 ² | 874 ² |
 | `/charge` | 1 810 | 1 628 |
 | `/activite/seances` | 1 202 | 1 386 |
@@ -139,3 +145,12 @@ revenue, huit courses `.fit` dont quatre avec un effort perçu. Sur ce même ban
 le lot : `/` 3 198 rempli et 2 529 vide (2 847 à l'inventaire), `/corps` 5 926 et 3 153
 (6 168 et 2 573 à l'inventaire). En route, `/corps` est passé par 4 540 et 2 870 — les
 douleurs parties, avant la carte « Le matin ».
+
+³ Remesurés le 26 octobre après-midi, après M-03, M-05 et M-22, sur un banc semé pour le
+lot (celui du ² plus une course visée A et une C, quatre séances prévues, l'agenda relié par
+une doublure, deux changements du coach, deux notes au carnet et un profil rempli). Sur ce
+même banc, **avant** le lot : `/` 2 223 et 1 919, `/planning` 2 366 et 2 114, `/plan`
+2 839 et 1 069, `/reglages` 11 235 et 11 060. `/reglages` a la même hauteur rempli et vide :
+la seule section qui en différait était le profil. `/planning` s'allonge (+809 rempli,
++380 vide) de l'agenda, toujours là, et des changements quand il y en a ; `/plan` perd les
+deux.
