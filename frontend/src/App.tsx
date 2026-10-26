@@ -23,6 +23,7 @@ import { Nutrition } from '@/routes/Nutrition';
 import { Catalog } from '@/routes/nutrition/Catalog';
 import { Plan } from '@/routes/Plan';
 import { Planning } from '@/routes/Planning';
+import { SwimGlossary } from '@/routes/planning/SwimGlossary';
 import { Routine } from '@/routes/Routine';
 import { Settings } from '@/routes/Settings';
 import { NotFound } from '@/routes/NotFound';
@@ -79,6 +80,9 @@ export function App() {
         <Route path="/activite/course" element={<Run />} />
         <Route path="/activite/course/:id" element={<Run />} />
         <Route path="/planning" element={<Planning />} />
+        {/* Sans entrée de navigation : le pied de `/planning` et de `/activite/natations`
+            y mène (M-04). */}
+        <Route path="/planning/sigles" element={<SwimGlossary />} />
         <Route path="/plan" element={<Plan />} />
         <Route path="/objectif" element={<Goals />} />
         {/* Sans entrée de navigation : la barre demandait déjà 806 px pour 695

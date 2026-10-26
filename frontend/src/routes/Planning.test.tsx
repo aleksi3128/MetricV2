@@ -493,6 +493,17 @@ afterEach(() => {
 // ── Le calendrier (`PLAN-01`) ─────────────────────────
 
 describe('calendrier mensuel', () => {
+  it('mène au glossaire de nage depuis son pied, sa sous-page (M-04)', async () => {
+    stub();
+    renderScreen();
+
+    await screen.findByRole('grid');
+    expect(screen.getByRole('link', { name: 'Les sigles de nage' })).toHaveAttribute(
+      'href',
+      '/planning/sigles',
+    );
+  });
+
   it('affiche la grille telle que le serveur la découpe', async () => {
     stub();
     renderScreen();

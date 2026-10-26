@@ -87,6 +87,8 @@ const PRIVATE_ROUTES = [
   // l'écran montre, donc celui qui se regarde le plus.
   ['/activite/creer', 'activite-creer'],
   ['/planning', 'planning'],
+  // Le glossaire de nage, sorti de `/reglages` sur sa sous-page (M-04).
+  ['/planning/sigles', 'planning-sigles'],
   ['/objectif', 'objectif'],
   ['/assistant', 'assistant'],
   ['/routine', 'routine'],

@@ -1,6 +1,12 @@
 /**
- * Section « Natation » des Réglages : le glossaire de la notation
- * (`docs/planning-natation.md` §3).
+ * Le glossaire de la notation de nage (`docs/planning-natation.md` §3), sur sa sous-page
+ * `/planning/sigles` (M-04).
+ *
+ * Il était la section « Natation » de `/reglages`, loin du planning et des natations qui
+ * s'en servent. Il a sa page, atteinte depuis le pied de `/planning` et de
+ * `/activite/natations` — **pas** depuis les feuilles de saisie : quitter la feuille pour
+ * aller renommer un sigle ferait perdre la séance en cours d'écriture, et la feuille porte
+ * déjà le glossaire en lecture, replié.
  *
  * Deux sortes de sigles, et deux règles que **le serveur** applique — l'écran ne fait que
  * les montrer :
@@ -16,17 +22,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import {
-  Badge,
-  Button,
-  Card,
-  Empty,
-  Field,
-  Rule,
-  Segmented,
-  Skeleton,
-  SwipeRow,
-} from '@/components/ui';
+import { Badge, Button, Card, Empty, Field, Segmented, Skeleton, SwipeRow } from '@/components/ui';
 import {
   planningApi,
   type SwimCategory,
@@ -267,9 +263,7 @@ export function SwimCodes() {
 
   return (
     <>
-      <Rule>Natation</Rule>
       <Card>
-        <h3>Le glossaire de la notation</h3>
         <p className={styles.note}>
           Les sigles que le planning et le coach emploient — <code>400 CR EF</code>,{' '}
           <code>8×50 CR SP R15</code>. Le repos (<code>R</code>) et le départ (<code>D</code>) sont

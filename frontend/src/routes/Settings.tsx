@@ -20,7 +20,6 @@ import { useTheme, type ThemeMode } from '@/lib/theme';
 
 import { Reminders } from './settings/Reminders';
 import { Security } from './settings/Security';
-import { SwimCodes } from './settings/SwimCodes';
 import { Tracks } from './settings/Tracks';
 
 import styles from './Settings.module.css';
@@ -264,8 +263,6 @@ export function Settings() {
 
       {/* « Ce que je suis » est parti à côté du carnet, dans la feuille de l'assistant
           (M-05) : `/assistant?ouvre=profil`. */}
-
-      <SwimCodes />
 
       <Reminders />
 

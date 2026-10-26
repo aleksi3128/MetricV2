@@ -144,6 +144,11 @@ export function Swims() {
         </>
       )}
 
+      {/* Les sigles de la notation se règlent sur leur sous-page du planning (M-04). */}
+      <LinkButton variant="quiet" to="/planning/sigles">
+        Les sigles de nage
+      </LinkButton>
+
       <SwimSheet
         swimId={opened}
         onClose={() => {

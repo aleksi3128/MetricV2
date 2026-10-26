@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { Badge, Button, Card, Empty, Skeleton } from '@/components/ui';
+import { Badge, Button, Card, Empty, LinkButton, Skeleton } from '@/components/ui';
 import { planningApi, type PlanFormValues, type PlannedSession } from '@/features/planning/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -217,6 +217,12 @@ export function Planning() {
           <SubscriptionCard />
         </>
       )}
+
+      {/* Le glossaire de nage a sa sous-page (M-04). Un lien de pied, hors des états du
+          mois : il se règle même quand le calendrier ne répond pas. */}
+      <LinkButton variant="quiet" to="/planning/sigles">
+        Les sigles de nage
+      </LinkButton>
 
       <PlanSheet
         values={form}

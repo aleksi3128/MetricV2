@@ -204,6 +204,16 @@ describe('enregistrer une natation', () => {
 });
 
 describe('une natation dans l’historique', () => {
+  it('mène au glossaire de nage depuis le pied de la page des natations (M-04)', async () => {
+    stub();
+    renderAt('/activite/natations');
+
+    expect(await screen.findByRole('link', { name: 'Les sigles de nage' })).toHaveAttribute(
+      'href',
+      '/planning/sigles',
+    );
+  });
+
   it('se dit en mètres et s’ouvre dans sa feuille', async () => {
     const user = userEvent.setup();
     stub();

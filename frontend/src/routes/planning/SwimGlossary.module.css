@@ -1,0 +1,6 @@
+/* La sous-page du glossaire de nage (M-04). `screen` est combiné à `wrap` dans le TSX. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
