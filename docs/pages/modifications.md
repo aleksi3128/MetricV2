@@ -76,7 +76,7 @@ visée ne parle à aucun autre écran.
 | [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée — **fait** (`64e3f49`) | P3 |
 | [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main — **fait** (`2cc88e0`, `7eaa41f`) | P3 |
 | [M-17](#m-17) | ajouter | Plan | Corriger une course visée — **fait** (`defb1cd`) | P3 |
-| [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran | P3 |
+| [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran — **écartée** (27 octobre : aucune synchro Garmin, voir §6) | P3 |
 | [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » | P3 |
 | [M-20](#m-20) | fusionner | Planning | Un seul coach sur le planning | P3 |
 | [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil — **fait** (`fc178f8`) | P3 |
@@ -962,9 +962,12 @@ lit qu'au terminal (`make status`, `make sync`). Une ligne dans Réglages — de
 ce qu'elle a apporté, un bouton — dirait pourquoi la nuit de l'accueil manque. **Appel
 Garmin réel** au bouton : à annoncer comme tel.
 
-**Décision du 27 octobre** (session 9 b). « Synchroniser maintenant » **et** l'état de la
-synchro Garmin dans Réglages. Le bouton se code et se teste **sur doublure** ; il n'est
-**jamais déclenché en réel** pendant la session.
+**Décision du 27 octobre** (session 9 b) : **écartée, sans code.** L'utilisateur ne veut
+**aucune synchro Garmin, même en production**. Il n'y a donc rien à montrer : ni état, ni
+bouton. Les sorties entrent par leur `.fit`, la nuit par le parcours du matin (FC de
+repos, VFC), comme aujourd'hui. Le code de la synchro reste en place — `domains/sync/`,
+son planificateur, `make sync` — : le retirer est un lot à part, que personne n'a demandé
+(§7).
 
 <a id="m-19"></a>
 
@@ -1155,6 +1158,9 @@ serveur, contrairement au coût annoncé.
 - **Fusionner les trois pages de la carte du coach.** Elle s'affiche au matin, au planning
   et sur la page d'une course, par une seule implémentation : trois moments, une
   composante. C'est la bonne forme de redondance.
+- **La synchro Garmin à l'écran (M-18).** Par décision de l'utilisateur, le 27 octobre :
+  pas de synchro Garmin, même en production. Un état et un bouton « Synchroniser
+  maintenant » montreraient une voie qu'on a choisi de ne pas prendre.
 - **Un écran « Santé » rassemblant Corps, Dossier et douleurs.** Tentant, mais le dossier
   est une référence chiffrée qu'on ouvre deux fois par an, et le poids un geste de chaque
   matin. M-08 sort les douleurs de `/corps` sans créer d'écran de plus.
@@ -1172,4 +1178,5 @@ en passant.
 | Un plan posé pour une course passée de A en B, ou retirée | M-17 ne vise que la date ; la priorité et la suppression défont aussi le plan, autrement |
 | `DISTANCES` écrite dans `Plan.tsx` | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir |
 | Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système |
+| Le code de la synchro Garmin (`domains/sync/`, son planificateur, `make sync`, la ligne Garmin de `make status` et `make doctor` ; `garminconnect` n'est importé que s'il est installé, et ne l'est pas) | M-18 est écartée : aucune synchro, même en production. Le retirer — ou le garder dormant — est une **décision à prendre** ; la session 9 b n'y a pas touché |
 

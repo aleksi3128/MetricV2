@@ -25,7 +25,7 @@ avant, sur le banc du lot M-03).
 | **Lecture du jour** (`Brief`) | Un message du modèle pour le moment de la journée (matin, mi-journée, soir), en `AiBlock` ; le condensé envoyé, replié | `GET /api/brief` | Absente : « Rien n'est encore écrit… » + **Demander la lecture**. Sans clé IA : la carte disparaît |
 | **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + deux liens **Noter une pesée** (→ `/corps`) et **Boire un verre** (→ `/routine`) ; « Aucune séance prévue d'ici deux semaines » |
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
-| **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une |
+| **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une — et sans synchro Garmin, écartée par choix (M-18), il n'y en a pas |
 | **Où je vais** (`Aim`) | L'objectif en cours (anneau, résumé, fenêtre, jours restants) ; à défaut la cible de poids ; à défaut l'état vide | même appel (`goal`, `weight.to_target_kg`) | « Aucun objectif en cours » + **Fixer un objectif** |
 | ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
 | ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
@@ -90,6 +90,10 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
   dix courses `.fit` sans effort perçu, et l'accueil dit toujours « Pas encore de charge
   globale » pendant que la page Courses compte 310. Sans aucune séance, la phrase dit
   désormais « aucune séance enregistrée » (`3930cfb`).
+- **La nuit Garmin ne s'affiche pas — par choix.** Sommeil, stress et Body Battery
+  (`body/health.csv`) n'arrivaient que par la synchro Garmin, que l'utilisateur a écartée
+  le 27 octobre (M-18) : ce n'est plus un manque. La ligne reste dans `Shape`, qui ne la
+  dessine que s'il y a une nuit ; la FC de repos et la VFC passent par le parcours du matin.
 - **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
   « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
   enregistre les deux sans changer d'écran.
@@ -106,5 +110,5 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 ## 7. Non vu
 
 La lecture réellement écrite par un modèle (banc sans réponse de modèle) ; une alerte
-ouverte ; une nuit Garmin ; les deux parcours en situation (le banc tournait à 13 h, hors
+ouverte ; une nuit Garmin (il n'y en aura pas : M-18 est écartée) ; les deux parcours en situation (le banc tournait à 13 h, hors
 des deux fenêtres) — ils sont décrits depuis le code.

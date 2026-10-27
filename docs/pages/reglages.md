@@ -62,9 +62,10 @@ Un conflit s'affiche ; il ne se force pas. Preuve : `routes/SettingsFile.test.ts
 - ~~**Le titre « Objectifs & repères » est celui de la première section.**~~ La page
   s'appelle « Réglages », et sa section « Cibles » (M-13, `21a1672`) : « Objectif » ne
   désigne plus que l'objectif daté de `/objectif`.
-- **La synchro Garmin n'a aucune place à l'écran.** Le serveur sert son état et un
-  « synchroniser maintenant » (`GET/POST /api/sync`) ; on ne les lit qu'en `make status`
-  et `make sync`, au terminal. La dernière nuit reçue, elle, s'affiche sur l'accueil (M-18).
+- **La synchro Garmin n'a aucune place à l'écran — par choix.** L'utilisateur l'a écartée
+  le 27 octobre (M-18) : aucune synchro Garmin, même en production. Ce n'est plus un
+  manque. `GET/POST /api/sync` existent encore côté serveur, sans écran et sans usage ;
+  leur retrait est une décision à part (`modifications.md` §7).
 - **La barre « Enregistrer » collante** (fiche 24 de l'audit) reste ici seulement : les
   formulaires déplacés ont deux champs au plus, sous leur bouton.
 
