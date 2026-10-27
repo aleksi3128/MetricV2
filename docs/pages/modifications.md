@@ -725,6 +725,12 @@ qui doit nommer les séances du jour pour `effort.rate`. Le jeu d'évaluation (`
 **Risque.** Une douleur notée par erreur oriente le coach dès le lendemain : l'annulation
 dans le fil doit être aussi visible que pour une pesée.
 
+**Décision du 27 octobre** (session 9 c). **Quatre** actions et non trois : noter une
+douleur (`pain.add`), noter une natation **dans la notation** (`swim.add`, lue par le
+serveur comme la saisie), noter un effort perçu sur une séance **du jour**
+(`effort.rate`), et `meal.add` pour **hier** — le reste de M-01. Les cas de `make eval`
+s'écrivent et **ne se lancent pas** : ce sont des appels payants.
+
 <a id="m-11"></a>
 
 ### M-11 — L'état vide de l'accueil ouvre « Noter »
@@ -890,6 +896,12 @@ Vélo et marche n'entrent que par un `.fit`. `activityApi.createOther` et
 « Enregistrer une course » (sport, durée, distance, effort) suffit. À faire si l'usage
 existe : sans montre, ces sorties sont aujourd'hui invisibles à la charge globale.
 
+**Décision du 27 octobre** (session 9 a). Saisie à la main : **sport, date, durée,
+distance facultative, et l'effort perçu demandé dans le même formulaire** — facultatif,
+avec la phrase qui dit que sans lui la sortie ne compte pas dans la charge. La saisie se
+range dans la feuille « Course », étape 1, en troisième choix « Vélo ou marche, à la
+main ». La liste des sports vient du serveur ; aucune n'est écrite côté client.
+
 <a id="m-17"></a>
 
 ### M-17 — Corriger une course visée
@@ -899,6 +911,12 @@ existe : sans montre, ces sorties sont aujourd'hui invisibles à la charge globa
 `PATCH /api/races/{id}` (« Corriger une course visée ») existe, sans écran : changer un
 chrono visé ou une date oblige à supprimer puis recréer, ce qui défait le plan posé. Un
 « corriger » sur la ligne, réemployant le formulaire d'ajout. Front seul.
+
+**Décision du 27 octobre** (session 9 a). Corriger une course visée **en place**, par le
+formulaire d'ajout, sous `If-Match`. Si la **date** change alors que son plan est posé au
+planning, la correction s'enregistre, puis un bandeau dit que le plan posé ne suit plus
+et offre « Reposer le plan », **armé, deux appuis**, puisqu'il remplace. C'est le
+serveur qui dit que le plan ne suit plus — aucune comparaison de dates à l'écran.
 
 <a id="m-18"></a>
 
@@ -910,6 +928,10 @@ chrono visé ou une date oblige à supprimer puis recréer, ce qui défait le pl
 lit qu'au terminal (`make status`, `make sync`). Une ligne dans Réglages — dernière synchro,
 ce qu'elle a apporté, un bouton — dirait pourquoi la nuit de l'accueil manque. **Appel
 Garmin réel** au bouton : à annoncer comme tel.
+
+**Décision du 27 octobre** (session 9 b). « Synchroniser maintenant » **et** l'état de la
+synchro Garmin dans Réglages. Le bouton se code et se teste **sur doublure** ; il n'est
+**jamais déclenché en réel** pendant la session.
 
 <a id="m-19"></a>
 
@@ -924,6 +946,10 @@ dans « Où je vais », avant la cible de poids. Serveur : l'ajouter au tableau 
 (`AGG-01`). Décision de produit : un objectif daté et une course A peuvent coexister —
 lequel passe devant ?
 
+**Décision du 27 octobre** (session 9 b). « Où je vais » montre **les deux** : la course A
+d'abord (nom, J-n, phase du plan), l'objectif daté dessous ; la cible de poids seulement à
+défaut des deux.
+
 <a id="m-20"></a>
 
 ### M-20 — Un seul coach sur le planning
@@ -937,6 +963,11 @@ fil (et ce fil apparaît enfin dans « Tes discussions »,
 [`service.py:194`](../../backend/app/domains/assistant/service.py#L194)). Décision de
 produit : le fil du planning a des actions réservées (`plan.propose`) ; les ouvrir au fil
 ordinaire ou garder la portée.
+
+**Décision du 27 octobre** (session 9 c). Le fil « Demander au planning » **se fond dans
+l'assistant** : une entrée sur `/planning` ouvre l'assistant sur ce fil, le fil apparaît
+dans « Tes discussions », et ses actions réservées (`plan.propose`) **gardent leur
+portée** — elles ne s'ouvrent pas au fil ordinaire.
 
 <a id="m-21"></a>
 
@@ -1069,7 +1100,9 @@ serveur, contrairement au coût annoncé.
 7. ~~**M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
    de déplacer ferait renommer deux fois.~~ Faits (`21a1672` → `c2f44fa`, `827b293`, puis
    `64e3f49`).
-8. **M-10**, **M-16** à **M-20** : chacun quand sa décision de produit est prise.
+8. **M-10**, **M-16** à **M-20** : décisions prises le 27 octobre (sous chaque fiche).
+   Session 9 a : **M-16** et **M-17**. Session 9 b : **M-19** et **M-18**. Session 9 c :
+   **M-10** et **M-20**.
 
 ## 6. Écarté, et pourquoi
 
