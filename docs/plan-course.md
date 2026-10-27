@@ -42,7 +42,7 @@ demande confirmation » : la règle tranche, la phrase argumente, le bouton dema
 
 | Fichier | Contenu |
 |---|---|
-| `goals/races.csv` | `race_id`, `name`, `date`, `distance` (`5k` · `10k` · `semi` · `marathon` · `sprint` · `olympique` · `70.3` · `ironman`), `priority` (A/B/C), `target`, `note` |
+| `goals/races.csv` | `race_id`, `name`, `date`, `distance` (`5k` · `10k` · `semi` · `marathon` · `sprint` · `olympique` · `70.3` · `ironman`), `priority` (A/B/C), `target`, `note`, `plan_date` (M-17 : la date pour laquelle le plan posé a été calculé) |
 | `goals/race_decisions.csv` | `key`, `decision` (`accepted` · `refused`), `date` — la réponse à un conflit |
 
 Famille *planning* : une cible, pas une mesure.
@@ -65,6 +65,9 @@ Famille *planning* : une cible, pas une mesure.
 - `GET /api/races/conflicts`, `POST /api/races/conflicts/{key}` `{accept}`.
 - `GET /api/races/{race_id}/plan`, `POST /api/races/{race_id}/plan` (poser), `DELETE
   /api/races/plan` (retirer les séances `plan` à venir).
+- Depuis M-17 (27 octobre) : `races.csv.plan_date` retient la date pour laquelle le plan
+  posé a été calculé ; `GET /api/races` sert `stale_plan` quand elle diffère de la date de
+  la course. L'écran corrige une course en place et offre de reposer, armé.
 - L'écran `/plan` : courses, conflit à trancher, plan de la course A.
 
 ---

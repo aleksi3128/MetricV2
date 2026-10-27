@@ -140,8 +140,8 @@ Sur la vraie API branchée à un WebDAV en mémoire, à 402 et 360 px : la feuil
 
 #### Laissé, et pourquoi
 
-- **Saisir une sortie vélo ou marche à la main** : la route existe (`POST /others`), pas
-  l'écran. Le besoin, c'est la montre ; une marche sans montre se dira à l'assistant le jour
-  où il saura l'écrire.
+- ~~**Saisir une sortie vélo ou marche à la main**~~ : fait le 27 octobre (M-16,
+  `docs/pages/modifications.md`) — troisième choix de la feuille « Course », l'effort perçu
+  dans la saisie, `rpe` accepté par `POST /others`.
 - **TRIMP et hrTSS** (D2), **l'écran de la charge** (R10), **les alertes envoyées** (R3).
 

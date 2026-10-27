@@ -74,8 +74,8 @@ visée ne parle à aucun autre écran.
 | [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit — **fait** (`ea1aeb4`, `58cf652`) | P3 |
 | [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran | P3 |
 | [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée — **fait** (`64e3f49`) | P3 |
-| [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main | P3 |
-| [M-17](#m-17) | ajouter | Plan | Corriger une course visée | P3 |
+| [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main — **fait** (`2cc88e0`, `7eaa41f`) | P3 |
+| [M-17](#m-17) | ajouter | Plan | Corriger une course visée — **fait** (`defb1cd`) | P3 |
 | [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran | P3 |
 | [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » | P3 |
 | [M-20](#m-20) | fusionner | Planning | Un seul coach sur le planning | P3 |
@@ -902,6 +902,22 @@ avec la phrase qui dit que sans lui la sortie ne compte pas dans la charge. La s
 range dans la feuille « Course », étape 1, en troisième choix « Vélo ou marche, à la
 main ». La liste des sports vient du serveur ; aucune n'est écrite côté client.
 
+**Fait le 27 octobre** (`2cc88e0`, `7eaa41f`). **Changé en route** : le coût annoncé
+« front seul » ne tenait pas — `OtherPayload` n'acceptait pas l'effort perçu et aucune
+route ne servait les sports. Le serveur prend `rpe` et lit durée et distance comme une
+course (`1h30`, `12,5`) ; `GET /api/activity/others` sert `sports`, tirés du `Literal`
+du schéma. L'échelle de `RateEffort` est sortie en `EffortScale`, contrôlée : un second
+appui retire la note. La feuille s'intitule « Vélo ou marche » à l'étape 2. Vu sur le
+banc : le bouton principal disait « Saisir à la main » juste sous « Vélo ou marche, à la
+main » — il dit maintenant « Saisir une course à la main ». Une sortie de 1 h 05 à
+l'effort 5 entre à `/charge` pour 325.
+
+**Reste.** Une sortie saisie ne se **corrige** pas : `OtherSheet` ne note que l'effort,
+et le serveur n'a pas de `PATCH /others/{id}` — une durée fausse se supprime et se
+ressaisit. Aucune douleur n'est demandée après la saisie (`PainCheck`), comme pour une
+course à la main ; seul un import la pose. La FC moyenne et la note, que la route
+accepte, ne sont pas demandées.
+
 <a id="m-17"></a>
 
 ### M-17 — Corriger une course visée
@@ -917,6 +933,23 @@ formulaire d'ajout, sous `If-Match`. Si la **date** change alors que son plan es
 planning, la correction s'enregistre, puis un bandeau dit que le plan posé ne suit plus
 et offre « Reposer le plan », **armé, deux appuis**, puisqu'il remplace. C'est le
 serveur qui dit que le plan ne suit plus — aucune comparaison de dates à l'écran.
+
+**Fait le 27 octobre** (`defb1cd`). **Changé en route** : le coût annoncé « front seul »
+ne tenait pas non plus — rien ne retenait pour quelle date un plan avait été posé.
+`races.csv` gagne `plan_date` (dernière colonne, vide par défaut), écrite par « Poser »,
+effacée par « Retirer » ; `GET /api/races` sert `stale_plan` (la course, la phrase) quand
+elle diffère de la date et que des séances `plan` restent à venir. Un plan posé avant la
+colonne se reconnaît, à la correction, par son jour de course posé (le marqueur
+« Course : ») à l'ancienne date. Un conflit de jeton ne se force pas : le message passe
+en toast et la correction se referme — le formulaire, remonté sur le nouveau jeton,
+aurait emporté le message. Vu sur le banc : « Distance » et « Priorité » prennent
+l'intitulé d'un `Field`.
+
+**Reste.** Seule la **date** rend le plan caduc. Une course A passée en B garde son plan
+posé sans bandeau ; un nom corrigé laisse l'ancien titre au jour de course posé jusqu'à
+la repose ; une course retirée laisse ses séances `plan`. La liste des distances
+(`DISTANCES` dans `Plan.tsx`) est toujours écrite côté client, comme l'étaient les
+sports avant M-16.
 
 <a id="m-18"></a>
 
@@ -1101,8 +1134,8 @@ serveur, contrairement au coût annoncé.
    de déplacer ferait renommer deux fois.~~ Faits (`21a1672` → `c2f44fa`, `827b293`, puis
    `64e3f49`).
 8. **M-10**, **M-16** à **M-20** : décisions prises le 27 octobre (sous chaque fiche).
-   Session 9 a : **M-16** et **M-17**. Session 9 b : **M-19** et **M-18**. Session 9 c :
-   **M-10** et **M-20**.
+   Session 9 a : ~~**M-16** et **M-17**~~ faits (`2cc88e0`, `7eaa41f`, `defb1cd`).
+   Session 9 b : **M-19** et **M-18**. Session 9 c : **M-10** et **M-20**.
 
 ## 6. Écarté, et pourquoi
 
@@ -1125,3 +1158,18 @@ serveur, contrairement au coût annoncé.
 - **Un écran « Santé » rassemblant Corps, Dossier et douleurs.** Tentant, mais le dossier
   est une référence chiffrée qu'on ouvre deux fois par an, et le poids un geste de chaque
   matin. M-08 sort les douleurs de `/corps` sans créer d'écran de plus.
+
+## 7. Ce qui reste — à reprendre pour lui-même
+
+Les restes des fiches faites avant le 27 octobre sont sous chaque fiche, en **Reste.**
+Ceux de la session 9 a sont rassemblés ici, pour que 9 b et 9 c ne les reprennent pas
+en passant.
+
+| Reste | Pourquoi laissé |
+|---|---|
+| Corriger une sortie vélo ou marche (durée, sport, distance) | pas de route `PATCH /others/{id}` ; une addition se défait par le glissement de l'historique |
+| La douleur après une sortie saisie à la main | une course à la main ne la demande pas non plus ; l'étendre aux deux est une décision |
+| Un plan posé pour une course passée de A en B, ou retirée | M-17 ne vise que la date ; la priorité et la suppression défont aussi le plan, autrement |
+| `DISTANCES` écrite dans `Plan.tsx` | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir |
+| Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système |
+

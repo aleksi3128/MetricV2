@@ -36,6 +36,7 @@ La destination la plus large de l'application : **sept adresses** et sept feuill
 |---|---|---|---|
 | Déclarer une séance faite | Je l'ai faite → durée proposée → Consigner au journal | `POST /api/activity/circuits/{id}/done` | addition |
 | Enregistrer une course | feuille en deux étapes (`NewActivitySheet`) : `.fit`, capture, ou à la main | `POST /api/activity/runs/fit` · `POST /api/import/apple/analyze` puis `POST /api/import/apple` (capture) · `POST /api/activity/runs` (main) | addition |
+| Saisir un vélo ou une marche | même feuille, troisième choix de l'étape 1 (M-16) : sport, date, durée, distance, effort perçu | `GET /api/activity/others` (les sports) · `POST /api/activity/others` | addition |
 | Enregistrer une natation | feuille (`SwimEntrySheet`) : `.fit` ou notation | `POST /api/activity/swims/fit` · `POST /api/activity/swims` | addition |
 | Corriger une course | puce « corriger » → `ActivitySheet` | `PATCH /api/activity/runs/{id}` | `If-Match` |
 | Noter l'effort d'un vélo / marche | puce → `OtherSheet` | `PUT /api/activity/others/{id}/rpe` | `If-Match` |
@@ -119,7 +120,7 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
 
 | Feuille | Ouverte depuis | Contenu |
 |---|---|---|
-| `NewActivitySheet` « Course » | Enregistrer une course, Ajouter une course | Étape 1 : `.fit` (un vélo y est reconnu et réaiguillé ; une natation s'ouvre dans `SwimSheet`, sur place — M-15), capture (si IA, une seule), ou à la main. Étape 2 : date, temps, distance, allure, cadence, FC, ressenti ; après une capture, en plus, ce qu'elle a lu et ce qui manquait, dénivelé et calories, paliers et doublon probable, écrits par l'import (`source=apple`, M-14). Après un `.fit` : effort perçu et `PainCheck` |
+| `NewActivitySheet` « Course » | Enregistrer une course, Ajouter une course | Étape 1 : `.fit` (un vélo y est reconnu et réaiguillé ; une natation s'ouvre dans `SwimSheet`, sur place — M-15), capture (si IA, une seule), « Vélo ou marche, à la main » (M-16 : la feuille devient « Vélo ou marche », `OtherEntry`), ou « Saisir une course à la main ». Étape 2 : date, temps, distance, allure, cadence, FC, ressenti ; après une capture, en plus, ce qu'elle a lu et ce qui manquait, dénivelé et calories, paliers et doublon probable, écrits par l'import (`source=apple`, M-14). Après un `.fit` : effort perçu et `PainCheck` |
 | `ActivitySheet` | corriger | Date, distance, durée, FC, ressenti |
 | `SwimEntrySheet` | Enregistrer une natation, Corriger la séance | `.fit` ou date, heure, durée, bassin, programme en notation (clavier de sigles), note |
 | `SwimSheet` | une natation | voir §6 |
@@ -144,8 +145,10 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
 - ~~**Une natation `.fit` déposée dans « Enregistrer une course » part au planning.**~~
   Corrigé (M-15, `9f1e991`) : elle s'ouvre dans `SwimSheet`, sur place, depuis `/activite`
   comme depuis `/activite/courses` ; la note le dit.
-- **Vélo et marche ne s'ajoutent que par un `.fit`.** `activityApi.createOther` existe et
-  le serveur accepte `POST /api/activity/others`, mais aucun écran ne l'appelle (M-16).
+- ~~**Vélo et marche ne s'ajoutent que par un `.fit`.**~~ Corrigé (M-16, `2cc88e0`,
+  `7eaa41f`) : troisième choix de la feuille « Course », l'effort perçu dans le même
+  formulaire, les sports servis par le serveur. Une sortie saisie ne se corrige toujours
+  pas — elle se note, ou se supprime.
 - ~~**La date du jour s'affiche en ISO** au pied de l'étape 1.~~ Corrigé (M-21,
   `3bcde3f`) : « Aujourd'hui : jeudi 22 octobre ».
 - ~~**L'état vide de `/activite/courses` renvoie ailleurs.**~~ Corrigé (M-21, `3bcde3f`) :

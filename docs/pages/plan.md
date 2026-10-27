@@ -18,7 +18,8 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
 | Conflit (s'il y en a) | « Deux courses visées en A » et la phrase qui tranche ; **Oui, fais-le** / non | `GET /api/races` | — |
-| **Courses visées** | Nom, date, distance, priorité, chrono visé ; supprimer ; **Ajouter une course visée** (formulaire en place) | même appel | « Aucune course visée » |
+| Plan qui ne suit plus (s'il y en a) | La phrase du serveur (« Le plan posé au planning mène au 16/02 ; … ») et **Reposer le plan** (M-17) | même appel, `stale_plan` | — |
+| **Courses visées** | Nom, date, distance, priorité, chrono visé ; **corriger** (M-17), supprimer ; **Ajouter une course visée** (formulaire en place) | même appel | « Aucune course visée » |
 | ~~**Ce que le coach a changé**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
 | **Plan jusqu'à la course A** | Synthèse (semaines, volume de départ et de pic, affûtage), avertissement de préparation courte ; les quatre semaines qui viennent, séance par séance en notation ; les autres repliées ; **Poser au planning** | `GET /api/races/plan/{race_id}` | « Plan indisponible » |
 | ~~**Agenda**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
@@ -28,15 +29,18 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 | Action | Geste | Écrit | Garde |
 |---|---|---|---|
 | Ajouter une course visée | formulaire | `POST /api/races` | addition |
+| Corriger une course visée | « corriger » sur la ligne : le formulaire d'ajout, pré-rempli, en place (M-17) | `PATCH /api/races/{id}` | `If-Match` ; un conflit passe en toast et recharge |
+| Reposer un plan qui ne suit plus | bandeau « Le plan posé ne suit plus » (`stale_plan`), **armé** | `POST /api/races/plan/{race_id}` | deux appuis |
 | Supprimer une course visée | deux appuis | `DELETE /api/races/{id}` | `If-Match` |
 | Trancher un conflit | Oui / non | `POST /api/races/conflicts/{key}` | — |
 | Poser le plan | bouton ; **armé** s'il remplace un plan déjà posé | `POST /api/races/plan/{race_id}` · `DELETE /api/races/plan` | deux appuis au remplacement |
 
 ## 3. Constats
 
-- **Une course visée ne se corrige pas.** Le serveur a la route
-  (`PATCH /api/races/{id}`, « Corriger une course visée »), aucun écran ne l'appelle :
-  changer un chrono visé ou une date, c'est supprimer puis recréer (M-17).
+- ~~**Une course visée ne se corrige pas.**~~ Corrigé (M-17, `defb1cd`) : « corriger »
+  sur chaque ligne, le formulaire d'ajout en place, sous `If-Match`. Une date déplacée au
+  plan posé fait dire au serveur que le plan ne suit plus ; le bandeau le repose, armé.
+  Seule la date le déclenche — une course A passée en B garde son plan sans rien dire.
 - ~~**Deux blocs n'ont rien de propre au plan de course**~~ Corrigé (M-03, `c9b1433`) :
   l'agenda et « Ce que le coach a changé » sont sur `/planning`. L'écran ne porte plus que
   les courses visées, leurs conflits et le plan, et n'appelle plus aucune route du
@@ -54,4 +58,5 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 
 ## 4. Non vu
 
-Un conflit A/A ; un plan déjà posé puis remplacé.
+Un conflit A/A. ~~Un plan déjà posé puis remplacé~~ : vu le 27 octobre sur le banc, par
+le bandeau de M-17 — 48 séances posées, la date avancée de deux semaines, 54 reposées.
