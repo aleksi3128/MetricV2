@@ -28,6 +28,7 @@ from app.domains.races.schemas import (
     Race,
     RaceList,
     RacePayload,
+    StalePlanView,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.files import FileStore
@@ -64,6 +65,37 @@ class RaceService:
                 for item in open_conflicts
             ],
             next_a=upcoming_a[0].model.race_id if upcoming_a else None,
+            stale_plan=await self._stale_plan(rows, day),
+        )
+
+    async def _stale_plan(self, rows: list[Row[RaceRow]], today: date) -> StalePlanView | None:
+        """Le plan posé ne suit plus sa course quand il a été calculé pour une autre date.
+
+        Ni le nom, ni la distance, ni le chrono ne le défont : le plan se calcule sur la
+        date et la priorité, et seule la date déplace des séances. Un plan dont il ne reste
+        rien à venir — retiré à la main, ou déjà couru — ne dit plus rien.
+        """
+        from app.domains.planning.service import PlanningService
+
+        moved = next(
+            (
+                row.model
+                for row in rows
+                if row.model.plan_date is not None and row.model.plan_date != row.model.date
+            ),
+            None,
+        )
+        if moved is None or moved.plan_date is None or moved.date is None:
+            return None
+        if await PlanningService(self._store).planned_count(today) == 0:
+            return None
+        return StalePlanView(
+            race_id=moved.race_id,
+            text=(
+                f"Le plan posé au planning mène au {moved.plan_date:%d/%m} ; {moved.name} est "
+                f"maintenant le {moved.date:%d/%m}. Il ne suit plus : le reposer remplace les "
+                "séances à venir."
+            ),
         )
 
     async def create(self, payload: RacePayload) -> RaceList:
@@ -96,10 +128,25 @@ class RaceService:
                     "priority": payload.priority,
                     "target": payload.target or "",
                     "note": (payload.note or "").strip(),
+                    "plan_date": await self._plan_date(current, payload.date),
                 }
             ),
         )
         return await self.view()
+
+    async def _plan_date(self, current: RaceRow, new_date: date) -> date | None:
+        """Ce que la course retient de son plan posé, après correction.
+
+        Un plan posé avant que `plan_date` existe n'a laissé aucune trace sur la course :
+        quand la date change, le jour de course posé au planning (son marqueur), s'il
+        tombe à l'ancienne date, dit que c'était le plan de cette course.
+        """
+        from app.domains.planning.service import PlanningService
+
+        if current.plan_date is not None or current.date is None or new_date == current.date:
+            return current.plan_date
+        placed = await PlanningService(self._store).placed_race_day(today_local())
+        return current.date if placed == current.date else None
 
     async def delete(self, index: int, token: str) -> RaceList:
         await self._repo.delete_by_token(index, token)
@@ -207,6 +254,14 @@ class RaceService:
                     )
                 )
         created = await planning.place_plan(payloads)
+        # La course retient la date pour laquelle son plan est posé, et elle seule : poser
+        # remplace les séances `plan` à venir, quel que soit le plan d'avant (M-17).
+        await self._repo.update_where(
+            lambda race: race.race_id == race_id or race.plan_date is not None,
+            lambda race: race.model_copy(
+                update={"plan_date": race.date if race.race_id == race_id else None}
+            ),
+        )
         return PlacedView(created=created, removed=removed)
 
     async def _busy(self, today: date, built: periodize.Plan) -> list[ics.Busy] | None:
@@ -226,6 +281,10 @@ class RaceService:
         from app.domains.planning.service import PlanningService
 
         removed = await PlanningService(self._store).clear_plan(today or today_local())
+        await self._repo.update_where(
+            lambda race: race.plan_date is not None,
+            lambda race: race.model_copy(update={"plan_date": None}),
+        )
         return PlacedView(created=0, removed=removed)
 
     async def _build(self, race: RaceRow, today: date) -> periodize.Plan:

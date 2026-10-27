@@ -7,6 +7,7 @@ coach tranche, argumente, et ne change rien sans un oui.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, timedelta
 from itertools import pairwise
 from typing import Any
@@ -16,6 +17,10 @@ from fastapi.testclient import TestClient
 from app.core.validation import today_local
 from app.domains.races import conflicts, periodize
 from app.domains.races.catalog import SPECS
+from app.domains.races.models import RaceRow
+from app.storage.csv_repo import CsvRepository
+from app.storage.files import FileStore
+from app.storage.paths import RACES
 
 TODAY = today_local()
 
@@ -263,6 +268,158 @@ def test_a_race_is_corrected_and_removed_under_if_match(
         f"/api/races/{race['id']}", headers={**auth, "If-Match": race["token"]}
     ).json()
     assert gone["races"] == []
+
+
+def _patch(
+    client: TestClient, auth: dict[str, str], race: dict[str, Any], **changes: Any
+) -> dict[str, Any]:
+    body = {key: race[key] for key in ("name", "date", "distance", "priority", "target", "note")}
+    response = client.patch(
+        f"/api/races/{race['id']}",
+        json={**body, **changes},
+        headers={**auth, "If-Match": race["token"]},
+    )
+    assert response.status_code == 200, response.text
+    return dict(response.json())
+
+
+def test_m17_a_race_is_corrected_in_place_under_if_match(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    view = _race(
+        store_client,
+        auth,
+        name="10 km",
+        date=(TODAY + timedelta(weeks=6)).isoformat(),
+        distance="10k",
+        priority="B",
+    )
+    race = view["races"][0]
+    body = {"name": "10 km", "date": race["date"], "distance": "10k", "priority": "B"}
+
+    missing = store_client.patch(f"/api/races/{race['id']}", json=body, headers=auth)
+    assert missing.status_code == 409
+
+    fixed = _patch(store_client, auth, race, name="10 km de Toulouse", target="0:52:00")
+    assert fixed["races"][0]["name"] == "10 km de Toulouse"
+    assert fixed["races"][0]["target"] == "0:52:00"
+    assert fixed["races"][0]["race_id"] == race["race_id"]
+    assert fixed["stale_plan"] is None
+
+    stale = store_client.patch(
+        f"/api/races/{race['id']}", json=body, headers={**auth, "If-Match": race["token"]}
+    )
+    assert stale.status_code == 409
+
+
+def test_m17_a_priority_corrected_to_a_reopens_the_conflict(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    day = TODAY + timedelta(weeks=12)
+    _race(store_client, auth, name="Semi", date=day.isoformat(), distance="semi", priority="A")
+    view = _race(
+        store_client,
+        auth,
+        name="Marathon",
+        date=(day + timedelta(weeks=4)).isoformat(),
+        distance="marathon",
+        priority="B",
+    )
+    assert view["conflicts"] == []
+
+    marathon = next(race for race in view["races"] if race["name"] == "Marathon")
+    corrected = _patch(store_client, auth, marathon, priority="A")
+    assert len(corrected["conflicts"]) == 1
+
+
+def test_m17_a_placed_plan_no_longer_follows_a_moved_race_until_placed_again(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    first_day = TODAY + timedelta(weeks=10)
+    view = _race(
+        store_client,
+        auth,
+        name="Semi de Lyon",
+        date=first_day.isoformat(),
+        distance="semi",
+        priority="A",
+    )
+    race_id = view["next_a"]
+    store_client.post(f"/api/races/plan/{race_id}", headers=auth)
+    race = store_client.get("/api/races", headers=auth).json()["races"][0]
+
+    # Le nom ne défait pas le plan : seule la date déplace des séances.
+    renamed = _patch(store_client, auth, race, name="Semi de Lyon 2027")
+    assert renamed["stale_plan"] is None
+
+    moved_day = first_day + timedelta(weeks=2)
+    moved = _patch(store_client, auth, renamed["races"][0], date=moved_day.isoformat())
+    assert moved["stale_plan"]["race_id"] == race_id
+    assert f"mène au {first_day:%d/%m}" in moved["stale_plan"]["text"]
+    assert f"maintenant le {moved_day:%d/%m}" in moved["stale_plan"]["text"]
+
+    store_client.post(f"/api/races/plan/{race_id}", headers=auth)
+    assert store_client.get("/api/races", headers=auth).json()["stale_plan"] is None
+
+
+def test_m17_a_moved_race_without_a_placed_plan_says_nothing(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    view = _race(
+        store_client,
+        auth,
+        name="10 km",
+        date=(TODAY + timedelta(weeks=8)).isoformat(),
+        distance="10k",
+        priority="A",
+    )
+    moved = _patch(
+        store_client,
+        auth,
+        view["races"][0],
+        date=(TODAY + timedelta(weeks=9)).isoformat(),
+    )
+    assert moved["stale_plan"] is None
+
+    # Posé puis retiré : plus rien à venir, plus rien à dire.
+    race_id = moved["next_a"]
+    store_client.post(f"/api/races/plan/{race_id}", headers=auth)
+    store_client.delete("/api/races/plan", headers=auth)
+    again = store_client.get("/api/races", headers=auth).json()["races"][0]
+    assert (
+        _patch(store_client, auth, again, date=(TODAY + timedelta(weeks=10)).isoformat())[
+            "stale_plan"
+        ]
+        is None
+    )
+
+
+def test_m17_a_plan_placed_before_the_column_is_recognised_by_its_race_day(
+    store_client: TestClient, store: FileStore, auth: dict[str, str]
+) -> None:
+    """Un plan posé avant `plan_date` : le jour de course posé dit à quelle course il va."""
+    first_day = TODAY + timedelta(weeks=8)
+    view = _race(
+        store_client,
+        auth,
+        name="10 km",
+        date=first_day.isoformat(),
+        distance="10k",
+        priority="A",
+    )
+    race_id = view["next_a"]
+    store_client.post(f"/api/races/plan/{race_id}", headers=auth)
+    # L'état d'avant M-17 : des séances posées, aucune trace sur la course.
+    repo: CsvRepository[RaceRow] = CsvRepository(store, RACES, RaceRow)
+    asyncio.run(
+        repo.update_where(
+            lambda race: True, lambda race: race.model_copy(update={"plan_date": None})
+        )
+    )
+
+    race = store_client.get("/api/races", headers=auth).json()["races"][0]
+    moved = _patch(store_client, auth, race, date=(first_day + timedelta(days=7)).isoformat())
+    assert moved["stale_plan"]["race_id"] == race_id
 
 
 def test_a_peak_out_of_reach_is_said_with_its_reason() -> None:

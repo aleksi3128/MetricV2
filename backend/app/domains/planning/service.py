@@ -553,6 +553,23 @@ class PlanningService:
             lambda row: row.source == "plan" and row.date is not None and row.date >= since
         )
 
+    async def placed_race_day(self, since: date) -> date | None:
+        """Le jour de course d'un plan posé, à venir — `None` s'il n'y en a pas.
+
+        Le marqueur « Course : » est celui que lit le coach (`replan.py`) ; il sert ici à
+        reconnaître un plan posé **avant** que les courses retiennent `plan_date` (M-17).
+        """
+        for row in await self._plan.read_all():
+            model = row.model
+            if (
+                model.source == "plan"
+                and model.date is not None
+                and model.date >= since
+                and model.note.startswith("Course :")
+            ):
+                return model.date
+        return None
+
     async def planned_count(self, since: date) -> int:
         return sum(
             1

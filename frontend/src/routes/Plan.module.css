@@ -38,6 +38,29 @@
   padding: var(--s2);
 }
 
+/* La ligne d'une course visée et son « corriger » (M-17) : le texte prend la place, la
+   pastille garde la sienne. */
+.raceRow {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding-right: var(--s2);
+}
+
+.raceRow > .race {
+  flex: 1;
+  min-width: 0;
+}
+
+/* La correction en place : le formulaire d'ajout, dans la ligne qu'il corrige. La carte
+   est `flush` pour la liste ; le formulaire, lui, a besoin de ses marges. */
+.editing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: var(--s3) var(--s2) var(--s4);
+}
+
 .raceHead {
   display: flex;
   justify-content: space-between;
@@ -67,10 +90,16 @@
   gap: var(--s2);
 }
 
+/* L'intitulé d'un groupe de pastilles, recopié de celui d'un `Field` : « Distance » et
+   « Priorité » se lisaient en phrase entre « Date » et « Chrono visé » en capitales — deux
+   formulaires dans un. Vu en corrigeant une course en place (M-17). */
 .label {
   margin: var(--s2) 0 0;
-  color: var(--ink-mid);
-  font-size: var(--t-sub);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: var(--ls-meta);
+  text-transform: uppercase;
+  color: var(--ink-low);
 }
 
 .week {

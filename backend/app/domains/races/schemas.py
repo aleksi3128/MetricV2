@@ -47,12 +47,23 @@ class ConflictView(BaseModel):
     text: str
 
 
+class StalePlanView(BaseModel):
+    """Le plan posé au planning ne suit plus sa course : sa date a changé depuis (M-17)."""
+
+    race_id: str
+    #: « Le plan posé mène au 12/04 ; … » — rédigé ici, affiché tel quel.
+    text: str
+
+
 class RaceList(BaseModel):
     today: date
     races: list[Race]
     conflicts: list[ConflictView]
     #: La prochaine course A, celle dont le plan se calcule.
     next_a: str | None = None
+    #: Présent quand le plan posé a été calculé pour une autre date que celle de sa course
+    #: et qu'il en reste des séances à venir. Reposer le plan le fait disparaître.
+    stale_plan: StalePlanView | None = None
 
 
 class DecisionPayload(BaseModel):

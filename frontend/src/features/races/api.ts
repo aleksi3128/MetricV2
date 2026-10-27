@@ -35,11 +35,19 @@ export interface Conflict {
   text: string;
 }
 
+/** Le plan posé ne suit plus sa course, dont la date a changé (M-17). Le serveur le dit,
+ *  et rédige la phrase. */
+export interface StalePlan {
+  race_id: string;
+  text: string;
+}
+
 export interface RaceList {
   today: string;
   races: Race[];
   conflicts: Conflict[];
   next_a: string | null;
+  stale_plan: StalePlan | null;
 }
 
 export interface RacePayload {
@@ -86,6 +94,13 @@ export const racesApi = {
   list: () => request<RaceList>('/api/races'),
   create: (payload: RacePayload) =>
     request<RaceList>('/api/races', { method: 'POST', body: payload }),
+  /** Corriger une course visée, sous `If-Match` (M-17). */
+  update: (id: number, token: string, payload: RacePayload) =>
+    request<RaceList>(`/api/races/${String(id)}`, {
+      method: 'PATCH',
+      body: payload,
+      headers: { 'If-Match': token },
+    }),
   remove: (id: number, token: string) =>
     request<RaceList>(`/api/races/${String(id)}`, {
       method: 'DELETE',

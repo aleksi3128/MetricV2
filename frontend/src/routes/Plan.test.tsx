@@ -3,11 +3,12 @@
  *
  * Le serveur est simulé par ses réponses. Ce qui se vérifie : rien ne se décide sans un
  * oui (CA-07), aucune pastille n'est choisie d'office, et reposer un plan s'arme avant de
- * remplacer.
+ * remplacer. Depuis M-17 : une course visée se corrige en place, sous `If-Match`, et le
+ * bandeau du plan qui ne suit plus arme avant de reposer.
  */
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -63,6 +64,7 @@ const LIST: RaceList = {
     },
   ],
   next_a: 'm1',
+  stale_plan: null,
 };
 
 const PLAN: PlanView = {
@@ -91,10 +93,16 @@ const PLAN: PlanView = {
   placed: 12,
 };
 
-const calls: { url: string; method: string; body: unknown }[] = [];
+const calls: { url: string; method: string; body: unknown; ifMatch: string | null }[] = [];
+/** Ce que rend la liste ; un test peut la remplacer avant le rendu. */
+let list: RaceList = LIST;
+/** La réponse d'une correction ; `null` rend la liste telle quelle. */
+let patched: Response | null = null;
 
 beforeEach(() => {
   calls.length = 0;
+  list = LIST;
+  patched = null;
   vi.stubGlobal(
     'fetch',
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -104,14 +112,16 @@ beforeEach(() => {
         url,
         method,
         body: typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : null,
+        ifMatch: new Headers(init?.headers).get('If-Match'),
       });
+      if (method === 'PATCH') return Promise.resolve(patched ?? json(200, list));
       if (url.includes('/api/races/plan/') && method === 'GET')
         return Promise.resolve(json(200, PLAN));
       if (url.includes('/api/races/plan/') && method === 'POST')
         return Promise.resolve(json(200, { created: 30, removed: 12 }));
       if (url.includes('/conflicts/'))
         return Promise.resolve(json(200, { ...LIST, conflicts: [] }));
-      return Promise.resolve(json(200, LIST));
+      return Promise.resolve(json(200, list));
     }),
   );
 });
@@ -184,5 +194,86 @@ describe('le plan de course', () => {
     expect(screen.queryByText('Agenda')).toBeNull();
     expect(screen.queryByText('Ce que le coach a changé')).toBeNull();
     expect(calls.some((call) => call.url.includes('/api/planning/'))).toBe(false);
+  });
+});
+
+describe('corriger une course visée (M-17)', () => {
+  it('rouvre le formulaire d’ajout en place, pré-rempli, et corrige sous If-Match', async () => {
+    renderPlan();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Corriger la course visée Ironman de Nice' }),
+    );
+
+    const form = screen.getByRole('heading', { name: 'Corriger Ironman de Nice' }).closest('li');
+    expect(form).not.toBeNull();
+    const inside = within(form as HTMLElement);
+    expect(inside.getByLabelText('Nom')).toHaveValue('Ironman de Nice');
+    expect(inside.getByLabelText('Date')).toHaveValue('2027-06-27');
+    expect(inside.getByRole('button', { name: 'Ironman' })).toHaveAttribute('aria-pressed', 'true');
+
+    await userEvent.click(inside.getByRole('button', { name: 'B — important' }));
+    await userEvent.type(inside.getByLabelText('Chrono visé'), '12:30:00');
+    await userEvent.click(inside.getByRole('button', { name: 'Corriger la course visée' }));
+
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'PATCH')).toBe(true);
+    });
+    const patch = calls.find((call) => call.method === 'PATCH');
+    expect(patch?.url).toBe('/api/races/1');
+    expect(patch?.ifMatch).toBe('t1');
+    expect(patch?.body).toEqual({
+      name: 'Ironman de Nice',
+      date: '2027-06-27',
+      distance: 'ironman',
+      priority: 'B',
+      target: '12:30:00',
+      note: null,
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Corriger Ironman de Nice' })).toBeNull();
+    });
+  });
+
+  it('remonte le conflit tel que le serveur le rédige, referme, et recharge la liste', async () => {
+    patched = json(409, { code: 'conflict', message: 'Cette ligne a changé depuis.' });
+    renderPlan();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Corriger la course visée Marathon de Paris' }),
+    );
+    const reads = calls.filter((call) => call.url === '/api/races').length;
+    await userEvent.click(screen.getByRole('button', { name: 'Corriger la course visée' }));
+
+    expect(await screen.findByText('Cette ligne a changé depuis.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Corriger Marathon de Paris' })).toBeNull();
+    await waitFor(() => {
+      expect(calls.filter((call) => call.url === '/api/races').length).toBeGreaterThan(reads);
+    });
+  });
+
+  it('montre le plan qui ne suit plus, et arme avant de le reposer', async () => {
+    list = {
+      ...LIST,
+      stale_plan: {
+        race_id: 'm1',
+        text: 'Le plan posé au planning mène au 11/04 ; Marathon de Paris est maintenant le 25/04.',
+      },
+    };
+    renderPlan();
+    expect(await screen.findByText(/mène au 11\/04/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reposer le plan' }));
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Remplacer les séances posées ?' }));
+    await waitFor(() => {
+      expect(
+        calls.some((call) => call.method === 'POST' && call.url === '/api/races/plan/m1'),
+      ).toBe(true);
+    });
+  });
+
+  it('ne montre aucun bandeau quand le serveur n’en dit rien', async () => {
+    renderPlan();
+    expect(await screen.findByText('6 km EF + 6 × 80 m LD')).toBeInTheDocument();
+    expect(screen.queryByText('Le plan posé ne suit plus')).toBeNull();
   });
 });

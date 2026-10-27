@@ -13,6 +13,11 @@
  * **Poser le plan remplace les séances `plan` à venir** — une écriture qui en défait une
  * autre : quand un plan est déjà posé, le geste s'arme puis s'exécute, comme une
  * suppression. La première pose, elle, n'efface rien et se défait en retirant le plan.
+ *
+ * **Une course visée se corrige en place** (M-17), par le formulaire d'ajout, comme une
+ * pesée de `/corps`. Si sa date a bougé alors que son plan est posé, c'est le serveur qui
+ * le dit (`stale_plan`) : l'écran ne compare aucune date. Le bandeau offre de reposer le
+ * plan — armé, puisque reposer remplace.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,6 +43,7 @@ import {
   type Priority,
   type Race,
   type RaceList,
+  type StalePlan,
 } from '@/features/races/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
@@ -81,23 +87,49 @@ function useInvalidatePlan() {
   };
 }
 
-function RaceForm({ today, onDone }: { today: string; onDone: (list: RaceList) => void }) {
-  const [name, setName] = useState('');
-  const [day, setDay] = useState('');
-  const [distance, setDistance] = useState<Distance | null>(null);
-  const [priority, setPriority] = useState<Priority | null>(null);
-  const [target, setTarget] = useState('');
+/**
+ * Ajouter une course visée, ou en corriger une (M-17) : le même formulaire, pré-rempli
+ * de la ligne quand on corrige. La correction part sous `If-Match`. Un conflit ne se
+ * force pas : l'écran le remonte (`onConflict`), referme la correction et recharge — la
+ * ligne se corrige de nouveau sur ce qu'elle est devenue.
+ */
+function RaceForm({
+  today,
+  editing = null,
+  onDone,
+  onConflict,
+}: {
+  today: string;
+  editing?: Race | null;
+  onDone: (list: RaceList) => void;
+  onConflict?: (error: ApiError) => void;
+}) {
+  const [name, setName] = useState(editing?.name ?? '');
+  const [day, setDay] = useState(editing?.date ?? '');
+  const [distance, setDistance] = useState<Distance | null>(editing?.distance ?? null);
+  const [priority, setPriority] = useState<Priority | null>(editing?.priority ?? null);
+  const [target, setTarget] = useState(editing?.target ?? '');
   const [missing, setMissing] = useState<string | null>(null);
   const save = useMutation({
-    mutationFn: () =>
-      racesApi.create({
+    mutationFn: () => {
+      const payload = {
         name: name.trim(),
         date: day,
         distance: distance ?? '10k',
         priority: priority ?? 'B',
         target: target.trim() === '' ? null : target.trim(),
-      }),
+        // La note ne se montre pas ici ; la correction la renvoie telle quelle, sans quoi
+        // corriger un chrono effacerait une note qu'on n'a pas vue.
+        note: editing?.note ?? null,
+      };
+      return editing === null
+        ? racesApi.create(payload)
+        : racesApi.update(editing.id, editing.token, payload);
+    },
     onSuccess: onDone,
+    onError: (caught: unknown) => {
+      if (caught instanceof ApiError && caught.code === 'conflict') onConflict?.(caught);
+    },
   });
   const error = save.error instanceof ApiError ? save.error : null;
 
@@ -134,7 +166,9 @@ function RaceForm({ today, onDone }: { today: string; onDone: (list: RaceList) =
       <Field
         label="Date"
         type="date"
-        min={today}
+        // Une course passée se corrige encore (son nom, son chrono) : la borne ne vaut que
+        // pour une date à venir.
+        min={editing?.past === true ? undefined : today}
         value={day}
         error={error?.messageFor('date')}
         onChange={(event) => {
@@ -189,13 +223,21 @@ function RaceForm({ today, onDone }: { today: string; onDone: (list: RaceList) =
         </p>
       )}
       <Button variant="primary" type="submit" busy={save.isPending} className={styles.finish}>
-        Ajouter la course visée
+        {editing === null ? 'Ajouter la course visée' : 'Corriger la course visée'}
       </Button>
     </form>
   );
 }
 
-function RaceRow({ race, onRemoved }: { race: Race; onRemoved: (list: RaceList) => void }) {
+function RaceRow({
+  race,
+  onRemoved,
+  onEdit,
+}: {
+  race: Race;
+  onRemoved: (list: RaceList) => void;
+  onEdit: () => void;
+}) {
   const { notify } = useToast();
   const remove = useMutation({
     mutationFn: () => racesApi.remove(race.id, race.token),
@@ -215,17 +257,79 @@ function RaceRow({ race, onRemoved }: { race: Race; onRemoved: (list: RaceList) 
         remove.mutate();
       }}
     >
-      <div className={styles.race}>
-        <div className={styles.raceHead}>
-          <span>{race.name}</span>
-          <Badge tone={PRIORITY_TONE[race.priority]}>{race.priority}</Badge>
+      <div className={styles.raceRow}>
+        <div className={styles.race}>
+          <div className={styles.raceHead}>
+            <span>{race.name}</span>
+            <Badge tone={PRIORITY_TONE[race.priority]}>{race.priority}</Badge>
+          </div>
+          <span className={styles.meta}>
+            {shortDate(race.date)} · {race.distance_label} · {race.countdown}
+            {race.target !== null ? ` · ${race.target}` : ''}
+          </span>
         </div>
-        <span className={styles.meta}>
-          {shortDate(race.date)} · {race.distance_label} · {race.countdown}
-          {race.target !== null ? ` · ${race.target}` : ''}
-        </span>
+        {/* Visible, et pas derrière le glissement : un geste n'est jamais la seule porte. */}
+        <Chip aria-label={`Corriger la course visée ${race.name}`} onClick={onEdit}>
+          corriger
+        </Chip>
       </div>
     </SwipeRow>
+  );
+}
+
+/**
+ * Le plan posé ne suit plus sa course (M-17). La correction est enregistrée ; ce bandeau
+ * dit ce qu'elle a laissé derrière elle, et offre d'y remédier. **Deux appuis** : reposer
+ * remplace les séances `plan` à venir, et le projet n'a pas d'annulation.
+ */
+function StalePlanBanner({ stale, onPlaced }: { stale: StalePlan; onPlaced: () => void }) {
+  const { notify } = useToast();
+  const [armed, setArmed] = useState(false);
+  const place = useMutation({
+    mutationFn: () => racesApi.place(stale.race_id),
+    onSuccess: (done) => {
+      setArmed(false);
+      onPlaced();
+      notify(`Plan reposé : ${String(done.created)} séances au planning.`, 'effort');
+    },
+  });
+  return (
+    <Card>
+      <div className={styles.stack}>
+        <h3>Le plan posé ne suit plus</h3>
+        <p className={styles.text}>{stale.text}</p>
+        <div className={styles.actions}>
+          <Button
+            variant="primary"
+            busy={place.isPending}
+            onClick={() => {
+              if (!armed) {
+                setArmed(true);
+                return;
+              }
+              place.mutate();
+            }}
+          >
+            {armed ? 'Remplacer les séances posées ?' : 'Reposer le plan'}
+          </Button>
+          {armed && (
+            <Button
+              variant="quiet"
+              onClick={() => {
+                setArmed(false);
+              }}
+            >
+              Annuler
+            </Button>
+          )}
+        </div>
+        {place.error !== null && (
+          <p className={styles.warning} role="alert">
+            {place.error instanceof ApiError ? place.error.message : 'Le serveur n’a pas répondu.'}
+          </p>
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -364,8 +468,11 @@ function PlanSection({ raceId, name }: { raceId: string; name: string }) {
 
 export function Plan() {
   const client = useQueryClient();
+  const { notify } = useToast();
   const invalidate = useInvalidatePlan();
   const [adding, setAdding] = useState(false);
+  /** La course visée en cours de correction, par son identifiant stable. */
+  const [editing, setEditing] = useState<string | null>(null);
   const { data, isPending, error } = useQuery({
     queryKey: keys.races.list(),
     queryFn: racesApi.list,
@@ -427,6 +534,10 @@ export function Plan() {
             </Card>
           ))}
 
+          {data.stale_plan !== null && (
+            <StalePlanBanner stale={data.stale_plan} onPlaced={invalidate} />
+          )}
+
           <Rule>Courses visées</Rule>
           <Card flush={data.races.length > 0}>
             {data.races.length === 0 ? (
@@ -435,11 +546,46 @@ export function Plan() {
               </Empty>
             ) : (
               <ul className={styles.list}>
-                {data.races.map((race) => (
-                  <li key={`${race.race_id}-${race.token}`}>
-                    <RaceRow race={race} onRemoved={set} />
-                  </li>
-                ))}
+                {data.races.map((race) =>
+                  editing === race.race_id ? (
+                    <li key={`${race.race_id}-${race.token}`} className={styles.editing}>
+                      <h3>Corriger {race.name}</h3>
+                      <RaceForm
+                        today={data.today}
+                        editing={race}
+                        onDone={(list) => {
+                          set(list);
+                          setEditing(null);
+                        }}
+                        onConflict={(caught) => {
+                          // Le jeton a changé : la liste rechargée remonterait le
+                          // formulaire, et le message avec. Il passe donc en toast.
+                          notify(caught.message, 'recover');
+                          setEditing(null);
+                          invalidate();
+                        }}
+                      />
+                      <Button
+                        variant="quiet"
+                        onClick={() => {
+                          setEditing(null);
+                        }}
+                      >
+                        Annuler
+                      </Button>
+                    </li>
+                  ) : (
+                    <li key={`${race.race_id}-${race.token}`}>
+                      <RaceRow
+                        race={race}
+                        onRemoved={set}
+                        onEdit={() => {
+                          setEditing(race.race_id);
+                        }}
+                      />
+                    </li>
+                  ),
+                )}
               </ul>
             )}
           </Card>

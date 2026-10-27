@@ -19,6 +19,12 @@ class RaceRow(CsvModel):
     #: Le chrono visé, `H:MM:SS` — facultatif.
     target: str = ""
     note: str = ""
+    #: La date de course pour laquelle le plan **posé** au planning a été calculé — vide
+    #: si le plan de cette course n'est pas posé (M-17). Différente de `date`, elle dit que
+    #: le plan posé ne suit plus sa course : c'est le serveur qui le sait, pas l'écran.
+    #: Ajoutée en dernier, avec un défaut : les lignes écrites avant se relisent telles
+    #: quelles.
+    plan_date: CsvDate = None
 
 
 class DecisionRow(CsvModel):
