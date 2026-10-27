@@ -59,6 +59,18 @@ def _distance(value: str | float) -> float:
         raise ValueError(str(exc)) from exc
 
 
+def read_duration_text(value: object) -> object:
+    """`44:12`, `1h30` ou `90` : la lecture d'une durée saisie, pour tout le domaine."""
+    return _duration(value) if isinstance(value, str) else value
+
+
+def read_distance_text(value: object) -> object:
+    """`8,40`, `8.4`, `5mi` ; une chaîne vide vaut « pas de distance »."""
+    if isinstance(value, str):
+        return None if not value.strip() else _distance(value)
+    return value
+
+
 # ── Paliers saisis (`ACT-19`) ─────────────────────────
 #
 # Déclarés **avant** `RunPayload`, qui les porte : une référence avant définition laisserait

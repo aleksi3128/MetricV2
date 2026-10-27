@@ -1176,15 +1176,25 @@ export interface Other {
   note: string | null;
 }
 
-export interface OtherList {
-  others: Other[];
+/** Un sport que la saisie à la main propose — la liste vient du serveur (M-16). */
+export interface SportChoice {
+  value: OtherSport;
+  label: string;
 }
 
+export interface OtherList {
+  others: Other[];
+  sports: SportChoice[];
+}
+
+/** Durée et distance partent en texte : le serveur lit `1h30` et `12,5` comme pour une
+ *  course. */
 export interface OtherPayload {
   date: string;
   sport: OtherSport;
-  duration_min: number;
-  distance_km?: number | null;
+  duration_min: number | string;
+  distance_km?: number | string | null;
   avg_hr?: number | null;
+  rpe?: number | null;
   note?: string | null;
 }

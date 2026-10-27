@@ -8,12 +8,17 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime
-from typing import cast
 
 from app.domains.activity import fit, other_fit
 from app.domains.activity.fit import FitError
 from app.domains.activity.models import OtherRow
-from app.domains.activity.other_schemas import Other, OtherList, OtherPayload, OtherSport
+from app.domains.activity.other_schemas import (
+    SPORTS,
+    Other,
+    OtherList,
+    OtherPayload,
+    SportChoice,
+)
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageConflictError, StorageNotFoundError
 from app.storage.files import FileStore
@@ -21,7 +26,6 @@ from app.storage.paths import OTHERS
 
 #: Même longueur que les autres identifiants stables du domaine.
 ID_BYTES = 6
-SPORTS: tuple[str, ...] = ("vélo", "marche", "randonnée")
 
 
 class OtherService:
@@ -40,7 +44,7 @@ class OtherService:
             start=model.start,
             # Un sport mal écrit dans un tableur retombe sur la marche plutôt que de faire
             # tomber la liste : la durée, elle, reste juste, et c'est elle qui compte.
-            sport=cast(OtherSport, model.sport if model.sport in SPORTS else "marche"),
+            sport=model.sport if model.sport in SPORTS else "marche",
             duration_min=model.duration_min,
             distance_km=model.distance_km,
             avg_hr=model.avg_hr,
@@ -64,7 +68,10 @@ class OtherService:
             key=lambda row: (row.model.date, row.model.start or datetime.min.time()),
             reverse=True,
         )
-        return OtherList(others=[self.to_schema(row) for row in rows])
+        return OtherList(
+            others=[self.to_schema(row) for row in rows],
+            sports=[SportChoice(value=sport, label=sport.capitalize()) for sport in SPORTS],
+        )
 
     async def create(self, payload: OtherPayload) -> Other:
         row = await self._repo.append(
@@ -75,6 +82,7 @@ class OtherService:
                 duration_min=payload.duration_min,
                 distance_km=payload.distance_km,
                 avg_hr=payload.avg_hr,
+                rpe=payload.rpe,
                 note=(payload.note or "").strip(),
                 source="manual",
             )

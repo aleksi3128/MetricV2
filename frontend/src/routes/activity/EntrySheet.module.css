@@ -21,10 +21,11 @@
 }
 
 @media (min-width: 960px) {
-  /* Le fichier de la montre, ou une capture : deux portes de même poids, côte à côte. */
+  /* Le fichier de la montre, une capture, ou un vélo à la main (M-16) : trois portes de
+     même poids, côte à côte. */
   .choices {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--s5);
     align-items: stretch;
   }

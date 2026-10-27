@@ -72,6 +72,14 @@ const SURFACES = [
   // demandent de remplir des champs, ce que ce script s'interdit — il ouvre et il mesure,
   // il ne saisit rien.
   ["/activite", "Enregistrer une course", "assistant de course"],
+  // Son troisième choix (M-16) : un vélo ou une marche à la main — le sport, la date, la
+  // durée, l'échelle d'effort. Ni pastille ni « Enregistrer la sortie » ne sont appuyés :
+  // ce serait écrire.
+  [
+    "/activite",
+    ["Enregistrer une course", "Vélo ou marche, à la main"],
+    "vélo ou marche à la main",
+  ],
   // Enregistrer une natation (`docs/natation-activite.md`) : le fichier, puis la saisie
   // dans la notation — champ de programme, puces, glossaire replié. « Enregistrer » n'est
   // pas appuyé : ce serait écrire.
@@ -95,7 +103,11 @@ const SURFACES = [
   // second onglet. « Jours neutralisés » est un segment — changer d'onglet n'écrit rien ;
   // ni « Modifier », ni « Neutraliser », ni « Supprimer » ne sont appuyés.
   ["/assiduite", "Régler les pistes", "régler les pistes"],
-  ["/assiduite", ["Régler les pistes", "Jours neutralisés"], "jours neutralisés"],
+  [
+    "/assiduite",
+    ["Régler les pistes", "Jours neutralisés"],
+    "jours neutralisés",
+  ],
   // La feuille d'ajout d'un repas et ses trois modes (C05, `NUT-22`). Elle s'ajoute ici
   // le jour où elle est écrite, pas le jour où un défaut s'y découvre. Depuis M-23, elle
   // porte en tête le segment du jour et la bande des favoris : aucune pastille n'est

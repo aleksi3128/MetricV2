@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.core.validation import DistanceKm, DurationMin, HeartRate, Note, PastDate
+from app.core.validation import DistanceKm, DurationMin, HeartRate, Note, PastDate, Rpe
+from app.domains.activity.schemas import read_distance_text, read_duration_text
 
 OtherSport = Literal["vélo", "marche", "randonnée"]
+#: La seule liste des sports : l'écran la reçoit dans `OtherList.sports` (M-16), il n'en
+#: écrit aucune.
+SPORTS: tuple[OtherSport, ...] = get_args(OtherSport)
 
 
 class Other(BaseModel):
@@ -31,15 +35,40 @@ class Other(BaseModel):
 
 
 class OtherPayload(BaseModel):
-    """Une sortie saisie. La durée et le sport suffisent ; le reste se donne s'il est connu."""
+    """Une sortie saisie. La durée et le sport suffisent ; le reste se donne s'il est connu.
+
+    L'effort perçu se donne **dans la saisie** (M-16) : c'est lui qui fait compter la
+    sortie dans la charge, et le redemander ensuite serait un geste de plus qu'on oublie.
+    Durée et distance se lisent comme celles d'une course — `1h30`, `12,5` —, par les
+    mêmes analyseurs : deux lectures de la même écriture finiraient par diverger.
+    """
 
     date: PastDate
     sport: OtherSport
     duration_min: DurationMin
     distance_km: DistanceKm | None = None
     avg_hr: HeartRate | None = None
+    rpe: Rpe | None = None
     note: Note | None = None
+
+    @field_validator("duration_min", mode="before")
+    @classmethod
+    def read_duration(cls, value: object) -> object:
+        return read_duration_text(value)
+
+    @field_validator("distance_km", mode="before")
+    @classmethod
+    def read_distance(cls, value: object) -> object:
+        return read_distance_text(value)
+
+
+class SportChoice(BaseModel):
+    value: OtherSport
+    #: « Vélo » : le libellé d'un bouton, rédigé ici avec la valeur.
+    label: str
 
 
 class OtherList(BaseModel):
     others: list[Other]
+    #: Ce que la saisie à la main propose, dans cet ordre.
+    sports: list[SportChoice]

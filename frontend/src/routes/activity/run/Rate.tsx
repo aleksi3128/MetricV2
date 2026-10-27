@@ -74,28 +74,60 @@ export function RateEffort<T>({
 
   return (
     <div className={styles.rate}>
-      <div className={styles.rateGrid} role="group" aria-label="Effort perçu, de 1 à 10">
-        {SCALE.map((value) => (
-          <Chip
-            key={value}
-            selected={shown === value}
-            disabled={rate.isPending}
-            onClick={() => {
-              rate.mutate(value);
-            }}
-          >
-            {value}
-          </Chip>
-        ))}
-      </div>
-      <p className={styles.rateWord} aria-live="polite">
-        {shown == null ? '1 très facile · 10 à fond' : `${String(shown)} · ${rpeWord(shown)}`}
-      </p>
+      <EffortScale
+        value={shown}
+        disabled={rate.isPending}
+        onChange={(value) => {
+          if (value !== null) rate.mutate(value);
+        }}
+      />
       {rate.error !== null && (
         <p className={styles.rateError} role="alert">
           {rate.error instanceof ApiError ? rate.error.message : 'La note n’a pas été enregistrée.'}
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * L'échelle seule, sans écriture : ce que montre `RateEffort`, pour un formulaire qui
+ * enregistre l'effort **avec** le reste — la saisie d'une sortie à la main (M-16). Une
+ * seconde échelle aurait fini par dire autre chose que la première.
+ *
+ * Un second appui sur la note choisie la retire : l'effort y est facultatif, et sans
+ * cela, un appui de trop ne se défaisait qu'en fermant le formulaire.
+ */
+export function EffortScale({
+  value,
+  onChange,
+  clearable = false,
+  disabled = false,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+  clearable?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <>
+      <div className={styles.rateGrid} role="group" aria-label="Effort perçu, de 1 à 10">
+        {SCALE.map((item) => (
+          <Chip
+            key={item}
+            selected={value === item}
+            disabled={disabled}
+            onClick={() => {
+              onChange(clearable && value === item ? null : item);
+            }}
+          >
+            {item}
+          </Chip>
+        ))}
+      </div>
+      <p className={styles.rateWord} aria-live="polite">
+        {value == null ? '1 très facile · 10 à fond' : `${String(value)} · ${rpeWord(value)}`}
+      </p>
+    </>
   );
 }

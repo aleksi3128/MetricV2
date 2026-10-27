@@ -269,6 +269,51 @@ def test_a_walk_is_entered_rated_and_deleted_under_if_match(
     assert store_client.get(f"{ACTIVITY}/others", headers=auth).json()["others"] == []
 
 
+def test_a_ride_entered_by_hand_carries_its_effort_and_counts_at_once(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    """M-16 : l'effort se donne dans la saisie, la durée s'écrit comme celle d'une course."""
+    listed = store_client.get(f"{ACTIVITY}/others", headers=auth).json()
+    assert listed["sports"] == [
+        {"value": "vélo", "label": "Vélo"},
+        {"value": "marche", "label": "Marche"},
+        {"value": "randonnée", "label": "Randonnée"},
+    ]
+
+    created = store_client.post(
+        f"{ACTIVITY}/others",
+        json={
+            "date": TODAY.isoformat(),
+            "sport": "vélo",
+            "duration_min": "1h30",
+            "distance_km": "32,5",
+            "rpe": 4,
+        },
+        headers=auth,
+    )
+    assert created.status_code == 201, created.text
+    ride = created.json()
+    assert (ride["duration_min"], ride["distance_km"], ride["rpe"]) == (90, 32.5, 4)
+    assert ride["source"] == "manual"
+
+    view = store_client.get("/api/training", headers=auth).json()
+    assert view["series"][-1]["load"] == 360
+    assert view["weeks"][-1]["minutes"]["vélo"] == 90
+
+
+def test_a_ride_without_effort_is_kept_and_a_bad_effort_refused(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    body = {"date": TODAY.isoformat(), "sport": "marche", "duration_min": "45", "distance_km": ""}
+    kept = store_client.post(f"{ACTIVITY}/others", json=body, headers=auth).json()
+    assert (kept["rpe"], kept["distance_km"]) == (None, None)
+
+    refused = store_client.post(f"{ACTIVITY}/others", json={**body, "rpe": 11}, headers=auth)
+    assert refused.status_code == 422
+    unknown = store_client.post(f"{ACTIVITY}/others", json={**body, "sport": "ski"}, headers=auth)
+    assert unknown.status_code == 422
+
+
 def test_a_swim_gets_an_effort_that_survives_a_correction(
     store_client: TestClient, auth: dict[str, str]
 ) -> None:

@@ -38,6 +38,8 @@ export const keys = {
     all: () => ['activity'] as const,
     /** Les natations et leurs semaines (`docs/natation-activite.md`). */
     swims: () => ['activity', 'swims'] as const,
+    /** Vélo, marche, randonnée — et la liste des sports qu'on peut saisir (M-16). */
+    others: () => ['activity', 'others'] as const,
     overview: () => ['activity', 'overview'] as const,
     progress: () => ['activity', 'progress'] as const,
     runs: () => ['activity', 'runs'] as const,
