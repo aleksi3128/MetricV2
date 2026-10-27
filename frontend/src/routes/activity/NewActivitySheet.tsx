@@ -945,8 +945,10 @@ function AppleStep({
             Lire la capture
           </Button>
         ) : (
+          // « une course » : depuis M-16, « Vélo ou marche, à la main » est juste au-dessus,
+          // et deux « Saisir à la main » empilés se lisaient comme le même geste.
           <Button variant="primary" className={styles.commit} onClick={onSkip}>
-            Saisir à la main
+            Saisir une course à la main
           </Button>
         )}
         <Button variant="quiet" onClick={onBack}>

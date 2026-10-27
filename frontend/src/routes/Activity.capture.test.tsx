@@ -322,7 +322,9 @@ describe('une capture lue dans la feuille « Course »', () => {
     stub();
     renderSheet();
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Saisir à la main' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Saisir une course à la main' }),
+    );
 
     expect(screen.queryByLabelText('Dénivelé (m)')).not.toBeInTheDocument();
     expect(screen.queryByText(/Les champs en pointillé/)).not.toBeInTheDocument();

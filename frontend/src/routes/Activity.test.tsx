@@ -270,7 +270,9 @@ describe('écran Activité', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer une course' }));
 
-    expect(await screen.findByRole('button', { name: 'Saisir à la main' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: 'Saisir une course à la main' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Séance' })).toBeNull();
   });
 
@@ -291,7 +293,9 @@ describe('écran Activité', () => {
     renderActivity();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer une course' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Saisir à la main' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Saisir une course à la main' }),
+    );
     await userEvent.type(await screen.findByLabelText('Temps'), '44:12');
     await userEvent.type(screen.getByLabelText('Distance (km)'), '8,40');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la course' }));
@@ -322,7 +326,9 @@ describe('écran Activité', () => {
     renderActivity();
 
     await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer une course' }));
-    await userEvent.click(await screen.findByRole('button', { name: 'Saisir à la main' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Saisir une course à la main' }),
+    );
     await userEvent.type(await screen.findByLabelText('Temps'), "n'importe quoi");
     await userEvent.type(screen.getByLabelText('Distance (km)'), '8,4');
     await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la course' }));
