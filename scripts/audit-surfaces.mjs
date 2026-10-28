@@ -174,10 +174,12 @@ const SURFACES = [
   ["/nutrition", "Fiche du repas de 12:30", "fiche d’un repas"],
   // La fiche d'un repas rattrapé, ouverte depuis le journal d'hier : « Hier » est le segment
   // de la page — lire un autre jour n'écrit rien —, puis la ligne d'un repas dont l'heure
-  // n'a pas été relevée. Sans repas rattrapé hier, « bouton introuvable ».
+  // n'a pas été relevée. Son nom porte le type du repas depuis `1bca600` (il disait « de
+  // heure non relevée ») : un dîner, le rattrapage le plus courant. Sans dîner rattrapé
+  // hier, « bouton introuvable » — on remplace alors le type par celui d'un repas noté.
   [
     "/nutrition",
-    ["Hier", "Fiche du repas de heure non relevée"],
+    ["Hier", "Fiche du repas « dîner », heure non relevée"],
     "fiche d’un repas d’hier",
   ],
   // Le détail d'une charge — courbe et ligne de trente points. Le nom du bouton est celui
