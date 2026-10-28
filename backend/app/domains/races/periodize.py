@@ -24,6 +24,7 @@ semaine et le dit ; une préparation trop courte est signalée, pas forcée.
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Literal, cast
@@ -268,6 +269,47 @@ def _race_week(
         ),
     ]
     return Week(start=monday, phase="course", km=km, long_km=0.0, sessions=sessions)
+
+
+# ── La note d'une séance posée ────────────────────────
+#
+# Le plan posé est le seul à connaître la phase de la semaine en cours : recalculé, il part
+# du lundi suivant et redistribue ses phases sur ce qui reste (sa première semaine dit
+# presque toujours « base »). Chaque séance posée écrit donc sa semaine et sa phase dans
+# sa note, et l'accueil les relit (M-19). Les deux fonctions sont côte à côte pour que
+# l'écriture et la lecture ne puissent pas diverger.
+
+_PLACED = re.compile(r", semaine (\d+)/(\d+), ([a-zéèû]+)\.$")
+
+#: La phase telle qu'une phrase la dit.
+PHASE_WORDS: dict[Phase, str] = {
+    "base": "base",
+    "développement": "développement",
+    "spécifique": "spécifique",
+    "récupération": "récupération",
+    "affûtage": "affûtage",
+    "course": "la course",
+}
+
+
+@dataclass(frozen=True)
+class Placed:
+    week: int
+    weeks: int
+    phase: Phase
+
+
+def placed_note(notation: str, race_name: str, week: int, weeks: int, phase: Phase) -> str:
+    """« 8 km EF — plan Semi de Lyon, semaine 3/16, base. » — la note d'une séance posée."""
+    return f"{notation} — plan {race_name}, semaine {week}/{weeks}, {phase}."
+
+
+def read_placed_note(note: str) -> Placed | None:
+    """La semaine et la phase d'une séance posée ; `None` si la note a été récrite."""
+    found = _PLACED.search(note.strip())
+    if found is None or found.group(3) not in PHASE_WORDS:
+        return None
+    return Placed(int(found.group(1)), int(found.group(2)), cast(Phase, found.group(3)))
 
 
 def _monday(day: date) -> date:

@@ -50,6 +50,19 @@ export interface RaceList {
   stale_plan: StalePlan | null;
 }
 
+/** La prochaine course A, telle que « Où je vais » la dit (M-19). Servie par le tableau
+ *  de bord : le décompte, l'état du plan posé et sa phrase arrivent rédigés. */
+export interface RaceAim {
+  race: Race;
+  /** « J-12 », « Jour J ». */
+  countdown: string;
+  plan: 'absent' | 'posed' | 'stale';
+  phase: Phase | null;
+  /** « Semaine 3 sur 16 — développement ». */
+  phase_text: string | null;
+  stale_plan: StalePlan | null;
+}
+
 export interface RacePayload {
   name: string;
   date: string;

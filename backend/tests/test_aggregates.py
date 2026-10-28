@@ -294,6 +294,41 @@ def test_each_source_file_is_pulled_once(
     assert sorted(fetched) == sorted(set(fetched)), "un fichier a été tiré deux fois"
 
 
+def test_the_a_race_costs_one_more_file_not_one_per_race(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav, store: FileStore, seeded: Any
+) -> None:
+    """M-19 : la course A et la phase du plan posé lisent `races.csv` une fois, et le
+    planning déjà tiré pour la prochaine séance — pas une lecture par course."""
+    for weeks, name, priority in ((6, "Trail", "B"), (12, "Semi", "A"), (30, "Marathon", "A")):
+        response = app_client.post(
+            "/api/races",
+            json={
+                "name": name,
+                "date": (seeded + timedelta(weeks=weeks)).isoformat(),
+                "distance": "semi",
+                "priority": priority,
+            },
+            headers=auth,
+        )
+        assert response.status_code == 201
+    race_id = app_client.get("/api/races", headers=auth).json()["next_a"]
+    assert app_client.post(f"/api/races/plan/{race_id}", headers=auth).status_code == 200
+    # Une requête froide : sans cela, le cache sert les deux fichiers qu'on vient d'écrire et
+    # le compte ne mesure rien.
+    store.cache.clear()
+    dav.reset_journal()
+
+    body = app_client.get(DASHBOARD, headers=auth).json()
+
+    assert body["race"]["race"]["name"] == "Semi"
+    assert body["race"]["plan"] == "posed"
+    fetched = [path for method, path in dav.requests if method == "GET"]
+    assert sorted(fetched) == sorted(set(fetched)), "un fichier a été tiré deux fois"
+    assert sum(path.endswith("races.csv") for path in fetched) == 1
+    assert not any(path.endswith("race_decisions.csv") for path in fetched)
+    assert sum(path.endswith("planning/plan.csv") for path in fetched) == 1
+
+
 def test_an_empty_installation_answers_without_failing(
     app_client: TestClient, auth: dict[str, str]
 ) -> None:

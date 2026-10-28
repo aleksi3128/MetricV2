@@ -23,6 +23,7 @@ from app.domains.goals.schemas import ActiveGoal
 from app.domains.hydration.schemas import HydrationStats
 from app.domains.nutrition.schemas import DayTotals
 from app.domains.planning.schemas import PlannedSession
+from app.domains.races.schemas import RaceAim
 from app.domains.supplements.schemas import DayRatio
 
 # ── Série d'assiduité (`AGG-03`) ──────────────────────
@@ -211,3 +212,9 @@ class DashboardView(BaseModel):
     #: Elle répond au « et ensuite ? » que quatre indicateurs du passé ne posaient même
     #: pas. `null` quand rien n'est prévu sur la fenêtre regardée.
     next_session: PlannedSession | None = None
+    #: La prochaine course A, son décompte et la phase du plan posé (M-19).
+    #:
+    #: **Importée de `races`**, pour la raison écrite sur `goal`. « Où je vais » la met
+    #: avant l'objectif daté ; la cible de poids ne s'affiche qu'à défaut des deux. `null`
+    #: sans course A à venir.
+    race: RaceAim | None = None

@@ -8,6 +8,7 @@
 
 import type { ActiveGoal } from '@/features/goals/api';
 import type { PlannedSession } from '@/features/planning/api';
+import type { RaceAim } from '@/features/races/api';
 import { request } from '@/lib/api';
 
 // ── Blocs repris des domaines ─────────────────────────
@@ -208,6 +209,11 @@ export interface DashboardView {
   goal: ActiveGoal | null;
   /** La prochaine séance prévue. `null` quand rien n'est prévu sur la fenêtre regardée. */
   next_session: PlannedSession | null;
+  /**
+   * La prochaine course A (M-19). `null` sans course A à venir. « Où je vais » la met avant
+   * l'objectif daté ; la cible de poids ne s'affiche qu'à défaut des deux.
+   */
+  race: RaceAim | null;
 }
 
 export const aggregatesApi = {

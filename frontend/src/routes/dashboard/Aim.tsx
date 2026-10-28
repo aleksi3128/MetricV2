@@ -7,12 +7,19 @@
  * écran d'accueil. Le seul « objectif » qu'on y lisait était l'écart à la cible de poids,
  * tout en bas de la page et sous condition.
  *
- * ## Trois blocs, un seul affiché — et le choix n'est pas un calcul
+ * ## Quels blocs dessiner — et le choix n'est pas un calcul
  *
- * L'objectif en cours s'il y en a un ; à défaut la cible de poids si elle est réglée ; à
- * défaut l'état vide, qui dit ce que coûte le prochain geste. Choisir lequel des trois
- * blocs **déjà servis** dessiner est de la présentation, pas une dérivation : aucun
- * chiffre n'est produit ici, et les trois arrivent calculés du serveur.
+ * La prochaine course A d'abord, l'objectif en cours dessous (M-19) : les deux ensemble
+ * quand les deux existent. À défaut des deux, la cible de poids si elle est réglée ; à
+ * défaut l'état vide, qui dit ce que coûte le prochain geste. Choisir lesquels des blocs
+ * **déjà servis** dessiner est de la présentation, pas une dérivation : aucun chiffre
+ * n'est produit ici, et tous arrivent calculés du serveur — le « J-n » et la phase du plan
+ * posé compris.
+ *
+ * ## Le plan se repose sur `/plan`, pas ici
+ *
+ * Quand le plan posé ne suit plus la course, le bloc le dit et mène à `/plan`. Reposer
+ * remplace des séances : c'est un geste armé, en deux appuis, et il n'a qu'une adresse.
  *
  * ## Ce qui n'est pas dessiné
  *
@@ -26,6 +33,8 @@
 import { Card, Empty, LinkButton, Ring, Rule, Stat } from '@/components/ui';
 import type { DashboardView } from '@/features/aggregates/api';
 import type { ActiveGoal } from '@/features/goals/api';
+import type { RaceAim } from '@/features/races/api';
+import { cx } from '@/lib/cx';
 import { kg, num, plural, shortDate } from '@/lib/format';
 
 import styles from '../Dashboard.module.css';
@@ -75,45 +84,123 @@ function CurrentGoal({ active }: { active: ActiveGoal }) {
   );
 }
 
+function NextRace({ aim }: { aim: RaceAim }) {
+  const { race } = aim;
+
+  return (
+    <Card>
+      <div className="spread">
+        <div>
+          <p className="eyebrow">Course visée · priorité A</p>
+          <h3>{race.name}</h3>
+        </div>
+        {aim.plan === 'posed' && (
+          <LinkButton variant="ghost" to="/plan">
+            Détail
+          </LinkButton>
+        )}
+      </div>
+
+      <div className={styles.aim}>
+        <span className={styles.aimCountdown}>{aim.countdown}</span>
+        <div className={styles.aimFigures}>
+          <span className={styles.aimNote}>
+            {race.distance_label} — {shortDate(`${race.date}T12:00:00`)}
+            {race.target !== null && ` — chrono visé ${race.target}`}
+          </span>
+          {/* La phase est celle du plan **posé**, lue par le serveur dans ses séances : le
+              plan recalculé repartirait chaque jour de sa base. */}
+          {aim.plan === 'posed' && (
+            <span className={styles.aimPhase}>{aim.phase_text ?? 'Plan posé au planning'}</span>
+          )}
+        </div>
+      </div>
+
+      {aim.plan === 'absent' && (
+        <div className={cx('stack', styles.aimFoot)}>
+          {/* Sans plan, aucune phase : en afficher une serait l'inventer. */}
+          <p className={styles.aimNote}>
+            Aucun plan posé au planning. Le poser écrit les séances de chaque semaine jusqu’à la
+            course.
+          </p>
+          <div className="row">
+            <LinkButton variant="ghost" to="/plan">
+              Poser le plan
+            </LinkButton>
+          </div>
+        </div>
+      )}
+
+      {aim.plan === 'stale' && aim.stale_plan !== null && (
+        <div className={cx('stack', styles.aimFoot)}>
+          <p className={styles.aimWarning} role="status">
+            {aim.stale_plan.text}
+          </p>
+          <div className="row">
+            <LinkButton variant="ghost" to="/plan">
+              Voir le plan
+            </LinkButton>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function Aim({ data }: { data: DashboardView }) {
-  const { goal, weight } = data;
+  const { goal, race, weight } = data;
 
   return (
     <>
       <Rule>Où je vais</Rule>
 
-      {goal !== null ? (
-        <CurrentGoal active={goal} />
-      ) : weight.to_target_kg !== null ? (
-        <Card>
-          <Stat
-            label={`Cible de poids ${kg(weight.target_kg)}`}
-            value={num(Math.abs(weight.to_target_kg), 1)}
-            unit="kg"
-            detail={weight.to_target_kg > 0 ? 'restants pour atteindre la cible' : 'sous la cible'}
-            direction={weight.to_target_kg > 0 ? 'up' : 'down'}
-          />
-          {/* La cible de poids est un **réglage**, pas un objectif daté. Le dire évite de
+      {/* Une pile : la course et l'objectif peuvent s'y suivre, et deux cartes collées se
+          lisaient comme une seule (vu sur le banc). */}
+      <div className="stack">
+        {race !== null && <NextRace aim={race} />}
+
+        {goal !== null ? (
+          <CurrentGoal active={goal} />
+        ) : race !== null ? null : weight.to_target_kg !== null ? (
+          <Card>
+            <Stat
+              label={`Cible de poids ${kg(weight.target_kg)}`}
+              value={num(Math.abs(weight.to_target_kg), 1)}
+              unit="kg"
+              detail={
+                weight.to_target_kg > 0 ? 'restants pour atteindre la cible' : 'sous la cible'
+              }
+              direction={weight.to_target_kg > 0 ? 'up' : 'down'}
+            />
+            {/* La cible de poids est un **réglage**, pas un objectif daté. Le dire évite de
               laisser croire que l'écran répond déjà à « où je vais ». */}
-          <p className={styles.aimNote}>
-            C’est un réglage, pas un objectif daté. Un objectif se fixe sur quatre à huit semaines
-            et se juge sur une fenêtre.
-          </p>
-          <div className="row">
-            <LinkButton variant="ghost" to="/objectif">
-              Fixer un objectif
-            </LinkButton>
-          </div>
-        </Card>
-      ) : (
-        <Empty
-          title="Aucun objectif en cours"
-          action={<LinkButton to="/objectif">Fixer un objectif</LinkButton>}
-        >
-          Un seul objectif, chiffré, daté de quatre à huit semaines. C’est lui qui donne un sens aux
-          chiffres du dessus.
-        </Empty>
-      )}
+            <p className={styles.aimNote}>
+              C’est un réglage, pas un objectif daté. Un objectif se fixe sur quatre à huit semaines
+              et se juge sur une fenêtre.
+            </p>
+            <div className="row">
+              <LinkButton variant="ghost" to="/objectif">
+                Fixer un objectif
+              </LinkButton>
+            </div>
+          </Card>
+        ) : (
+          <Empty
+            title="Aucun objectif en cours"
+            action={
+              <div className={cx('row', styles.aimEmptyActions)}>
+                <LinkButton to="/objectif">Fixer un objectif</LinkButton>
+                <LinkButton variant="ghost" to="/plan">
+                  Viser une course
+                </LinkButton>
+              </div>
+            }
+          >
+            Un seul objectif, chiffré, daté de quatre à huit semaines — ou une course visée en
+            priorité A. C’est ce qui donne un sens aux chiffres du dessus.
+          </Empty>
+        )}
+      </div>
     </>
   );
 }

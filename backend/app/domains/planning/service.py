@@ -570,6 +570,19 @@ class PlanningService:
                 return model.date
         return None
 
+    async def placed_plan(self) -> list[PlanRow]:
+        """Les séances `plan` datées, passées comprises, dans l'ordre des jours.
+
+        Le passé compte : la semaine en cours a ses séances d'avant-hier, et c'est par elles
+        que l'accueil sait la phase du plan posé un jeudi (M-19).
+        """
+        rows = [
+            row.model
+            for row in await self._plan.read_all()
+            if row.model.source == "plan" and row.model.date is not None
+        ]
+        return sorted(rows, key=lambda model: model.date or date.min)
+
     async def planned_count(self, since: date) -> int:
         return sum(
             1

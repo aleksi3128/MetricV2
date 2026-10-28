@@ -55,6 +55,7 @@ from app.domains.hydration.service import HydrationService
 from app.domains.nutrition.schemas import DayTotals
 from app.domains.nutrition.service import NutritionService
 from app.domains.planning.schemas import PlannedSession
+from app.domains.races.schemas import RaceAim
 from app.domains.supplements.schemas import DayRatio
 from app.domains.supplements.service import SupplementService
 from app.storage.errors import StorageNotFoundError
@@ -218,6 +219,7 @@ class DashboardService:
             ),
             goal=await self._active_goal(today),
             next_session=await self._next_session(today),
+            race=await self._next_race(today),
         )
 
     # ── La journée à finir ────────────────────────────
@@ -340,6 +342,17 @@ class DashboardService:
             today, today + timedelta(days=NEXT_SESSION_DAYS)
         )
         return upcoming[0] if upcoming else None
+
+    async def _next_race(self, today: date) -> RaceAim | None:
+        """La prochaine course A, telle que `races` la sait (M-19).
+
+        Importé dans le corps, comme les deux précédents : `races` lit le planning et
+        l'activité, et rien ici ne doit faire remonter une flèche vers les agrégats. Le
+        décompte, l'état du plan et sa phase arrivent rédigés.
+        """
+        from app.domains.races.service import RaceService
+
+        return await RaceService(self._store).aim(today)
 
     # ── Série d'assiduité (`AGG-03`) ──────────────────
 

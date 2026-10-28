@@ -14,10 +14,13 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.core.dates import week_start
 from app.core.validation import today_local
 from app.domains.races import conflicts, periodize
 from app.domains.races.catalog import SPECS
 from app.domains.races.models import RaceRow
+from app.domains.races.schemas import RacePayload
+from app.domains.races.service import RaceService
 from app.storage.csv_repo import CsvRepository
 from app.storage.files import FileStore
 from app.storage.paths import RACES
@@ -435,3 +438,176 @@ def test_a_peak_out_of_reach_is_said_with_its_reason() -> None:
     )
     warning = next(item for item in plan.warnings if item.startswith("Le pic visé"))
     assert "65 km" in warning and "Nielsen" in warning
+
+
+# ── La course A dans « Où je vais » (M-19) ────────────
+#
+# Le jour est donné au service, pas pris à l'horloge : la phase dépend de la semaine où
+# l'on est dans le plan posé, et le décompte du jour J et du lendemain se vérifient à date
+# fixe. Les dates restent à venir pour passer la validation des courses.
+
+#: Un mardi : le plan posé ce jour-là commence le lundi qui suit.
+PLACED_ON = week_start(TODAY) + timedelta(weeks=1, days=1)
+
+
+def _service_race(
+    store: FileStore, name: str, day: date, priority: str = "A", distance: str = "semi"
+) -> str:
+    view = asyncio.run(
+        RaceService(store).create(
+            RacePayload.model_validate(
+                {"name": name, "date": day.isoformat(), "distance": distance, "priority": priority}
+            )
+        )
+    )
+    return next(race.race_id for race in view.races if race.name == name)
+
+
+def test_m19_the_placed_note_reads_back_what_place_writes() -> None:
+    note = periodize.placed_note("8 km EF + 6 × 80 m LD", "Semi, de Lyon", 3, 16, "base")
+    assert periodize.read_placed_note(note) == periodize.Placed(3, 16, "base")
+    assert periodize.read_placed_note("40' EF — ma note à moi") is None
+    assert periodize.read_placed_note("x — plan y, semaine 2/9, inconnue.") is None
+
+
+def test_m19_no_a_race_is_no_aim(store: FileStore) -> None:
+    _service_race(store, "Trail", TODAY + timedelta(weeks=8), priority="B")
+    assert asyncio.run(RaceService(store).aim(TODAY)) is None
+
+
+def test_m19_an_a_race_without_a_plan_has_no_phase(store: FileStore) -> None:
+    _service_race(store, "Trail", TODAY + timedelta(weeks=3), priority="B")
+    _service_race(store, "Semi de Lyon", TODAY + timedelta(weeks=8))
+
+    aim = asyncio.run(RaceService(store).aim(TODAY))
+
+    assert aim is not None
+    assert aim.race.name == "Semi de Lyon"
+    assert aim.countdown == "J-56"
+    assert aim.plan == "absent"
+    assert aim.phase is None and aim.phase_text is None and aim.stale_plan is None
+
+
+def test_m19_the_phase_is_the_placed_one_not_the_recomputed_one(store: FileStore) -> None:
+    """Recalculé chaque jour, le plan commence toujours par sa base ; posé, il avance."""
+    race_day = PLACED_ON + timedelta(weeks=16)
+    race_id = _service_race(store, "Semi de Lyon", race_day)
+    service = RaceService(store)
+    asyncio.run(service.place(race_id, PLACED_ON))
+    weeks = periodize.build(
+        PLACED_ON,
+        race_day,
+        "Semi de Lyon",
+        "A",
+        SPECS["semi"],
+        weekly_km=None,
+        longest_km=None,
+        easy_pace=None,
+    ).weeks
+
+    # Le jour où l'on pose : la semaine en cours n'a rien, le plan commence lundi.
+    placing = asyncio.run(service.aim(PLACED_ON))
+    assert placing is not None and placing.plan == "posed"
+    assert placing.phase == weeks[0].phase
+    assert placing.phase_text == (
+        f"Semaine 1 sur {len(weeks)} — {periodize.PHASE_WORDS[weeks[0].phase]}, "
+        f"à partir du {weeks[0].start:%d/%m}"
+    )
+
+    # Dix semaines plus tard, un jeudi : la semaine en cours a ses séances.
+    later = weeks[9].start + timedelta(days=3)
+    mid = asyncio.run(service.aim(later))
+    assert mid is not None
+    assert mid.phase == weeks[9].phase
+    assert mid.phase_text == (
+        f"Semaine 10 sur {len(weeks)} — {periodize.PHASE_WORDS[weeks[9].phase]}"
+    )
+    # Le plan recalculé ce jeudi-là repartirait de sa base : ce n'est pas celui qu'on suit.
+    assert mid.phase == "développement"
+    assert asyncio.run(service.plan(race_id, later)).weeks[0].phase == "base"
+
+
+def test_m19_race_day_then_the_day_after(store: FileStore) -> None:
+    race_day = PLACED_ON + timedelta(weeks=6)
+    race_id = _service_race(store, "10 km", race_day, distance="10k")
+    service = RaceService(store)
+    asyncio.run(service.place(race_id, PLACED_ON))
+
+    on_the_day = asyncio.run(service.aim(race_day))
+    assert on_the_day is not None
+    assert on_the_day.countdown == "Jour J"
+    assert on_the_day.phase == "course"
+    assert on_the_day.phase_text is not None and on_the_day.phase_text.endswith("la course")
+
+    # Le lendemain, la course est passée : « Où je vais » ne la montre plus.
+    assert asyncio.run(service.aim(race_day + timedelta(days=1))) is None
+
+
+def test_m19_the_next_a_follows_once_the_first_is_run(store: FileStore) -> None:
+    first = PLACED_ON + timedelta(weeks=4)
+    _service_race(store, "10 km", first, distance="10k")
+    _service_race(store, "Marathon", first + timedelta(weeks=20), distance="marathon")
+
+    after = asyncio.run(RaceService(store).aim(first + timedelta(days=1)))
+    assert after is not None and after.race.name == "Marathon"
+
+
+def test_m19_a_plan_that_no_longer_follows_shows_no_phase(
+    store_client: TestClient, store: FileStore, auth: dict[str, str]
+) -> None:
+    first_day = TODAY + timedelta(weeks=10)
+    view = _race(
+        store_client, auth, name="Semi", date=first_day.isoformat(), distance="semi", priority="A"
+    )
+    store_client.post(f"/api/races/plan/{view['next_a']}", headers=auth)
+    race = store_client.get("/api/races", headers=auth).json()["races"][0]
+    _patch(store_client, auth, race, date=(first_day + timedelta(weeks=2)).isoformat())
+
+    aim = asyncio.run(RaceService(store).aim(TODAY))
+
+    assert aim is not None and aim.plan == "stale"
+    assert aim.phase is None and aim.phase_text is None
+    assert aim.stale_plan is not None and "ne suit plus" in aim.stale_plan.text
+
+
+def test_m19_a_plan_placed_for_another_race_is_not_this_ones(store: FileStore) -> None:
+    """La course B a son plan posé ; la course A n'en a aucun, et l'accueil le dit."""
+    b_id = _service_race(store, "Trail", PLACED_ON + timedelta(weeks=6), priority="B")
+    _service_race(store, "Semi", PLACED_ON + timedelta(weeks=14))
+    service = RaceService(store)
+    asyncio.run(service.place(b_id, PLACED_ON))
+
+    aim = asyncio.run(service.aim(PLACED_ON))
+    assert aim is not None and aim.race.name == "Semi" and aim.plan == "absent"
+
+
+def test_m19_a_plan_placed_before_the_column_still_has_its_phase(store: FileStore) -> None:
+    race_id = _service_race(store, "Semi", PLACED_ON + timedelta(weeks=12))
+    service = RaceService(store)
+    asyncio.run(service.place(race_id, PLACED_ON))
+    repo: CsvRepository[RaceRow] = CsvRepository(store, RACES, RaceRow)
+    asyncio.run(
+        repo.update_where(
+            lambda race: True, lambda race: race.model_copy(update={"plan_date": None})
+        )
+    )
+
+    aim = asyncio.run(service.aim(PLACED_ON))
+    assert aim is not None and aim.plan == "posed" and aim.phase is not None
+
+
+def test_m19_the_dashboard_carries_the_a_race(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    _race(
+        store_client,
+        auth,
+        name="Semi de Lyon",
+        date=(TODAY + timedelta(weeks=8)).isoformat(),
+        distance="semi",
+        priority="A",
+    )
+    race = store_client.get("/api/aggregates/dashboard", headers=auth).json()["race"]
+    assert race["race"]["name"] == "Semi de Lyon"
+    assert race["countdown"] == "J-56"
+    assert race["plan"] == "absent"

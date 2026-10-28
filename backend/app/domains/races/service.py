@@ -11,7 +11,7 @@ from datetime import date, timedelta
 from statistics import median
 from typing import cast
 
-from app.core.dates import today_local
+from app.core.dates import today_local, week_start
 from app.core.exceptions import NotFoundError
 from app.domains.planning import agenda, ics, placement
 from app.domains.races import conflicts, periodize
@@ -26,6 +26,7 @@ from app.domains.races.schemas import (
     PlanWeek,
     Priority,
     Race,
+    RaceAim,
     RaceList,
     RacePayload,
     StalePlanView,
@@ -54,9 +55,7 @@ class RaceService:
         rows = [row for row in await self._repo.read_all() if row.model.date is not None]
         rows.sort(key=lambda row: row.model.date or day)
         open_conflicts = await self._conflicts(rows)
-        upcoming_a = [
-            row for row in rows if row.model.priority == "A" and (row.model.date or day) >= day
-        ]
+        next_a = self._next_a(rows, day)
         return RaceList(
             today=day,
             races=[self._schema(row, day) for row in rows],
@@ -64,9 +63,89 @@ class RaceService:
                 ConflictView(key=item.key, keep=item.keep, demote=item.demote, text=item.text)
                 for item in open_conflicts
             ],
-            next_a=upcoming_a[0].model.race_id if upcoming_a else None,
+            next_a=next_a.model.race_id if next_a else None,
             stale_plan=await self._stale_plan(rows, day),
         )
+
+    @staticmethod
+    def _next_a(rows: list[Row[RaceRow]], today: date) -> Row[RaceRow] | None:
+        """La prochaine course A, celle du jour comprise : le lendemain, c'est la suivante.
+
+        `rows` est trié par date. Une seule règle, que `/plan` et l'accueil lisent tous deux.
+        """
+        return next(
+            (
+                row
+                for row in rows
+                if row.model.priority == "A" and (row.model.date or today) >= today
+            ),
+            None,
+        )
+
+    async def aim(self, today: date | None = None) -> RaceAim | None:
+        """La prochaine course A, pour « Où je vais » (M-19).
+
+        Une lecture de `races.csv` et une du planning — servie par le cache de `FileStore`
+        quand le tableau de bord l'a déjà tirée. Les décisions de conflit ne sont pas lues :
+        l'accueil ne les montre pas, et `/plan` les tranche.
+        """
+        from app.domains.planning.service import PlanningService
+
+        day = today or today_local()
+        rows = [row for row in await self._repo.read_all() if row.model.date is not None]
+        rows.sort(key=lambda row: row.model.date or day)
+        found = self._next_a(rows, day)
+        if found is None:
+            return None
+        race = found.model
+        days = ((race.date or day) - day).days
+        countdown = "Jour J" if days == 0 else f"J-{days}"
+        aim = RaceAim(race=self._schema(found, day), countdown=countdown, plan="absent")
+
+        stale = await self._stale_plan(rows, day)
+        if stale is not None and stale.race_id == race.race_id:
+            return aim.model_copy(update={"plan": "stale", "stale_plan": stale})
+
+        sessions = await PlanningService(self._store).placed_plan()
+        if not any(session.date is not None and session.date >= day for session in sessions):
+            return aim
+        if race.plan_date is None:
+            # Un plan posé avant que les courses retiennent `plan_date` : son jour de course
+            # posé, à la date de la course, dit qu'il est le sien — comme pour `_plan_date`.
+            if any(row.model.plan_date is not None for row in rows) or not any(
+                session.date == race.date and session.note.startswith("Course :")
+                for session in sessions
+            ):
+                return aim
+        elif race.plan_date != race.date:
+            return aim
+
+        monday = week_start(day)
+        sunday = monday + timedelta(days=6)
+        read = [
+            (session.date, placed)
+            for session in sessions
+            if session.date is not None
+            and (placed := periodize.read_placed_note(session.note)) is not None
+        ]
+        current = next((item for item in read if monday <= item[0] <= sunday), None)
+        later = next((item for item in read if item[0] > sunday), None)
+        if current is not None:
+            placed = current[1]
+            text = (
+                f"Semaine {placed.week} sur {placed.weeks} — {periodize.PHASE_WORDS[placed.phase]}"
+            )
+        elif later is not None:
+            placed = later[1]
+            text = (
+                f"Semaine {placed.week} sur {placed.weeks} — "
+                f"{periodize.PHASE_WORDS[placed.phase]}, à partir du {week_start(later[0]):%d/%m}"
+            )
+        else:
+            # Toutes les notes de la semaine ont été récrites à la main : le plan est posé,
+            # sa phase ne se lit plus.
+            return aim.model_copy(update={"plan": "posed"})
+        return aim.model_copy(update={"plan": "posed", "phase": placed.phase, "phase_text": text})
 
     async def _stale_plan(self, rows: list[Row[RaceRow]], today: date) -> StalePlanView | None:
         """Le plan posé ne suit plus sa course quand il a été calculé pour une autre date.
@@ -247,9 +326,8 @@ class RaceService:
                         kind="course",
                         title=session.title[:80],
                         duration_min=session.minutes,
-                        note=(
-                            f"{session.notation} — plan {row.model.name}, semaine "
-                            f"{index + 1}/{weeks}, {week.phase}."
+                        note=periodize.placed_note(
+                            session.notation, row.model.name, index + 1, weeks, week.phase
                         ),
                     )
                 )

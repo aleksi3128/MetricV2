@@ -454,6 +454,155 @@ describe('où je vais', () => {
   });
 });
 
+/** La prochaine course A (M-19), telle que le tableau de bord la sert. */
+const RACE = {
+  race: {
+    id: 0,
+    token: 't',
+    race_id: 'r1',
+    name: 'Semi de Lyon',
+    date: '2026-11-15',
+    distance: 'semi',
+    distance_label: 'Semi-marathon',
+    priority: 'A',
+    target: '1:45:00',
+    note: null,
+    countdown: 'dans 16 semaines',
+    past: false,
+  },
+  countdown: 'J-112',
+  plan: 'posed',
+  phase: 'développement',
+  phase_text: 'Semaine 3 sur 16 — développement',
+  stale_plan: null,
+} as const;
+
+const GOAL = {
+  goal: {
+    id: 0,
+    token: 't',
+    goal_id: 'g1',
+    created: '2026-07-01',
+    title: 'Trois séances par semaine',
+    metric: 'weekly_sessions',
+    target: 3,
+    unit: 'séances',
+    deadline: '2026-09-07',
+    rationale: '',
+    source: 'ai',
+    status: 'active',
+    outcome: '',
+    outcome_label: '',
+  },
+  progress: {
+    metric: 'weekly_sessions',
+    label: 'Séances par semaine',
+    unit: 'séances',
+    baseline: 1.8,
+    current: 2.4,
+    target: 3,
+    ratio: 0.5,
+    summary: '2,4 sur 3 séances',
+    basis: 'moyenne des 4 dernières semaines complètes',
+  },
+  days_left: 42,
+  expired: false,
+};
+
+describe('où je vais — la course A (M-19)', () => {
+  it('montre la course seule, son décompte et la phase du plan posé, sans la cible de poids', async () => {
+    stub({ ...DASHBOARD, race: RACE });
+    renderDashboard();
+
+    expect(await screen.findByText('Semi de Lyon')).toBeInTheDocument();
+    // Le décompte et la phase arrivent rédigés : l'écran ne soustrait aucune date.
+    expect(screen.getByText('J-112')).toBeInTheDocument();
+    expect(screen.getByText('Semaine 3 sur 16 — développement')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Semi-marathon — 15\/11\/2026 — chrono visé 1:45:00/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Détail' })).toHaveAttribute('href', '/plan');
+    // La cible de poids ne s'affiche qu'à défaut des deux.
+    expect(screen.queryByText(/Cible de poids/)).toBeNull();
+    expect(screen.queryByText('Aucun objectif en cours')).toBeNull();
+  });
+
+  it('met la course d’abord et l’objectif daté dessous quand les deux existent', async () => {
+    stub({ ...DASHBOARD, race: RACE, goal: GOAL });
+    renderDashboard();
+
+    const race = await screen.findByText('Semi de Lyon');
+    const goal = screen.getByText('Trois séances par semaine');
+    expect(race.compareDocumentPosition(goal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/Cible de poids/)).toBeNull();
+  });
+
+  it('sans plan posé, ne dit aucune phase et mène à /plan', async () => {
+    stub({ ...DASHBOARD, race: { ...RACE, plan: 'absent', phase: null, phase_text: null } });
+    renderDashboard();
+
+    expect(await screen.findByText(/Aucun plan posé au planning/)).toBeInTheDocument();
+    expect(screen.queryByText(/Semaine \d+ sur/)).toBeNull();
+    expect(screen.queryByText('Plan posé au planning')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Poser le plan' })).toHaveAttribute('href', '/plan');
+  });
+
+  it('dit que le plan ne suit plus, mène à /plan, et ne repose rien ici', async () => {
+    const text =
+      'Le plan posé au planning mène au 15/11 ; Semi de Lyon est maintenant le 29/11. Il ne suit plus : le reposer remplace les séances à venir.';
+    stub({
+      ...DASHBOARD,
+      race: {
+        ...RACE,
+        plan: 'stale',
+        phase: null,
+        phase_text: null,
+        stale_plan: { race_id: 'r1', text },
+      },
+    });
+    renderDashboard();
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Voir le plan' })).toHaveAttribute('href', '/plan');
+    expect(screen.queryByText(/Semaine \d+ sur/)).toBeNull();
+    // Reposer est un geste armé : il n'a qu'une adresse, `/plan`.
+    expect(screen.queryByRole('button', { name: /Reposer/ })).toBeNull();
+  });
+
+  it('le jour J, dit « Jour J »', async () => {
+    stub({ ...DASHBOARD, race: { ...RACE, countdown: 'Jour J' } });
+    renderDashboard();
+
+    expect(await screen.findByText('Jour J')).toBeInTheDocument();
+  });
+
+  it('l’état vide offre aussi de viser une course', async () => {
+    stub({ ...DASHBOARD, weight: { ...DASHBOARD.weight, to_target_kg: null } });
+    renderDashboard();
+
+    expect(await screen.findByText('Aucun objectif en cours')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Viser une course' })).toHaveAttribute('href', '/plan');
+  });
+
+  it('en panne, ne montre aucune course', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          json(503, { code: 'storage_unavailable', message: 'Nextcloud est injoignable.' }),
+        ),
+      ),
+    );
+    const client = createQueryClient();
+    client.setDefaultOptions({ queries: { retry: false } });
+    renderDashboard(client);
+
+    expect(await screen.findByText('Nextcloud est injoignable.')).toBeInTheDocument();
+    expect(screen.queryByText('Où je vais')).toBeNull();
+    expect(screen.queryByText(/^J-/)).toBeNull();
+  });
+});
+
 describe('tableau de bord', () => {
   it("ne fait qu'un seul appel d'agrégats au chargement", async () => {
     // `AGG-01`, la raison d'être du lot. Dix appels parallèles au chargement d'un écran

@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, Field
 
 from app.core.validation import Label, Note, PlannedDate
+from app.domains.races.periodize import Phase
 
 Distance = Literal["5k", "10k", "semi", "marathon", "sprint", "olympique", "70.3", "ironman"]
 Priority = Literal["A", "B", "C"]
@@ -66,6 +67,30 @@ class RaceList(BaseModel):
     stale_plan: StalePlanView | None = None
 
 
+class RaceAim(BaseModel):
+    """La prochaine course A, telle que « Où je vais » la dit sur l'accueil (M-19).
+
+    Servie par le tableau de bord (`AGG-01`). La course et le plan qui ne suit plus sont
+    **les types de `GET /api/races`, importés** : redéclarés, ils feraient deux endroits
+    où corriger un décompte ou une phrase.
+    """
+
+    race: Race
+    #: « J-12 », « Jour J » — rédigé ici. L'écran ne soustrait aucune date.
+    countdown: str
+    #: `absent` : aucun plan posé pour cette course. `posed` : posé, et il la suit.
+    #: `stale` : posé pour une autre date que la sienne (M-17).
+    plan: Literal["absent", "posed", "stale"]
+    #: La phase de la semaine en cours dans le plan **posé** — ou, si cette semaine n'a
+    #: aucune séance posée, celle de la prochaine. `None` sans plan, ou s'il ne suit plus :
+    #: elle se compterait vers une date que la course n'a plus.
+    phase: Phase | None = None
+    #: « Semaine 3 sur 16 — développement », rédigé ici.
+    phase_text: str | None = None
+    #: La phrase de `GET /api/races` quand le plan posé ne suit plus cette course.
+    stale_plan: StalePlanView | None = None
+
+
 class DecisionPayload(BaseModel):
     accept: bool
 
@@ -82,7 +107,7 @@ class PlanSession(BaseModel):
 
 class PlanWeek(BaseModel):
     start: date
-    phase: Literal["base", "développement", "spécifique", "récupération", "affûtage", "course"]
+    phase: Phase
     km: float
     long_km: float
     sessions: list[PlanSession]

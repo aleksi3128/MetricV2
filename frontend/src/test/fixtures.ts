@@ -154,6 +154,7 @@ export const DASHBOARD: DashboardView = {
   },
   goal: null,
   next_session: null,
+  race: null,
 };
 
 const DEFAULT_VALUES = {
