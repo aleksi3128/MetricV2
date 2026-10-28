@@ -111,6 +111,11 @@ export interface ActionReport {
   status: 'done' | 'pending' | 'refused';
   /** Une phrase française, destinée à être lue telle quelle. */
   summary: string;
+  /**
+   * Le code d'un refus, celui du catalogue d'erreurs — `swim_notation_invalid`… (M-10).
+   * C'est sur lui qu'un écran déciderait, jamais sur la phrase. Absent des fils anciens.
+   */
+  code?: string | null;
   /** Les arguments relus, à renvoyer pour confirmer une action en attente. */
   args: Record<string, unknown>;
   undo: UndoRef | null;

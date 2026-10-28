@@ -561,6 +561,22 @@ EXAMPLES: tuple[str, ...] = (
 )
 
 
+#: La forme d'un bloc, et les règles qui la bornent — **une seule rédaction** pour les deux
+#: façons de l'apprendre au modèle : la rubrique du fil Planning (`guide`) et la tranche
+#: du fil ordinaire (`brief`, M-10). Deux rédactions finiraient par se contredire.
+BLOCK_SHAPE = "[N×]distance NAGE [ALLURE] [OPTIONS…] [R<repos> | D<départ>]"
+RULES: tuple[str, ...] = (
+    f"distance en mètres, multiple de {POOL_STEP}, de {POOL_STEP} à {MAX_DISTANCE} ; "
+    "« 8×50 » = huit fois 50 m",
+    "**une** nage, obligatoire, en premier ; **une** allure au plus ; des options ensuite",
+    "R15 = 15 s de repos après chaque répétition, R1' = 1 min, R1'30 = 1 min 30 ; "
+    "D1'30 = départ toutes les 1 min 30 ; jamais R et D sur le même bloc ; toujours en dernier",
+    "une série : 2×(4×25 CR SP R30 ; 100 DOS RC) R1' — blocs séparés par « ; », un seul niveau",
+    "**aucun autre mot**, aucun synonyme : « NL », « crawl », « tranquille » sont refusés",
+    "dans le JSON, les lignes du programme se séparent par \\n",
+)
+
+
 def guide(glossary: Glossary | None = None) -> str:
     """La notation, expliquée au modèle (`docs/planning-natation.md` §5.2).
 
@@ -572,20 +588,15 @@ def guide(glossary: Glossary | None = None) -> str:
     words = glossary or Glossary.base()
     codes = "\n".join(f"- {line}" for line in words.describe())
     examples = "\n\n".join(EXAMPLES)
+    rules = "\n".join(f"- {rule} ;" for rule in RULES[:-1]) + f"\n- {RULES[-1]}."
     return f"""## La natation, et sa notation — obligatoire
 
 Toute séance de natation que tu proposes porte un "program" écrit **dans cette notation et
 dans aucune autre**. Une ligne est un titre de section terminé par « : », ou un bloc :
 
-  [N×]distance NAGE [ALLURE] [OPTIONS…] [R<repos> | D<départ>]
+  {BLOCK_SHAPE}
 
-- distance en mètres, multiple de {POOL_STEP}, de {POOL_STEP} à {MAX_DISTANCE} ; « 8×50 » = huit fois 50 m ;
-- **une** nage, obligatoire, en premier ; **une** allure au plus ; des options ensuite ;
-- R15 = 15 s de repos après chaque répétition, R1' = 1 min, R1'30 = 1 min 30 ;
-  D1'30 = départ toutes les 1 min 30 ; jamais R et D sur le même bloc ; toujours en dernier ;
-- une série : 2×(4×25 CR SP R30 ; 100 DOS RC) R1' — blocs séparés par « ; », un seul niveau ;
-- **aucun autre mot**, aucun synonyme : « NL », « crawl », « tranquille » sont refusés ;
-- dans le JSON, les lignes du programme se séparent par \\n.
+{rules}
 
 Sigles admis :
 {codes}
@@ -597,6 +608,24 @@ Exemples :
 Quand ta réponse parle d'une séance de natation, écris-la aussi dans cette notation.
 
 """
+
+
+def brief(glossary: Glossary | None = None) -> list[str]:
+    """La notation en lignes de condensé — la tranche `notation_natation` (M-10).
+
+    Le fil ordinaire ne la reçoit pas d'office : la plupart des questions ne parlent pas de
+    nage, et la consigne d'un fil ordinaire reste la même à l'octet près. Elle se demande
+    quand on note une natation, et porte les mêmes règles que `guide`.
+    """
+    words = glossary or Glossary.base()
+    example = EXAMPLES[1].replace("\n", "\\n")
+    return [
+        "Notation de nage — un programme est une suite de lignes ; chaque ligne est un titre "
+        f"terminé par « : », ou un bloc : {BLOCK_SHAPE}",
+        *(f"Notation de nage — {rule}" for rule in RULES),
+        *(f"Sigles admis — {line}" for line in words.describe()),
+        f"Exemple de programme (lignes séparées par \\n) : {example}",
+    ]
 
 
 def correction(faults: Sequence[str]) -> str:

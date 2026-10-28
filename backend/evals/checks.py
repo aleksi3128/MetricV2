@@ -145,6 +145,29 @@ def action_avec(nom: str, **attendus: Any) -> Verification:
     return verifier
 
 
+def programme_de_nage_lisible() -> Verification:
+    """Chaque `swim.add` porte un programme que le serveur lit (M-10).
+
+    Déterministe : c'est `swim_notation.parse`, glossaire de base, qui juge — la lecture
+    même de `SwimService.create`. « 400 crawl » échoue ici comme il échouerait à l'écriture.
+    """
+    from app.core import swim_notation
+
+    def verifier(r: Reponse) -> Constat:
+        programmes = [a.args.get("program") for a in r.actions if a.name == "swim.add"]
+        lus = [
+            isinstance(p, str) and swim_notation.parse(p).valid and bool(p.strip())
+            for p in programmes
+        ]
+        return Constat(
+            "programme de nage lisible",
+            bool(lus) and all(lus),
+            "; ".join(repr(p) for p in programmes) or "aucune natation",
+        )
+
+    return verifier
+
+
 def aucune_suppression() -> Verification:
     """Rien qui efface. Le projet n'a aucune corbeille ; une suppression se demande."""
 

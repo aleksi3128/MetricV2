@@ -20,6 +20,7 @@ from collections.abc import Awaitable, Callable, Iterable, Sequence
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple
 
+from app.core import swim_notation
 from app.core.dates import now_local, today_local, week_start
 from app.domains.activity.garmin import (
     PERFORMANCE_CONDITION,
@@ -1229,6 +1230,13 @@ async def _search_cadence_exercises(store: FileStore, query: str) -> list[str]:
     ]
 
 
+async def _swim_notation(store: FileStore, _today: date) -> list[str]:
+    """La notation de nage, glossaire du fichier compris — pour `swim.add` (M-10)."""
+    from app.domains.planning.service import PlanningService
+
+    return swim_notation.brief(await PlanningService(store).glossary())
+
+
 #: Les tranches, par nom. **La liste des clés est ce que le modèle a le droit de demander,
 #: et les descriptions sont ce qui lui permet de choisir.**
 #:
@@ -1256,6 +1264,11 @@ SLICES: dict[str, Slice] = {
         "combien de séances elle a tenu, plus les groupes par ancienneté de sollicitation "
         "— à demander avant de conseiller de monter ou de composer une séance. "
         "Ni 1RM ni record : un tabata n'a pas de charge maximale lisible",
+    ),
+    "notation_natation": Slice(
+        _swim_notation,
+        "la notation des séances de natation et ses sigles — à demander avant de noter une "
+        "natation : son programme s'écrit dans cette notation et dans aucune autre",
     ),
     "repas_du_jour": Slice(
         _meals_today,

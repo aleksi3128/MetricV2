@@ -441,6 +441,7 @@ def test_every_undo_domain_is_a_real_delete_route(ai_app_client: TestClient) -> 
         "activity/circuits",
         "planning/sessions",
         "pain",
+        "activity/swims",
     }
     for domain in domains:
         assert f"/api/{domain}/{{row_id}}" in published, domain

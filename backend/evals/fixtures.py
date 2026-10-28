@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from app.core import swim_notation
 from app.domains.assistant import context
 
 # ── Les condensés ─────────────────────────────────────
@@ -178,6 +179,8 @@ TRANCHES = {
         "dénivelé 85 m (row_id=12, token=aa11bb22)",
         "Séance du 13/08/2026 : muscu, 62 min, effort perçu 7/10 (row_id=41, token=cc33dd44)",
     ],
+    # ── M-10 : rendue par le code, glossaire de base — aucun fichier lu ──
+    "notation_natation": swim_notation.brief(),
     "supplements_du_jour": [
         "Supplément « Créatine » à 08:00 — déjà pris (schedule_id=creat-matin)",
         "Supplément « Magnésium » à 21:00 — pas encore pris (schedule_id=magn-soir)",

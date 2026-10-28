@@ -62,6 +62,7 @@ if TYPE_CHECKING:  # pragma: no cover - annotations seulement, jamais exécuté
         CircuitPayload,
         RunPayload,
     )
+    from app.domains.activity.swim_schemas import SwimPayload
     from app.domains.body.schemas import WeightPayload
     from app.domains.hydration.schemas import IntakePayload
     from app.domains.nutrition.schemas import MealPayload
@@ -460,6 +461,26 @@ async def _add_pain(store: FileStore, payload: PainPayload) -> Outcome:
     )
 
 
+async def _add_swim(store: FileStore, payload: SwimPayload) -> Outcome:
+    """Une natation faite, **dans la notation** (`docs/natation-activite.md`, M-10).
+
+    Le modèle écrit le programme, pas des tours découpés ni une distance : c'est
+    `SwimService.create` qui le lit — le chemin de la saisie de `/activite` — et range le
+    total comme distance. Un programme fautif y est refusé avant toute écriture, avec
+    `swim_notation_invalid` : il n'existe pas de natation à moitié écrite.
+    """
+    from app.domains.activity.swims import SwimService
+
+    swim = await SwimService(store).create(payload)
+    return Outcome(
+        summary=(
+            f"Natation de {swim.distance_m:.0f} m notée le {swim.date:%d/%m/%Y}, "
+            f"{payload.duration_min:g} min."
+        ),
+        undo=Undo("activity/swims", swim.id, swim.token),
+    )
+
+
 async def _add_run(store: FileStore, payload: RunPayload) -> Outcome:
     from app.domains.activity.service import (
         RunService,
@@ -632,6 +653,7 @@ def catalogue() -> dict[str, ActionSpec]:
         CircuitPayload,
         RunPayload,
     )
+    from app.domains.activity.swim_schemas import SwimPayload
     from app.domains.body.schemas import WeightPayload
     from app.domains.hydration.schemas import IntakePayload
     from app.domains.nutrition.schemas import MealPayload
@@ -691,6 +713,18 @@ def catalogue() -> dict[str, ActionSpec]:
             PainPayload,
             _add_pain,
             hidden=frozenset({"run_id"}),
+        ),
+        _spec(
+            "swim.add",
+            Level.ADD,
+            "noter une natation faite. program : la séance **dans la notation de nage**, une "
+            "ligne par bloc — demande « notation_natation » si tu ne l'as pas sous les yeux. "
+            "duration_min : la durée totale. La distance est le total du programme, lu par "
+            "moi : ne la calcule pas",
+            SwimPayload,
+            _add_swim,
+            # Réécrire une natation importée est une correction ; une création n'en a que faire.
+            hidden=frozenset({"rewrite"}),
         ),
         _spec(
             "run.add",

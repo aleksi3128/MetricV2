@@ -228,6 +228,8 @@ LECTURE_PAR_ECRITURE = {
     # Le `pain_id` d'un épisode ouvert est servi d'office (M-10) : une douleur se dit sans
     # prévenir, et la redemander coûterait un appel entier pour un identifiant.
     "pain.add": D_OFFICE,
+    # Écrire une natation, c'est d'abord savoir sa notation : la tranche la porte.
+    "swim.add": "notation_natation",
 }
 
 

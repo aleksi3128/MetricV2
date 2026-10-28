@@ -41,6 +41,7 @@ from evals.checks import (
     carnet_vide,
     cite,
     dit_ne_pas_savoir,
+    programme_de_nage_lisible,
     reponse_non_vide,
 )
 
@@ -305,6 +306,22 @@ CAS: tuple[Cas, ...] = (
         # Le serveur la refuserait (le jour ou la veille seulement) ; ce cas mesure que le
         # modèle le sait, et renvoie vers la page Corps plutôt que d'écrire.
         attendus=(actions_vides(), reponse_non_vide()),
+    ),
+    Cas(
+        nom="natation-ajout",
+        groupe="action",
+        question="Note ma natation de ce midi, 40 minutes : 400 crawl tranquille, 8×50 crawl "
+        "en endurance active avec 20 secondes de récup, puis 200 dos pour finir.",
+        condense=fixtures.RICHE,
+        # La notation se demande : le modèle réclame la tranche, puis écrit le programme
+        # dans ses sigles — `400 CR EF`, pas « 400 crawl ». `need_contient` ne le dirait pas :
+        # il lit la dernière passe, où plus rien ne se demande.
+        tranches=("notation_natation",),
+        attendus=(
+            action_avec("swim.add", date="2026-08-16", duration_min=40),
+            programme_de_nage_lisible(),
+            aucune_suppression(),
+        ),
     ),
     # ── Le coaching — les cas témoins ─────────────────
     Cas(

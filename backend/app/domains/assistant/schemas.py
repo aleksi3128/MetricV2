@@ -163,6 +163,10 @@ class ActionReport(BaseModel):
     #: Une phrase française. Elle est **lue par l'utilisateur** : « Pesée de 82,4 kg notée
     #: le 07/08/2026 », ou « Il me manque de quoi le faire : date. »
     summary: str
+    #: Le code d'un refus, celui du catalogue d'erreurs (M-10) — `swim_notation_invalid`,
+    #: `storage_conflict`, `validation_error`… L'écran décide sur lui, jamais sur la phrase ;
+    #: `null` pour ce qui n'est pas refusé.
+    code: str | None = None
     #: Les arguments relus, renvoyés pour qu'un `pending` puisse être confirmé tel quel.
     args: dict[str, Any] = Field(default_factory=dict)
     undo: UndoRef | None = None

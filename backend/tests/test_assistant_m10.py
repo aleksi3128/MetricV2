@@ -218,3 +218,97 @@ def test_the_model_never_links_a_pain_to_a_run_it_cannot_see() -> None:
     assert not isinstance(checked, str)
     assert checked[1].model_dump()["run_id"] is None
     assert checked[1].model_dump()["source"] == "manual", "forcée à `ia` à l'écriture seulement"
+
+
+# ── swim.add ──────────────────────────────────────────
+
+PROGRAM = "400 CR EF\n8×50 CR EA R20\n200 DOS RC"
+
+
+def test_a_swim_is_read_by_the_server_and_counted_from_its_program(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Le modèle écrit la notation ; la distance est le total que le serveur en lit."""
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program=PROGRAM)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "done", report
+    assert "1000 m" in report["summary"]
+    swims = ai_app_client.get("/api/activity/swims", headers=auth).json()["swims"]
+    assert swims[0]["distance_m"] == 1000
+    assert report["undo"]["domain"] == "activity/swims"
+    response = ai_app_client.delete(
+        f"/api/activity/swims/{report['undo']['row_id']}",
+        headers={**auth, "If-Match": report["undo"]["token"]},
+    )
+    assert response.status_code == 204
+
+
+def test_a_wrong_notation_goes_back_to_the_model_once(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Comme au fil Planning : la faute revient au modèle avec la notation, une fois."""
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program="1500 NL")
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program="1500 CR")
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "done", report
+    assert len(openrouter.calls) == 2
+    second = openrouter.calls[1].prompt
+    assert "À corriger" in second and "NL" in second
+    assert "La natation, et sa notation — obligatoire" in second
+
+
+def test_a_notation_still_wrong_is_refused_with_its_code_and_nothing_written(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter, dav: FakeWebDav
+) -> None:
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program="1500 NL")
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program="1500 crawl")
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert report["code"] == "swim_notation_invalid"
+    assert len(openrouter.calls) == 2, "deux appels au plus (`IA-16`)"
+    assert "Metric/activity/swims.csv" not in dav.files
+
+
+def test_no_third_call_when_the_second_pass_is_spent(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    openrouter.say(answer(reply="Je regarde.", need=["notation_natation"]))
+    say(openrouter, "swim.add", date=TODAY.isoformat(), duration_min=40, program="1500 NL")
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["code"] == "swim_notation_invalid"
+    assert len(openrouter.calls) == 2
+    # La tranche a bien porté la notation, glossaire compris.
+    assert "Sigles admis — nage : CR (crawl)" in openrouter.calls[1].prompt
+
+
+def test_the_ordinary_thread_offers_the_notation_without_imposing_it(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    openrouter.say(answer())
+
+    acted(ai_app_client, auth, "Bonjour")
+
+    prompt = openrouter.calls[0].prompt
+    assert "notation_natation —" in prompt
+    assert "swim.add —" in prompt
+    assert "rewrite" not in prompt
+    assert "Sigles admis" not in prompt
+
+
+def test_an_argument_refusal_carries_a_code_too(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    say(openrouter, "swim.add", date=TODAY.isoformat(), program=PROGRAM)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert report["code"] == "validation_error"

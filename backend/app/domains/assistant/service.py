@@ -164,6 +164,30 @@ def _swim_fault(raw: object, glossary: swim.Glossary) -> str | None:
     return f"{label} : {swim.describe_errors(read.errors)}"
 
 
+def _swim_add_faults(wanted: list[ProposedAction], glossary: swim.Glossary) -> list[str]:
+    """Les fautes de notation des `swim.add` d'un tour (M-10), sans rien écrire.
+
+    Ce n'est **pas** la garde : `SwimService.create` relit le programme et refuse seul. Ce
+    n'est que de quoi relancer le modèle une fois, avec ses fautes — comme le fil Planning
+    le fait pour une proposition —, plutôt que de rendre un refus qu'il aurait su corriger.
+    """
+    faults: list[str] = []
+    for action in wanted:
+        if action.name != "swim.add":
+            continue
+        when = str(action.args.get("date") or "?")
+        program = action.args.get("program")
+        if not isinstance(program, str) or not program.strip():
+            faults.append(f"natation du {when} : le programme manque.")
+            continue
+        read = swim.parse(program, glossary)
+        if not read.valid:
+            faults.append(f"natation du {when} : {swim.describe_errors(read.errors)}")
+        elif read.total_m is None:
+            faults.append(f"natation du {when} : le programme ne porte aucun bloc nagé.")
+    return faults
+
+
 def _attach_faults(reports: list[ActionReport], faults: list[str]) -> None:
     """Dit ce que la relecture a écarté, sur la proposition qui reste — ou seule, s'il
     n'en reste rien. Le taire laisserait croire que le modèle n'a proposé que cela."""
@@ -718,6 +742,7 @@ class AssistantService:
                         level="add",
                         status="refused",
                         summary=checked,
+                        code=ValidationFailedError.code,
                         args=item.args,
                     )
                 )
@@ -817,6 +842,7 @@ class AssistantService:
                 level=spec.level.value,
                 status="refused",
                 summary=str(error),
+                code=error.code,
                 args=args,
             )
 
@@ -853,6 +879,7 @@ class AssistantService:
                 level="change",
                 status="refused",
                 summary=checked,
+                code=ValidationFailedError.code,
                 args=request.args,
             )
 
@@ -1045,6 +1072,26 @@ class AssistantService:
                     prompt_for(extra, final=True, fix=swim.correction(faults)), assured=True
                 )
                 wanted, faults = await self._review_plan(conversation.read_actions(payload))
+        elif not need and any(action.name == "swim.add" for action in wanted):
+            # **La même relance, pour une natation notée** (M-10). Le fil ordinaire ne reçoit
+            # pas la notation d'office ; un modèle qui écrit sans l'avoir demandée se trompe
+            # souvent de sigle. S'il reste une passe, il la reçoit avec ses fautes ; sinon,
+            # le domaine refuse et le rapport porte `swim_notation_invalid`.
+            from app.domains.planning.service import PlanningService
+
+            glossary = await PlanningService(self._store).glossary()
+            swim_faults = _swim_add_faults(wanted, glossary)
+            if swim_faults:
+                await _step(on_step, "la notation n'y est pas — je fais corriger")
+                if on_delta is not None:
+                    await on_delta("", True)
+                payload = await consult(
+                    prompt_for(
+                        extra, final=True, fix=swim.guide(glossary) + swim.correction(swim_faults)
+                    ),
+                    assured=True,
+                )
+                wanted = conversation.read_actions(payload)
         if wanted:
             # Ce n'est pas la même attente : ici le modèle a fini, et c'est le stockage
             # qu'on sollicite. Le dire distingue « le modèle réfléchit » de « on écrit »,
