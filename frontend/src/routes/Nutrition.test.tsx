@@ -588,6 +588,10 @@ describe('écran Nutrition', () => {
       expect(remove?.url).toContain('/api/nutrition/1');
       expect((remove?.init?.headers as Record<string, string>)['If-Match']).toBe('jeton-b');
     });
+    // Ce repas avait une photo : elle reste, et l'écran le dit.
+    expect(
+      await screen.findByText('Repas supprimé. La photo reste sur Nextcloud.'),
+    ).toBeInTheDocument();
   });
 
   it('affiche le message du serveur sur un fichier refusé', async () => {
@@ -1963,7 +1967,7 @@ describe('le journal d’hier (reste de M-01)', () => {
       }),
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Fiche du repas de heure non relevée' }),
+      await screen.findByRole('button', { name: 'Fiche du repas « dîner », heure non relevée' }),
     );
 
     expect(await screen.findByText('Hier, heure non relevée')).toBeInTheDocument();
@@ -1981,11 +1985,15 @@ describe('le journal d’hier (reste de M-01)', () => {
       }),
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Supprimer le repas de heure non relevée' }),
+      await screen.findByRole('button', {
+        name: 'Supprimer le repas « dîner », heure non relevée',
+      }),
     );
     expect(calls.some((call) => call.init?.method === 'DELETE')).toBe(false);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Supprimer le repas de heure non relevée — confirmer' }),
+      screen.getByRole('button', {
+        name: 'Supprimer le repas « dîner », heure non relevée — confirmer',
+      }),
     );
 
     await waitFor(() => {
@@ -1993,6 +2001,9 @@ describe('le journal d’hier (reste de M-01)', () => {
       expect(removal?.url).toBe('/api/nutrition/2');
       expect(new Headers(removal?.init?.headers).get('If-Match')).toBe('jeton-hier');
     });
+    // Un repas sans photo : rien ne « reste sur Nextcloud ».
+    expect(await screen.findByText('Repas supprimé.')).toBeInTheDocument();
+    expect(screen.queryByText(/La photo reste/)).not.toBeInTheDocument();
   });
 
   it('dit qu’aucun repas n’est noté hier, et ouvre la feuille sur hier', async () => {

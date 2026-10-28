@@ -43,7 +43,7 @@ import { useToast } from '@/lib/toast';
 import styles from './Nutrition.module.css';
 import { History } from './nutrition/History';
 import { MealDetail } from './nutrition/MealDetail';
-import { mealTime } from './nutrition/meal-moment';
+import { mealName, mealTime } from './nutrition/meal-moment';
 import { MealSheet } from './nutrition/MealSheet';
 
 function useInvalidateNutrition() {
@@ -115,7 +115,7 @@ function MealCard({
       <button
         type="button"
         className={styles.mealOpen}
-        aria-label={`Fiche du repas de ${mealTime(meal)}`}
+        aria-label={`Fiche du ${mealName(meal)}`}
         aria-describedby={bodyId}
         onClick={onOpen}
       >
@@ -150,9 +150,7 @@ function MealCard({
           type="button"
           className={cx(styles.iconButton, styles.danger, armed && styles.armed)}
           aria-label={
-            armed
-              ? `Supprimer le repas de ${mealTime(meal)} — confirmer`
-              : `Supprimer le repas de ${mealTime(meal)}`
+            armed ? `Supprimer le ${mealName(meal)} — confirmer` : `Supprimer le ${mealName(meal)}`
           }
           disabled={removing}
           onClick={onRemove}
@@ -352,10 +350,15 @@ export function Nutrition() {
 
   const remove = useMutation({
     mutationFn: (meal: Meal) => nutritionApi.remove(meal.id, meal.token),
-    onSuccess: () => {
+    onSuccess: (_, meal) => {
       setArmed(null);
       invalidate();
-      notify('Repas supprimé. La photo reste sur Nextcloud.', 'signal');
+      // La photo reste sur Nextcloud — quand il y en avait une. Le dire d'un repas saisi à
+      // la main annonçait un fichier qui n'a jamais existé.
+      notify(
+        meal.photo !== null ? 'Repas supprimé. La photo reste sur Nextcloud.' : 'Repas supprimé.',
+        'signal',
+      );
     },
     onError: (caught: unknown) => {
       setArmed(null);

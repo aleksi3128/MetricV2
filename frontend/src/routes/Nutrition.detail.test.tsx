@@ -172,7 +172,7 @@ describe('la fiche d’un repas', () => {
     renderNutrition();
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Fiche du repas de heure non relevée' }),
+      await screen.findByRole('button', { name: 'Fiche du repas « dîner », heure non relevée' }),
     );
     const sheet = await screen.findByRole('dialog');
 
