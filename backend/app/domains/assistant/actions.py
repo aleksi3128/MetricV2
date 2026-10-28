@@ -52,6 +52,7 @@ from pydantic import BaseModel, Field, ValidationError, create_model
 
 from app.core.dates import today_local
 from app.core.exceptions import ValidationFailedError
+from app.core.validation import Rpe
 from app.storage.files import FileStore
 
 if TYPE_CHECKING:  # pragma: no cover - annotations seulement, jamais exécuté
@@ -100,17 +101,28 @@ class Level(StrEnum):
 
 @dataclass(frozen=True)
 class Undo:
-    """De quoi défaire un ajout : c'est la suppression que l'utilisateur ferait lui-même.
+    """De quoi défaire une écriture : le geste que l'utilisateur ferait lui-même.
 
     `domain` est **le chemin exact de la ressource**, sans le préfixe `/api/` ni la ligne :
     l'annulation est donc un `DELETE /api/{domain}/{row_id}` avec la garde `If-Match`, et
     l'écran n'a aucune table de correspondance à tenir. Un nom qui ne serait pas une route
     réelle se verrait au premier essai plutôt qu'à la lecture d'un `switch`.
+
+    **Une écriture n'est pas toujours une addition** (M-10). Noter un effort perçu modifie
+    une séance : la défaire par un `DELETE` supprimerait la séance. Les trois champs du bas
+    disent donc le geste entier — `PUT /api/{domain}/{row_id}/{suffix}` avec `body` — et
+    leurs défauts sont exactement l'ancien `DELETE` : les six usages d'avant n'ont rien à
+    déclarer, et l'écran suit ce que le serveur lui dit sans connaître une seule action.
     """
 
     domain: str
     row_id: int
     token: str
+    method: Literal["DELETE", "PUT"] = "DELETE"
+    #: Ce qui suit la ligne dans le chemin — `rpe` pour `/activity/runs/3/rpe`.
+    suffix: str = ""
+    #: Le corps envoyé, `null` en JSON pour un `DELETE`.
+    body: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -272,6 +284,14 @@ class ActionSpec:
     #: raison. `pain.add` tait `run_id` : le modèle ne voit aucun identifiant stable de
     #: sortie, et un lien inventé rattacherait la douleur à une séance qui n'existe pas.
     hidden: frozenset[str] = frozenset()
+    #: Ce qui fait **attendre** une action de niveau `AJOUT`, lu sur la donnée (M-10).
+    #:
+    #: Le niveau reste dans la table et jamais dans la main du modèle ; mais noter un effort
+    #: perçu est une addition sur une séance qui n'en a pas, et un écrasement sur une
+    #: séance qui en a un. Rendu non vide, ce texte met l'action en attente comme un
+    #: `CHANGEMENT` : il dit en clair ce qui serait remplacé. `None` laisse s'exécuter — y
+    #: compris quand la ligne est introuvable, que l'exécuteur refusera avec son message.
+    confirm_if: Callable[[FileStore, Any], Awaitable[str | None]] | None = None
 
     @property
     def unseen(self) -> frozenset[str]:
@@ -315,6 +335,30 @@ class DeleteByRowArgs(BaseModel):
 
     row_id: int = Field(ge=0)
     token: str = Field(min_length=1, max_length=128)
+
+
+#: Les séances dont l'assistant note l'effort perçu, et la ressource de chacune.
+EffortKind = Literal["run", "swim", "other", "session"]
+RATED: dict[str, str] = {
+    "run": "activity/runs",
+    "swim": "activity/swims",
+    "other": "activity/others",
+    "session": "activity/sessions",
+}
+
+
+class RateEffortArgs(BaseModel):
+    """Un effort perçu sur une séance **du jour**, désignée comme le condensé la nomme.
+
+    Le jeton est exigé : noter un effort modifie la ligne (`STO-05`). Le jour, lui, n'est
+    pas un argument — c'est celui de la séance, et le serveur refuse tout autre que
+    aujourd'hui.
+    """
+
+    kind: EffortKind
+    row_id: int = Field(ge=0)
+    token: str = Field(min_length=1, max_length=128)
+    rpe: Rpe
 
 
 class MovePlanArgs(BaseModel):
@@ -481,6 +525,109 @@ async def _add_swim(store: FileStore, payload: SwimPayload) -> Outcome:
     )
 
 
+@dataclass(frozen=True)
+class _Rated:
+    """Ce qu'il faut savoir d'une séance avant d'en noter l'effort."""
+
+    day: dt.date
+    rpe: int | None
+    #: « la course du jour (8 km) » — pour le fil, jamais pour le modèle.
+    what: str
+
+
+async def _rated(store: FileStore, payload: RateEffortArgs) -> _Rated | None:
+    """La séance visée, relue fraîche, ou `None` si la ligne n'existe pas."""
+    from app.domains.activity.models import CircuitSessionRow, OtherRow, RunRow, SwimRow
+    from app.storage.csv_repo import CsvRepository
+    from app.storage.paths import CIRCUIT_SESSIONS, OTHERS, RUNS, SWIMS
+
+    index = payload.row_id
+    if payload.kind == "run":
+        runs = await CsvRepository(store, RUNS, RunRow).read_all(fresh=True)
+        if index >= len(runs):
+            return None
+        run = runs[index].model
+        return _Rated(run.date, run.rpe, f"la course ({run.distance_km:g} km)")
+    if payload.kind == "swim":
+        swims = await CsvRepository(store, SWIMS, SwimRow).read_all(fresh=True)
+        if index >= len(swims):
+            return None
+        swim = swims[index].model
+        return _Rated(swim.date, swim.rpe, f"la natation ({swim.distance_m:.0f} m)")
+    if payload.kind == "other":
+        others = await CsvRepository(store, OTHERS, OtherRow).read_all(fresh=True)
+        if index >= len(others):
+            return None
+        other = others[index].model
+        return _Rated(other.date, other.rpe, f"la sortie ({other.sport})")
+    sessions = await CsvRepository(store, CIRCUIT_SESSIONS, CircuitSessionRow).read_all(fresh=True)
+    if index >= len(sessions):
+        return None
+    session = sessions[index].model
+    return _Rated(session.date, session.rpe, f"la séance « {session.name} »")
+
+
+async def _effort_overwrites(store: FileStore, payload: RateEffortArgs) -> str | None:
+    """Une séance du jour qui a **déjà** un effort : on demande avant d'écraser (M-10).
+
+    Sur une séance sans effort, noter est une addition — elle s'exécute et s'annule en
+    remettant l'effort à vide. Sur une séance qui en a un, l'ancienne valeur serait perdue,
+    et le projet n'a aucune annulation qui la rendrait : la règle des changements s'applique.
+    """
+    rated = await _rated(store, payload)
+    if rated is None or rated.day != today_local() or rated.rpe is None:
+        return None
+    return f"Remplacer l'effort perçu de {rated.what} : {rated.rpe}/10 → {payload.rpe}/10."
+
+
+async def _rate_effort(store: FileStore, payload: RateEffortArgs) -> Outcome:
+    """Note l'effort perçu d'une séance du jour — ce qui la fait entrer dans la charge.
+
+    **Du jour, et c'est le serveur qui le dit.** La consigne le demande aussi, mais un
+    modèle qui confond « hier soir » et « ce soir » écrirait sur la mauvaise séance ; la
+    page de la séance garde la note d'un autre jour. L'écriture passe par la route de
+    chaque domaine, sous le jeton lu dans le condensé.
+    """
+    from app.domains.activity.others import OtherService
+    from app.domains.activity.service import CircuitSessionService, RunService
+    from app.domains.activity.swims import SwimService
+
+    rated = await _rated(store, payload)
+    if rated is None:
+        raise ValidationFailedError("Cette séance n'est plus là : elle a pu être supprimée.")
+    if rated.day != today_local():
+        raise ValidationFailedError(
+            f"Je ne note l'effort que d'une séance du jour : {rated.what} du "
+            f"{rated.day:%d/%m} se note sur sa page."
+        )
+
+    index, token, rpe = payload.row_id, payload.token, payload.rpe
+    written: Any
+    if payload.kind == "run":
+        written = await RunService(store).set_rpe(index, token, rpe)
+    elif payload.kind == "swim":
+        written = await SwimService(store).set_rpe(index, token, rpe)
+    elif payload.kind == "other":
+        written = await OtherService(store).set_rpe(index, token, rpe)
+    else:
+        written = await CircuitSessionService(store).set_rpe(index, token, rpe)
+
+    if rated.rpe is not None:
+        # Confirmé : un changement, sans annulation — l'ancienne valeur était dite en clair.
+        return Outcome(summary=f"Effort perçu de {rated.what} passé de {rated.rpe}/10 à {rpe}/10.")
+    return Outcome(
+        summary=f"Effort perçu {rpe}/10 noté sur {rated.what} du jour.",
+        undo=Undo(
+            RATED[payload.kind],
+            written.id,
+            written.token,
+            method="PUT",
+            suffix="rpe",
+            body={"rpe": None},
+        ),
+    )
+
+
 async def _add_run(store: FileStore, payload: RunPayload) -> Outcome:
     from app.domains.activity.service import (
         RunService,
@@ -635,9 +782,17 @@ def _spec(
     *,
     scopes: frozenset[str] = ORDINARY,
     hidden: frozenset[str] = frozenset(),
+    confirm_if: Callable[[FileStore, Any], Awaitable[str | None]] | None = None,
 ) -> ActionSpec:
     return ActionSpec(
-        name=name, level=level, label=label, payload=payload, run=run, scopes=scopes, hidden=hidden
+        name=name,
+        level=level,
+        label=label,
+        payload=payload,
+        run=run,
+        scopes=scopes,
+        hidden=hidden,
+        confirm_if=confirm_if,
     )
 
 
@@ -725,6 +880,17 @@ def catalogue() -> dict[str, ActionSpec]:
             _add_swim,
             # Réécrire une natation importée est une correction ; une création n'en a que faire.
             hidden=frozenset({"rewrite"}),
+        ),
+        _spec(
+            "effort.rate",
+            Level.ADD,
+            "noter l'effort perçu, de 1 à 10, d'une séance **du jour** — kind, row_id et "
+            "token tels que le condensé les donne sur la ligne de la séance. Jamais une "
+            "séance d'un autre jour : elle se note sur sa page. Une séance qui a déjà un "
+            "effort attendra ma confirmation",
+            RateEffortArgs,
+            _rate_effort,
+            confirm_if=_effort_overwrites,
         ),
         _spec(
             "run.add",
@@ -871,12 +1037,14 @@ __all__ = [
     "HIDDEN_ARGS",
     "ORDINARY",
     "PLANNING_ONLY",
+    "RATED",
     "SOURCE",
     "ActionSpec",
     "DeleteByRowArgs",
     "Level",
     "Outcome",
     "ProposePlanArgs",
+    "RateEffortArgs",
     "TakeSupplementArgs",
     "Undo",
     "catalogue",

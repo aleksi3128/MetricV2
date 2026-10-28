@@ -659,6 +659,19 @@ async def delete_session(row_id: RowId, store: StoreDep, if_match: IfMatch = Non
     await CircuitSessionService(store).delete(row_id, _token(if_match))
 
 
+@router.put(
+    "/sessions/{row_id}/rpe",
+    response_model=CircuitSession,
+    summary="Noter l'effort perçu d'une séance tabata",
+)
+async def set_session_rpe(
+    row_id: RowId, payload: RunRpePayload, store: StoreDep, if_match: IfMatch = None
+) -> CircuitSession:
+    """L'effort perçu seul, le pendant des trois autres : c'est lui qui fait compter la
+    séance dans la charge globale. Ce que Cadence a joué, lui, ne se corrige pas."""
+    return await CircuitSessionService(store).set_rpe(row_id, _token(if_match), payload.rpe)
+
+
 # ── Charges des exercices de tabata (**C1**) ──────────
 
 

@@ -444,6 +444,11 @@ async def today_lines(store: FileStore, today: date) -> list[str]:
     continue d'exiger `repas_du_jour` — c'est `STO-05`, et rien ne l'assouplit. Deux
     rubriques, deux usages, et le modèle n'obtient pas ici de quoi écrire.
 
+    **Une exception, et une seule : les séances du jour** (M-10). Elles portent leur sorte,
+    leur ligne et leur jeton, pour `effort.rate` — « c'était dur, 8 sur 10 » se dit en
+    sortant de séance, et la tranche coûterait un appel entier pour trois identifiants. Le
+    jeton reste exigé : le servir n'assouplit pas `STO-05`, il évite de le payer deux fois.
+
     ## Aucun zéro pour une absence
 
     Un jour sans repas rend « aucun repas noté » et non « 0 g de protéines ». Le plan le
@@ -510,14 +515,20 @@ async def today_lines(store: FileStore, today: date) -> list[str]:
 
 
 async def _training_today(store: FileStore, today: date) -> list[str]:
-    """Ce qui a été fait aujourd'hui — séances, courses, et les charges soulevées.
+    """Ce qui a été fait aujourd'hui — séances, courses, nages, sorties, et les exercices.
 
-    Séparé pour une raison pratique : c'est la seule partie du bloc qui lit trois fichiers,
-    et la seule qui rende plusieurs lignes. Une séance du jour porte ses exercices, parce
-    que c'est la question suivante — « j'ai fait combien au développé ? » ne doit pas
-    coûter une seconde passe le jour même.
+    Séparé pour une raison pratique : c'est la seule partie du bloc qui lit plusieurs
+    fichiers d'activité, et la seule qui rende plusieurs lignes. Une séance du jour porte
+    ses exercices, parce que c'est la question suivante — « j'ai fait combien au
+    développé ? » ne doit pas coûter une seconde passe le jour même.
+
+    Chaque séance dit **son effort perçu, ou qu'il manque**, et de quoi le noter (M-10) :
+    c'est l'effort qui la fait entrer dans la charge globale (`docs/charge-multisport.md`,
+    D1). La natation et le vélo, absents d'ici jusqu'à M-10, y sont pour la même raison.
     """
+    from app.domains.activity.others import OtherService
     from app.domains.activity.service import CircuitSessionService, RunService
+    from app.domains.activity.swims import SwimService
 
     lines: list[str] = []
 
@@ -527,12 +538,13 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
         seance = row.model
         if seance.date != today:
             continue
-        details = [f"{fr(seance.duration_min)} min"]
-        if seance.rpe is not None:
-            details.append(f"effort perçu {seance.rpe}/10")
+        details = [f"{fr(seance.duration_min)} min", _effort(seance.rpe)]
         groupes = _muscles(_groups_of(sets, seance.session_id))
         travail = f" — {groupes}" if groupes else ""
-        lines.append(f"Aujourd'hui — séance : {seance.name}, {', '.join(details)}{travail}")
+        lines.append(
+            f"Aujourd'hui — séance : {seance.name}, {', '.join(details)}{travail} "
+            f"{_rating('session', row.index, row.token)}"
+        )
 
     # Les séries du jour : ce que la séance a réellement contenu, exercice par exercice.
     # **Aucune charge** — `circuit_session_sets.csv` n'en porte pas (**C4**), et aller
@@ -552,9 +564,48 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
         details = [f"{fr(run.distance_km)} km", f"{fr(run.duration_min)} min"]
         if run.pace_min_km is not None:
             details.append(f"allure {fr(run.pace_min_km)} min/km")
-        lines.append(f"Aujourd'hui — course : {', '.join(details)}")
+        details.append(_effort(run.rpe))
+        lines.append(
+            f"Aujourd'hui — course : {', '.join(details)} {_rating('run', run.id, run.token)}"
+        )
+
+    for nage in await SwimService(store).records():
+        swim = nage.model
+        if swim.date != today:
+            continue
+        details = [
+            f"{swim.distance_m:.0f} m",
+            f"{fr(round(swim.duration_s / 60, 1))} min",
+            _effort(swim.rpe),
+        ]
+        lines.append(
+            f"Aujourd'hui — natation : {', '.join(details)} "
+            f"{_rating('swim', nage.index, nage.token)}"
+        )
+
+    for other in (await OtherService(store).all()).others:
+        if other.date != today:
+            continue
+        details = [f"{fr(other.duration_min)} min"]
+        if other.distance_km is not None:
+            details.append(f"{fr(other.distance_km)} km")
+        details.append(_effort(other.rpe))
+        lines.append(
+            f"Aujourd'hui — sortie ({other.sport}) : {', '.join(details)} "
+            f"{_rating('other', other.id, other.token)}"
+        )
 
     return lines
+
+
+def _effort(rpe: int | None) -> str:
+    """L'effort perçu, ou son absence dite en clair — jamais un zéro."""
+    return f"effort perçu {rpe}/10" if rpe is not None else "effort perçu non noté"
+
+
+def _rating(kind: str, row_id: int, token: str) -> str:
+    """De quoi noter l'effort de cette séance, sous la forme qu'attend `effort.rate`."""
+    return f"(effort.rate : kind={kind}, row_id={row_id}, token={token})"
 
 
 def memory_lines(entries: list[MemoryNote]) -> list[str]:

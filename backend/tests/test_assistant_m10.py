@@ -312,3 +312,155 @@ def test_an_argument_refusal_carries_a_code_too(
 
     assert report["status"] == "refused"
     assert report["code"] == "validation_error"
+
+
+# ── effort.rate ───────────────────────────────────────
+
+
+def a_run(client: TestClient, auth: dict[str, str], *, day: Any = None) -> dict[str, Any]:
+    body = {"date": (day or TODAY).isoformat(), "distance_km": "8", "duration_min": "48:00"}
+    response = client.post("/api/activity/runs", json=body, headers=auth)
+    assert response.status_code == 201, response.text
+    created: dict[str, Any] = response.json()
+    return created
+
+
+def rate(openrouter: FakeOpenRouter, kind: str, row: dict[str, Any], rpe: int) -> None:
+    say(openrouter, "effort.rate", kind=kind, row_id=row["id"], token=row["token"], rpe=rpe)
+
+
+def test_an_effort_on_a_session_without_one_runs_and_undoes_to_empty(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Une addition sur une séance qui n'en a pas : elle s'exécute, et « Annuler » remet
+    l'effort à vide — **jamais** un `DELETE`, qui supprimerait la course."""
+    run = a_run(ai_app_client, auth)
+    rate(openrouter, "run", run, 7)
+
+    report = acted(ai_app_client, auth, "C'était dur, 7 sur 10.")[0]
+
+    assert report["status"] == "done", report
+    assert report["summary"] == "Effort perçu 7/10 noté sur la course (8 km) du jour."
+    assert ai_app_client.get(f"/api/activity/runs/{run['id']}", headers=auth).json()["rpe"] == 7
+    undo = report["undo"]
+    assert (undo["method"], undo["suffix"], undo["body"]) == ("PUT", "rpe", {"rpe": None})
+
+    response = ai_app_client.put(
+        f"/api/{undo['domain']}/{undo['row_id']}/{undo['suffix']}",
+        json=undo["body"],
+        headers={**auth, "If-Match": undo["token"]},
+    )
+
+    assert response.status_code == 200, response.text
+    after = ai_app_client.get(f"/api/activity/runs/{run['id']}", headers=auth).json()
+    assert after["rpe"] is None
+    assert after["distance_km"] == 8, "la course est toujours là"
+
+
+def test_an_effort_already_noted_waits_before_being_overwritten(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    run = a_run(ai_app_client, auth)
+    noted = ai_app_client.put(
+        f"/api/activity/runs/{run['id']}/rpe",
+        json={"rpe": 5},
+        headers={**auth, "If-Match": run["token"]},
+    ).json()
+    rate(openrouter, "run", noted, 8)
+
+    report = acted(ai_app_client, auth, "Finalement plutôt 8.")[0]
+
+    assert (report["status"], report["level"]) == ("pending", "change")
+    assert report["summary"] == "Remplacer l'effort perçu de la course (8 km) : 5/10 → 8/10."
+    assert ai_app_client.get(f"/api/activity/runs/{run['id']}", headers=auth).json()["rpe"] == 5
+
+    confirmed = ai_app_client.post(
+        f"{ASSISTANT}/actions/confirm",
+        json={"name": report["name"], "args": report["args"]},
+        headers=auth,
+    ).json()
+
+    assert confirmed["status"] == "done", confirmed
+    assert confirmed["undo"] is None, "un changement confirmé ne s'annule pas"
+    assert ai_app_client.get(f"/api/activity/runs/{run['id']}", headers=auth).json()["rpe"] == 8
+
+
+def test_an_effort_on_yesterdays_session_is_refused_by_the_server(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    run = a_run(ai_app_client, auth, day=YESTERDAY)
+    rate(openrouter, "run", run, 6)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert "séance du jour" in report["summary"]
+    assert ai_app_client.get(f"/api/activity/runs/{run['id']}", headers=auth).json()["rpe"] is None
+
+
+def test_a_stale_token_is_a_conflict_not_a_permission(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    run = a_run(ai_app_client, auth)
+    rate(openrouter, "run", {**run, "token": "perime"}, 6)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert report["code"] == "conflict"
+
+
+def test_a_swim_a_walk_and_a_cadence_session_take_an_effort_too(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Quatre sortes, une échelle : c'est l'effort qui fait entrer chacune dans la charge."""
+    swim = ai_app_client.post(
+        "/api/activity/swims",
+        json={"date": TODAY.isoformat(), "duration_min": 40, "program": PROGRAM},
+        headers=auth,
+    ).json()
+    walk = ai_app_client.post(
+        "/api/activity/others",
+        json={"date": TODAY.isoformat(), "sport": "marche", "duration_min": 50},
+        headers=auth,
+    ).json()
+    circuit = ai_app_client.post(
+        "/api/activity/circuits",
+        json={
+            "name": "Abdos",
+            "rounds": 2,
+            "round_rest_s": 30,
+            "exercises": [{"name": "Plank", "muscle_group": "abdos", "duration_s": 45}],
+        },
+        headers=auth,
+    ).json()
+    session = ai_app_client.post(
+        f"/api/activity/circuits/{circuit['id']}/done", json={"duration_min": 12}, headers=auth
+    ).json()
+    before = ai_app_client.get("/api/training", headers=auth).json()["unrated"]
+
+    for kind, row in (("swim", swim), ("other", walk), ("session", session)):
+        rate(openrouter, kind, row, 4)
+        report = acted(ai_app_client, auth)[0]
+        assert report["status"] == "done", (kind, report)
+        assert report["undo"]["domain"].startswith("activity/")
+
+    assert sum(before.values()) == 3
+    assert ai_app_client.get("/api/training", headers=auth).json()["unrated"] == {}
+
+
+def test_the_condensed_view_names_todays_sessions_with_their_effort(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    run = a_run(ai_app_client, auth)
+    a_run(ai_app_client, auth, day=YESTERDAY)
+    openrouter.say(answer())
+
+    acted(ai_app_client, auth, "Bonjour")
+
+    prompt = openrouter.calls[0].prompt
+    assert (
+        "Aujourd'hui — course : 8 km, 48 min, allure 6 min/km, effort perçu non noté "
+        f"(effort.rate : kind=run, row_id={run['id']}, token={run['token']})"
+    ) in prompt
+    assert prompt.count("effort.rate : kind=") == 1, "la course d'hier n'est pas nommée"

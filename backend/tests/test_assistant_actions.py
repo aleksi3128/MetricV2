@@ -446,6 +446,14 @@ def test_every_undo_domain_is_a_real_delete_route(ai_app_client: TestClient) -> 
     for domain in domains:
         assert f"/api/{domain}/{{row_id}}" in published, domain
 
+    # L'effort perçu se défait autrement (M-10) : `PUT …/{row_id}/rpe` remet le champ à vide.
+    # Les quatre routes doivent exister, et sous ce verbe.
+    from app.domains.assistant.actions import RATED
+
+    paths = ai_app_client.app.openapi()["paths"]  # type: ignore[attr-defined]
+    for domain in RATED.values():
+        assert "put" in paths.get(f"/api/{domain}/{{row_id}}/rpe", {}), domain
+
     # Et le catalogue n'en emploie pas d'autres : sans cette moitié, ajouter demain une
     # action avec un domaine inventé passerait au travers.
     source = (catalogue.__file__ or "").replace(".pyc", ".py")

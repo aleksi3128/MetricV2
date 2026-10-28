@@ -323,6 +323,27 @@ CAS: tuple[Cas, ...] = (
             aucune_suppression(),
         ),
     ),
+    Cas(
+        nom="effort-du-jour",
+        groupe="action",
+        question="La sortie de ce matin était dure, je dirais 8 sur 10.",
+        condense=[*fixtures.RICHE, fixtures.COURSE_DU_JOUR],
+        attendus=(
+            action_avec("effort.rate", kind="run", row_id=13, token="ee55ff66", rpe=8),
+            aucune_suppression(),
+        ),
+    ),
+    Cas(
+        nom="effort-seance-hier",
+        groupe="action",
+        question="Note un effort de 7 sur 10 sur ma course du 14.",
+        condense=[*fixtures.RICHE, fixtures.COURSE_DU_JOUR],
+        # La course du 14 est dans `activites_recentes`, avec sa ligne et son jeton : rien
+        # n'empêche le modèle de les recopier. Le serveur refuserait — séance d'un autre
+        # jour — ; ce cas mesure qu'il ne l'essaie pas, et ne note pas non plus celle du jour.
+        tranches=("activites_recentes",),
+        attendus=(actions_vides(), reponse_non_vide()),
+    ),
     # ── Le coaching — les cas témoins ─────────────────
     Cas(
         nom="charge-lundi",

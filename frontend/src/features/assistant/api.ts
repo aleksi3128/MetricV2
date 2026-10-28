@@ -102,6 +102,14 @@ export interface UndoRef {
   domain: string;
   row_id: number;
   token: string;
+  /**
+   * Le geste, quand ce n'est pas une suppression (M-10) : défaire un effort perçu noté
+   * sur une séance, c'est le remettre à vide — `PUT …/3/rpe` avec `{ rpe: null }` —, pas
+   * supprimer la séance. Le serveur le dit ; absents, c'est l'ancien `DELETE`.
+   */
+  method?: 'DELETE' | 'PUT';
+  suffix?: string;
+  body?: Record<string, unknown> | null;
 }
 
 export interface ActionReport {
@@ -389,17 +397,23 @@ export const assistantApi = {
     }),
 
   /**
-   * Défait un ajout, par la route du domaine.
+   * Défait une écriture, par la route du domaine.
    *
    * Aucune table de correspondance ici : `domain` **est** le chemin de la ressource, et un
-   * test du serveur vérifie qu'il désigne une route de suppression réelle. C'est la même
-   * requête que celle qu'un écran envoie quand on supprime une ligne à la main.
+   * test du serveur vérifie qu'il désigne une route réelle. C'est la même requête que celle
+   * qu'un écran envoie quand on supprime une ligne — ou, pour un effort perçu, quand on
+   * l'efface. La méthode, le suffixe et le corps viennent du serveur : l'écran n'apprend
+   * aucune action par son nom.
    */
   undo: (ref: UndoRef) =>
-    request<undefined>(`/api/${ref.domain}/${String(ref.row_id)}`, {
-      method: 'DELETE',
-      headers: ifMatch(ref.token),
-    }),
+    request<unknown>(
+      `/api/${ref.domain}/${String(ref.row_id)}${ref.suffix ? `/${ref.suffix}` : ''}`,
+      {
+        method: ref.method ?? 'DELETE',
+        headers: ifMatch(ref.token),
+        ...(ref.body != null ? { body: ref.body } : {}),
+      },
+    ),
 
   /** Écrit une note tapée à la main, marquée `manual`. */
   remember: (topic: string, note: string) =>

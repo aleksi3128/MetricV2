@@ -85,6 +85,13 @@ DOULEUR_OUVERTE = (
     "sa base le lendemain. (pain_id=p-genou)"
 )
 
+#: Une course du jour sans effort perçu, dans la forme de `context._training_today` (M-10) :
+#: sorte, ligne et jeton servis d'office pour `effort.rate`.
+COURSE_DU_JOUR = (
+    "Aujourd'hui — course : 8,2 km, 41 min, allure 5 min/km, effort perçu non noté "
+    "(effort.rate : kind=run, row_id=13, token=ee55ff66)"
+)
+
 # ── Les carnets ───────────────────────────────────────
 #
 # Rendus par `context.memory_lines`, donc « sujet — note (noté le …) ». Le commentaire qui
@@ -190,6 +197,7 @@ TRANCHES = {
 __all__ = [
     "CARNET_FOURNI",
     "CARNET_VIDE",
+    "COURSE_DU_JOUR",
     "DOULEUR_OUVERTE",
     "MAIGRE",
     "RICHE",

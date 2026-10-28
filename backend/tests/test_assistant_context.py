@@ -230,6 +230,8 @@ LECTURE_PAR_ECRITURE = {
     "pain.add": D_OFFICE,
     # Écrire une natation, c'est d'abord savoir sa notation : la tranche la porte.
     "swim.add": "notation_natation",
+    # Les séances du jour, avec sorte, ligne et jeton : le bloc « aujourd'hui » (M-10).
+    "effort.rate": D_OFFICE,
 }
 
 

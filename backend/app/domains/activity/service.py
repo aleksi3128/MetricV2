@@ -2145,16 +2145,44 @@ class CircuitSessionService:
             duration_min=duration_min,
             rpe=rpe,
             source=self.SOURCE,
-            sets=[
-                CircuitSessionSet(
-                    exercise_name=entry.exercise_name,
-                    muscle_group=entry.muscle_group,
-                    sets=entry.sets,
-                    # La sentinelle `-1` reste dans le fichier : l'API ne la voit jamais.
-                    reps=None if entry.reps == circuit_link.TIMED else entry.reps,
-                )
-                for entry in sets
-            ],
+            sets=[_session_set(entry) for entry in sets],
+        )
+
+    async def set_rpe(self, index: int, token: str, rpe: int | None) -> CircuitSession:
+        """L'effort perçu seul, sous `If-Match` — comme une course, une nage, une sortie.
+
+        La route de suppression dit qu'aucune correction n'a de route en face, et c'est
+        délibéré : une séance dit ce qui a eu lieu, telle que Cadence l'a jouée. L'effort
+        perçu n'en est pas : c'est ce qu'on en a ressenti, et c'est lui qui fait entrer la
+        séance dans la charge globale (`docs/charge-multisport.md`, D1). Sans cette méthode,
+        un tabata déclaré fait sans effort ne comptait jamais, et l'assistant (M-10) ne
+        pouvait le noter que pour trois sports sur quatre. `null` l'efface — c'est
+        l'annulation de l'assistant.
+        """
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette séance n'existe plus.")
+        row = await self._repo.replace_by_token(
+            index, token, rows[index].model.model_copy(update={"rpe": rpe})
+        )
+        session = row.model
+        sets = [
+            entry.model
+            for entry in await self._sets.read_all()
+            if entry.model.session_id == session.session_id
+        ]
+        return CircuitSession(
+            id=row.index,
+            token=row.token,
+            session_id=session.session_id,
+            circuit_id=session.circuit_id,
+            date=session.date,
+            name=session.name,
+            rounds=session.rounds,
+            duration_min=session.duration_min,
+            rpe=session.rpe,
+            source=session.source,
+            sets=[_session_set(entry) for entry in sets],
         )
 
     async def delete(self, index: int, token: str) -> None:
@@ -2186,6 +2214,16 @@ class CircuitSessionService:
         if session_id:
             await self._sets.remove_where(lambda row: row.session_id == session_id)
         await self._repo.delete_by_token(index, token)
+
+
+def _session_set(entry: CircuitSessionSetRow) -> CircuitSessionSet:
+    return CircuitSessionSet(
+        exercise_name=entry.exercise_name,
+        muscle_group=entry.muscle_group,
+        sets=entry.sets,
+        # La sentinelle `-1` reste dans le fichier : l'API ne la voit jamais.
+        reps=None if entry.reps == circuit_link.TIMED else entry.reps,
+    )
 
 
 # ── Charges des exercices de tabata (**C1**) ──────────

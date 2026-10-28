@@ -801,6 +801,36 @@ describe('actions', () => {
     });
   });
 
+  it('« Annuler » un effort perçu le remet à vide, sans supprimer la séance (M-10)', async () => {
+    // Le geste vient du serveur : l'écran ne sait pas qu'il s'agit d'un effort perçu.
+    const user = userEvent.setup();
+    const rated = {
+      ...ADDED,
+      name: 'effort.rate',
+      summary: 'Effort perçu 7/10 noté sur la course (8 km) du jour.',
+      undo: {
+        domain: 'activity/runs',
+        row_id: 3,
+        token: 'jeton-course',
+        method: 'PUT' as const,
+        suffix: 'rpe',
+        body: { rpe: null },
+      },
+    };
+    stub({ reply: { ...REPLY, actions: [rated] } });
+    renderScreen();
+    await askSomething();
+
+    await user.click(await screen.findByRole('button', { name: 'Annuler' }));
+
+    await waitFor(() => {
+      const put = writes().find((call) => call.init?.method === 'PUT');
+      expect(put?.url).toContain('/api/activity/runs/3/rpe');
+      expect(put?.init?.body).toBe(JSON.stringify({ rpe: null }));
+    });
+    expect(writes().some((call) => call.init?.method === 'DELETE')).toBe(false);
+  });
+
   it('une action en attente n’écrit rien tant qu’on n’a pas confirmé', async () => {
     stub({ reply: { ...REPLY, actions: [PENDING] } });
     renderScreen();

@@ -140,16 +140,23 @@ class ProposedAction(BaseModel):
 
 
 class UndoRef(BaseModel):
-    """De quoi défaire un ajout : la suppression que l'utilisateur ferait lui-même.
+    """De quoi défaire une écriture : le geste que l'utilisateur ferait lui-même.
 
     Aucune machinerie d'annulation n'a été inventée. `domain` nomme la ressource côté API,
     l'écran en déduit la route qu'il appelle déjà pour ses propres suppressions, et la
     garde `If-Match` s'applique comme toujours.
+
+    `method`, `suffix` et `body` (M-10) disent un geste qui n'est pas une suppression :
+    remettre à vide l'effort perçu qu'on vient de noter — `PUT …/{row_id}/rpe` avec
+    `{"rpe": null}`. Leurs défauts sont l'ancien `DELETE`.
     """
 
     domain: str
     row_id: int
     token: str
+    method: Literal["DELETE", "PUT"] = "DELETE"
+    suffix: str = ""
+    body: dict[str, Any] | None = None
 
 
 class ActionReport(BaseModel):
@@ -164,7 +171,7 @@ class ActionReport(BaseModel):
     #: le 07/08/2026 », ou « Il me manque de quoi le faire : date. »
     summary: str
     #: Le code d'un refus, celui du catalogue d'erreurs (M-10) — `swim_notation_invalid`,
-    #: `storage_conflict`, `validation_error`… L'écran décide sur lui, jamais sur la phrase ;
+    #: `conflict`, `validation_error`… L'écran décide sur lui, jamais sur la phrase ;
     #: `null` pour ce qui n'est pas refusé.
     code: str | None = None
     #: Les arguments relus, renvoyés pour qu'un `pending` puisse être confirmé tel quel.

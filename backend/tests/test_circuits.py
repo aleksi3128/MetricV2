@@ -568,3 +568,27 @@ def test_no_suggestion_carries_a_muscle_group(app_client: TestClient, auth: dict
 
     assert proposed
     assert all(item["muscle_group"] is None for item in proposed)
+
+
+def test_a_completed_session_takes_its_effort_later_under_if_match(
+    app_client: TestClient, auth: dict[str, str]
+) -> None:
+    """La route manquante (M-10) : sans elle, un tabata déclaré fait sans effort ne
+    comptait jamais dans la charge globale. Un `If-Match` absent est un conflit."""
+    circuit = create(app_client, auth)
+    session = app_client.post(
+        f"{ACTIVITY}/circuits/{circuit['id']}/done", json={"duration_min": 20}, headers=auth
+    ).json()
+    url = f"{ACTIVITY}/sessions/{session['id']}/rpe"
+
+    assert app_client.put(url, json={"rpe": 6}, headers=auth).status_code == 409
+
+    rated = app_client.put(url, json={"rpe": 6}, headers={**auth, "If-Match": session["token"]})
+    assert rated.status_code == 200, rated.text
+    assert rated.json()["rpe"] == 6
+    assert rated.json()["sets"], "les séries suivent la séance"
+
+    cleared = app_client.put(
+        url, json={"rpe": None}, headers={**auth, "If-Match": rated.json()["token"]}
+    )
+    assert cleared.json()["rpe"] is None

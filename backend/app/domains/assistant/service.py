@@ -749,6 +749,22 @@ class AssistantService:
                 continue
 
             spec, payload = checked
+            overwrite = (
+                await spec.confirm_if(self._store, payload) if spec.confirm_if is not None else None
+            )
+            if overwrite is not None:
+                # Lu sur la donnée, pas demandé par le modèle (M-10) : l'action attend comme
+                # un changement, et dit ce qu'elle remplacerait.
+                reports.append(
+                    ActionReport(
+                        name=spec.name,
+                        level="change",
+                        status="pending",
+                        summary=overwrite,
+                        args=item.args,
+                    )
+                )
+                continue
             if spec.level is catalogue.Level.CHANGE:
                 # Rien n'est écrit. L'écran montrera ce que ça changerait, et un appui
                 # rappellera `confirm` avec les mêmes arguments.
@@ -857,6 +873,9 @@ class AssistantService:
                     domain=outcome.undo.domain,
                     row_id=outcome.undo.row_id,
                     token=outcome.undo.token,
+                    method=outcome.undo.method,
+                    suffix=outcome.undo.suffix,
+                    body=outcome.undo.body,
                 )
                 if outcome.undo is not None
                 else None
