@@ -1,19 +1,19 @@
-"""L'exploitation du serveur, en quatre commandes (`docs/exploitation-securite.md`, D6–D8).
+"""L'exploitation du serveur, en trois commandes (`docs/exploitation-securite.md`, D6–D8).
 
-    make status    l'API répond-elle, la dernière synchro, la dernière sauvegarde, l'usage IA
-    make doctor    la configuration, les secrets, WebDAV, Garmin, les notifications, le disque
-    make sync      une passe Garmin, tout de suite
+    make status    l'API répond-elle, la dernière sauvegarde, l'usage IA
+    make doctor    la configuration, les secrets, WebDAV, les notifications, le disque
     make backup    une copie datée de toutes les données, sur Nextcloud
 
-`doctor` et `sync` touchent les **vrais** services : ce sont des commandes qu'on lance
+`doctor` et `backup` touchent les **vrais** services : ce sont des commandes qu'on lance
 soi-même. Chaque ligne en échec dit quoi faire — un diagnostic qui constate sans dire la
 suite renvoie à la documentation au pire moment.
+
+`make sync` est parti avec la synchro Garmin, le 28 octobre (`docs/synchro-garmin.md`).
 """
 
 from __future__ import annotations
 
 import asyncio
-import importlib.util
 import os
 import shutil
 import sys
@@ -26,7 +26,7 @@ import httpx2
 
 from app.config import DEV_JWT_SECRET, Settings, get_settings
 from app.core.crypto import Sealer
-from app.core.dates import now_local, today_local
+from app.core.dates import today_local
 from app.core.exceptions import MedicalNotConfiguredError
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider
@@ -49,7 +49,7 @@ class Check:
     detail: str = ""
 
 
-def config_checks(settings: Settings, *, free_bytes: int, garmin_installed: bool) -> list[Check]:
+def config_checks(settings: Settings, *, free_bytes: int) -> list[Check]:
     """Les contrôles qui ne parlent à aucun service — purs, donc testables."""
     checks: list[Check] = []
 
@@ -98,18 +98,6 @@ def config_checks(settings: Settings, *, free_bytes: int, garmin_installed: bool
         else Check("Notifications", None, "coupées sans paire VAPID : make vapid-keys")
     )
 
-    has_credentials = bool(settings.garmin_email and settings.garmin_password)
-    if not has_credentials:
-        checks.append(
-            Check("Garmin", None, "GARMIN_EMAIL et GARMIN_PASSWORD vides : le .fit reste")
-        )
-    elif not garmin_installed:
-        checks.append(
-            Check("Garmin", False, "bibliothèque absente : .venv/bin/pip install garminconnect")
-        )
-    else:
-        checks.append(Check("Garmin", True, "identifiants et bibliothèque présents"))
-
     checks.append(
         Check(
             "Sauvegarde de nuit",
@@ -156,11 +144,7 @@ async def _with_store(work: Callable[[FileStore], Awaitable[int]]) -> int:
 async def doctor() -> int:
     settings = get_settings()
     print("\nDiagnostic de Metric\n")
-    checks = config_checks(
-        settings,
-        free_bytes=shutil.disk_usage(Path.cwd()).free,
-        garmin_installed=importlib.util.find_spec("garminconnect") is not None,
-    )
+    checks = config_checks(settings, free_bytes=shutil.disk_usage(Path.cwd()).free)
     for check in checks:
         show(check)
     failed = any(check.ok is False for check in checks)
@@ -176,7 +160,6 @@ async def doctor() -> int:
 async def status() -> int:
     from app.domains.ai.usage import UsageService
     from app.domains.backup.service import BackupService
-    from app.domains.sync.service import read_state
 
     settings = get_settings()
     print("\nÉtat de Metric\n")
@@ -189,16 +172,6 @@ async def status() -> int:
         show(Check("API", False, f"{url} injoignable : {error}"))
 
     async def work(store: FileStore) -> int:
-        state = await read_state(store)
-        last = state.get("last_success")
-        error = state.get("last_error")
-        show(
-            Check(
-                "Synchro Garmin",
-                not error if last or error else None,
-                error or (f"dernière le {last[:16].replace('T', ' à ')}" if last else "jamais"),
-            )
-        )
         backup = await BackupService(store).last()
         show(Check("Sauvegarde", True if backup else None, backup or "aucune"))
         usage = await UsageService(store).view(today_local(), settings.ai_monthly_budget_usd)
@@ -208,29 +181,6 @@ async def status() -> int:
     code = await _with_store(work)
     print()
     return code
-
-
-async def sync() -> int:
-    from app.domains.sync import connector as remote
-    from app.domains.sync.service import SyncService
-
-    settings = get_settings()
-    try:
-        connector = remote.factory(settings)
-    except remote.ConnectorError as error:
-        show(Check("Synchro Garmin", False, str(error)))
-        return 1
-
-    async def work(store: FileStore) -> int:
-        result = await SyncService(store, connector).run(now_local())
-        if result.error:
-            show(Check("Synchro Garmin", False, result.error))
-            return 1
-        received = ", ".join(item.label for item in result.received) or "rien de nouveau"
-        show(Check("Synchro Garmin", True, f"{received} ; {result.health_days} jour(s) de santé"))
-        return 0
-
-    return await _with_store(work)
 
 
 async def backup() -> int:
@@ -250,7 +200,6 @@ async def backup() -> int:
 COMMANDS: dict[str, Callable[[], Coroutine[Any, Any, int]]] = {
     "status": status,
     "doctor": doctor,
-    "sync": sync,
     "backup": backup,
 }
 

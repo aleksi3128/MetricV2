@@ -76,8 +76,6 @@ from app.storage.files import FileStore
 
 #: Une passe de replanification toutes les quinze minutes au plus.
 REPLAN_EVERY = timedelta(minutes=15)
-#: Une synchro Garmin toutes les trente minutes (`docs/synchro-garmin.md`, D3).
-SYNC_EVERY = timedelta(minutes=30)
 
 logger = logging.getLogger(__name__)
 
@@ -125,9 +123,9 @@ class ReminderScheduler:
         #: La dernière passe de replanification : une toutes les quinze minutes suffit
         #: (`docs/agenda-replanification.md` §4), l'agenda n'étant relu qu'à ce rythme.
         self._replanned: datetime | None = None
-        #: Les réglages du serveur, pour la synchro Garmin — absents, elle ne passe pas.
+        #: Les réglages du serveur, pour le plafond de dépense IA — absents, l'alerte de
+        #: budget se tait.
         self._settings = settings
-        self._synced: datetime | None = None
         self._sender = sender
         self._now = now
         self._sleep = sleep
@@ -158,7 +156,6 @@ class ReminderScheduler:
 
         await self._alerts(service, moment)
         calm = quiet(moment, settings.quiet_start, settings.quiet_end)
-        await self._sync(service, moment, calm)
         await self._replan(service, moment, calm)
         if not calm:
             await self._evening(service, moment, settings)
@@ -278,40 +275,6 @@ class ReminderScheduler:
             )
             await service.record_escalation("alert", moment=moment, key=alert.key)
             logger.info("alerte %s envoyée", alert.key)
-
-    async def _sync(self, service: NotificationService, moment: datetime, calm: bool) -> None:
-        """La synchro Garmin toutes les 30 minutes (`docs/synchro-garmin.md`, D3), et le
-        débrief de chaque séance reçue (NOT-04) — sauf la nuit, où le point du soir et la
-        page de la séance le demanderont."""
-        if self._settings is None:
-            return
-        if self._synced is not None and moment - self._synced < SYNC_EVERY:
-            return
-        self._synced = moment
-        from app.domains.sync import connector as remote
-        from app.domains.sync.service import SyncService
-
-        try:
-            source = remote.factory(self._settings)
-        except remote.ConnectorError:
-            return  # non configurée : rien à faire, et rien à dire toutes les 30 minutes
-        try:
-            result = await SyncService(self._store, source).run(moment)
-        except Exception:
-            logger.exception("synchro Garmin : passe impossible")
-            return
-        if calm:
-            return
-        for item in result.received:
-            await service.deliver(
-                self._sender,
-                {
-                    "title": "Séance reçue",
-                    "body": f"{item.label} — comment c'était ? L'effort et une éventuelle douleur, deux appuis.",
-                    "tag": f"debrief-{item.url}",
-                    "url": item.url,
-                },
-            )
 
     async def _replan(self, service: NotificationService, moment: datetime, calm: bool) -> None:
         """Le coach modifie seul, et le dit (PLN-04). Une modification de **demain** est

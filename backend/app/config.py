@@ -108,14 +108,6 @@ class Settings(BaseSettings):
     # **Jamais** sur Nextcloud : c'est ce qui fait que le dossier y est illisible.
     medical_key: str = ""
 
-    # ── Garmin Connect, voie non officielle (`docs/synchro-garmin.md`) ──
-    # Vides : la synchro est hors service et l'import `.fit` reste la voie (CA-08).
-    garmin_email: str = ""
-    garmin_password: str = ""
-    # Le dossier où la bibliothèque range ses jetons de session, pour ne pas se
-    # reconnecter à chaque passe — Garmin bloque les connexions trop fréquentes.
-    garmin_token_dir: str = ".garmin"
-
     # ── Passkey (`docs/exploitation-securite.md`, D1–D3) ──
     # L'identifiant de la partie de confiance est le **nom de domaine** de l'application
     # (`metric.exemple.fr`), et l'origine son adresse complète (`https://metric.exemple.fr`).

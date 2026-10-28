@@ -368,7 +368,7 @@ class RunService:
 
     # ── Import d'un `.fit` (`docs/import-fit.md`) ─────
 
-    async def create_from_fit(self, data: bytes, *, source: str = "fit") -> Run:
+    async def create_from_fit(self, data: bytes) -> Run:
         """Décode un `.fit`, range le fichier, puis écrit la course et ses paliers.
 
         **L'écriture est directe** (**F5**), contrairement à l'import de captures qui passe
@@ -397,7 +397,7 @@ class RunService:
             fit.storage_path(relative), data, content_type="application/vnd.ant.fit"
         )
         created = await self.create(
-            _fit_payload(parsed), source=source, fit_path=relative, max_hr=parsed.max_hr
+            _fit_payload(parsed), source="fit", fit_path=relative, max_hr=parsed.max_hr
         )
         # Les efforts **après** la course, pour la raison des paliers : l'inverse laisserait
         # des lignes rattachées à un `run_id` qui n'existe nulle part. S'ils échouent, la

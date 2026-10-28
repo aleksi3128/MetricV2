@@ -43,7 +43,6 @@ from app.domains import (
     planning,
     races,
     supplements,
-    sync,
     training,
 )
 
@@ -81,7 +80,6 @@ for domain in (
     app_settings,
     training,
     races,
-    sync,
     medical,
     export,
     account,
@@ -113,7 +111,6 @@ PROTECTED_PREFIXES = tuple(
         app_settings,
         training,
         races,
-        sync,
         medical,
         export,
         account,

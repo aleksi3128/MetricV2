@@ -9,7 +9,7 @@ UVICORN := backend/.venv/bin/uvicorn
 .DEFAULT_GOAL := help
 .PHONY: help setup setup-api setup-web console dev dev-lan dev-api dev-web preview \
         check check-api check-web test test-api test-web eval fmt fmt-check build fonts \
-        check-storage hash-password vapid-keys medical-key status doctor sync backup \
+        check-storage hash-password vapid-keys medical-key status doctor backup \
         update clean
 
 help: ## Show this help
@@ -131,16 +131,14 @@ medical-key: ## Generate the medical record encryption key to paste into .env (M
 
 # ── Exploitation (docs/exploitation-securite.md) ──────
 #
-# `doctor` and `sync` talk to the REAL services (Nextcloud, Garmin): they are commands
-# the operator runs, never something a test or a script fires by itself.
-status: ## API up?, last Garmin sync, last backup, AI usage this month
+# `doctor` and `backup` talk to the REAL Nextcloud: they are commands the operator runs,
+# never something a test or a script fires by itself. `sync` left with the Garmin sync
+# on 28 October (docs/synchro-garmin.md).
+status: ## API up?, last backup, AI usage this month
 	cd backend && .venv/bin/python -m app.scripts.ops status
 
-doctor: ## Full check: configuration, secrets, WebDAV, Garmin, notifications, disk space
+doctor: ## Full check: configuration, secrets, WebDAV, notifications, disk space
 	cd backend && .venv/bin/python -m app.scripts.ops doctor
-
-sync: ## Run one Garmin sync pass now (REAL Garmin call)
-	cd backend && .venv/bin/python -m app.scripts.ops sync
 
 backup: ## Copy all data to Metric/_backups/<date>/ on Nextcloud, keeping the last 14
 	cd backend && .venv/bin/python -m app.scripts.ops backup

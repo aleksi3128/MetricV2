@@ -85,4 +85,6 @@ trop lents, « 4 km sur 6 dans la plage (5:42–6:27 /km) ».
 - **Le fractionné n'est pas jugé au kilomètre** (D8) : il faudrait les tours de la montre.
 - **Les plages sont celles des zones d'aujourd'hui** (D7), et c'est écrit sous le chiffre.
 - **Aucune nuit réelle n'a été vue** : celles de l'écran sont semées ; la synchro Garmin
-  attend toujours R0.
+  attend toujours R0. *Le 28 octobre, elle est retirée ([`synchro-garmin.md`](synchro-garmin.md)) :
+  aucune nuit n'arrivera plus, et la ligne de l'accueil ne s'affiche que sur une nuit déjà
+  stockée.*

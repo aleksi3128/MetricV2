@@ -23,10 +23,10 @@ MEDICAL = "medical/entries.csv"
 AI_USAGE = "ai/usage.csv"
 #: La nuit et la journée vues par la montre : sommeil, stress, Body Battery
 #: (`docs/synchro-garmin.md`, D5). La FC de repos et la VFC restent dans `MORNING`.
+#: **Plus aucun écrivain** depuis le retrait de la synchro (28 octobre) : relu tel quel,
+#: jamais réécrit. `sync/imported.csv` et `sync/state.csv`, s'ils existent, ne sont plus
+#: lus par personne — ils restent au stockage, comme toute donnée.
 HEALTH = "body/health.csv"
-#: Ce que la synchro Garmin a déjà importé, et son état (`docs/synchro-garmin.md` §2).
-SYNC_IMPORTED = "sync/imported.csv"
-SYNC_STATE = "sync/state.csv"
 
 #: L'état du parcours du matin — étapes passées, « Pas ce matin » (`docs/coach-course.md`
 #: §5). Un état et non une mesure : il ne dit que ce que les données ne savent pas.

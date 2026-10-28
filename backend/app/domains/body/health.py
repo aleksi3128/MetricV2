@@ -1,8 +1,12 @@
 """La nuit et la journée vues par la montre (`docs/synchro-garmin.md`, D5, ANA-01).
 
-`body/health.csv` : sommeil, stress, Body Battery — une ligne par jour, écrite par la
-synchro. Famille *mesure* : une ligne sans date ne se relit pas. Chaque valeur peut manquer
-— une nuit sans montre n'a pas de sommeil — et l'absence se dit, elle ne vaut jamais zéro.
+`body/health.csv` : sommeil, stress, Body Battery — une ligne par jour. Famille *mesure* :
+une ligne sans date ne se relit pas. Chaque valeur peut manquer — une nuit sans montre n'a
+pas de sommeil — et l'absence se dit, elle ne vaut jamais zéro.
+
+**Ce module ne fait plus que lire.** Son seul écrivain était la synchro Garmin, retirée le
+28 octobre : ce que le fichier porte déjà reste une mesure et se relit, mais rien n'y
+ajoute plus de jour. Le `.fit` d'une activité ne contient pas la nuit.
 
 La FC de repos et la VFC n'y sont pas : elles vivent dans `body/morning.csv`, que le coach
 lit déjà, et une seconde copie ferait deux vérités.
@@ -56,14 +60,6 @@ class HealthService:
     async def view(self) -> HealthView:
         rows = sorted(await self._repo.read_all(), key=lambda row: row.model.date, reverse=True)
         return HealthView(days=[_day(row.model) for row in rows[:RECENT]])
-
-    async def upsert(self, row: HealthRow) -> None:
-        """Un jour par ligne : la synchro qui repasse corrige, elle n'empile pas."""
-        for existing in await self._repo.read_all(fresh=True):
-            if existing.model.date == row.date:
-                await self._repo.replace_by_token(existing.index, existing.token, row)
-                return
-        await self._repo.append(row)
 
 
 def _day(row: HealthRow) -> HealthDay:

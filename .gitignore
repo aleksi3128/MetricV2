@@ -51,6 +51,7 @@ audit-shots*/
 data-local/
 
 # État local du serveur (docs/exploitation-securite.md) : les clés publiques des passkeys,
-# et les jetons de session Garmin — ceux-là sont des secrets.
+# et les jetons de session de l'ancienne synchro Garmin, retirée le 28 octobre — gardé
+# ignoré : un `.garmin/` resté sur un serveur porterait encore des secrets.
 .passkeys/
 .garmin/

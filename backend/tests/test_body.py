@@ -496,3 +496,31 @@ def test_the_day_is_served_even_when_nothing_has_been_recorded(
 
     assert body["entries"] == []
     assert body["today"] == today_local().isoformat()
+
+
+# ── La nuit, relue sans écrivain ──────────────────────
+
+
+def test_a_night_already_stored_is_read_back_and_an_absent_value_is_not_said(
+    dav: FakeWebDav, store_client: TestClient, auth: dict[str, str]
+) -> None:
+    """La synchro qui écrivait `body/health.csv` est retirée (28 octobre) ; ce qu'il porte
+    reste une mesure et se relit. Une valeur absente n'entre pas dans la phrase."""
+    dav.seed(
+        "Metric/body/health.csv",
+        "date,sleep_min,sleep_score,stress_avg,body_battery_high,body_battery_low,source\n"
+        "2026-10-19,,,40,,,garmin\n"
+        "2026-10-20,432,78,31,85,22,garmin\n",
+    )
+    days = store_client.get("/api/body/health", headers=auth).json()["days"]
+    assert [day["text"] for day in days] == [
+        "7 h 12 de sommeil (score 78), stress 31, Body Battery 85 → 22.",
+        "Stress 40.",
+    ]
+    assert days[1]["sleep_min"] is None
+
+
+def test_without_a_stored_night_the_view_is_empty(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    assert store_client.get("/api/body/health", headers=auth).json() == {"days": []}

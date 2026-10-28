@@ -1,5 +1,33 @@
 # La synchro Garmin, la santé de la nuit, et les doublons
 
+> **La synchro Garmin a été retirée le 28 octobre 2026.** L'utilisateur avait décidé, le
+> 27, qu'il n'y en aurait **aucune, même en production** (fiche M-18 écartée), puis, le 28,
+> d'en retirer le code plutôt que de le garder dormant. Garmin n'ouvre pas son API, la voie
+> non officielle demandait ses identifiants sur le serveur et pouvait faire bloquer le
+> compte, et R0 ne devait jamais avoir lieu (§5, « Pas d'accès au compte ») : un code qui
+> ne tournera jamais ne garde de sa valeur que ce qu'il coûte à relire.
+>
+> **Ce qui est parti** : `domains/sync/` (connecteur, passe, `GET`/`POST /api/sync`), la
+> passe de l'ordonnanceur toutes les 30 minutes et sa notification « Séance reçue » (D3,
+> D7), `make sync`, les lignes Garmin de `make status` et `make doctor`, les réglages
+> `GARMIN_EMAIL`, `GARMIN_PASSWORD` et `GARMIN_TOKEN_DIR`, et l'écriture de
+> `body/health.csv`. **Une sortie n'entre plus dans Metric que par son `.fit`, déposé à la
+> main** — ce que CA-08 garantissait déjà.
+>
+> **Ce qui vaut encore** :
+>
+> - **Les doublons entre sources (D6, CA-03)**, `activity/dedup.py` : deux `.fit` de la
+>   même sortie, ou un `.fit` et une capture Apple, se rencontrent toujours. Le rang
+>   `garmin` reste classé avec `fit`, pour une ligne déjà stockée qui le porterait.
+> - **La santé de la nuit déjà reçue (D5)** : `GET /api/body/health` relit
+>   `body/health.csv` tel qu'il est, l'accueil n'affiche la nuit que si elle existe. Le
+>   fichier n'a **plus d'écrivain** — et, la synchro n'ayant jamais été configurée, il est
+>   probablement absent : rien ne l'a jamais écrit en production.
+> - **Les données de la synchro**, `sync/imported.csv` et `sync/state.csv`, si elles
+>   existent, restent au stockage : rien ne les lit plus, rien ne les efface.
+>
+> Le reste du document est l'historique du lot R7, laissé tel quel.
+
 Lot **R7** de [`runfurther-dans-metric.md`](runfurther-dans-metric.md), plan du 20/10/2026.
 Exigences ANA-01, ANA-02, NOT-04 ; critères d'acceptation CA-03 et CA-08.
 
@@ -116,3 +144,12 @@ s'affiche que si elle existe. Le connecteur, la passe de l'ordonnanceur et `make
 restent dans le dépôt, **inertes** sans identifiants — l'ordonnanceur se tait déjà quand ils
 manquent. Le dédoublonnage (D6) sert toujours : deux `.fit` de la même sortie, ou un `.fit`
 et une capture Apple.
+
+### Le code retiré (28 octobre 2026)
+
+Le 27 octobre, M-18 (l'état de la synchro dans les réglages) est écartée : aucune synchro,
+même en production. Le 28, le code dormant part avec elle — voir l'encadré en tête. Les
+tests de la synchro (la passe par sport, le fichier déjà déposé, la panne CA-08, le débrief
+annoncé) partent aussi ; ceux du dédoublonnage restent, dans `tests/test_dedup.py`, et la
+lecture de la nuit est éprouvée sur un `body/health.csv` semé (`tests/test_body.py`) — elle
+ne l'était qu'à travers la synchro.

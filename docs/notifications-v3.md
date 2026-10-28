@@ -129,5 +129,6 @@ ils disent maintenant le nouveau.
   dans la fenêtre du soir ; hors fenêtre, il s'efface sans rien ouvrir.
 - **iOS n'affiche pas les actions** d'une notification web : le report y passe par la
   feuille. Rien n'a été essayé sur un vrai téléphone.
-- **Le débrief à l'arrivée d'une activité** (D8) attend la synchronisation de R7.
+- **Le débrief à l'arrivée d'une activité** (D8) attendait la synchronisation de R7, **retirée
+  le 28 octobre** ([`synchro-garmin.md`](synchro-garmin.md)) : il ne viendra pas par là.
 

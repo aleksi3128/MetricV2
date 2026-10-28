@@ -42,7 +42,7 @@ course la veille, d'une douleur ouverte ou d'un rendez-vous dans l'agenda.
 | D10 | La montre | **« Pour la montre (.fit) »** sur toute course planifiée en notation : les blocs, les répétitions imbriquées et les cibles, comme le coach le fait déjà | À copier par câble ou par l'appli Garmin : pas d'accès au compte |
 | D11 | Le respect, après | Une sortie **importée en `.fit`** se juge **bloc par bloc** sur sa trace seconde par seconde : chaque bloc est retrouvé par sa distance ou sa durée, son allure moyenne comparée à sa cible — « 4 répétitions sur 5 dans la cible ; les lignes droites à 3:28, 3:35… ». Puis le chrono visé, et l'effort perçu visé contre celui que tu notes. **Sans `.fit`** : la durée et la distance seulement | Le découpage suppose que tu as couru les blocs dans l'ordre ; un bloc sauté décale la suite — la page le dira quand les distances ne collent pas |
 | D12 | La muscu | **Choisir un circuit Cadence enregistré** : titre, durée et lien posés tout seuls ; le titre libre reste possible | — |
-| D13 | Garmin sans compte | **La synchro est retirée de l'écran** : plus de carte Garmin dans les réglages, plus de « la nuit arrive avec la synchro » sur l'accueil (la nuit ne s'affiche que si elle existe). Le code reste, inerte | — |
+| D13 | Garmin sans compte | **La synchro est retirée de l'écran** : plus de carte Garmin dans les réglages, plus de « la nuit arrive avec la synchro » sur l'accueil (la nuit ne s'affiche que si elle existe). Le code reste, inerte — *puis est retiré le 28 octobre* ([`synchro-garmin.md`](synchro-garmin.md)) | — |
 
 ---
 

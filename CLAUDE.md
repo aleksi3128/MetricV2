@@ -51,11 +51,11 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Les patterns de douleur — un seuil d'allure, de distance, de volume, éprouvé par permutation | [`docs/patterns-douleur.md`](docs/patterns-douleur.md) |
 | Les courses visées A/B/C, leurs conflits, et le plan périodisé jusqu'à la course | [`docs/plan-course.md`](docs/plan-course.md) |
 | L'agenda iCloud lu par son lien ICS, le placement, et le coach qui replanifie — et le « non » qui défait | [`docs/agenda-replanification.md`](docs/agenda-replanification.md) |
-| La synchro Garmin (voie non officielle), la santé de la nuit, et les doublons entre sources | [`docs/synchro-garmin.md`](docs/synchro-garmin.md) |
+| Les doublons entre sources, la santé de la nuit déjà reçue — et la synchro Garmin, **retirée le 28 octobre** : une sortie n'entre que par son `.fit` | [`docs/synchro-garmin.md`](docs/synchro-garmin.md) |
 | La voix — dicter à l'assistant, écouter ses réponses, une douleur dite à voix haute | [`docs/voix.md`](docs/voix.md) |
 | Le dossier médical chiffré — la clé hors de Nextcloud, la dictée proposée, ce que le coach en lit | [`docs/dossier-medical.md`](docs/dossier-medical.md) |
 | L'accueil « Forme », l'écran `/charge` — facile tous sports, frise des douleurs — et le respect au kilomètre de la séance prévue | [`docs/accueil-et-charge.md`](docs/accueil-et-charge.md) |
-| La passkey (mot de passe en secours), l'export complet, la sauvegarde datée, le plafond IA, `make status/doctor/sync/backup` | [`docs/exploitation-securite.md`](docs/exploitation-securite.md) |
+| La passkey (mot de passe en secours), l'export complet, la sauvegarde datée, le plafond IA, `make status/doctor/backup` | [`docs/exploitation-securite.md`](docs/exploitation-securite.md) |
 | Planifier une séance, deuxième version — la notation de course lue par le serveur, les garde-fous, la montre, le respect bloc par bloc | [`docs/planifier-une-seance.md`](docs/planifier-une-seance.md) |
 | Corriger une natation importée — un tour en distance, temps et nage, la fusion, le retrait, les réglages, la réécriture en notation | [`docs/natation-corriger.md`](docs/natation-corriger.md) |
 | Les correctifs de l'audit du 17 octobre — les arbitrages, fiche par fiche, ce qui attend | [`docs/correctifs-audit.md`](docs/correctifs-audit.md) |

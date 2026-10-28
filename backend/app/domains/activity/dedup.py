@@ -26,6 +26,8 @@ from datetime import date, datetime, time, timedelta
 #: Une tolérance aux bords : une application arrondit l'heure de fin à la minute.
 TOLERANCE = timedelta(minutes=2)
 
+#: `garmin` n'est plus écrit depuis le retrait de la synchro (28 octobre) ; il reste classé
+#: avec `fit` parce qu'une ligne déjà stockée peut le porter — c'était le même fichier.
 _RANK = {"garmin": 3, "fit": 3, "apple": 2}
 
 

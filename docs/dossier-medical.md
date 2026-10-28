@@ -25,7 +25,7 @@ Décisions prises seul (délégation du 19/10).
 | D7 | Ce que le coach en lit (COA-03) | **Les titres** des entrées de profil, semelles, antécédents et traitements — jamais les détails, jamais les praticiens, jamais les consultations | Le minimum utile (§6 du cahier) : un coach qui sait « pied hyperlaxe, semelles sur mesure » ; pas un dossier envoyé à chaque question |
 | D8 | Ses décisions passées | **Les cinq dernières modifications du planning** et leur raison entrent au contexte | — |
 | D9 | Les journaux | **Jamais un contenu** : une erreur de déchiffrement se journalise par l'identifiant de la ligne | — |
-| D10 | Les identifiants Garmin | **Restent dans l'`.env`**, hors de Nextcloud : ils sont déjà hors de la base | Le cahier demandait un chiffrement applicatif ; l'`.env` du serveur en tient lieu, écart dit |
+| D10 | Les identifiants Garmin | **Restent dans l'`.env`**, hors de Nextcloud : ils sont déjà hors de la base | Le cahier demandait un chiffrement applicatif ; l'`.env` du serveur en tient lieu, écart dit. *Sans objet depuis le 28 octobre : la synchro et ses identifiants sont retirés* |
 
 ---
 
