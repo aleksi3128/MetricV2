@@ -210,6 +210,11 @@ class ConfirmRequest(BaseModel):
 
     name: str = Field(max_length=MAX_ACTION_NAME)
     args: dict[str, Any] = Field(default_factory=dict)
+    #: Le fil où l'action a été mise en attente. **Obligatoire** (M-20) : c'est sa portée
+    #: qui dit ce qui s'y confirme. Sans lui, un `plan.propose` se confirmait depuis un fil
+    #: ordinaire — ou sans fil du tout —, et la portée ne tenait qu'à ce que le modèle
+    #: voyait. Un fil absent est un refus, comme un `If-Match` absent est un conflit.
+    thread_id: str = Field(min_length=1, max_length=32)
 
 
 class ChatReply(BaseModel):

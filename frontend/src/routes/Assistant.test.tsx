@@ -850,7 +850,7 @@ describe('actions', () => {
     expect(writes().every(isConversation)).toBe(true);
   });
 
-  it('« Confirmer » repasse par la revalidation du serveur', async () => {
+  it('« Confirmer » repasse par la revalidation du serveur, dans le fil de la réponse', async () => {
     const user = userEvent.setup();
     stub({ reply: { ...REPLY, actions: [PENDING] } });
     renderScreen();
@@ -859,9 +859,11 @@ describe('actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Confirmer' }));
 
     await waitFor(() => {
-      expect(bodyOf('/actions/confirm')).toMatchObject({
+      // Le fil rendu avec la réponse : sa portée dit ce qui s'y confirme (M-20).
+      expect(bodyOf('/actions/confirm')).toEqual({
         name: 'weight.delete',
         args: PENDING.args,
+        thread_id: REPLY.thread_id,
       });
     });
   });

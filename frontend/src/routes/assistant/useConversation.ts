@@ -34,6 +34,12 @@ export interface Exchange {
   context: string[];
   /** Le message du serveur quand le tour a échoué. La question reste rejouable. */
   failure?: string;
+  /**
+   * Le fil où la réponse est arrivée — celui que le serveur a rendu, jamais deviné. Une
+   * action en attente se confirme **dans ce fil** : sa portée dit ce qui s'y confirme
+   * (M-20). Absent du passé relu, qui ne range aucune action en attente.
+   */
+  thread?: string;
 }
 
 /** Le passé d'un fil, **dérivé** de ce que le serveur rend — jamais recopié dans un état. */
@@ -133,6 +139,7 @@ export function useConversation({
           actions: result.actions,
           remembered: result.remember,
           context: result.context,
+          thread: result.thread_id,
         },
       ]);
     },

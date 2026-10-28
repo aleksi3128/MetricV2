@@ -389,11 +389,14 @@ export const assistantApi = {
 
   forgetAllThreads: () => request<undefined>('/api/assistant/threads', { method: 'DELETE' }),
 
-  /** Exécute une action laissée en attente. Elle est revalidée côté serveur. */
-  confirmAction: (name: string, args: Record<string, unknown>) =>
+  /**
+   * Exécute une action laissée en attente. Elle est revalidée côté serveur, **dans la
+   * portée du fil** où elle a été proposée (M-20).
+   */
+  confirmAction: (name: string, args: Record<string, unknown>, threadId: string) =>
     request<ActionReport>('/api/assistant/actions/confirm', {
       method: 'POST',
-      body: { name, args },
+      body: { name, args, thread_id: threadId },
     }),
 
   /**

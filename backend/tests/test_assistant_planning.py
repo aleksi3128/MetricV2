@@ -23,6 +23,7 @@ from tests.fake_webdav import FakeWebDav
 
 ASSISTANT = "/api/assistant"
 PLAN_FILE = "Metric/planning/plan.csv"
+THREADS_FILE = "Metric/assistant/threads.csv"
 
 DAY = (today_local() + timedelta(days=2)).isoformat()
 OTHER_DAY = (today_local() + timedelta(days=4)).isoformat()
@@ -42,6 +43,12 @@ def swim(program: str, *, day: str = DAY, title: str = "Vitesse") -> dict[str, A
         "duration_min": 60,
         "program": program,
     }
+
+
+def a_thread(dav: FakeWebDav, thread_id: str = "ordinaire", scope: str = "") -> str:
+    """Un fil existant, pour une confirmation sans question préalable (M-20)."""
+    dav.seed(THREADS_FILE, f"id,created,updated,title,scope\n{thread_id},,,Essai,{scope}\n")
+    return thread_id
 
 
 def propose(*sessions: dict[str, Any]) -> list[dict[str, Any]]:
@@ -273,11 +280,11 @@ def test_adopting_writes_only_what_is_kept(
 ) -> None:
     kept = swim("400 CR EF\n8×50 CR SP R30")
     openrouter.say(answer(actions=propose(kept, swim("200 DOS", day=OTHER_DAY, title="Souple"))))
-    ask(ai_app_client, auth)
+    thread = ask(ai_app_client, auth)["thread_id"]
 
     response = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": "plan.propose", "args": {"sessions": [kept]}},
+        json={"name": "plan.propose", "args": {"sessions": [kept]}, "thread_id": thread},
         headers=auth,
     )
 
@@ -296,12 +303,83 @@ def test_adopting_rereads_the_notation(
     """La confirmation revient du client : elle repasse par la même porte que la saisie."""
     response = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": "plan.propose", "args": {"sessions": [swim("400 NL")]}},
+        json={
+            "name": "plan.propose",
+            "args": {"sessions": [swim("400 NL")]},
+            "thread_id": a_thread(dav, "planning", "planning"),
+        },
         headers=auth,
     )
 
     assert response.json()["status"] == "refused"
     assert "« NL »" in response.json()["summary"]
+    assert PLAN_FILE not in dav.files
+
+
+# ── La confirmation, dans la portée de son fil (M-20) ─
+
+
+def test_a_proposal_is_not_confirmed_from_an_ordinary_thread(
+    ai_app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """La portée tenait à ce que le modèle voyait, pas à ce que le serveur écrivait : un
+    `plan.propose` se confirmait depuis n'importe quel fil, ou sans fil du tout."""
+    response = ai_app_client.post(
+        f"{ASSISTANT}/actions/confirm",
+        json={
+            "name": "plan.propose",
+            "args": {"sessions": [swim("400 CR EF")]},
+            "thread_id": a_thread(dav),
+        },
+        headers=auth,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (body["status"], body["code"]) == ("refused", "validation_error")
+    assert "sais faire" in body["summary"], "le même refus qu'un nom inventé"
+    assert PLAN_FILE not in dav.files
+
+
+def test_an_ordinary_action_is_not_confirmed_from_the_planning_thread(
+    ai_app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """L'inverse : le fil du planning ne voit que `plan.*`, il ne confirme que `plan.*`."""
+    dav.seed(
+        "Metric/body/weight.csv",
+        f"date,weight_kg,note,source\n{DAY},82.4,,manual\n",
+    )
+    token = ai_app_client.get("/api/body/weight", headers=auth).json()["entries"][0]["token"]
+
+    response = ai_app_client.post(
+        f"{ASSISTANT}/actions/confirm",
+        json={
+            "name": "weight.delete",
+            "args": {"row_id": 0, "token": token},
+            "thread_id": a_thread(dav, "planning", "planning"),
+        },
+        headers=auth,
+    )
+
+    assert response.json()["status"] == "refused"
+    assert "82.4" in dav.content_of("Metric/body/weight.csv")
+
+
+def test_a_confirmation_names_its_thread(
+    ai_app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Un fil absent est un refus, pas une permission ; un fil inconnu, un `404`, comme sur les autres routes des fils."""
+    proposal = {"name": "plan.propose", "args": {"sessions": [swim("400 CR EF")]}}
+
+    missing = ai_app_client.post(f"{ASSISTANT}/actions/confirm", json=proposal, headers=auth)
+    unknown = ai_app_client.post(
+        f"{ASSISTANT}/actions/confirm", json={**proposal, "thread_id": "inconnu"}, headers=auth
+    )
+
+    assert missing.status_code == 422
+    assert missing.json()["code"] == "validation_error"
+    assert unknown.status_code == 404
+    assert unknown.json()["code"] == "storage_not_found", "comme un fil inconnu ailleurs"
     assert PLAN_FILE not in dav.files
 
 

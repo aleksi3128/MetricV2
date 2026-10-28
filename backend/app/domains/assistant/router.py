@@ -239,7 +239,8 @@ async def confirm(payload: ConfirmRequest, store: StoreDep) -> ActionReport:
 
     L'action est revalidée entièrement contre le catalogue : rien n'est retenu entre la
     proposition et la confirmation, donc rien ne peut être confirmé qui n'aurait pas pu
-    être demandé.
+    être demandé — **dans ce fil-là** : la portée se lit sur le fil nommé (M-20), et un
+    fil inconnu rend `404`.
     """
     return await AssistantService(store).confirm(payload)
 

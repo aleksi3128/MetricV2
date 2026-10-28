@@ -70,7 +70,7 @@ function toPayload(session: ProposedSession): Record<string, unknown> {
  *
  * Les programmes de nage arrivent **lus** : lignes réécrites, total. Rien n'est relu ici.
  */
-function ProposalCard({ report }: { report: ActionReport }) {
+function ProposalCard({ report, thread }: { report: ActionReport; thread: string }) {
   const client = useQueryClient();
   const { notify } = useToast();
   const sessions = report.sessions ?? [];
@@ -83,7 +83,11 @@ function ProposalCard({ report }: { report: ActionReport }) {
 
   const adopt = useMutation({
     mutationFn: () =>
-      assistantApi.confirmAction(report.name, { sessions: kept.map((item) => toPayload(item)) }),
+      assistantApi.confirmAction(
+        report.name,
+        { sessions: kept.map((item) => toPayload(item)) },
+        thread,
+      ),
     onSuccess: (result) => {
       if (result.status !== 'done') {
         notify(result.summary, 'recover');
@@ -216,18 +220,18 @@ function DroppedList({ dropped }: { dropped: string[] }) {
  * * `refused` — rien n'a eu lieu, et la phrase dit pourquoi. Elle vient du serveur, en
  *   français, et s'affiche telle quelle.
  */
-export function ActionCard({ report }: { report: ActionReport }) {
+export function ActionCard({ report, thread }: { report: ActionReport; thread: string }) {
   if (
     report.name === 'plan.propose' &&
     report.status === 'pending' &&
     (report.sessions ?? []).length > 0
   ) {
-    return <ProposalCard report={report} />;
+    return <ProposalCard report={report} thread={thread} />;
   }
-  return <PlainAction report={report} />;
+  return <PlainAction report={report} thread={thread} />;
 }
 
-function PlainAction({ report }: { report: ActionReport }) {
+function PlainAction({ report, thread }: { report: ActionReport; thread: string }) {
   const client = useQueryClient();
   const { notify } = useToast();
   const [settled, setSettled] = useState<'undone' | 'confirmed' | 'dismissed' | null>(null);
@@ -265,7 +269,7 @@ function PlainAction({ report }: { report: ActionReport }) {
   });
 
   const confirm = useMutation({
-    mutationFn: () => assistantApi.confirmAction(report.name, report.args),
+    mutationFn: () => assistantApi.confirmAction(report.name, report.args, thread),
     onSuccess: (result) => {
       if (result.status !== 'done') {
         notify(result.summary, 'recover');
@@ -498,7 +502,11 @@ export function TurnView({
       )}
 
       {turn.actions.map((report, position) => (
-        <ActionCard key={`${report.name}-${String(position)}`} report={report} />
+        <ActionCard
+          key={`${report.name}-${String(position)}`}
+          report={report}
+          thread={turn.thread ?? ''}
+        />
       ))}
 
       {turn.remembered.map((note) => (

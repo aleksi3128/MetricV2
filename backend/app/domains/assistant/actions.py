@@ -276,8 +276,8 @@ class ActionSpec:
     #: §5.3). `""` est le fil ordinaire. Le fil Planning a son catalogue restreint : il
     #: propose (`plan.propose`) au lieu d'écrire (`plan.add`), et ne touche à rien d'autre.
     #:
-    #: Une confirmation, elle, passe quelle que soit la portée : elle vient d'un appui sur
-    #: ce que la table a déjà accepté de mettre en attente.
+    #: Une confirmation se valide **dans la portée de son fil** (M-20) : elle passait
+    #: quelle que soit la portée, et `plan.propose` se confirmait depuis un fil ordinaire.
     scopes: frozenset[str] = frozenset({""})
     #: Les champs du schéma de domaine que **cette** action tait au modèle, en plus de
     #: `HIDDEN_ARGS` — retirés de la description et des arguments reçus, pour la même

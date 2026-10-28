@@ -368,7 +368,10 @@ def test_an_effort_already_noted_waits_before_being_overwritten(
     ).json()
     rate(openrouter, "run", noted, 8)
 
-    report = acted(ai_app_client, auth, "Finalement plutôt 8.")[0]
+    asked = ai_app_client.post(
+        f"{ASSISTANT}/chat", json={"question": "Finalement plutôt 8."}, headers=auth
+    ).json()
+    report = asked["actions"][0]
 
     assert (report["status"], report["level"]) == ("pending", "change")
     assert report["summary"] == "Remplacer l'effort perçu de la course (8 km) : 5/10 → 8/10."
@@ -376,7 +379,7 @@ def test_an_effort_already_noted_waits_before_being_overwritten(
 
     confirmed = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": report["name"], "args": report["args"]},
+        json={"name": report["name"], "args": report["args"], "thread_id": asked["thread_id"]},
         headers=auth,
     ).json()
 

@@ -28,6 +28,14 @@ from tests.fake_webdav import FakeWebDav
 
 ASSISTANT = "/api/assistant"
 TODAY = today_local()
+THREADS_FILE = "Metric/assistant/threads.csv"
+
+
+def a_thread(dav: FakeWebDav, thread_id: str = "ordinaire", scope: str = "") -> str:
+    """Un fil existant, pour une confirmation qui n'a pas été précédée d'une question —
+    elle se fait toujours **dans un fil** (M-20)."""
+    dav.seed(THREADS_FILE, f"id,created,updated,title,scope\n{thread_id},,,Essai,{scope}\n")
+    return thread_id
 
 
 def answer(**fields: Any) -> str:
@@ -158,7 +166,8 @@ def test_a_pending_action_is_executed_by_confirming_it(
         f"date,weight_kg,note,source\n{TODAY.isoformat()},82.4,,manual\n",
     )
     openrouter.say(answer(actions=[{"name": "weight.delete", "args": {"row_id": 0, "token": "x"}}]))
-    pending = acted(ai_app_client, auth)[0]
+    asked = ask(ai_app_client, auth).json()
+    pending = asked["actions"][0]
 
     # Le jeton d'une ligne est l'empreinte de son contenu, et non l'etag du fichier :
     # c'est ce que l'API expose, et donc ce que le condensé donnera au modèle.
@@ -166,7 +175,11 @@ def test_a_pending_action_is_executed_by_confirming_it(
     token = listed[0]["token"]
     response = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": pending["name"], "args": {"row_id": 0, "token": token}},
+        json={
+            "name": pending["name"],
+            "args": {"row_id": 0, "token": token},
+            "thread_id": asked["thread_id"],
+        },
         headers=auth,
     )
 
@@ -190,7 +203,11 @@ def test_confirming_still_obeys_the_conflict_guard(
 
     response = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": "weight.delete", "args": {"row_id": 0, "token": "périmé"}},
+        json={
+            "name": "weight.delete",
+            "args": {"row_id": 0, "token": "périmé"},
+            "thread_id": a_thread(dav),
+        },
         headers=auth,
     )
 
@@ -199,7 +216,7 @@ def test_confirming_still_obeys_the_conflict_guard(
 
 
 def test_confirming_revalidates_against_the_catalogue(
-    ai_app_client: TestClient, auth: dict[str, str]
+    ai_app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
 ) -> None:
     """Rien n'est retenu entre la proposition et la confirmation.
 
@@ -208,7 +225,7 @@ def test_confirming_revalidates_against_the_catalogue(
     """
     response = ai_app_client.post(
         f"{ASSISTANT}/actions/confirm",
-        json={"name": "database.drop", "args": {}},
+        json={"name": "database.drop", "args": {}, "thread_id": a_thread(dav)},
         headers=auth,
     )
 

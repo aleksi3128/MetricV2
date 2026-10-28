@@ -890,8 +890,16 @@ class AssistantService:
         ils repassent par la même porte que ceux du modèle. Rien n'est retenu entre la
         proposition et la confirmation, donc rien ne peut être confirmé qui n'aurait pas
         pu être demandé.
+
+        **Dans la portée du fil** (M-20). La validation passait sans portée : un
+        `plan.propose` se confirmait depuis un fil ordinaire, et une suppression de pesée
+        depuis le fil du planning, où le modèle ne la voit pas. La portée se lit sur le
+        fil, comme dans `ask` — jamais sur ce que le client dirait d'elle.
         """
-        checked = catalogue.validate(request.name, request.args)
+        thread = await self._find_thread(request.thread_id)
+        checked = catalogue.validate(
+            request.name, request.args, scope=normalise_scope(thread.scope)
+        )
         if isinstance(checked, str):
             return ActionReport(
                 name=request.name,
