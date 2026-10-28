@@ -34,11 +34,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 
-import { Button, Empty } from '@/components/ui';
+import { Button, Chip, ChipStrip, Empty, LinkButton, Skeleton } from '@/components/ui';
 import { IconBook, IconMic, IconThreads } from '@/components/ui/icons';
 import { dictate, dictationSupported, speak } from '@/lib/voice';
 import { useAiStatus } from '@/features/ai/useAiStatus';
 import { assistantApi } from '@/features/assistant/api';
+import { ApiError } from '@/lib/api';
 import { keys } from '@/lib/query';
 
 import styles from './Assistant.module.css';
@@ -46,6 +47,16 @@ import { PendingTurn, TurnView } from './assistant/Conversation';
 import { MemorySheet, type MemoryTab } from './assistant/MemorySheet';
 import { ThreadSheet } from './assistant/ThreadSheet';
 import { pastFrom, useConversation } from './assistant/useConversation';
+
+/**
+ * Des débuts de question pour le fil du planning, pas des réponses : ils remplissent le
+ * champ, rien de plus. Venus de la carte qui vivait sous la grille de `/planning` (M-20).
+ */
+const PLANNING_STARTERS = [
+  'Ma semaine de natation',
+  'Une séance technique',
+  'Ajuste à ce que j’ai nagé',
+];
 
 // ── Écran ─────────────────────────────────────────────
 
@@ -90,21 +101,50 @@ export function Assistant() {
    *
    * Un `?fil` dans l'adresse compte comme un choix : c'est une adresse, pas un défaut.
    */
-  const [decided, setDecided] = useState(params.has('fil'));
+  const [decided, setDecided] = useState(params.has('fil') || params.get('portee') === 'planning');
+  /**
+   * **`?portee=planning` ouvre le fil du planning** — l'entrée « Demander au planning » de
+   * `/planning` y mène (M-20).
+   *
+   * Une portée et non un identifiant : la première fois, le fil n'existe pas encore, et
+   * l'écran n'en invente aucun. Il demande au serveur le fil du planning ; s'il y en a un,
+   * il l'ouvre, sinon la première question part avec `scope: "planning"` et c'est le
+   * serveur qui ouvre le fil — l'unique, qu'une seconde question sans identifiant
+   * rouvrirait plutôt que d'en créer un autre.
+   *
+   * Tenu dans un état et pas relu dans l'adresse : celle-ci perd `?portee` à la fermeture
+   * d'une feuille, comme `?fil`, et le fil ne doit pas changer de nature pour autant. Il
+   * cesse quand on ouvre un autre fil depuis la feuille.
+   */
+  const [planningEntry, setPlanningEntry] = useState(params.get('portee') === 'planning');
+  /**
+   * Le titre rendu avec la première réponse d'un fil neuf. Le fil n'est pas relu après
+   * une réponse — il afficherait le tour en double —, et sans ce titre l'en-tête restait
+   * sur « Nouvelle discussion » dans un fil qui venait d'en recevoir un.
+   */
+  const [answeredTitle, setAnsweredTitle] = useState<string | null>(null);
 
   function openThread(id: string | null): void {
     setDecided(true);
     setChosen(id);
+  }
+
+  /** Un fil choisi dans la feuille : il porte sa propre portée, lue sur lui. */
+  function switchThread(id: string | null): void {
+    openThread(id);
+    setPlanningEntry(false);
+    setAnsweredTitle(null);
   }
   const [threadsOpen, setThreadsOpen] = useState(asked === 'discussions');
   const [memoryOpen, setMemoryOpen] = useState(asked === 'memoire' || asked === 'profil');
   const [memoryTab, setMemoryTab] = useState<MemoryTab>(asked === 'profil' ? 'profil' : 'carnet');
 
   function forget(): void {
-    if (!params.has('ouvre') && !params.has('fil')) return;
+    if (!params.has('ouvre') && !params.has('fil') && !params.has('portee')) return;
     const next = new URLSearchParams(params);
     next.delete('ouvre');
     next.delete('fil');
+    next.delete('portee');
     setParams(next, { replace: true });
   }
 
@@ -139,13 +179,30 @@ export function Assistant() {
   });
 
   /**
+   * Le fil du planning, demandé seulement par l'entrée de `/planning` et tant qu'aucun fil
+   * n'a été choisi. `thread: null` n'est pas une erreur : c'est la première fois.
+   */
+  const planningThread = useQuery({
+    queryKey: keys.assistant.planningThread(),
+    queryFn: assistantApi.planningThread,
+    enabled: planningEntry && chosen === null,
+  });
+  const resolving = planningEntry && chosen === null;
+
+  /**
    * Le fil réellement ouvert — **dérivé au rendu**, pas posé par un effet.
    *
    * Un `useEffect` qui appellerait `setThreadId` provoquerait un rendu en cascade pour une
    * valeur qu'on sait déjà calculer ici. La reprise n'est qu'un défaut : elle s'applique
    * tant que rien n'a été choisi, et le choix l'emporte dès qu'il existe.
    */
-  const threadId = chosen ?? (decided ? null : (resume.data?.resume ?? null));
+  const threadId =
+    chosen ??
+    (resolving
+      ? (planningThread.data?.thread?.thread_id ?? null)
+      : decided
+        ? null
+        : (resume.data?.resume ?? null));
 
   /**
    * La conversation — ses tours, la question en vol, l'attente. **La même** que celle du
@@ -154,8 +211,13 @@ export function Assistant() {
    */
   const conversation = useConversation({
     threadId,
+    // Ne part que sans fil : celle d'un fil existant est écrite côté serveur. Mais c'est
+    // ce qui fait que la première question de l'entrée du planning ouvre **le** fil du
+    // planning, et non une discussion ordinaire.
+    scope: planningEntry ? 'planning' : '',
     onAnswer: (result) => {
       openThread(result.thread_id);
+      setAnsweredTitle(result.title === '' ? null : result.title);
       following.current = true;
     },
     onFailure: () => {
@@ -175,6 +237,15 @@ export function Assistant() {
 
   // Chronologique : le plus ancien en haut, le dernier en bas, comme une conversation.
   const shown = [...past, ...exchanges];
+
+  /**
+   * Le fil du planning — par l'entrée de `/planning`, ou rouvert depuis la feuille. Il a
+   * son titre, une mention, et ses trois débuts de question ; un fil ordinaire n'en a
+   * aucun. La portée se lit sur le fil : l'écran ne fait que l'afficher.
+   */
+  const inPlanning = planningEntry || opened.data?.scope === 'planning';
+  const title =
+    opened.data?.title ?? answeredTitle ?? (inPlanning ? 'Planning' : 'Nouvelle discussion');
 
   /**
    * La saisie grandit avec ce qu'on y écrit, jusqu'à un plafond.
@@ -267,7 +338,7 @@ export function Assistant() {
       <header className={styles.bar}>
         {/* Le titre du fil, et non « Assistant » : l'onglet du bas le dit déjà, et ce
             qu'on cherche ici est de quelle discussion il s'agit. */}
-        <h2 className={styles.title}>{opened.data?.title ?? 'Nouvelle discussion'}</h2>
+        <h2 className={styles.title}>{title}</h2>
         {/* Deux icônes et non deux libellés : « Mémoire » et « Discussions » prenaient
             plus de la moitié de la barre, et le titre du fil — la seule chose qui change
             d'un écran à l'autre — s'y retrouvait tronqué à « Nouvelle discu… ». */}
@@ -328,9 +399,36 @@ export function Assistant() {
         {/* `inFlight` compte comme un tour : sans lui, « le fil commence ici » restait
             affiché **au-dessus de la question qu'on vient d'envoyer**. L'état vide
             décrivait alors un écran que l'utilisateur n'avait plus sous les yeux. */}
-        {usable && shown.length === 0 && inFlight === null && (
-          <p className={styles.welcomeText}>Pose ta question : le fil commence ici.</p>
+        {inPlanning && (
+          <div className={styles.scopeNote}>
+            <p className={styles.welcomeText}>
+              Le fil du planning : chaque natation s’y écrit dans la notation — CR, EF, R15 — et
+              rien n’entre au planning avant que tu adoptes.
+            </p>
+            <LinkButton variant="quiet" to="/planning">
+              Voir le planning
+            </LinkButton>
+          </div>
         )}
+
+        {/* Le fil du planning se cherche avant de s'afficher : sans cette attente, l'écran
+            dirait « le fil commence ici » au-dessus d'un fil qui existe. */}
+        {usable && resolving && planningThread.isPending && <Skeleton lines={3} />}
+
+        {usable && resolving && planningThread.error !== null && (
+          <Empty title="Fil du planning illisible">
+            {planningThread.error instanceof ApiError
+              ? planningThread.error.message
+              : 'Le serveur est injoignable.'}
+          </Empty>
+        )}
+
+        {usable &&
+          shown.length === 0 &&
+          inFlight === null &&
+          !(resolving && (planningThread.isPending || planningThread.error !== null)) && (
+            <p className={styles.welcomeText}>Pose ta question : le fil commence ici.</p>
+          )}
 
         {shown.map((turn, index) => (
           <TurnView
@@ -348,6 +446,25 @@ export function Assistant() {
           <PendingTurn question={inFlight} draft={draft} step={conversation.step} />
         )}
       </div>
+
+      {/* Les débuts de question du planning, champ vide : un appui remplit, rien ne part. */}
+      {inPlanning && usable && question === '' && inFlight === null && (
+        <div className={styles.starters}>
+          <ChipStrip label="Pour commencer">
+            {PLANNING_STARTERS.map((starter) => (
+              <Chip
+                key={starter}
+                onClick={() => {
+                  setQuestion(starter);
+                  composer.current?.focus();
+                }}
+              >
+                {starter}
+              </Chip>
+            ))}
+          </ChipStrip>
+        </div>
+      )}
 
       <form
         className={styles.composer}
@@ -418,7 +535,7 @@ export function Assistant() {
           forget();
         }}
         onOpenThread={(id) => {
-          openThread(id);
+          switchThread(id);
           conversation.clear();
           following.current = true;
           // L'adresse cesse d'annoncer le fil qu'on vient de quitter.

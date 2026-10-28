@@ -143,6 +143,11 @@ export interface ActionReport {
    */
   resource_id: string | null;
   /**
+   * Le jour du planning qu'une adoption a touché — le premier des séances écrites, servi
+   * pour le retour vers `/planning?jour=…` (M-20). Absent des rapports d'avant ce champ.
+   */
+  day?: string | null;
+  /**
    * Les séances d'un `plan.propose`, **lues par le serveur** — programme de nage et total
    * compris. L'écran les affiche et en retire ; il ne relit aucune notation.
    */

@@ -881,6 +881,7 @@ class AssistantService:
                 else None
             ),
             link=outcome.link,
+            day=outcome.day,
         )
 
     async def confirm(self, request: ConfirmRequest) -> ActionReport:

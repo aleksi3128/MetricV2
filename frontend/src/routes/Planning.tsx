@@ -15,7 +15,6 @@ import { AgendaCard } from './planning/AgendaCard';
 import { Changes } from './planning/Changes';
 import { DayPanel } from './planning/DayPanel';
 import { MonthGrid } from './planning/MonthGrid';
-import { PlanningChat } from './planning/PlanningChat';
 import { PlanSheet } from './planning/PlanSheet';
 import { EMPTY_FORM, formOf, monthLabel, shiftMonth } from './planning/shared';
 import { SubscriptionCard } from './planning/Subscription';
@@ -24,7 +23,7 @@ import { SwimSheet } from './planning/SwimSheet';
 /**
  * Écran Planning (`L13-07`), refait pour la natation (`docs/planning-natation.md` §4).
  *
- * L'écran **assemble** : la grille du mois, le panneau du jour, le fil du coach, et deux
+ * L'écran **assemble** : la grille du mois, le panneau du jour, la carte du coach, et deux
  * feuilles — planifier, et relire une natation tour par tour. Chacune vit dans
  * `routes/planning/` ; ce fichier ne décide d'aucune valeur.
  *
@@ -44,10 +43,11 @@ import { SwimSheet } from './planning/SwimSheet';
  * (`docs/pages/modifications.md`, M-03). La carte est absente sans changement : une carte
  * vide sous le jour pousserait le reste plus bas pour ne rien dire.
  *
- * Viennent ensuite les deux coachs — la séance proposée, puis le fil —, qui proposent des
- * séances qu'on regarde se poser dans la semaine juste au-dessus. La carte « Proposer un
- * planning » a disparu : le fil fait la même chose, mieux, et deux portes vers l'IA sur
- * une page seraient deux vocabulaires pour le même geste.
+ * Vient ensuite **le** coach — la séance proposée par le coach de course. Le fil
+ * « Demander au planning » vivait dessous, sa saisie et ses six derniers tours compris :
+ * c'était un second coach sur la page, et une seconde façon de parler à l'assistant. Il
+ * n'en reste qu'une entrée, qui ouvre l'assistant sur ce fil (M-20) ; le fil y est listé
+ * avec les autres, et ses propositions y gardent leur portée.
  *
  * L'**agenda** et l'**abonnement** ferment la page, côte à côte : l'un entre (les créneaux
  * pris d'iCloud, qui font placer et déplacer *toutes* les séances), l'autre sort (le
@@ -211,7 +211,20 @@ export function Planning() {
               qu'elle n'est pas acceptée. */}
           <CoachCard rule="Séance proposée par le coach" />
 
-          <PlanningChat />
+          {/* Le fil du planning vit dans l'assistant (M-20). L'entrée n'interroge rien :
+              c'est l'assistant qui demande au serveur s'il existe déjà. */}
+          <Card>
+            <div className="stack">
+              <h3>Demander au planning</h3>
+              <p className={styles.note}>
+                L’assistant propose des séances, chaque natation dans la notation, et rien n’entre
+                au planning avant que tu adoptes.
+              </p>
+              <LinkButton variant="ghost" to="/assistant?portee=planning">
+                Ouvrir le fil du planning
+              </LinkButton>
+            </div>
+          </Card>
 
           <AgendaCard />
           <SubscriptionCard />

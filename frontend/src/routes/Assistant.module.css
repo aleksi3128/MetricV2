@@ -88,6 +88,22 @@
   text-wrap: pretty;
 }
 
+/* Le fil du planning se dit en tête (M-20) : ce qu'il fait, et le chemin du retour. */
+.scopeNote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding-bottom: var(--s3);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Les débuts de question du planning, entre le fil et la saisie. */
+.starters {
+  flex: none;
+  padding-top: var(--s2);
+}
+
 /* ── La saisie, collée en bas ─────────────────────── */
 
 .composer {

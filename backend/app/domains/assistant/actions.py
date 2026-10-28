@@ -146,6 +146,10 @@ class Outcome:
     #: retrouver la même ligne en rouvrant le fil trois jours plus tard. C'est ce que cet
     #: identifiant permet — et c'est ce qui rend le bouton « Fait » possible dans le fil.
     resource_id: str | None = None
+    #: Le jour du planning qu'une adoption a touché — le premier des séances écrites (M-20).
+    #: L'écran en fait le retour vers `/planning?jour=…` ; il ne le choisit pas lui-même
+    #: parmi les dates, ce qui serait un calcul.
+    day: dt.date | None = None
 
 
 Runner = Callable[[FileStore, Any], Awaitable[Outcome]]
@@ -696,7 +700,8 @@ async def _propose_plan(store: FileStore, payload: ProposePlanArgs) -> Outcome:
     count = len(result.created)
     return Outcome(
         summary=f"{count} séance{'s' if count > 1 else ''} ajoutée{'s' if count > 1 else ''} "
-        "au planning."
+        "au planning.",
+        day=min((session.date for session in result.created), default=None),
     )
 
 

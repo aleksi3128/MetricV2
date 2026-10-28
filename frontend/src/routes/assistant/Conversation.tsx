@@ -17,7 +17,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { AiBlock, Button, Chip, ExternalLinkButton, Markdown } from '@/components/ui';
+import { AiBlock, Button, Chip, ExternalLinkButton, LinkButton, Markdown } from '@/components/ui';
 import { activityApi } from '@/features/activity/api';
 import {
   assistantApi,
@@ -77,7 +77,7 @@ function ProposalCard({ report, thread }: { report: ActionReport; thread: string
   const dropped = report.dropped ?? [];
   const [removed, setRemoved] = useState<Set<number>>(new Set());
   const [settled, setSettled] = useState<'adopted' | 'declined' | null>(null);
-  const [summary, setSummary] = useState<string | null>(null);
+  const [adopted, setAdopted] = useState<ActionReport | null>(null);
 
   const kept = sessions.filter((_, index) => !removed.has(index));
 
@@ -94,7 +94,7 @@ function ProposalCard({ report, thread }: { report: ActionReport; thread: string
         return;
       }
       setSettled('adopted');
-      setSummary(result.summary);
+      setAdopted(result);
       // Une adoption écrit au planning, que le tableau de bord et l'assiduité lisent aussi.
       void client.invalidateQueries();
       notify(result.summary, 'effort');
@@ -107,12 +107,21 @@ function ProposalCard({ report, thread }: { report: ActionReport; thread: string
   if (settled === 'declined') return null;
 
   if (settled === 'adopted') {
+    const day = adopted?.day ?? null;
     return (
       <div className={cx(styles.action, styles.action_effort)}>
         <div className={styles.actionBody}>
           <span className={styles.actionMark} aria-hidden="true" />
-          <p className={styles.actionText}>{summary}</p>
+          <p className={styles.actionText}>{adopted?.summary}</p>
         </div>
+        {/* Le retour vers ce qu'on vient d'écrire (M-20) : le fil a quitté `/planning`, et
+            regarder les séances se poser dans la semaine est la suite du geste. Le jour
+            vient du serveur — le premier des séances écrites. */}
+        {day !== null && (
+          <LinkButton variant="primary" className={styles.actionOpen} to={`/planning?jour=${day}`}>
+            Voir au planning
+          </LinkButton>
+        )}
       </div>
     );
   }

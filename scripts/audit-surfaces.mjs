@@ -99,6 +99,9 @@ const SURFACES = [
   // changer d'onglet n'écrit rien ; « Enregistrer le profil » n'est pas appuyé.
   ["/assistant", ["Mémoire", "Profil"], "profil de l’assistant"],
   ["/assistant", "Discussions", "fil de l’assistant"],
+  // La même feuille depuis le fil du planning (M-20) : l'entrée de `/planning` y mène, et
+  // les débuts de question se posent entre le fil et la saisie. Rien n'est appuyé dedans.
+  ["/assistant?portee=planning", "Discussions", "discussions, depuis le fil du planning"],
   // La feuille « Régler les pistes » de `/assiduite` (M-04), venue de `/reglages`, et son
   // second onglet. « Jours neutralisés » est un segment — changer d'onglet n'écrit rien ;
   // ni « Modifier », ni « Neutraliser », ni « Supprimer » ne sont appuyés.

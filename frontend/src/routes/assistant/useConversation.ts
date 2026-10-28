@@ -15,6 +15,7 @@ import {
   type ThreadScope,
 } from '@/features/assistant/api';
 import { ApiError } from '@/lib/api';
+import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 /** Une question, sa réponse, et ce que l'assistant a fait à ce tour-là. */
@@ -130,6 +131,13 @@ export function useConversation({
       if (result.actions.some((report) => report.status === 'done')) {
         void client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'assistant' });
       }
+      /*
+       * **La liste des fils, elle, se relit** — seule, `exact` (M-20). L'exclusion
+       * ci-dessus l'emportait avec le fil : un fil ouvert par cette réponse — celui du
+       * planning compris — manquait à « Tes discussions » tant que la liste restait fraîche.
+       * Vu sur le banc. `exact` laisse le fil ouvert hors de l'invalidation.
+       */
+      void client.invalidateQueries({ queryKey: keys.assistant.threads(), exact: true });
       onAnswer?.(result);
       setExchanges((current) => [
         ...current.filter((turn) => turn.question !== asked || turn.failure === undefined),

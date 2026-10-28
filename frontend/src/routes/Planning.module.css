@@ -531,24 +531,3 @@
 .dangerArmed {
   color: var(--recover);
 }
-
-/* ── Le fil du coach ───────────────────────────────── */
-
-.chat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s4);
-  margin-top: var(--s4);
-}
-
-.chatForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s3);
-}
-
-.starters {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s2);
-}

@@ -291,10 +291,29 @@ def test_adopting_writes_only_what_is_kept(
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "done"
     assert response.json()["summary"] == "1 séance ajoutée au planning."
+    assert response.json()["day"] == DAY, "le jour du retour vers le planning (M-20)"
     content = dav.content_of(PLAN_FILE)
     assert "Vitesse" in content
     assert "Souple" not in content
     assert ",ai," in content
+
+
+def test_the_return_day_is_the_first_adopted_one(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Le retour mène au premier jour écrit, quel que soit l'ordre de la proposition."""
+    later, sooner = swim("200 DOS", day=OTHER_DAY, title="Souple"), swim("400 CR EF")
+    openrouter.say(answer(actions=propose(later, sooner)))
+    thread = ask(ai_app_client, auth)["thread_id"]
+
+    response = ai_app_client.post(
+        f"{ASSISTANT}/actions/confirm",
+        json={"name": "plan.propose", "args": {"sessions": [later, sooner]}, "thread_id": thread},
+        headers=auth,
+    )
+
+    assert response.json()["status"] == "done", response.text
+    assert response.json()["day"] == DAY
 
 
 def test_adopting_rereads_the_notation(

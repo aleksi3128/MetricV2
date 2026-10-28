@@ -187,6 +187,9 @@ class ActionReport(BaseModel):
     #: L'identifiant **stable** de la ligne créée, quand elle en porte un. Il survit à ce
     #: que `undo.row_id` ne survit pas : une position se décale, un identifiant non.
     resource_id: str | None = None
+    #: Le jour du planning qu'une adoption a touché, servi pour le retour : l'écran mène à
+    #: `/planning?jour=…` sans choisir lui-même parmi les dates (M-20). `null` ailleurs.
+    day: dt.date | None = None
     #: Les séances d'un `plan.propose`, **lues par le serveur** — programme de nage, total.
     #: L'écran les affiche et en retire ; il ne relit aucune notation.
     sessions: list[ProposedSession] = Field(default_factory=list)

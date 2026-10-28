@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Toaster } from '@/components/ui';
 import type { SwimDetail } from '@/features/activity/api';
-import type { ActionReport, ChatReply } from '@/features/assistant/api';
 import type {
   AdherenceView,
   AgendaView,
@@ -309,53 +308,6 @@ const SWIM_DETAIL: SwimDetail = {
 };
 
 /** La proposition du fil : deux séances lues par le serveur, une écartée à la relecture. */
-const PROPOSAL: ActionReport = {
-  name: 'plan.propose',
-  level: 'change',
-  status: 'pending',
-  summary: '2 séances proposées, à retenir ou non une par une.',
-  args: {},
-  undo: null,
-  link: null,
-  resource_id: null,
-  sessions: [
-    {
-      date: '2026-08-17',
-      time: '07:00',
-      kind: 'natation',
-      title: 'Vitesse',
-      duration_min: 45,
-      note: null,
-      program: '400 cr ef\n8x50 CR SP R30',
-      swim: { ...READ_PROGRAM, total_m: 800 },
-      reason: null,
-    },
-    {
-      date: '2026-08-19',
-      time: '07:00',
-      kind: 'natation',
-      title: 'Souple',
-      duration_min: 30,
-      note: null,
-      program: '600 DOS RC',
-      swim: { ...READ_PROGRAM, total_m: 600 },
-      reason: null,
-    },
-  ],
-  dropped: ['séance du 2026-08-21 « Seuil » : ligne 1 : « NL » n’est pas dans le glossaire.'],
-};
-
-function chatReply(actions: ActionReport[]): ChatReply {
-  return {
-    thread_id: 'fil-plan',
-    title: 'Planning',
-    reply: 'Deux séances pour la semaine.',
-    remember: [],
-    actions,
-    context: ['Nous sommes le mercredi 12/08/2026'],
-  };
-}
-
 interface Call {
   url: string;
   init: RequestInit | undefined;
@@ -371,22 +323,15 @@ function stub(
   options: {
     adherence?: AdherenceView;
     agenda?: AgendaView;
-    aiEnabled?: boolean;
     changes?: PlanChange[];
     month?: MonthView;
     parsed?: SwimProgram;
-    reply?: ChatReply;
   } = {},
 ) {
   const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = input as string;
     calls.push({ url, init });
 
-    if (url.includes('/api/ai/status')) {
-      return Promise.resolve(
-        json(200, { enabled: options.aiEnabled ?? true, message: 'Aucune clé configurée.' }),
-      );
-    }
     if (url.includes('/api/coach/next'))
       return Promise.resolve(
         json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
@@ -433,22 +378,6 @@ function stub(
     }
     if (url.includes('/api/activity/swims/')) {
       return Promise.resolve(json(200, SWIM_DETAIL));
-    }
-    if (url.includes('/api/assistant/threads/planning')) {
-      return Promise.resolve(json(200, { thread: null }));
-    }
-    // Le flux répond sans corps lisible : l'appel ordinaire prend le relais, comme sur un
-    // navigateur sans `ReadableStream`. C'est lui que ces tests regardent.
-    if (url.includes('/api/assistant/chat/stream')) {
-      return Promise.resolve(json(200, {}));
-    }
-    if (url.includes('/api/assistant/chat')) {
-      return Promise.resolve(json(200, options.reply ?? chatReply([PROPOSAL])));
-    }
-    if (url.includes('/api/assistant/actions/confirm')) {
-      return Promise.resolve(
-        json(200, { ...PROPOSAL, status: 'done', summary: '1 séance ajoutée au planning.' }),
-      );
     }
     return Promise.resolve(json(200, options.month ?? monthView()));
   });
@@ -832,76 +761,23 @@ describe('planifier une séance', () => {
 // ── Le fil du coach (`docs/planning-natation.md` §5) ──
 
 describe('demander au planning', () => {
-  async function ask(user: ReturnType<typeof userEvent.setup>) {
-    await user.type(await screen.findByLabelText('Ta demande'), 'Deux natations cette semaine');
-    await user.click(screen.getByRole('button', { name: 'Demander' }));
-    return screen.findByText('Deux séances pour la semaine.');
-  }
-
-  it('pose la question dans le fil Planning', async () => {
-    const user = userEvent.setup();
+  it('ouvre l’assistant sur le fil du planning, sans rien demander ici (M-20)', async () => {
     stub();
     renderScreen();
 
-    await ask(user);
-
-    const chat = calls.filter((call) => call.url.endsWith('/api/assistant/chat')).at(-1);
-    expect(bodyOf(chat)).toEqual({ question: 'Deux natations cette semaine', scope: 'planning' });
-  });
-
-  it('n’écrit rien tant que la proposition n’est pas adoptée', async () => {
-    const user = userEvent.setup();
-    stub();
-    renderScreen();
-
-    await ask(user);
-
-    expect(screen.getByText('Vitesse', { exact: false })).toBeInTheDocument();
-    expect(writes().filter((call) => call.url.includes('/actions/confirm'))).toHaveLength(0);
-    expect(writes().filter((call) => call.url.includes('/planning/sessions'))).toHaveLength(0);
-  });
-
-  it('montre le total lu par le serveur et ce qui a été écarté', async () => {
-    const user = userEvent.setup();
-    stub();
-    renderScreen();
-
-    await ask(user);
-
-    expect(screen.getByText('07:00 · Natation · 45 min')).toBeInTheDocument();
-    // Le total une fois, sous le programme — tel que le serveur l'a calculé.
-    expect(screen.getByText(/^800 m · CR 1200/u)).toBeInTheDocument();
-    expect(screen.getByText(/« NL » n’est pas dans le glossaire/)).toBeInTheDocument();
-  });
-
-  it('adopte seulement ce qui reste après un retrait', async () => {
-    const user = userEvent.setup();
-    stub();
-    renderScreen();
-    await ask(user);
-
-    await user.click(screen.getByRole('button', { name: 'Retirer Souple de la proposition' }));
-    await user.click(screen.getByRole('button', { name: 'Adopter (1)' }));
-
-    await waitFor(() => {
-      expect(writes().some((call) => call.url.includes('/actions/confirm'))).toBe(true);
-    });
-    const confirm = writes().find((call) => call.url.includes('/actions/confirm'));
-    const body = bodyOf(confirm) as { name: string; args: { sessions: { title: string }[] } };
-    expect(body.name).toBe('plan.propose');
-    expect(body.args.sessions.map((item) => item.title)).toEqual(['Vitesse']);
-    expect(
-      await screen.findByText('1 séance ajoutée au planning.', { selector: 'p' }),
-    ).toBeInTheDocument();
-  });
-
-  it('se tait sans clé API, et la saisie à la main reste', async () => {
-    stub({ aiEnabled: false });
-    renderScreen();
-
-    expect(await screen.findByText('Assistance indisponible')).toBeInTheDocument();
+    const entry = await screen.findByRole('link', { name: 'Ouvrir le fil du planning' });
+    // Une portée et non un identifiant : la première fois, le fil n'existe pas, et c'est
+    // l'assistant qui demande au serveur s'il existe.
+    expect(entry).toHaveAttribute('href', '/assistant?portee=planning');
     expect(screen.queryByLabelText('Ta demande')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Planifier' })).toBeInTheDocument();
+    expect(calls.some((call) => call.url.includes('/api/assistant'))).toBe(false);
+  });
+
+  it('garde la carte du coach de course, le seul coach de la page', async () => {
+    stub();
+    renderScreen();
+
+    expect(await screen.findByText('Séance proposée par le coach')).toBeInTheDocument();
   });
 });
 
