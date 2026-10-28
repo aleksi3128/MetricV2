@@ -29,6 +29,9 @@ const TRAINING: TrainingView = {
   ctl: 41.6,
   atl: 52.2,
   tsb: -10.6,
+  form: 42,
+  fatigue: 52,
+  freshness: -11,
   form_text: 'Fraîcheur −11 : tu portes de la fatigue.',
   ratio: 1.2,
   ratio_text: 'Rapport de charge 1,20 : dans la zone.',
@@ -57,6 +60,9 @@ const TRAINING: TrainingView = {
     easy: 0.74,
     moderate: 0.1,
     hard: 0.16,
+    easy_pct: 74,
+    moderate_pct: 10,
+    hard_pct: 16,
     target: 0.8,
     unclassified_min: 0,
     text: 'Sur 28 jours, tous sports : 74 % facile — sous la cible de 80 % de facile.',
@@ -107,6 +113,38 @@ describe('l’écran de la charge', () => {
     expect(screen.getByText('3 h 10')).toBeInTheDocument();
     expect(screen.getByText('course 2 h, vélo 1 h 10')).toBeInTheDocument();
     expect(screen.getByText('74 %')).toBeInTheDocument();
+  });
+
+  it('affiche les entiers servis, sans rien arrondir lui-même', async () => {
+    // Les flottants et les entiers divergent exprès : l'écran doit lire les seconds — ceux
+    // que la phrase écrit —, jamais arrondir les premiers de son côté.
+    serve({
+      '/api/training': {
+        ...TRAINING,
+        atl: 52.6,
+        fatigue: 52,
+        intensity: {
+          ...TRAINING.intensity,
+          easy: 0.854,
+          moderate: 0.004,
+          hard: 0.142,
+          easy_pct: 85,
+          moderate_pct: 1,
+          hard_pct: 14,
+        },
+      },
+    });
+    renderWith(<Load />);
+
+    await screen.findByText(TRAINING.form_text);
+    // La tuile, avant la légende du graphique qui porte le même mot.
+    const fatigue = screen.getAllByText('Fatigue')[0]?.parentElement as HTMLElement;
+    expect(fatigue).toHaveTextContent('52');
+    expect(fatigue).not.toHaveTextContent('53');
+    // 85 + 1 + 14 : la somme fait 100 parce que le serveur l'a voulu, pas l'écran.
+    expect(screen.getByText('85 %')).toBeInTheDocument();
+    expect(screen.getByText('1 %')).toBeInTheDocument();
+    expect(screen.getByText('14 %')).toBeInTheDocument();
   });
 
   it('dit la panne au lieu d’une charge vide', async () => {

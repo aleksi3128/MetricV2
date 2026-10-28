@@ -364,12 +364,6 @@ export function Chart({
 
           {band && (
             <>
-              <text x={LEFT - 10} y={BAND_TOP + 10} textAnchor="end" className={styles.axis}>
-                {formatBand(bandDomain[1])}
-              </text>
-              <text x={LEFT - 10} y={BAND_BOTTOM} textAnchor="end" className={styles.axis}>
-                {formatBand(bandDomain[0])}
-              </text>
               {band.values.map((value, index) => {
                 const span = bandDomain[1] - bandDomain[0] || 1;
                 const height = Math.max(
@@ -402,6 +396,17 @@ export function Chart({
                 stroke="var(--line)"
                 strokeWidth="1"
               />
+              {/* Les bornes de la bande suivent la règle des graduations : dans le cadre,
+                  par leur gauche, peintes après les barres avec le halo de `.axis`. Elles
+                  étaient restées ancrées par leur droite à `LEFT - 10`, dans la gouttière
+                  que le tracé a rendue : à 402 px, « 10 » débordait de 15 px à gauche du
+                  graphique, « 0 » de 8. */}
+              <text x={LEFT} y={BAND_TOP + 14} textAnchor="start" className={styles.axis}>
+                {formatBand(bandDomain[1])}
+              </text>
+              <text x={LEFT} y={BAND_BOTTOM - 5} textAnchor="start" className={styles.axis}>
+                {formatBand(bandDomain[0])}
+              </text>
             </>
           )}
 

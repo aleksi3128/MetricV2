@@ -254,6 +254,20 @@
   background: var(--signal);
 }
 
+/* Facile, modéré, dur : les teintes de `/charge`, et non les nuances de rouge des zones —
+   « Facile » se lisait rouge ici et vert là. */
+.easy {
+  background: var(--effort);
+}
+
+.moderate {
+  background: var(--load);
+}
+
+.hard {
+  background: var(--signal);
+}
+
 .meterValue {
   white-space: nowrap;
   text-align: right;

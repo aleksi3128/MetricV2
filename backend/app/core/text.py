@@ -1,4 +1,4 @@
-"""Texte français partagé : comparaison de noms, et écriture des nombres.
+"""Texte français partagé : comparaison de noms, et écriture des nombres — arrondis compris.
 
 Un seul repli, dans un seul module, parce que **deux replis donneraient deux verdicts pour
 la même paire de noms** — et que l'un d'eux décide de fusionner deux exercices dans
@@ -11,7 +11,9 @@ et se les passer de l'un à l'autre créait un cycle d'imports.
 
 from __future__ import annotations
 
+import math
 import unicodedata
+from collections.abc import Sequence
 
 
 def fold(value: str) -> str:
@@ -50,3 +52,34 @@ def fr(value: float) -> str:
     rounded = round(value, 0 if abs(value) >= 100 else 1)
     text = f"{rounded:g}"
     return text.replace(".", ",")
+
+
+def whole(value: float) -> int:
+    """L'entier le plus proche, la moitié s'éloignant de zéro : 6,5 → 7, -34,5 → -35.
+
+    `round` de Python arrondit la moitié **au pair** (6,5 → 6), l'écran à l'écart de zéro
+    (`Intl.NumberFormat`) : la tuile « Fatigue » disait 7 au-dessus d'une phrase qui disait
+    « fatigue 6 », pour le même `atl` de 6,5. Le serveur arrondit une fois, et l'écran
+    affiche l'entier qu'on lui sert.
+    """
+    return int(math.copysign(math.floor(abs(value) + 0.5), value))
+
+
+def whole_percents(shares: Sequence[float]) -> list[int]:
+    """Des parts en pourcentages entiers qui font **100**, par la méthode du plus grand reste.
+
+    Chaque part arrondie seule donnait « 85 %, 0 %, 14 % » — 99 — ou « 2 %, 10 %, 89 % » —
+    101 — : une répartition qui ne fait pas cent se lit comme une erreur de mesure. On
+    prend la partie entière de chacune, puis on distribue ce qui manque à cent aux plus
+    grands restes, à égalité à la première. Des parts toutes nulles rendent des zéros.
+    """
+    total = sum(shares)
+    if total <= 0:
+        return [0 for _ in shares]
+    exact = [share / total * 100 for share in shares]
+    floors = [math.floor(value) for value in exact]
+    missing = 100 - sum(floors)
+    order = sorted(range(len(exact)), key=lambda index: (-(exact[index] - floors[index]), index))
+    for index in order[:missing]:
+        floors[index] += 1
+    return floors

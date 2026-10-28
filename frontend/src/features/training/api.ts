@@ -31,6 +31,10 @@ export interface IntensityView {
   easy: number | null;
   moderate: number | null;
   hard: number | null;
+  /** Les trois parts en pourcentages entiers qui font 100 (plus grand reste, au serveur). */
+  easy_pct: number | null;
+  moderate_pct: number | null;
+  hard_pct: number | null;
   target: number;
   unclassified_min: number;
   text: string;
@@ -50,6 +54,10 @@ export interface TrainingView {
   ctl: number | null;
   atl: number | null;
   tsb: number | null;
+  /** Forme, fatigue, fraîcheur arrondies une fois au serveur : ce que `form_text` écrit. */
+  form: number | null;
+  fatigue: number | null;
+  freshness: number | null;
   form_text: string;
   ratio: number | null;
   ratio_text: string;

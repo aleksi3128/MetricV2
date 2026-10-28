@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from statistics import mean, pstdev
 
+from app.core.text import whole
+
 CTL_DAYS = 42
 ATL_DAYS = 7
 ACUTE_DAYS = 7
@@ -91,6 +93,10 @@ class Summary:
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
+    #: Les trois chiffres arrondis **une fois** (`text.whole`) : les tuiles et la phrase.
+    form: int | None = None
+    fatigue: int | None = None
+    freshness: int | None = None
     form_text: str = ""
     ratio: float | None = None
     ratio_text: str = ""
@@ -138,6 +144,9 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         ctl=current.ctl,
         atl=current.atl,
         tsb=current.tsb,
+        form=whole(current.ctl),
+        fatigue=whole(current.atl),
+        freshness=whole(current.tsb),
         form_text=_form_text(current, history),
         ratio=ratio,
         ratio_text=_ratio_text(ratio, history),
@@ -260,10 +269,12 @@ def _windowed(today: date, sessions: Sequence[Session]) -> int:
 
 def _form_text(point: Point, history: int) -> str:
     head = (
-        # Arrondies toutes deux : « forme 71, fatigue 94,9 » lisait une précision que
-        # l'une avait et l'autre pas, sur des modèles qui n'en ont aucune au dixième.
-        f"Forme {_fr(round(point.ctl))}, fatigue {_fr(round(point.atl))}, "
-        f"fraîcheur {_signed(point.tsb)} "
+        # Arrondies toutes trois, et par `whole` comme les tuiles au-dessus : « forme 71,
+        # fatigue 94,9 » lisait une précision que l'une avait et l'autre pas ; « fatigue 6 »
+        # sous une tuile à 7 venait de `round`, qui arrondit 6,5 au pair ; « fraîcheur
+        # -34,9 » sous une tuile à -35, de la décimale gardée.
+        f"Forme {whole(point.ctl)}, fatigue {whole(point.atl)}, "
+        f"fraîcheur {_signed(whole(point.tsb))} "
         "(Banister)."
     )
     if history < CTL_DAYS:

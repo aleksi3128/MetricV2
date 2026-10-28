@@ -80,7 +80,12 @@ def test_the_split_is_stated_and_the_advice_left_to_the_coach() -> None:
     summary = load.summarize(TODAY, [hard])
 
     assert summary.easy_share is not None and summary.easy_share < 0.7
-    assert summary.distribution_text == "Sur 14 jours : 2 % facile, 10 % modéré, 89 % dur."
+    # 1,9 %, 9,5 % et 88,6 % : arrondies seules, elles faisaient 2 + 10 + 89 = 101. Par le
+    # plus grand reste, 1 + 9 + 88 reçoit ses deux points au facile et au dur : 100.
+    assert summary.distribution_text == (
+        "Sur 14 jours : 2\u00a0% facile, 9\u00a0% modéré, 89\u00a0% dur."
+    )
+    assert (summary.easy_pct, summary.moderate_pct, summary.hard_pct) == (2, 9, 89)
     assert summary.last_hard == TODAY
 
 

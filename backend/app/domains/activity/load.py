@@ -22,6 +22,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
+from app.core.text import whole_percents
+
 #: Poids des cinq zones, de la récupération au VO2 max.
 ZONE_WEIGHTS = (1, 2, 3, 4, 5)
 
@@ -109,6 +111,11 @@ class Summary:
     easy_share: float | None = None
     moderate_share: float | None = None
     hard_share: float | None = None
+    #: Les trois parts en pourcentages entiers qui font 100 (plus grand reste) : ce que
+    #: l'écran et la phrase écrivent. Les parts restent pour la longueur des barres.
+    easy_pct: int | None = None
+    moderate_pct: int | None = None
+    hard_pct: int | None = None
     distribution_text: str = ""
     last_hard: date | None = None
     #: Sorties des sept derniers jours qui n'ont pas de charge — faute de référence.
@@ -159,13 +166,17 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         easy = (seconds[0] + seconds[1]) / counted
         moderate = seconds[2] / counted
         hard = (seconds[3] + seconds[4]) / counted
+        shown = whole_percents((easy, moderate, hard))
+        percents: list[int] | None = shown
         # Le constat seul (M-02) : conseiller la sortie suivante est le métier du coach, qui
         # lit la même part contre son propre plancher (`coach/frame.py`).
         distribution_text = (
-            f"Sur 14 jours : {_pct(easy)} facile, {_pct(moderate)} modéré, {_pct(hard)} dur."
+            f"Sur 14 jours : {_pct(shown[0])} facile, {_pct(shown[1])} modéré, "
+            f"{_pct(shown[2])} dur."
         )
     else:
         easy = moderate = hard = None  # type: ignore[assignment]
+        percents = None
         distribution_text = "Pas de répartition : aucune sortie avec zones sur 14 jours."
 
     hard_days = [item.day for item in past if item.hard]
@@ -177,6 +188,9 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         easy_share=round(easy, 3) if easy is not None else None,
         moderate_share=round(moderate, 3) if moderate is not None else None,
         hard_share=round(hard, 3) if hard is not None else None,
+        easy_pct=percents[0] if percents else None,
+        moderate_pct=percents[1] if percents else None,
+        hard_pct=percents[2] if percents else None,
         distribution_text=distribution_text,
         last_hard=max(hard_days) if hard_days else None,
         unmeasured=unmeasured,
@@ -204,8 +218,10 @@ def _ratio_text(ratio: float) -> str:
     return f"Charge des 7 derniers jours : {written} fois ta moyenne des 4 semaines."
 
 
-def _pct(share: float) -> str:
-    return f"{round(share * 100)} %"
+def _pct(percent: int) -> str:
+    # Insécable, comme `/charge` : « 24 / % dur » passait à la ligne entre les deux, vu sur
+    # la page Courses à 402 px.
+    return f"{percent}\u00a0%"
 
 
 def _weeks(today: date, sessions: Sequence[Session]) -> list[Week]:

@@ -142,6 +142,10 @@ export interface RunLoad {
   easy_share: number | null;
   moderate_share: number | null;
   hard_share: number | null;
+  /** Les trois parts en entiers qui font 100 (plus grand reste, au serveur). */
+  easy_pct: number | null;
+  moderate_pct: number | null;
+  hard_pct: number | null;
   distribution_text: string;
   last_hard: string | null;
   unmeasured: number;

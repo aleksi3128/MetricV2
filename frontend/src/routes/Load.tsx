@@ -31,13 +31,19 @@ import {
 import { trainingApi, type TrainingView } from '@/features/training/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { dayMonth, num, percent } from '@/lib/format';
+import { dayMonth, integer, num } from '@/lib/format';
 import { keys } from '@/lib/query';
 
 import styles from './Load.module.css';
 
+/** Un entier servi déjà arrondi — celui que la phrase écrit dessous. Rien n'est arrondi ici. */
 function figure(value: number | null): string {
-  return value === null ? '—' : num(value, 0);
+  return value === null ? '—' : integer(value);
+}
+
+/** Une part servie en entier par le serveur, qui fait 100 avec les deux autres. */
+function share(value: number | null): string {
+  return value === null ? '—' : `${integer(value)} %`;
 }
 
 function Form({ data }: { data: TrainingView }) {
@@ -48,13 +54,13 @@ function Form({ data }: { data: TrainingView }) {
           quoi la grille les rangeait comme six cases. */}
       <div className={styles.stats}>
         <div>
-          <Stat compact label="Forme" value={figure(data.ctl)} />
+          <Stat compact label="Forme" value={figure(data.form)} />
         </div>
         <div>
-          <Stat compact label="Fatigue" value={figure(data.atl)} />
+          <Stat compact label="Fatigue" value={figure(data.fatigue)} />
         </div>
         <div>
-          <Stat compact label="Fraîcheur" value={figure(data.tsb)} />
+          <Stat compact label="Fraîcheur" value={figure(data.freshness)} />
         </div>
       </div>
       <p className={styles.text}>{data.form_text}</p>
@@ -117,14 +123,14 @@ function Intensity({ data }: { data: TrainingView }) {
       {split.easy !== null && split.moderate !== null && split.hard !== null && (
         <Bars
           rows={[
-            { label: 'Facile', ratio: split.easy, value: percent(split.easy), tone: 'effort' },
+            { label: 'Facile', ratio: split.easy, value: share(split.easy_pct), tone: 'effort' },
             {
               label: 'Modéré',
               ratio: split.moderate,
-              value: percent(split.moderate),
+              value: share(split.moderate_pct),
               tone: 'load',
             },
-            { label: 'Dur', ratio: split.hard, value: percent(split.hard), tone: 'signal' },
+            { label: 'Dur', ratio: split.hard, value: share(split.hard_pct), tone: 'signal' },
           ]}
         />
       )}
@@ -180,8 +186,12 @@ export function Load() {
       ) : (
         <>
           <Rule>Forme et fatigue</Rule>
-          <Form data={data} />
-          <Signals data={data} />
+          {/* Deux cartes sous le même trait : sans pile, elles se touchaient — l'écran est
+              une colonne sans écart, que seuls les traits de section espaçaient. */}
+          <div className="stack">
+            <Form data={data} />
+            <Signals data={data} />
+          </div>
           <Rule>Intensité</Rule>
           <Intensity data={data} />
           <Rule>Volume</Rule>

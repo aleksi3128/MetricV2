@@ -22,6 +22,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 
+from app.core.text import whole_percents
+
 WINDOW_DAYS = 28
 #: **La** cible de facile de l'application (M-02) : Seiler, environ 80 % du temps en facile
 #: chez les athlètes d'endurance. La page Courses n'en a plus d'autre ; le coach garde un
@@ -46,6 +48,11 @@ class Intensity:
     easy: float | None = None
     moderate: float | None = None
     hard: float | None = None
+    #: Les trois parts en entiers qui font 100, par le plus grand reste : arrondies seules,
+    #: elles faisaient 99 ou 101. Ce que la phrase et l'écran écrivent.
+    easy_pct: int | None = None
+    moderate_pct: int | None = None
+    hard_pct: int | None = None
     target: float = EASY_TARGET
     #: Minutes de la fenêtre qu'aucune mesure ne permet de ranger.
     unclassified_min: float = 0.0
@@ -81,8 +88,8 @@ def hm(minutes: float) -> str:
     return f"{hours} h {rest:02d}" if rest else f"{hours} h"
 
 
-def _pct(share: float) -> str:
-    return f"{round(share * 100)}\u00a0%"
+def _pct(percent: int) -> str:
+    return f"{percent}\u00a0%"
 
 
 def split(today: date, items: Sequence[Item]) -> Intensity:
@@ -108,15 +115,19 @@ def split(today: date, items: Sequence[Item]) -> Intensity:
         )
 
     easy, moderate, hard = (value / counted for value in totals)
-    target = f"la cible de {_pct(EASY_TARGET)} de facile."
+    easy_pct, moderate_pct, hard_pct = whole_percents((easy, moderate, hard))
+    target = f"la cible de {_pct(round(EASY_TARGET * 100))} de facile."
     verdict = f"dans {target}" if easy >= EASY_TARGET else f"sous {target}"
     return Intensity(
         easy=round(easy, 3),
         moderate=round(moderate, 3),
         hard=round(hard, 3),
+        easy_pct=easy_pct,
+        moderate_pct=moderate_pct,
+        hard_pct=hard_pct,
         unclassified_min=round(unclassified, 1),
         text=(
-            f"Sur 28 jours, tous sports : {_pct(easy)} facile, {_pct(moderate)} modéré, "
-            f"{_pct(hard)} dur — {verdict}{aside}"
+            f"Sur 28 jours, tous sports : {_pct(easy_pct)} facile, {_pct(moderate_pct)} "
+            f"modéré, {_pct(hard_pct)} dur — {verdict}{aside}"
         ),
     )

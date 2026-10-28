@@ -219,6 +219,9 @@ const TRENDS = {
     easy_share: 0.12,
     moderate_share: 0.1,
     hard_share: 0.78,
+    easy_pct: 12,
+    moderate_pct: 10,
+    hard_pct: 78,
     distribution_text: 'Sur 14 jours : 12 % facile, 10 % modéré, 78 % dur.',
     last_hard: '2026-09-19',
     unmeasured: 0,
@@ -442,6 +445,15 @@ describe('Toutes tes courses — la charge et ce qui va avec une bonne sortie', 
     const shares = screen.getByRole('list', { name: 'Répartition de l’intensité sur 14 jours' });
     expect(shares).toHaveTextContent('Facile');
     expect(shares).toHaveTextContent('78 %');
+    // Les teintes de `/charge` : le facile au vert, pas une nuance du rouge des zones.
+    const fills = [...shares.querySelectorAll('li > span:last-child > span')].map(
+      (fill) => fill.className,
+    );
+    expect(fills.map((name) => /easy|moderate|hard/.exec(name)?.[0])).toEqual([
+      'easy',
+      'moderate',
+      'hard',
+    ]);
     expect(screen.getByText(/Dernière séance dure : samedi 19 septembre/)).toBeInTheDocument();
   });
 

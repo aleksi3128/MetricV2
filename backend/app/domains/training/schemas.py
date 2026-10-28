@@ -40,6 +40,10 @@ class IntensityView(BaseModel):
     easy: float | None = None
     moderate: float | None = None
     hard: float | None = None
+    #: Les trois parts en entiers qui font 100 (plus grand reste) : ce que l'écran écrit.
+    easy_pct: int | None = None
+    moderate_pct: int | None = None
+    hard_pct: int | None = None
     target: float
     unclassified_min: float
     text: str
@@ -60,6 +64,12 @@ class TrainingView(BaseModel):
     ctl: float | None = None
     atl: float | None = None
     tsb: float | None = None
+    #: Forme, fatigue et fraîcheur **arrondies une fois**, ici, la moitié loin de zéro :
+    #: ce que les tuiles affichent et ce que `form_text` écrit. Arrondies chacune de son
+    #: côté, la tuile disait 7 et la phrase 6 pour un `atl` de 6,5.
+    form: int | None = None
+    fatigue: int | None = None
+    freshness: int | None = None
     form_text: str
     ratio: float | None = None
     ratio_text: str

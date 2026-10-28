@@ -13,10 +13,11 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.text import whole, whole_percents
 from app.core.validation import today_local
 from app.domains.activity import load
 from app.domains.coach import frame
-from app.domains.training import banister, volume
+from app.domains.training import banister, intensity, volume
 from tests.fit_files import run_file
 from tests.test_activity_fit import import_fit, yesterday_at
 
@@ -47,6 +48,56 @@ def test_ctl_and_atl_follow_the_published_recurrence() -> None:
     assert summary.atl == round(300 / 7, 1)
     # La fraîcheur est celle **de la veille** : on aborde la journée à zéro.
     assert summary.tsb == 0
+
+
+def test_the_tiles_and_the_sentence_read_the_same_whole_figures() -> None:
+    """Un `atl` de 6,5 : la phrase disait « fatigue 6 » (`round`, au pair), la tuile 7
+    (`Intl`, loin de zéro). Le serveur arrondit une fois ; l'écran affiche cet entier."""
+    summary = banister.summarize(DAY, [session(0, 6.5, 7)])
+
+    assert summary.atl == 6.5
+    assert (summary.form, summary.fatigue, summary.freshness) == (1, 7, 0)
+    assert summary.form_text.startswith("Forme 1, fatigue 7, fraîcheur 0 (Banister).")
+
+
+def test_the_freshness_is_written_whole_like_its_tile() -> None:
+    summary = banister.summarize(DAY, [session(3, 41, 8), session(1, 75, 7), session(0, 40, 6)])
+
+    # -89,5 : la phrase gardait la décimale sous une tuile qui disait -90.
+    assert summary.tsb == -89.5
+    assert summary.freshness == whole(summary.tsb) == -90
+    assert f"fraîcheur \u2212{abs(summary.freshness)} (Banister)" in summary.form_text
+
+
+@pytest.mark.parametrize(
+    ("shares", "expected"),
+    [
+        ((0.854, 0.004, 0.142), [85, 1, 14]),  # arrondies seules : 85 + 0 + 14 = 99
+        ((0.019, 0.095, 0.886), [2, 9, 89]),  # arrondies seules : 2 + 10 + 89 = 101
+        ((1 / 3, 1 / 3, 1 / 3), [34, 33, 33]),  # à égalité, la première
+        ((0.0, 0.0, 0.0), [0, 0, 0]),
+    ],
+)
+def test_shares_are_whole_percents_that_make_a_hundred(
+    shares: tuple[float, float, float], expected: list[int]
+) -> None:
+    assert whole_percents(shares) == expected
+    if any(shares):
+        assert sum(whole_percents(shares)) == 100
+
+
+def test_the_all_sports_split_makes_a_hundred_in_its_figures_and_its_sentence() -> None:
+    split = intensity.split(
+        DAY,
+        [
+            intensity.Item(DAY, 854, rpe=3),
+            intensity.Item(DAY, 4, rpe=5),
+            intensity.Item(DAY, 142, rpe=8),
+        ],
+    )
+
+    assert (split.easy_pct, split.moderate_pct, split.hard_pct) == (85, 1, 14)
+    assert "85\u00a0% facile, 1\u00a0% modéré, 14\u00a0% dur" in split.text
 
 
 def test_an_unrated_session_counts_as_volume_never_as_load() -> None:

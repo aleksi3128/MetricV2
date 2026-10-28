@@ -19,7 +19,7 @@ import { Card, Empty, LinkButton, Rule, Skeleton, Stat } from '@/components/ui';
 import { activityApi, type RunCorrelation, type RunLoad } from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
-import { dayMonth, longDate, num, percent, plural } from '@/lib/format';
+import { dayMonth, integer, longDate, num, plural } from '@/lib/format';
 import { keys } from '@/lib/query';
 
 import styles from './run/Run.module.css';
@@ -30,10 +30,31 @@ function width(share: number): string {
 }
 
 function Load({ load }: { load: RunLoad }) {
+  // Les teintes de `/charge` : facile au vert, modéré à l'ambre, dur au rouge. Les nuances
+  // de rouge des zones (`z2`, `z3`, `z5`) peignaient « Facile » en rouge ici et en vert là,
+  // pour le même mot (`docs/accueil-et-charge.md` l'avait corrigé sur `/charge` seulement).
   const shares = [
-    { name: 'Facile', detail: 'zones 1–2', share: load.easy_share, tone: styles.z2 },
-    { name: 'Modéré', detail: 'zone 3', share: load.moderate_share, tone: styles.z3 },
-    { name: 'Dur', detail: 'zones 4–5', share: load.hard_share, tone: styles.z5 },
+    {
+      name: 'Facile',
+      detail: 'zones 1–2',
+      share: load.easy_share,
+      pct: load.easy_pct,
+      tone: styles.easy,
+    },
+    {
+      name: 'Modéré',
+      detail: 'zone 3',
+      share: load.moderate_share,
+      pct: load.moderate_pct,
+      tone: styles.moderate,
+    },
+    {
+      name: 'Dur',
+      detail: 'zones 4–5',
+      share: load.hard_share,
+      pct: load.hard_pct,
+      tone: styles.hard,
+    },
   ];
   return (
     <>
@@ -65,7 +86,8 @@ function Load({ load }: { load: RunLoad }) {
                   <b>{item.name}</b> <small>{item.detail}</small>
                 </span>
                 <span className={styles.meterValue}>
-                  {item.share === null ? '—' : percent(item.share)}
+                  {/* L'entier servi, qui fait 100 avec les deux autres. */}
+                  {item.pct === null ? '—' : `${integer(item.pct)} %`}
                 </span>
                 <span className={styles.meterTrack}>
                   <span

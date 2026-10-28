@@ -1618,6 +1618,10 @@ class RunLoad(BaseModel):
     easy_share: float | None = None
     moderate_share: float | None = None
     hard_share: float | None = None
+    #: Les trois parts en entiers qui font 100 (plus grand reste) : ce que l'écran écrit.
+    easy_pct: int | None = None
+    moderate_pct: int | None = None
+    hard_pct: int | None = None
     distribution_text: str = ""
     last_hard: date | None = None
     #: Sorties des sept derniers jours sans charge — faute de référence pour la compter.
