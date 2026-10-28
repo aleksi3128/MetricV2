@@ -20,6 +20,7 @@ from app.domains.races.models import DecisionRow, RaceRow
 from app.domains.races.schemas import (
     ConflictView,
     Distance,
+    DistanceOption,
     PlacedView,
     PlanSession,
     PlanView,
@@ -59,6 +60,10 @@ class RaceService:
         return RaceList(
             today=day,
             races=[self._schema(row, day) for row in rows],
+            distances=[
+                DistanceOption(value=cast(Distance, key), label=spec.label)
+                for key, spec in SPECS.items()
+            ],
             conflicts=[
                 ConflictView(key=item.key, keep=item.keep, demote=item.demote, text=item.text)
                 for item in open_conflicts

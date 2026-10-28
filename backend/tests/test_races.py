@@ -611,3 +611,17 @@ def test_m19_the_dashboard_carries_the_a_race(
     assert race["race"]["name"] == "Semi de Lyon"
     assert race["countdown"] == "J-56"
     assert race["plan"] == "absent"
+
+
+def test_the_distances_of_the_form_are_served_from_the_catalogue(
+    store_client: TestClient, auth: dict[str, str]
+) -> None:
+    """Écrites dans `Plan.tsx`, elles faisaient une seconde liste à tenir d'accord avec
+    `catalog.SPECS`, sous d'autres libellés — le défaut des sports d'une sortie avant M-16."""
+    from app.domains.races.catalog import SPECS
+
+    body = store_client.get("/api/races", headers=auth).json()
+
+    assert body["races"] == []
+    assert body["distances"] == [{"value": key, "label": spec.label} for key, spec in SPECS.items()]
+    assert body["distances"][2] == {"value": "semi", "label": "Semi-marathon"}

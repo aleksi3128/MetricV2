@@ -42,9 +42,16 @@ export interface StalePlan {
   text: string;
 }
 
+/** Une distance du formulaire, servie depuis `races/catalog.SPECS` : libellé compris. */
+export interface DistanceOption {
+  value: Distance;
+  label: string;
+}
+
 export interface RaceList {
   today: string;
   races: Race[];
+  distances: DistanceOption[];
   conflicts: Conflict[];
   next_a: string | null;
   stale_plan: StalePlan | null;

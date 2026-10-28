@@ -56,9 +56,22 @@ class StalePlanView(BaseModel):
     text: str
 
 
+class DistanceOption(BaseModel):
+    """Une distance qu'on peut viser, telle que le formulaire la propose."""
+
+    value: Distance
+    #: « Semi-marathon », « Half Ironman (70.3) » — le libellé de `catalog.SPECS`, celui
+    #: que la ligne d'une course affiche déjà (`Race.distance_label`).
+    label: str
+
+
 class RaceList(BaseModel):
     today: date
     races: list[Race]
+    #: Les distances du formulaire, dans l'ordre du catalogue. Servies, comme les sports
+    #: d'une sortie depuis M-16 : écrites dans l'écran, elles faisaient une seconde liste
+    #: à tenir d'accord avec `catalog.SPECS`, avec d'autres libellés.
+    distances: list[DistanceOption]
     conflicts: list[ConflictView]
     #: La prochaine course A, celle dont le plan se calcule.
     next_a: str | None = None

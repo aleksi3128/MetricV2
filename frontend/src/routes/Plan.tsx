@@ -39,6 +39,7 @@ import type { Tone } from '@/components/ui';
 import {
   racesApi,
   type Distance,
+  type DistanceOption,
   type Phase,
   type Priority,
   type Race,
@@ -52,17 +53,6 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './Plan.module.css';
-
-const DISTANCES: readonly { value: Distance; label: string }[] = [
-  { value: '5k', label: '5 km' },
-  { value: '10k', label: '10 km' },
-  { value: 'semi', label: 'Semi' },
-  { value: 'marathon', label: 'Marathon' },
-  { value: 'sprint', label: 'Tri sprint' },
-  { value: 'olympique', label: 'Tri olympique' },
-  { value: '70.3', label: '70.3' },
-  { value: 'ironman', label: 'Ironman' },
-];
 
 /** Les semaines montrées d'emblée : le mois qui vient. Le reste se déplie. */
 const WEEKS_SHOWN = 4;
@@ -95,11 +85,14 @@ function useInvalidatePlan() {
  */
 function RaceForm({
   today,
+  distances,
   editing = null,
   onDone,
   onConflict,
 }: {
   today: string;
+  /** Servies par `GET /api/races`, dans l'ordre du catalogue — aucune n'est écrite ici. */
+  distances: readonly DistanceOption[];
   editing?: Race | null;
   onDone: (list: RaceList) => void;
   onConflict?: (error: ApiError) => void;
@@ -177,7 +170,7 @@ function RaceForm({
       />
       <p className={styles.label}>Distance</p>
       <div className={styles.choices} role="group" aria-label="Distance">
-        {DISTANCES.map((item) => (
+        {distances.map((item) => (
           <Chip
             key={item.value}
             selected={distance === item.value}
@@ -552,6 +545,7 @@ export function Plan() {
                       <h3>Corriger {race.name}</h3>
                       <RaceForm
                         today={data.today}
+                        distances={data.distances}
                         editing={race}
                         onDone={(list) => {
                           set(list);
@@ -595,6 +589,7 @@ export function Plan() {
                 <h3>Nouvelle course visée</h3>
                 <RaceForm
                   today={data.today}
+                  distances={data.distances}
                   onDone={(list) => {
                     set(list);
                     setAdding(false);

@@ -65,6 +65,16 @@ const LIST: RaceList = {
   ],
   next_a: 'm1',
   stale_plan: null,
+  distances: [
+    { value: '5k', label: '5 km' },
+    { value: '10k', label: '10 km' },
+    { value: 'semi', label: 'Semi-marathon' },
+    { value: 'marathon', label: 'Marathon' },
+    { value: 'sprint', label: 'Triathlon sprint' },
+    { value: 'olympique', label: 'Triathlon olympique' },
+    { value: '70.3', label: 'Half Ironman (70.3)' },
+    { value: 'ironman', label: 'Ironman' },
+  ],
 };
 
 const PLAN: PlanView = {
@@ -169,6 +179,26 @@ describe('le plan de course', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Il manque le nom, la date, la distance, la priorité.',
     );
+  });
+
+  it('propose les distances servies, dans leur ordre et sous leur libellé', async () => {
+    list = {
+      ...LIST,
+      distances: [
+        { value: 'semi', label: 'Semi-marathon' },
+        { value: '5k', label: '5 km' },
+      ],
+    };
+    renderPlan();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ajouter une course visée' }));
+
+    // Rien n'est écrit dans l'écran : deux distances servies, deux pastilles.
+    const group = screen.getByRole('group', { name: 'Distance' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((chip) => chip.textContent),
+    ).toEqual(['Semi-marathon', '5 km']);
   });
 
   it('montre le plan en notation, et arme avant de remplacer un plan posé', async () => {
