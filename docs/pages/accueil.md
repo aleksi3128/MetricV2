@@ -23,7 +23,7 @@ avant, sur le banc du lot M-03).
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
 | **Lecture du jour** (`Brief`) | Un message du modèle pour le moment de la journée (matin, mi-journée, soir), en `AiBlock` ; le condensé envoyé, replié | `GET /api/brief` | Absente : « Rien n'est encore écrit… » + **Demander la lecture**. Sans clé IA : la carte disparaît |
-| **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + deux liens **Noter une pesée** (→ `/corps`) et **Boire un verre** (→ `/routine`) ; « Aucune séance prévue d'ici deux semaines » |
+| **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + **Noter**, qui ouvre la saisie rapide sur place (M-11, `8e632c1`) ; « Aucune séance prévue d'ici deux semaines » |
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
 | **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une — et sans synchro Garmin, écartée par choix (M-18), il n'y en a pas |
 | **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
@@ -71,7 +71,7 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 ## 5. Liens sortants
 
 `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`,
-`/objectif`, `/plan` (course A, depuis M-19), `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule
+`/objectif`, `/plan` (course A, depuis M-19 — ses deux « Détail » ont chacun leur nom accessible depuis `8e632c1`), `/assistant` par la lecture du jour seule
 (la rangée de trois liens est partie avec M-22), un lien par alerte — celles de douleur
 mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 
@@ -99,9 +99,12 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
   par le serveur dans les notes des séances (le plan recalculé repartirait chaque jour de
   sa base). L'objectif daté vient dessous ; la cible de poids ne se montre plus qu'à
   défaut des deux.
-- **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
-  « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
-  enregistre les deux sans changer d'écran.
+- ~~**L'état vide envoie ailleurs ce que « Noter » fait sur place.**~~ Corrigé (M-11,
+  `8e632c1`) : un bouton « Noter » ouvre la saisie rapide — la feuille du bouton central,
+  dont l'état est monté dans la coquille — sans quitter l'accueil.
+- **L'anneau de l'objectif peut dire « 0 % » sous « 2,2 sur 3 séances »** (vu le 28 octobre) :
+  le pourcentage est le chemin depuis la base de l'adoption, que l'écran ne dit pas. C'est
+  la règle de `GOAL-04`, pas l'affichage : laissé, au §7 de `modifications.md`.
 - ~~**La rangée « Assistant » en pied d'écran a perdu sa raison d'être.**~~ Retirée (M-22,
   `fc178f8`). Les adresses `?ouvre=discussions` et `?ouvre=memoire` restent lues par
   `/assistant`.

@@ -77,7 +77,7 @@ jours de séances. Source : `GET /api/activity/loads`, `GET /api/activity/loads/
 |---|---|---|
 | Tuiles | Sorties, distance, temps, allure totale | `GET /api/activity/runs/progress` |
 | À réanalyser | Nombre de sorties d'avant l'analyse actuelle + **Réanalyser** | même appel ; `POST /api/activity/runs/efforts/rebuild` |
-| **Charge de course (FC)** (`Trends`) | Charge 7 jours (minutes pondérées par zone FC), moyenne hebdo sur 4 semaines, rapport ; facile / modéré / dur sur 14 jours, **constat seul** (M-02) ; dernière séance dure ; lien « Charge tous sports » vers `/charge` ; charge par semaine | `GET /api/activity/runs/trends` |
+| **Charge de course (FC)** (`Trends`) | Charge 7 jours (minutes pondérées par zone FC), moyenne hebdo sur 4 semaines, rapport ; facile / modéré / dur sur 14 jours, **constat seul** (M-02), en entiers qui font 100 et aux teintes de `/charge` (`98b0ac8`) ; dernière séance dure ; lien « Charge tous sports » vers `/charge` ; charge par semaine | `GET /api/activity/runs/trends` |
 | Ce qui va avec tes bonnes sorties | Facteurs corrélés à l'efficacité, ceux en attente repliés | même appel |
 | Tes records | Meilleur temps par distance (400 m → 10 km), lien vers la sortie | progress |
 | Progression | Meilleur X de chaque sortie, courbe, choix de la distance | progress |

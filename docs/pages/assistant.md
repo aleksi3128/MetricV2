@@ -29,7 +29,7 @@ hauteur.
 |---|---|---|---|
 | En-tête | Titre du fil ; boutons **Mémoire** et **Discussions** | `GET /api/assistant/threads/{id}` | « Nouvelle discussion » ; « Planning » dans le fil du planning |
 | Fil du planning (M-20) | En tête du fil, ce qu'il fait et **Voir le planning** ; au-dessus de la saisie, champ vide, trois débuts de question (« Ma semaine de natation », « Une séance technique », « Ajuste à ce que j'ai nagé ») qui remplissent le champ. Rien de cela dans un fil ordinaire | `GET /api/assistant/threads/planning` (par `?portee=planning`), ou la portée du fil rouvert | attente dessinée pendant qu'il se cherche ; « Fil du planning illisible » |
-| Fil | Questions et réponses ; sous chaque réponse : copier, **Écouter**, réessayer ; le condensé envoyé, replié ; les comptes rendus d'actions (annuler un ajout, confirmer un changement, oublier une note) ; une séance Cadence proposée s'affiche en `CircuitCard` | `POST /api/assistant/chat/stream` | « Pose ta question : le fil commence ici. » ; sans clé : « Assistance indisponible », le carnet reste utilisable |
+| Fil | Questions et réponses ; sous chaque réponse : copier, **Écouter**, réessayer ; le condensé envoyé, replié ; les comptes rendus d'actions (annuler un ajout, confirmer un changement, oublier une note) ; une séance Cadence proposée s'affiche en `CircuitCard` | `POST /api/assistant/chat/stream` ; un fil existant, `GET /api/assistant/threads/{id}` | « Pose ta question : le fil commence ici. » ; un fil qui se lit : squelette ; illisible : « Fil illisible » et le message du serveur (`b252a98`) ; sans clé : « Assistance indisponible », le carnet reste utilisable |
 | Saisie | Champ de question, **Dicter ta question**, Envoyer | — | désactivée sans clé |
 
 ## 2. Les deux feuilles
@@ -54,14 +54,20 @@ Seize actions ([`actions.py`](../../backend/app/domains/assistant/actions.py), `
 
 L'annulation est le geste que l'écran ferait lui-même : la suppression de la ligne, ou pour
 un effort perçu `PUT …/{id}/rpe` à vide. Le serveur rend le geste entier (`UndoRef` :
-méthode, suffixe, corps) ; l'écran n'apprend aucune action par son nom. Un refus porte son
-`code`.
+méthode, suffixe, corps) ; l'écran n'apprend aucune action par son nom — pas même
+`plan.propose`, reconnue à ses `sessions` depuis `b252a98`. Un refus porte son `code`, et
+l'écran en lit un : un conflit `If-Match` à la confirmation retire « Confirmer », le conflit
+ne se force pas. Une action demandée hors de sa portée dit son geste et où il se fait
+(« Je ne sais pas proposer des séances au planning dans cette discussion : seulement dans le
+fil du planning »), plus son nom technique.
 
 ## 4. Liens sortants
 
 « Ouvrir dans Cadence » sur une séance proposée ; dans le fil du planning, **Voir le
 planning** (en tête) et **Voir au planning** sous une adoption, sur le premier jour écrit
-(`/planning?jour=…`, M-20).
+(`/planning?jour=…`, M-20) ; **Voir au planning** aussi sous une séance prévue
+(`plan.add`) et sous une séance décalée, une fois confirmée (`plan.move`), depuis
+`b252a98`.
 
 ## 5. Constats
 

@@ -34,7 +34,7 @@ Haut d'écran rempli : 3 124 px (3 312 avant M-23 ; banc du 22 octobre au soir, 
 | Ouvrir la fiche d'un repas | appui sur la ligne | — | — |
 | Corriger un repas | fiche → Corriger (description, valeurs) | `PATCH /api/nutrition/{id}` | `If-Match` |
 | Mettre un repas en favori | fiche → Ajouter aux favoris | `POST /api/nutrition/favorites` | addition |
-| Supprimer un repas | « supprimer », deux appuis | `DELETE /api/nutrition/{id}` | `If-Match` |
+| Supprimer un repas | « supprimer », deux appuis ; « Repas supprimé. », et « La photo reste sur Nextcloud » seulement s'il y en avait une (`1bca600`) | `DELETE /api/nutrition/{id}` | `If-Match` |
 | Rejouer un favori | feuille d'ajout, un appui sur sa pastille, au jour choisi ; pour hier, un second appui sur son type | `POST /api/nutrition/favorites/{id}/replay` (`day`, `meal_type` — exigé pour hier) | addition |
 | Retirer un favori | « retirer », deux appuis | `DELETE /api/nutrition/favorites/{id}` | `If-Match` |
 

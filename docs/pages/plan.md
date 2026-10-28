@@ -20,7 +20,7 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 |---|---|---|---|
 | Conflit (s'il y en a) | « Deux courses visées en A » et la phrase qui tranche ; **Oui, fais-le** / non | `GET /api/races` | — |
 | Plan qui ne suit plus (s'il y en a) | La phrase du serveur (« Le plan posé au planning mène au 16/02 ; … ») et **Reposer le plan** (M-17) | même appel, `stale_plan` | — |
-| **Courses visées** | Nom, date, distance, priorité, chrono visé ; **corriger** (M-17), supprimer ; **Ajouter une course visée** (formulaire en place) | même appel | « Aucune course visée » |
+| **Courses visées** | Nom, date, distance, priorité, chrono visé ; **corriger** (M-17), supprimer ; **Ajouter une course visée** (formulaire en place, ses distances servies — `distances`, depuis `catalog.SPECS`, `ed46495`) | même appel | « Aucune course visée » |
 | ~~**Ce que le coach a changé**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
 | **Plan jusqu'à la course A** | Synthèse (semaines, volume de départ et de pic, affûtage), avertissement de préparation courte ; les quatre semaines qui viennent, séance par séance en notation ; les autres repliées ; **Poser au planning** | `GET /api/races/plan/{race_id}` | « Plan indisponible » |
 | ~~**Agenda**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |

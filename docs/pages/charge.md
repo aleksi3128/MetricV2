@@ -47,8 +47,11 @@ Haut d'écran rempli : 1 810 px.
   effort perçu », et l'écran ne dessine rien à sa place. La phrase de forme suit
   (`3930cfb`) : sans aucune séance, « aucune séance enregistrée », et non plus « aucune
   séance n'a d'effort perçu ».
-- **Trois défauts vus à l'écran le 26 octobre, laissés** (hors du lot M-06/M-07, qui n'a
-  pas touché cet écran) : la tuile « Fatigue » dit 7 quand la phrase dessous dit
+- ~~**Trois défauts vus à l'écran le 26 octobre, laissés**~~ — corrigés le 28 (`98b0ac8`) :
+  forme, fatigue et fraîcheur s'arrondissent une fois au serveur (`form`, `fatigue`,
+  `freshness`), que tuiles et phrase lisent ; les deux cartes sont en pile ; les bornes de la
+  frise sont dans le cadre. Les parts facile / modéré / dur arrivent en entiers qui font 100
+  (plus grand reste). Ce qu'on lisait : la tuile « Fatigue » dit 7 quand la phrase dessous dit
   « fatigue 6 » — le serveur sert `atl = 6.5`, que la phrase arrondit à l'entier pair
   (`round` de Python) et la tuile au-dessus (`num(…, 0)`) ; un chiffre servi déjà arrondi
   ôterait l'écart ; les cartes « Forme et fatigue » et « Rapport et monotonie » se touchent, sans
