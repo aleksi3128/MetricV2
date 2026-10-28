@@ -23,6 +23,7 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from app.core.dates import today_local
+from app.storage.files import FileStore
 from tests.fake_openrouter import FakeOpenRouter
 from tests.fake_webdav import FakeWebDav
 
@@ -230,7 +231,8 @@ def test_confirming_revalidates_against_the_catalogue(
     )
 
     assert response.json()["status"] == "refused"
-    assert "sais faire" in response.json()["summary"]
+    # Le nom technique n'est pas une phrase pour l'utilisateur, ni un nom inventé.
+    assert response.json()["summary"] == "Ce n'est pas quelque chose que je sais faire."
 
 
 # ── 3. Les refus ne coûtent jamais l'échange ──────────
@@ -607,3 +609,50 @@ def test_the_exclusive_pair_is_said_where_the_schema_cannot() -> None:
     spec = next(s for s in catalogue.catalogue().values() if s.name == "circuit.create")
 
     assert "ou" in spec.label and "jamais les deux" in spec.label
+
+
+async def test_a_planned_or_moved_session_serves_its_day_for_the_way_back(
+    store: FileStore,
+) -> None:
+    """`plan.add` et `plan.move` écrivent au planning comme une adoption, et n'en servaient
+    pas le jour : la carte n'avait pas de « Voir au planning ». Le jour vient de la ligne
+    écrite, jamais d'un calcul de l'écran."""
+    from datetime import timedelta
+
+    from app.domains.assistant.actions import validate
+
+    day = today_local() + timedelta(days=2)
+    checked = validate(
+        "plan.add",
+        {
+            "date": day.isoformat(),
+            "time": "18:30",
+            "kind": "muscu",
+            "title": "Haut du corps",
+            "duration_min": 40,
+        },
+    )
+    assert not isinstance(checked, str), checked
+    spec, payload = checked
+    added = await spec.run(store, payload)
+    assert added.day == day
+    assert added.undo is not None
+
+    later = day + timedelta(days=1)
+    checked = validate(
+        "plan.move",
+        {"row_id": added.undo.row_id, "token": added.undo.token, "date": later.isoformat()},
+    )
+    assert not isinstance(checked, str), checked
+    spec, payload = checked
+    moved = await spec.run(store, payload)
+    assert moved.day == later
+
+
+def test_every_action_says_its_gesture_without_its_technical_name() -> None:
+    """Le refus hors portée dit le geste : chaque action en a un, en français, sans point."""
+    from app.domains.assistant.actions import catalogue
+
+    for spec in catalogue().values():
+        assert spec.gesture, spec.name
+        assert "." not in spec.gesture and spec.name not in spec.gesture, spec.name

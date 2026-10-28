@@ -356,7 +356,12 @@ def test_a_proposal_is_not_confirmed_from_an_ordinary_thread(
     assert response.status_code == 200, response.text
     body = response.json()
     assert (body["status"], body["code"]) == ("refused", "validation_error")
-    assert "sais faire" in body["summary"], "le même refus qu'un nom inventé"
+    # Le geste, et où il se fait — plus le nom technique de l'action.
+    assert body["summary"] == (
+        "Je ne sais pas proposer des séances au planning dans cette discussion : "
+        "seulement dans le fil du planning."
+    )
+    assert "plan.propose" not in body["summary"]
     assert PLAN_FILE not in dav.files
 
 
@@ -381,6 +386,10 @@ def test_an_ordinary_action_is_not_confirmed_from_the_planning_thread(
     )
 
     assert response.json()["status"] == "refused"
+    assert response.json()["summary"] == (
+        "Je ne sais pas supprimer une pesée dans cette discussion : "
+        "seulement dans une discussion ordinaire."
+    )
     assert "82.4" in dav.content_of("Metric/body/weight.csv")
 
 

@@ -232,6 +232,17 @@ export function Assistant() {
     enabled: threadId !== null && exchanges.length === 0,
   });
 
+  /**
+   * Un fil qui existe et qui se lit encore — par `?fil`, la reprise ou la feuille — ou qui
+   * n'a pas pu se lire. Sans ces deux états, l'écran disait « le fil commence ici » au-dessus
+   * d'un fil qui existe, le temps de la lecture et pour toujours si elle échouait. La reprise
+   * elle-même s'attend : tant qu'elle n'a pas répondu, on ne sait pas s'il y a un fil.
+   */
+  const reading =
+    (threadId !== null && exchanges.length === 0 && opened.isPending) ||
+    (threadId === null && !decided && !resolving && resume.isPending);
+  const unreadable = threadId !== null && exchanges.length === 0 ? opened.error : null;
+
   /** Le passé du fil, **dérivé** de ce que le serveur rend — jamais recopié dans un état. */
   const past = useMemo(() => pastFrom(opened.data?.messages ?? []), [opened.data]);
 
@@ -423,9 +434,19 @@ export function Assistant() {
           </Empty>
         )}
 
+        {usable && reading && inFlight === null && <Skeleton lines={3} />}
+
+        {usable && unreadable !== null && inFlight === null && (
+          <Empty title="Fil illisible">
+            {unreadable instanceof ApiError ? unreadable.message : 'Le serveur est injoignable.'}
+          </Empty>
+        )}
+
         {usable &&
           shown.length === 0 &&
           inFlight === null &&
+          !reading &&
+          unreadable === null &&
           !(resolving && (planningThread.isPending || planningThread.error !== null)) && (
             <p className={styles.welcomeText}>Pose ta question : le fil commence ici.</p>
           )}

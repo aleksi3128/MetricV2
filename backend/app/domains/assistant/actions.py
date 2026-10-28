@@ -146,9 +146,10 @@ class Outcome:
     #: retrouver la même ligne en rouvrant le fil trois jours plus tard. C'est ce que cet
     #: identifiant permet — et c'est ce qui rend le bouton « Fait » possible dans le fil.
     resource_id: str | None = None
-    #: Le jour du planning qu'une adoption a touché — le premier des séances écrites (M-20).
-    #: L'écran en fait le retour vers `/planning?jour=…` ; il ne le choisit pas lui-même
-    #: parmi les dates, ce qui serait un calcul.
+    #: Le jour du planning qu'une écriture a touché : le premier des séances adoptées
+    #: (M-20), le jour d'une séance prévue (`plan.add`) ou celui où elle a été décalée
+    #: (`plan.move`). L'écran en fait le retour vers `/planning?jour=…` ; il ne le choisit
+    #: pas lui-même parmi les dates, ce qui serait un calcul.
     day: dt.date | None = None
 
 
@@ -276,6 +277,10 @@ class ActionSpec:
     label: str
     payload: type[BaseModel]
     run: Runner
+    #: Le geste en quelques mots, pour l'utilisateur seul — « proposer des séances au
+    #: planning ». `label` est écrit pour le modèle (arguments, consignes) ; c'est ce mot-ci
+    #: qu'un refus hors portée dit, au lieu du nom technique (`plan.propose`).
+    gesture: str
     #: Les portées de fil où le modèle **voit** cette action (`docs/planning-natation.md`
     #: §5.3). `""` est le fil ordinaire. Le fil Planning a son catalogue restreint : il
     #: propose (`plan.propose`) au lieu d'écrire (`plan.add`), et ne touche à rien d'autre.
@@ -682,6 +687,8 @@ async def _add_plan(store: FileStore, payload: PlanPayload) -> Outcome:
     return Outcome(
         summary=f"« {session.title} » prévu le {session.date:%d/%m/%Y} à {session.time}.",
         undo=Undo("planning/sessions", session.id, session.token),
+        # Le retour vers `/planning?jour=…`, comme une adoption (M-20).
+        day=session.date,
     )
 
 
@@ -760,7 +767,7 @@ async def _move_plan(store: FileStore, payload: MovePlanArgs) -> Outcome:
         ),
     )
     when = f" à {moved.time}" if moved.time else ""
-    return Outcome(summary=f"{moved.title} décalée au {moved.date:%d/%m}{when}.")
+    return Outcome(summary=f"{moved.title} décalée au {moved.date:%d/%m}{when}.", day=moved.date)
 
 
 async def _delete_run(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
@@ -777,6 +784,8 @@ async def _delete_run(store: FileStore, payload: DeleteByRowArgs) -> Outcome:
 
 #: Les portées d'une action — voir `ActionSpec.scopes`.
 ORDINARY = frozenset({""})
+#: Où une action se fait, dit à l'utilisateur quand il la demande ailleurs.
+SCOPE_PLACES = {"": "une discussion ordinaire", "planning": "le fil du planning"}
 PLANNING_ONLY = frozenset({"planning"})
 EVERYWHERE = frozenset({"", "planning"})
 
@@ -788,6 +797,7 @@ def _spec(
     payload: type[BaseModel],
     run: Any,
     *,
+    gesture: str,
     scopes: frozenset[str] = ORDINARY,
     hidden: frozenset[str] = frozenset(),
     confirm_if: Callable[[FileStore, Any], Awaitable[str | None]] | None = None,
@@ -798,6 +808,7 @@ def _spec(
         label=label,
         payload=payload,
         run=run,
+        gesture=gesture,
         scopes=scopes,
         hidden=hidden,
         confirm_if=confirm_if,
@@ -840,6 +851,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "noter une pesée",
             WeightPayload,
             _add_weight,
+            gesture="noter une pesée",
         ),
         _spec(
             "water.add",
@@ -847,6 +859,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "noter une boisson",
             IntakePayload,
             _add_water,
+            gesture="noter une boisson",
         ),
         _spec(
             "supplement.take",
@@ -854,6 +867,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "cocher un supplément du jour (schedule_id vu dans le condensé)",
             TakeSupplementArgs,
             _take_supplement,
+            gesture="cocher un supplément",
         ),
         _spec(
             "meal.add",
@@ -863,6 +877,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "et il se dit : ne le déduis pas de l'heure, demande-le",
             add_meal,
             _add_meal,
+            gesture="noter un repas",
         ),
         _spec(
             "pain.add",
@@ -876,6 +891,7 @@ def catalogue() -> dict[str, ActionSpec]:
             PainPayload,
             _add_pain,
             hidden=frozenset({"run_id"}),
+            gesture="noter une douleur",
         ),
         _spec(
             "swim.add",
@@ -888,6 +904,7 @@ def catalogue() -> dict[str, ActionSpec]:
             _add_swim,
             # Réécrire une natation importée est une correction ; une création n'en a que faire.
             hidden=frozenset({"rewrite"}),
+            gesture="noter une natation",
         ),
         _spec(
             "effort.rate",
@@ -899,6 +916,7 @@ def catalogue() -> dict[str, ActionSpec]:
             RateEffortArgs,
             _rate_effort,
             confirm_if=_effort_overwrites,
+            gesture="noter un effort perçu",
         ),
         _spec(
             "run.add",
@@ -906,6 +924,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "noter une course",
             RunPayload,
             _add_run,
+            gesture="noter une course",
         ),
         _spec(
             "circuit.create",
@@ -918,6 +937,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "l'effort. Le `name` de la séance, lui, reste en français",
             CircuitPayload,
             _create_circuit,
+            gesture="créer une séance Cadence",
         ),
         _spec(
             "plan.add",
@@ -926,6 +946,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "jointe à la note",
             PlanPayload,
             _add_plan,
+            gesture="prévoir une séance",
         ),
         _spec(
             "plan.propose",
@@ -936,6 +957,7 @@ def catalogue() -> dict[str, ActionSpec]:
             ProposePlanArgs,
             _propose_plan,
             scopes=PLANNING_ONLY,
+            gesture="proposer des séances au planning",
         ),
         # ── Ce qui demande un appui ──
         _spec(
@@ -944,6 +966,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "supprimer une pesée",
             DeleteByRowArgs,
             _delete_weight,
+            gesture="supprimer une pesée",
         ),
         _spec(
             "meal.delete",
@@ -951,6 +974,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "supprimer un repas",
             DeleteByRowArgs,
             _delete_meal,
+            gesture="supprimer un repas",
         ),
         _spec(
             "run.delete",
@@ -958,6 +982,7 @@ def catalogue() -> dict[str, ActionSpec]:
             "supprimer une course",
             DeleteByRowArgs,
             _delete_run,
+            gesture="supprimer une course",
         ),
         _spec(
             "plan.move",
@@ -967,6 +992,7 @@ def catalogue() -> dict[str, ActionSpec]:
             MovePlanArgs,
             _move_plan,
             scopes=EVERYWHERE,
+            gesture="décaler une séance prévue",
         ),
         _spec(
             "plan.delete",
@@ -975,6 +1001,7 @@ def catalogue() -> dict[str, ActionSpec]:
             DeleteByRowArgs,
             _delete_plan,
             scopes=EVERYWHERE,
+            gesture="retirer une séance prévue",
         ),
     )
     return {spec.name: spec for spec in specs}
@@ -999,10 +1026,14 @@ def validate(
     dire vaut mieux que de laisser croire que c'est fait.
     """
     spec = catalogue().get(name)
-    if spec is None or (scope is not None and scope not in spec.scopes):
-        # Hors portée, le refus est le même que pour un nom inventé : le modèle n'a pas vu
-        # cette action dans ce fil, et il ne doit pas pouvoir la deviner.
-        return f"« {name} » n'est pas quelque chose que je sais faire."
+    # La phrase est lue par l'utilisateur, jamais renvoyée au modèle : elle ne lui apprend
+    # rien du catalogue d'un autre fil. Elle disait le nom technique — « « plan.propose »
+    # n'est pas quelque chose que je sais faire » — dans les deux cas ; elle dit le geste.
+    if spec is None:
+        return "Ce n'est pas quelque chose que je sais faire."
+    if scope is not None and scope not in spec.scopes:
+        where = " ou ".join(SCOPE_PLACES[item] for item in sorted(spec.scopes))
+        return f"Je ne sais pas {spec.gesture} dans cette discussion : seulement dans {where}."
 
     try:
         payload = spec.payload.model_validate(
@@ -1046,6 +1077,7 @@ __all__ = [
     "ORDINARY",
     "PLANNING_ONLY",
     "RATED",
+    "SCOPE_PLACES",
     "SOURCE",
     "ActionSpec",
     "DeleteByRowArgs",

@@ -230,11 +230,9 @@ function DroppedList({ dropped }: { dropped: string[] }) {
  *   français, et s'affiche telle quelle.
  */
 export function ActionCard({ report, thread }: { report: ActionReport; thread: string }) {
-  if (
-    report.name === 'plan.propose' &&
-    report.status === 'pending' &&
-    (report.sessions ?? []).length > 0
-  ) {
+  // Sur la forme servie, pas sur le nom : l'écran n'apprend aucune action par son nom. Des
+  // séances à retenir une par une, c'est une proposition — quelle que soit l'action.
+  if (report.status === 'pending' && (report.sessions ?? []).length > 0) {
     return <ProposalCard report={report} thread={thread} />;
   }
   return <PlainAction report={report} thread={thread} />;
@@ -243,7 +241,11 @@ export function ActionCard({ report, thread }: { report: ActionReport; thread: s
 function PlainAction({ report, thread }: { report: ActionReport; thread: string }) {
   const client = useQueryClient();
   const { notify } = useToast();
-  const [settled, setSettled] = useState<'undone' | 'confirmed' | 'dismissed' | null>(null);
+  const [settled, setSettled] = useState<'undone' | 'confirmed' | 'dismissed' | 'conflict' | null>(
+    null,
+  );
+  /** Le rapport rendu par la confirmation : sa phrase, son jour. */
+  const [confirmed, setConfirmed] = useState<ActionReport | null>(null);
 
   /**
    * Le circuit que cette action a créé, tel qu'il est **maintenant**.
@@ -281,10 +283,21 @@ function PlainAction({ report, thread }: { report: ActionReport; thread: string 
     mutationFn: () => assistantApi.confirmAction(report.name, report.args, thread),
     onSuccess: (result) => {
       if (result.status !== 'done') {
+        // Décidé sur le code, jamais sur la phrase. Un conflit `If-Match` ne se force pas :
+        // la ligne a changé depuis que l'assistant l'a lue, et les mêmes arguments — le même
+        // jeton — échoueraient à chaque appui. La carte cesse d'offrir « Confirmer » et dit
+        // pourquoi ; les écrans se relisent. Un autre refus (une panne passagère) laisse
+        // réessayer.
+        if (result.code === 'conflict') {
+          setSettled('conflict');
+          setConfirmed(result);
+          refreshEverything();
+        }
         notify(result.summary, 'recover');
         return;
       }
       setSettled('confirmed');
+      setConfirmed(result);
       refreshEverything();
       notify(result.summary, 'effort');
     },
@@ -296,15 +309,35 @@ function PlainAction({ report, thread }: { report: ActionReport; thread: string 
   if (settled === 'dismissed') return null;
 
   const tone =
-    report.status === 'refused' ? 'recover' : report.status === 'pending' ? 'load' : 'effort';
+    report.status === 'refused' || settled === 'conflict'
+      ? 'recover'
+      : report.status === 'pending'
+        ? 'load'
+        : 'effort';
   const dropped = report.dropped ?? [];
+  /**
+   * Le retour vers le planning, sur le jour **servi** : une séance prévue, décalée ou
+   * adoptée (M-20). Celui de l'action exécutée d'emblée, ou celui que rend sa confirmation.
+   */
+  const day =
+    settled === null && report.status === 'done'
+      ? (report.day ?? null)
+      : settled === 'confirmed'
+        ? (confirmed?.day ?? null)
+        : null;
 
   return (
     <div className={cx(styles.action, styles[`action_${tone}`])}>
       <div className={styles.actionBody}>
         <span className={styles.actionMark} aria-hidden="true" />
         <p className={styles.actionText}>
-          {settled === 'undone' ? 'Annulé.' : settled === 'confirmed' ? 'Fait.' : report.summary}
+          {settled === 'undone'
+            ? 'Annulé.'
+            : settled === 'confirmed'
+              ? 'Fait.'
+              : settled === 'conflict'
+                ? confirmed?.summary
+                : report.summary}
         </p>
       </div>
 
@@ -340,6 +373,12 @@ function PlainAction({ report, thread }: { report: ActionReport; thread: string 
         <div className={styles.actionCircuit}>
           <CircuitCard circuit={circuit} />
         </div>
+      )}
+
+      {day !== null && (
+        <LinkButton variant="primary" className={styles.actionOpen} to={`/planning?jour=${day}`}>
+          Voir au planning
+        </LinkButton>
       )}
 
       {settled === null && report.status === 'done' && report.undo !== null && (

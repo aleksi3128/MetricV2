@@ -868,6 +868,95 @@ describe('actions', () => {
     });
   });
 
+  it('un conflit à la confirmation se décide sur son code : il ne se force pas', async () => {
+    const user = userEvent.setup();
+    const conflict = {
+      ...PENDING,
+      status: 'refused' as const,
+      code: 'conflict',
+      summary: 'Cette pesée a changé depuis : recharge la page avant de recommencer.',
+    };
+    stub({
+      reply: { ...REPLY, actions: [PENDING] },
+      custom: (url) => (url.includes('/actions/confirm') ? json(200, conflict) : undefined),
+    });
+    renderScreen();
+    await askSomething();
+
+    await user.click(await screen.findByRole('button', { name: 'Confirmer' }));
+
+    // Le même jeton échouerait à chaque appui : plus de « Confirmer », la phrase du serveur.
+    expect((await screen.findAllByText(conflict.summary)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Confirmer' })).not.toBeInTheDocument();
+  });
+
+  it('un autre refus à la confirmation laisse réessayer', async () => {
+    const user = userEvent.setup();
+    const down = {
+      ...PENDING,
+      status: 'refused' as const,
+      code: 'storage_unavailable',
+      summary: 'Nextcloud est injoignable.',
+    };
+    stub({
+      reply: { ...REPLY, actions: [PENDING] },
+      custom: (url) => (url.includes('/actions/confirm') ? json(200, down) : undefined),
+    });
+    renderScreen();
+    await askSomething();
+
+    await user.click(await screen.findByRole('button', { name: 'Confirmer' }));
+
+    expect(await screen.findByText(down.summary)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirmer' })).toBeInTheDocument();
+  });
+
+  it('une séance prévue ou décalée mène au jour servi du planning', async () => {
+    const user = userEvent.setup();
+    const planned = {
+      ...ADDED,
+      name: 'plan.add',
+      summary: '« Haut du corps » prévu le 10/08/2026 à 18:30.',
+      undo: { domain: 'planning/sessions', row_id: 4, token: 'jeton-seance' },
+      day: '2026-08-10',
+    };
+    const move = {
+      ...PENDING,
+      name: 'plan.move',
+      summary: 'Décaler « Haut du corps » au 11/08',
+      args: { row_id: 4, token: 'jeton-seance', date: '2026-08-11' },
+    };
+    stub({
+      reply: { ...REPLY, actions: [planned, move] },
+      custom: (url) =>
+        url.includes('/actions/confirm')
+          ? json(200, {
+              ...move,
+              status: 'done',
+              summary: 'Haut du corps décalée au 11/08.',
+              day: '2026-08-11',
+            })
+          : undefined,
+    });
+    renderScreen();
+    await askSomething();
+
+    await screen.findByText(planned.summary);
+    expect(screen.getByRole('link', { name: 'Voir au planning' })).toHaveAttribute(
+      'href',
+      '/planning?jour=2026-08-10',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirmer' }));
+    await waitFor(() => {
+      expect(
+        screen
+          .getAllByRole('link', { name: 'Voir au planning' })
+          .map((link) => link.getAttribute('href')),
+      ).toEqual(['/planning?jour=2026-08-10', '/planning?jour=2026-08-11']);
+    });
+  });
+
   it('« Non » écarte l’action sans rien appeler', async () => {
     const user = userEvent.setup();
     stub({ reply: { ...REPLY, actions: [PENDING] } });
@@ -894,6 +983,39 @@ describe('actions', () => {
     expect(await screen.findByText(refused.summary)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Annuler' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Confirmer' })).not.toBeInTheDocument();
+  });
+});
+
+describe('un fil ouvert par son adresse', () => {
+  it('attend sa lecture au lieu de dire que le fil commence', async () => {
+    const served = stub();
+    // La lecture du fil ne répond pas : l'écran attend, et ne prétend rien.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        (input as string).endsWith('/api/assistant/threads/t-9')
+          ? new Promise<Response>(() => undefined)
+          : served(input, init),
+      ),
+    );
+    renderScreen('/assistant?fil=t-9');
+
+    await screen.findByRole('button', { name: 'Envoyer' });
+    expect(screen.queryByText('Pose ta question : le fil commence ici.')).not.toBeInTheDocument();
+  });
+
+  it('dit qu’il est illisible, avec le message du serveur', async () => {
+    stub({
+      custom: (url) =>
+        url.endsWith('/api/assistant/threads/t-9')
+          ? json(404, { code: 'not_found', message: 'Cette discussion n’existe plus.' })
+          : undefined,
+    });
+    renderScreen('/assistant?fil=t-9');
+
+    expect(await screen.findByText('Fil illisible')).toBeInTheDocument();
+    expect(screen.getByText('Cette discussion n’existe plus.')).toBeInTheDocument();
+    expect(screen.queryByText('Pose ta question : le fil commence ici.')).not.toBeInTheDocument();
   });
 });
 

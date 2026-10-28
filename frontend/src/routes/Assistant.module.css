@@ -54,8 +54,6 @@
   gap: var(--s2);
 }
 
-/* `IA-12` — permanent, jamais repliable. Discret pour ne pas manger le fil, mais toujours
-   lisible : c'est une mention de sécurité, pas une décoration. */
 /* ── Le fil ───────────────────────────────────────── */
 
 .stream {
@@ -176,8 +174,6 @@
 
 /* ── Ce que l'assistant a fait (`IA-15`) ──────────── */
 
-/* Une action se lit **avec** la réponse qui l'explique : alignée sur elle, en retrait,
-   comme une conséquence — et non au centre comme un troisième interlocuteur. */
 /* Une cible carrée au plancher tactile : l'icône ne rétrécit pas le bouton. */
 .iconButton {
   width: var(--tap);
@@ -189,8 +185,6 @@
 
 /* ── Ce qui accompagne une réponse (C04) ──────────── */
 
-/* Les gestes d'une bulle : copier, et rien d'autre pour l'instant. Alignés sur la bulle
-   elle-même — à gauche, comme la réponse à laquelle ils appartiennent. */
 /* Une dictée refusée ou interrompue (`docs/voix.md`) : dite sous le champ, pas en toast —
    le geste suivant est de réessayer ou d'écrire, juste au-dessus. */
 .voiceError {
