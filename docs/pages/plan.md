@@ -4,7 +4,8 @@
 la prochaine course A, à poser au planning d'un geste.
 
 **Comment on y arrive.** « Plus » → Prévoir → Plan de course ; entrée « Plan » de la barre
-du haut sur ordinateur. Aucun lien depuis un autre écran.
+du haut sur ordinateur. Depuis M-19, le bloc « Où je vais » de l'accueil y mène : **Détail**,
+**Poser le plan** ou **Voir le plan**, selon l'état du plan posé.
 
 Fichier : [`Plan.tsx`](../../frontend/src/routes/Plan.tsx).
 
@@ -52,9 +53,10 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
   `/activite/courses`, où c'est une sortie. La pastille « A — l'objectif » dit « A — la
   principale », et la note du jour de course posée par le plan « priorité A » — son
   préfixe « Course : » reste, c'est le marqueur que lit le coach.
-- **Le plan et l'objectif ne se parlent pas à l'écran.** Une course A datée est l'objectif
-  le plus concret qui soit ; `/objectif` et le bloc « Où je vais » de l'accueil n'en disent
-  rien (M-19).
+- ~~**Le plan et l'objectif ne se parlent pas à l'écran.**~~ Corrigé sur l'accueil (M-19,
+  `af2202d`) : « Où je vais » montre la course A, son « J-n » et la phase du plan posé, et
+  dit quand le plan ne suit plus — sans bouton de repose, qui reste ici, armé. `/objectif`
+  n'en dit toujours rien.
 
 ## 4. Non vu
 

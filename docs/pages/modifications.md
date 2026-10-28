@@ -39,7 +39,7 @@ gagner aucun part.
 | **Volume hebdomadaire** | L (tuile « Semaine ») | L ×3 (de leur sport) | — | — | — | — | — | — | — | **L (tous sports — M-07)** | — | — | — |
 | Facile / modéré / dur | — | L (constat, 14 j — M-02) | — | — | — | — | — | — | — | L (80 %, 28 j) | — | — | — |
 | Objectif daté | L | — | (condensé) | — | — | — | — | L É | — | — | — | — | — |
-| Course visée (A/B/C) | — | — | — | — | — | — | L É | — | — | — | — | — | — |
+| Course visée (A/B/C) | L (la course A — M-19) | — | — | — | — | — | L É | — | — | — | — | — | — |
 | Agenda iCloud, changements du coach | — | — | — | — | — | L É (M-03) | — | — | — | — | — | — | L É (soir) |
 | Ce que l'assistant sait de toi | — | — | L É (profil et carnet, une feuille — M-05) | — | — | — | — | — | — | — | — | — | — |
 | Séances Cadence | — | L É R (adresse — M-04) | É | — | — | — | — | — | — | — | L (séries) | — | — |
@@ -49,7 +49,7 @@ volume hebdomadaire** (six lectures sur trois écrans — une seule tous sports 
 les autres sont un chiffre ou le volume d'un sport), et **ce que l'assistant sait de
 toi** (deux endroits — un seul depuis M-05). Trois autres montraient des trous : les mensurations et la FC du
 matin s'écrivaient sans se relire — les deux se relisent depuis M-08 et M-09 —, la course
-visée ne parle à aucun autre écran.
+visée ne parlait à aucun autre écran — elle parle à l'accueil depuis M-19.
 
 ---
 
@@ -77,7 +77,7 @@ visée ne parle à aucun autre écran.
 | [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main — **fait** (`2cc88e0`, `7eaa41f`) | P3 |
 | [M-17](#m-17) | ajouter | Plan | Corriger une course visée — **fait** (`defb1cd`) | P3 |
 | [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran — **écartée** (27 octobre : aucune synchro Garmin, voir §6) | P3 |
-| [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » | P3 |
+| [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » — **fait** (`af2202d`) | P3 |
 | [M-20](#m-20) | fusionner | Planning | Un seul coach sur le planning | P3 |
 | [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil — **fait** (`fc178f8`) | P3 |
 
@@ -986,6 +986,22 @@ lequel passe devant ?
 d'abord (nom, J-n, phase du plan), l'objectif daté dessous ; la cible de poids seulement à
 défaut des deux.
 
+**Fait le 28 octobre** (`af2202d`). `DashboardView.race` (`RaceAim`, dans `races/schemas.py`,
+qui importe `Race` et `StalePlanView`) porte la course, le « J-n » ou « Jour J », l'état du
+plan (`absent`, `posed`, `stale`) et la phrase de sa phase, rédigés au serveur. **Changé
+en route** : la phase ne vient pas de `GET /api/races/plan/{id}`. Recalculé chaque jour, ce
+plan part du lundi suivant et répartit ses phases sur ce qui reste — sa première semaine
+dit presque toujours « base », et la semaine en cours n'y est jamais. La phase est celle du
+plan **posé** : chaque séance posée écrit « semaine i/n, phase. » dans sa note, et le
+serveur la relit (`periodize.placed_note` / `read_placed_note`, côte à côte). La semaine de
+la pose n'a pas de séance : la phrase dit alors « Semaine 1 sur 16 — base, à partir du
+02/11 ». Un plan qui ne suit plus ne montre **aucune** phase, seulement la phrase de M-17
+et « Voir le plan ». L'état vide offre aussi « Viser une course ». Une lecture de
+`races.csv`, une du planning (déjà tiré pour la prochaine séance), aucune des décisions de
+conflit : un test le compte sur une requête froide. Vu sur le banc : les deux cartes se
+collaient, le pied de carte serrait la phrase, les deux liens de l'état vide se calaient à
+gauche — corrigés avant le commit.
+
 <a id="m-20"></a>
 
 ### M-20 — Un seul coach sur le planning
@@ -1138,7 +1154,8 @@ serveur, contrairement au coût annoncé.
    `64e3f49`).
 8. **M-10**, **M-16** à **M-20** : décisions prises le 27 octobre (sous chaque fiche).
    Session 9 a : ~~**M-16** et **M-17**~~ faits (`2cc88e0`, `7eaa41f`, `defb1cd`).
-   Session 9 b : **M-19** et **M-18**. Session 9 c : **M-10** et **M-20**.
+   Session 9 b : ~~**M-19**~~ fait (`af2202d`) ; **M-18** écartée sans code (`9e75cd0`).
+   Session 9 c : **M-10** et **M-20**.
 
 ## 6. Écarté, et pourquoi
 
@@ -1168,8 +1185,8 @@ serveur, contrairement au coût annoncé.
 ## 7. Ce qui reste — à reprendre pour lui-même
 
 Les restes des fiches faites avant le 27 octobre sont sous chaque fiche, en **Reste.**
-Ceux de la session 9 a sont rassemblés ici, pour que 9 b et 9 c ne les reprennent pas
-en passant.
+Ceux des sessions 9 a et 9 b sont rassemblés ici, pour que 9 c ne les reprenne pas en
+passant.
 
 | Reste | Pourquoi laissé |
 |---|---|
@@ -1179,4 +1196,9 @@ en passant.
 | `DISTANCES` écrite dans `Plan.tsx` | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir |
 | Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système |
 | Le code de la synchro Garmin (`domains/sync/`, son planificateur, `make sync`, la ligne Garmin de `make status` et `make doctor` ; `garminconnect` n'est importé que s'il est installé, et ne l'est pas) | M-18 est écartée : aucune synchro, même en production. Le retirer — ou le garder dormant — est une **décision à prendre** ; la session 9 b n'y a pas touché |
+| La phase lue dans la note d'une séance posée (M-19) | une note récrite à la main perd sa phase (les autres séances de la semaine la portent encore) ; une séance déplacée d'une semaine à l'autre garde celle de sa semaine d'origine. Une colonne `plan_week` serait plus solide — une colonne de plus pour un cas qu'on n'a pas vu |
+| `/objectif` ne dit rien de la course A | M-19 vise « Où je vais » ; la page de l'objectif chiffré reste la sienne |
+| Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) |
+| Deux liens « Détail » dans « Où je vais » (course et objectif), même nom pour un lecteur d'écran | ils mènent à `/plan` et `/objectif` ; un `aria-label` distinct serait le geste, pas fait en passant |
+| L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc) | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe |
 

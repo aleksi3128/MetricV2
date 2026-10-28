@@ -39,8 +39,12 @@ Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
 - ~~**Trois sens d'« objectif » dans l'application.**~~ Corrigé (M-13, `21a1672`,
   `6f53740`) : « Objectif » ne désigne plus que l'objectif daté (ici). Les valeurs
   quotidiennes de `/reglages`, de `/nutrition`, de `/corps` et de la routine sont des
-  « cibles » ; la course A de `/plan` est « la principale », en « priorité A ». Reste que
-  « Où je vais » affiche la cible de poids faute d'objectif, et le dit (M-19).
+  « cibles » ; la course A de `/plan` est « la principale », en « priorité A ». ~~Reste que
+  « Où je vais » affiche la cible de poids faute d'objectif~~ : depuis M-19 (`af2202d`), la
+  course A passe avant, l'objectif daté dessous, et la cible de poids ne se montre qu'à
+  défaut des deux.
+- **Cet écran-ci ne dit toujours rien de la course A.** M-19 l'a mise sur l'accueil, pas
+  ici : `/objectif` reste celui de l'objectif chiffré. Voir `modifications.md` §7.
 
 ## 4. Non vu
 

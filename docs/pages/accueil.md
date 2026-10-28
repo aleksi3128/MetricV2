@@ -26,7 +26,7 @@ avant, sur le banc du lot M-03).
 | **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + deux liens **Noter une pesée** (→ `/corps`) et **Boire un verre** (→ `/routine`) ; « Aucune séance prévue d'ici deux semaines » |
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
 | **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une — et sans synchro Garmin, écartée par choix (M-18), il n'y en a pas |
-| **Où je vais** (`Aim`) | L'objectif en cours (anneau, résumé, fenêtre, jours restants) ; à défaut la cible de poids ; à défaut l'état vide | même appel (`goal`, `weight.to_target_kg`) | « Aucun objectif en cours » + **Fixer un objectif** |
+| **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
 | ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
 | ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
 | ~~**Assistant**~~ | Retirée (M-22, `fc178f8`) : la barre du haut et la barre basse ont leur entrée, « Mémoire » est un bouton de l'en-tête de `/assistant` | — | — |
@@ -71,7 +71,7 @@ Sorties : **C'est noté** (`POST /api/evening/done`), **Rappelle-moi dans N min*
 ## 5. Liens sortants
 
 `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`,
-`/objectif`, `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule
+`/objectif`, `/plan` (course A, depuis M-19), `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule
 (la rangée de trois liens est partie avec M-22), un lien par alerte — celles de douleur
 mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 
@@ -94,6 +94,11 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
   (`body/health.csv`) n'arrivaient que par la synchro Garmin, que l'utilisateur a écartée
   le 27 octobre (M-18) : ce n'est plus un manque. La ligne reste dans `Shape`, qui ne la
   dessine que s'il y a une nuit ; la FC de repos et la VFC passent par le parcours du matin.
+- ~~**« Où je vais » ne dit rien de la course A.**~~ Corrigé (M-19, `af2202d`) : la
+  prochaine course A passe en tête, avec son « J-n » et la phase du plan **posé**, lue
+  par le serveur dans les notes des séances (le plan recalculé repartirait chaque jour de
+  sa base). L'objectif daté vient dessous ; la cible de poids ne se montre plus qu'à
+  défaut des deux.
 - **L'état vide envoie ailleurs ce que « Noter » fait sur place.** « Noter une pesée » et
   « Boire un verre » mènent à `/corps` et `/routine`, alors que la feuille « Noter »
   enregistre les deux sans changer d'écran.
