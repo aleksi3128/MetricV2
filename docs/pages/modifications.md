@@ -286,6 +286,11 @@ exactes. **Le point 4 reste ouvert.**
   la charge globale. Sur le banc, la page Courses montre une charge 7 jours de 310 pendant
   que l'accueil dit « Pas encore de charge globale » ; chacune dit désormais son nom, mais
   l'écart demeure. Lot à part, avec son plan.
+
+  **Décision du 28 octobre** (session 10 c) : une course avec FC et sans effort perçu entre
+  dans la charge globale par sa **charge FC convertie**, dite à l'écran « **estimée depuis
+  la FC** » ; dès que l'effort perçu est noté, il la **remplace**. Le lot garde son plan à
+  part, comme le demandait le risque de la fiche.
 - **Les phrases du rapport aigu/chronique** (« au-dessus de 1,5, on ne fait plus que du
   facile ») sont aussi un conseil et restent sur la page Courses : `/charge` dit la même
   chose de son propre rapport, et les retirer d'une page seule recréerait l'écart.
@@ -1236,6 +1241,11 @@ serveur, contrairement au coût annoncé.
    Session 9 b : ~~**M-19**~~ fait (`af2202d`) ; **M-18** écartée sans code (`9e75cd0`).
    Session 9 c : ~~**M-10**~~ fait (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) ; **M-20** passe à la session 9 d.
    Session 9 d : ~~**M-20**~~ fait (`685c4af`, `bbacdd7`).
+9. **Les restes du §7**, décisions du 28 octobre (colonne du §7, et M-02 point 4 sous sa
+   fiche). Session 10 a : **M-11** et les restes qui se corrigent sans décision. Session
+   10 b : la douleur après une saisie à la main, la correction d'un vélo ou d'une marche, le
+   plan caduc d'une course passée en B ou retirée, l'adoption rangée dans son fil, la doc
+   d'`IA-12`. Session 10 c : M-02 point 4. Session 10 d : le retrait de la synchro Garmin.
 
 ## 6. Écarté, et pourquoi
 
@@ -1267,32 +1277,37 @@ serveur, contrairement au coût annoncé.
 Les restes des fiches faites avant le 27 octobre sont sous chaque fiche, en **Reste.**
 Ceux des sessions 9 a à 9 d sont rassemblés ici, pour qu'aucune ne les reprenne en passant.
 
-| Reste | Pourquoi laissé |
-|---|---|
-| Corriger une sortie vélo ou marche (durée, sport, distance) | pas de route `PATCH /others/{id}` ; une addition se défait par le glissement de l'historique |
-| La douleur après une sortie saisie à la main | une course à la main ne la demande pas non plus ; l'étendre aux deux est une décision |
-| Un plan posé pour une course passée de A en B, ou retirée | M-17 ne vise que la date ; la priorité et la suppression défont aussi le plan, autrement |
-| `DISTANCES` écrite dans `Plan.tsx` | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir |
-| Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système |
-| Le code de la synchro Garmin (`domains/sync/`, son planificateur, `make sync`, la ligne Garmin de `make status` et `make doctor` ; `garminconnect` n'est importé que s'il est installé, et ne l'est pas) | M-18 est écartée : aucune synchro, même en production. Le retirer — ou le garder dormant — est une **décision à prendre** ; la session 9 b n'y a pas touché |
-| La phase lue dans la note d'une séance posée (M-19) | une note récrite à la main perd sa phase (les autres séances de la semaine la portent encore) ; une séance déplacée d'une semaine à l'autre garde celle de sa semaine d'origine. Une colonne `plan_week` serait plus solide — une colonne de plus pour un cas qu'on n'a pas vu |
-| `/objectif` ne dit rien de la course A | M-19 vise « Où je vais » ; la page de l'objectif chiffré reste la sienne |
-| Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) |
-| Deux liens « Détail » dans « Où je vais » (course et objectif), même nom pour un lecteur d'écran | ils mènent à `/plan` et `/objectif` ; un `aria-label` distinct serait le geste, pas fait en passant |
-| L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc) | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe |
-| Les huit cas M-10 de `make eval` jamais joués | décision du 27 octobre : appels payants. Le premier `make eval` dira ce que valent la consigne et les quatre actions. `need_contient` lit la dernière passe seulement : il ne prouve pas qu'une tranche a été demandée |
-| `charge-lundi` sert trois tranches que l'application n'a plus (`progression_charges`, `detail_seances`, `exercices`) | trouvé par `test_evals_cases.py` (M-10) ; antérieur, depuis la refonte de l'activité. Reprendre ce cas — ou le retirer — est une décision sur lui ; la liste est figée et ne peut que rétrécir |
-| Une natation notée par l'assistant est `source=manual` (« saisie »), pas `ia` | `swims.csv` ne connaît que `fit` et `manual`, et seule une `manual` se corrige d'un bloc : une valeur `ia` la rendrait incorrigible sans toucher à `SwimService.update` et à l'écran. Décision de schéma |
-| Une douleur notée par l'assistant n'est rattachée à aucune sortie | `run_id` est tu au modèle, qui ne voit aucun identifiant stable de sortie ; les patterns (R4) ne la lient donc à rien. Servir les identifiants stables du jour le permettrait |
-| Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran |
-| Les mensurations par l'assistant | la fiche les laissait attendre ; `measurements.csv` n'a toujours pas de colonne `source` |
-| `ActionReport.code` n'est lu par aucun écran | le code voyage depuis M-10 ; l'écran affiche la phrase et ne décide encore de rien sur un refus |
-| `ActionCard` reconnaît `plan.propose` à son nom | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait. M-20 ne l'a pas aggravé (le retour suit `day`) ; se corrige sans décision |
-| « La table refuse `plan.*`… quand la question porte une alerte médicale » (`assistant-agent.md` §4) | introuvable dans le code au 28 octobre : la garde d'`IA-12` est dans la consigne seule. Antérieur à M-10, noté pour être tranché |
-| Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main |
-| Une adoption n'est pas rangée dans le fil (M-20) | rouvert, le fil du planning montre la réponse sans « 2 séances ajoutées » : `confirm()` écrit au planning, pas au fil. Antérieur (`planning-natation.md` §9) ; l'écrire au fil demande de rattacher une confirmation à son message |
-| Le refus hors portée nomme l'action (« « plan.propose » n'est pas quelque chose que je sais faire ») | la phrase de `validate()` pour un nom inconnu, antérieure ; vue dans un fil ordinaire sur le banc. Dire le geste plutôt que le nom se corrige sans décision |
-| `day` n'est servi que par `plan.propose` | `plan.add` et `plan.move` écrivent aussi au planning, sans lien de retour. Les étendre est une ligne chacun ; M-20 ne visait que le fil du planning |
-| Un fil ouvert par `?fil` n'a ni attente ni erreur | antérieur : pendant la lecture, et si elle échoue, l'écran dit « Pose ta question : le fil commence ici » au-dessus d'un fil qui existe. M-20 n'a dessiné les deux états que pour la recherche du fil du planning |
-| Le fil du planning jamais essayé sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; les propositions du banc sont écrites à la main |
+**Les décisions du 28 octobre** (de l'utilisateur, relayées par le superviseur) sont dans la
+dernière colonne, avec la session qui les prend : 10 a (cette clôture), 10 b, 10 c, 10 d.
+« Aucune à prendre » : le reste se corrige sans décision de produit. « — » : rien n'a été
+décidé, le reste attend tel quel. Celle du point 4 de M-02 est sous sa fiche.
+
+| Reste | Pourquoi laissé | Décision du 28 octobre |
+|---|---|---|
+| Corriger une sortie vélo ou marche (durée, sport, distance) | pas de route `PATCH /others/{id}` ; une addition se défait par le glissement de l'historique | hors de la liste ; laissé à la **session 10 b**, avec la douleur demandée après la saisie |
+| La douleur après une sortie saisie à la main | une course à la main ne la demande pas non plus ; l'étendre aux deux est une décision | **demandée**, comme après un import, pour la course, le vélo et la marche — **session 10 b** |
+| Un plan posé pour une course passée de A en B, ou retirée | M-17 ne vise que la date ; la priorité et la suppression défont aussi le plan, autrement | **dit par le serveur**, comme pour la date ; « Reposer le plan » ou « Retirer le plan », armés — **session 10 b** |
+| `DISTANCES` écrite dans `Plan.tsx` | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir | aucune à prendre : se corrige — session 10 a |
+| Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système | — |
+| Le code de la synchro Garmin (`domains/sync/`, son planificateur, `make sync`, la ligne Garmin de `make status` et `make doctor` ; `garminconnect` n'est importé que s'il est installé, et ne l'est pas) | M-18 est écartée : aucune synchro, même en production. Le retirer — ou le garder dormant — est une **décision à prendre** ; la session 9 b n'y a pas touché | **retiré** ; le décodeur `.fit` et l'import à la main restent — **session 10 d** |
+| La phase lue dans la note d'une séance posée (M-19) | une note récrite à la main perd sa phase (les autres séances de la semaine la portent encore) ; une séance déplacée d'une semaine à l'autre garde celle de sa semaine d'origine. Une colonne `plan_week` serait plus solide — une colonne de plus pour un cas qu'on n'a pas vu | **gardée** : pas de colonne `plan_week` |
+| `/objectif` ne dit rien de la course A | M-19 vise « Où je vais » ; la page de l'objectif chiffré reste la sienne | **attend** |
+| Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) | — |
+| Deux liens « Détail » dans « Où je vais » (course et objectif), même nom pour un lecteur d'écran | ils mènent à `/plan` et `/objectif` ; un `aria-label` distinct serait le geste, pas fait en passant | aucune à prendre : se corrige — session 10 a |
+| L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc) | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe | aucune à prendre : le regarder, et ne le changer que si c'est l'affichage — session 10 a |
+| Les huit cas M-10 de `make eval` jamais joués | décision du 27 octobre : appels payants. Le premier `make eval` dira ce que valent la consigne et les quatre actions. `need_contient` lit la dernière passe seulement : il ne prouve pas qu'une tranche a été demandée | **pas lancés** |
+| `charge-lundi` sert trois tranches que l'application n'a plus (`progression_charges`, `detail_seances`, `exercices`) | trouvé par `test_evals_cases.py` (M-10) ; antérieur, depuis la refonte de l'activité. Reprendre ce cas — ou le retirer — est une décision sur lui ; la liste est figée et ne peut que rétrécir | aucune à prendre : le cas se **réécrit** sur les tranches actuelles, sans être lancé — session 10 a |
+| Une natation notée par l'assistant est `source=manual` (« saisie »), pas `ia` | `swims.csv` ne connaît que `fit` et `manual`, et seule une `manual` se corrige d'un bloc : une valeur `ia` la rendrait incorrigible sans toucher à `SwimService.update` et à l'écran. Décision de schéma | **gardée** en `manual` |
+| Une douleur notée par l'assistant n'est rattachée à aucune sortie | `run_id` est tu au modèle, qui ne voit aucun identifiant stable de sortie ; les patterns (R4) ne la lient donc à rien. Servir les identifiants stables du jour le permettrait | — |
+| Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran | — |
+| Les mensurations par l'assistant | la fiche les laissait attendre ; `measurements.csv` n'a toujours pas de colonne `source` | **attendent** |
+| `ActionReport.code` n'est lu par aucun écran | le code voyage depuis M-10 ; l'écran affiche la phrase et ne décide encore de rien sur un refus | aucune à prendre : un refus au moins se décide sur le code — session 10 a |
+| `ActionCard` reconnaît `plan.propose` à son nom | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait. M-20 ne l'a pas aggravé (le retour suit `day`) ; se corrige sans décision | aucune à prendre : se corrige — session 10 a |
+| « La table refuse `plan.*`… quand la question porte une alerte médicale » (`assistant-agent.md` §4) | introuvable dans le code au 28 octobre : la garde d'`IA-12` est dans la consigne seule. Antérieur à M-10, noté pour être tranché | **corriger la doc** : la garde est la consigne seule, et c'est assumé — **session 10 b** |
+| Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main | — |
+| Une adoption n'est pas rangée dans le fil (M-20) | rouvert, le fil du planning montre la réponse sans « 2 séances ajoutées » : `confirm()` écrit au planning, pas au fil. Antérieur (`planning-natation.md` §9) ; l'écrire au fil demande de rattacher une confirmation à son message | **oui**, elle s'y range — **session 10 b** |
+| Le refus hors portée nomme l'action (« « plan.propose » n'est pas quelque chose que je sais faire ») | la phrase de `validate()` pour un nom inconnu, antérieure ; vue dans un fil ordinaire sur le banc. Dire le geste plutôt que le nom se corrige sans décision | aucune à prendre : dire le geste — session 10 a |
+| `day` n'est servi que par `plan.propose` | `plan.add` et `plan.move` écrivent aussi au planning, sans lien de retour. Les étendre est une ligne chacun ; M-20 ne visait que le fil du planning | aucune à prendre : se corrige — session 10 a |
+| Un fil ouvert par `?fil` n'a ni attente ni erreur | antérieur : pendant la lecture, et si elle échoue, l'écran dit « Pose ta question : le fil commence ici » au-dessus d'un fil qui existe. M-20 n'a dessiné les deux états que pour la recherche du fil du planning | aucune à prendre : se corrige — session 10 a |
+| Le fil du planning jamais essayé sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; les propositions du banc sont écrites à la main | — |
 
