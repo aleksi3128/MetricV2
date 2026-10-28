@@ -46,10 +46,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, create_model
 
+from app.core.dates import today_local
 from app.core.exceptions import ValidationFailedError
 from app.storage.files import FileStore
 
@@ -359,10 +360,30 @@ async def _take_supplement(store: FileStore, payload: TakeSupplementArgs) -> Out
     return Outcome(summary=f"{taken} coché pour aujourd'hui.")
 
 
+#: Les jours où l'assistant note un repas — ceux de `resolve_day`, sous leur nom symbolique.
+#:
+#: Une date écrite par le modèle serait acceptée par `resolve_day` tant qu'elle tombe sur
+#: aujourd'hui ou hier ; la liste fermée dit au modèle ce qu'on attend de lui, et la même
+#: fonction relit le jour derrière, comme pour une saisie à l'écran (M-01).
+MealDay = Literal["today", "yesterday"]
+
+
 async def _add_meal(store: FileStore, payload: MealPayload) -> Outcome:
+    from app.domains.nutrition.models import MealType
     from app.domains.nutrition.service import (
         NutritionService,
     )
+
+    day: str | None = getattr(payload, "day", None)
+    # **Pour un autre jour, le type se dit, il ne se devine pas** (le défaut de la 4 b,
+    # `d1de02d`). Il pose l'heure du repas ; un libellé libre la poserait à l'heure de
+    # repli, et un type déduit de l'heure présente ferait d'un dîner d'hier un
+    # petit-déjeuner. L'écran exige l'un des quatre pour hier — l'assistant aussi.
+    if day == "yesterday" and payload.meal_type not in {item.value for item in MealType}:
+        raise ValidationFailedError(
+            "Pour un repas d'hier, dis lequel : petit-déjeuner, déjeuner, dîner ou "
+            "collation — c'est lui qui pose l'heure."
+        )
 
     meal = await NutritionService(store).create(
         meal_type=payload.meal_type,
@@ -374,9 +395,18 @@ async def _add_meal(store: FileStore, payload: MealPayload) -> Outcome:
         saturated_fat_g=payload.saturated_fat_g,
         fiber_g=payload.fiber_g,
         source=SOURCE,
+        # Validé par `resolve_day`, comme le champ du formulaire : l'heure, elle, est posée
+        # par le serveur — maintenant aujourd'hui, l'heure type du repas hier, et marquée
+        # non relevée (`time_recorded`).
+        day=day,
+    )
+    when = (
+        "au journal du jour"
+        if meal.datetime.date() == today_local()
+        else f"au journal d'hier, le {meal.datetime:%d/%m}"
     )
     return Outcome(
-        summary=f"Repas « {meal.meal_type} » ajouté au journal du jour.",
+        summary=f"Repas « {meal.meal_type} » ajouté {when}.",
         undo=Undo("nutrition", meal.id, meal.token),
     )
 
@@ -559,6 +589,11 @@ def catalogue() -> dict[str, ActionSpec]:
     # importer le schéma du planning à ce moment-là : il se complète ici, au premier usage.
     ProposePlanArgs.model_rebuild(_types_namespace={"PlanPayload": PlanPayload})
 
+    # `meal.add` est la correction d'un repas plus le jour : le schéma du domaine ne le porte
+    # pas, la création étant un formulaire multipart dont `day` est un champ à part. Construit
+    # ici et non en tête, pour la raison dite en tête de module.
+    add_meal = create_model("AddMealArgs", __base__=MealPayload, day=(MealDay | None, None))
+
     specs = (
         # ── Ce qui s'exécute et s'annule ──
         _spec(
@@ -585,8 +620,10 @@ def catalogue() -> dict[str, ActionSpec]:
         _spec(
             "meal.add",
             Level.ADD,
-            "noter un repas du jour",
-            MealPayload,
+            "noter un repas, du jour ou d'hier (day, aujourd'hui sans day). Pour hier, "
+            "meal_type est l'un des quatre — petit-déjeuner, déjeuner, dîner, collation — "
+            "et il se dit : ne le déduis pas de l'heure, demande-le",
+            add_meal,
             _add_meal,
         ),
         _spec(

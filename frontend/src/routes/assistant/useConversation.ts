@@ -3,7 +3,7 @@
  * module de composants n'exporte que des composants.
  */
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
@@ -86,6 +86,7 @@ export function useConversation({
   onFailure?: () => void;
 }) {
   const { notify } = useToast();
+  const client = useQueryClient();
   const [inFlight, setInFlight] = useState<string | null>(null);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [step, setStep] = useState<string | null>(null);
@@ -106,6 +107,18 @@ export function useConversation({
         scope,
       ),
     onSuccess: (result, asked) => {
+      /*
+       * **Ce que l'assistant vient d'écrire se relit partout** (M-10).
+       *
+       * L'annulation et la confirmation invalidaient déjà tout ; la réponse qui écrit, non.
+       * Une douleur notée laissait `/corps` et le cadre du coach sur l'ancien état, un
+       * effort perçu laissait `/charge` et l'accueil sans lui, jusqu'à la navigation
+       * suivante. L'écran ne sait pas quel domaine une action touche — il n'apprend aucune
+       * action par son nom —, d'où l'invalidation large, qui couvre `CROSS_CUTTING`.
+       */
+      if (result.actions.some((report) => report.status === 'done')) {
+        void client.invalidateQueries();
+      }
       onAnswer?.(result);
       setExchanges((current) => [
         ...current.filter((turn) => turn.question !== asked || turn.failure === undefined),

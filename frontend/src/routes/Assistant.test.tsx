@@ -1,4 +1,4 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -749,6 +749,31 @@ describe('actions', () => {
         screen.queryByRole('link', { name: 'Ouvrir cette séance dans Cadence' }),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('relit tous les écrans quand la réponse a écrit, et pas autrement (M-10)', async () => {
+    // L'écran ne sait pas quel domaine une action touche : une douleur notée doit pourtant
+    // se voir sur `/corps`, un effort perçu sur `/charge` et l'accueil, sans attendre la
+    // navigation suivante.
+    const everything = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+    stub({ reply: { ...REPLY, actions: [ADDED] } });
+    renderScreen();
+    await askSomething();
+
+    await screen.findByText(ADDED.summary);
+    expect(everything.mock.calls.some((call) => call.length === 0)).toBe(true);
+    everything.mockRestore();
+  });
+
+  it('ne relit rien de plus quand la réponse n’a rien écrit', async () => {
+    const everything = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+    stub({ reply: { ...REPLY, actions: [{ ...PENDING }] } });
+    renderScreen();
+    await askSomething();
+
+    await screen.findByRole('button', { name: 'Confirmer' });
+    expect(everything.mock.calls.some((call) => call.length === 0)).toBe(false);
+    everything.mockRestore();
   });
 
   it('n’affiche aucun bouton d’ouverture quand l’action n’a pas de lien', async () => {

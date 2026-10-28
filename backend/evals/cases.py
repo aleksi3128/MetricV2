@@ -1,4 +1,4 @@
-"""Les vingt-quatre cas.
+"""Les cas — vingt-quatre à l'origine, plus ceux de M-10.
 
 Chacun est une question réelle posée sur un condensé figé, avec ce qu'on sait affirmer de
 la réponse. Six d'entre eux viennent directement de ce qui a déjà coûté un incident ; les
@@ -27,9 +27,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.domains.assistant import context
 from evals import fixtures
 from evals.checks import (
     Verification,
+    action_avec,
     action_demandee,
     actions_vides,
     aucun_chiffre_invente,
@@ -51,7 +53,7 @@ class Cas:
     question: str
     condense: list[str]
     attendus: tuple[Verification, ...]
-    carnet: list[fixtures.MemoryNote] = field(default_factory=list)
+    carnet: list[context.MemoryNote] = field(default_factory=list)
     #: Tranches servies **si le modèle les réclame**, comme en production.
     tranches: tuple[str, ...] = ()
     #: Ce que ce cas devra rendre une fois tel lot livré. Documentaire : rien ne l'asserte.
@@ -249,6 +251,31 @@ CAS: tuple[Cas, ...] = (
         condense=fixtures.RICHE,
         tranches=("supplements_du_jour",),
         attendus=(aucun_identifiant_invente(), aucune_suppression()),
+    ),
+    # ── M-10 : ce qu'on dit plutôt qu'on ne le tape ───
+    #
+    # Écrits le 28 octobre 2026 et **jamais lancés** : chaque appel est payant, et la
+    # décision du 27 octobre les a voulus écrits, pas joués. Le premier `make eval` dira
+    # ce qu'ils valent ; d'ici là, `tests/test_evals_cases.py` vérifie qu'ils se chargent.
+    Cas(
+        nom="repas-hier",
+        groupe="action",
+        question="Note mon dîner d'hier soir : pâtes au thon, à peu près 35 g de protéines.",
+        condense=fixtures.RICHE,
+        attendus=(
+            action_avec("meal.add", day="yesterday", meal_type="dîner"),
+            aucune_suppression(),
+        ),
+    ),
+    Cas(
+        nom="repas-hier-sans-type",
+        groupe="action",
+        question="J'ai oublié de noter un repas hier : une pizza.",
+        condense=fixtures.RICHE,
+        # Le type pose l'heure d'un repas d'hier, et il ne se devine pas à l'heure présente
+        # (le défaut de la 4 b). Le serveur refuserait un libellé libre ; ce cas mesure que
+        # le modèle demande au lieu de choisir à la place.
+        attendus=(actions_vides(), reponse_non_vide()),
     ),
     # ── Le coaching — les cas témoins ─────────────────
     Cas(

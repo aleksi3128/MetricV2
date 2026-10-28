@@ -127,6 +127,24 @@ def action_demandee(nom: str) -> Verification:
     return verifier
 
 
+def action_avec(nom: str, **attendus: Any) -> Verification:
+    """Une action précise, **avec** les arguments qui la rendent juste (M-10).
+
+    `action_demandee` suffit quand le nom porte tout le sens. Pas ici : `meal.add` sans
+    `day` note le repas d'hier au journal du jour, et `effort.rate` sur la mauvaise ligne
+    note la bonne valeur sur la mauvaise séance. Un argument absent compte comme différent.
+    """
+
+    def verifier(r: Reponse) -> Constat:
+        trouvees = [a for a in r.actions if a.name == nom]
+        bonne = any(all(a.args.get(k) == v for k, v in attendus.items()) for a in trouvees)
+        voulu = ", ".join(f"{k}={v}" for k, v in attendus.items())
+        vu = "; ".join(str(a.args) for a in trouvees) or "aucune"
+        return Constat(f"action « {nom} » avec {voulu}", bonne, vu)
+
+    return verifier
+
+
 def aucune_suppression() -> Verification:
     """Rien qui efface. Le projet n'a aucune corbeille ; une suppression se demande."""
 
