@@ -24,7 +24,7 @@ Décisions prises seul (délégation du 19/10).
 | D6 | Replanifier (PLN-04) | **Le coach modifie seul, notifie, et un « non » défait** — le cahier l'a tranché | La seule « annulation » du projet : elle restaure l'état d'avant, et refuse si la séance a changé depuis |
 | D7 | Les déclencheurs | **Séance ratée** (hier, rien de couru) ; **douleur** (adaptée : le dur devient facile ; arrêt : la course devient repos) ; **forme du matin** (repos ou allègement aujourd'hui) ; **agenda** (une séance tombe sur un événement) | — |
 | D8 | Une séance ratée | **Une facile ne se rattrape pas** ; une longue ou une dure se déplace au prochain jour libre de la semaine, sinon elle tombe | « On ne court pas après une séance » : le volume perdu ne se rattrape pas en entassant |
-| D9 | Où on répond | **Au point du soir**, et sur `/plan` ; une modification de **demain** est une alerte critique (NOT-05) | Sans réponse, la modification tient — les relances du soir la redemandent |
+| D9 | Où on répond | **Au point du soir**, et sur `/planning` (sur `/plan` jusqu'à M-03 de [`pages/modifications.md`](pages/modifications.md), 26 octobre) ; une modification de **demain** est une alerte critique (NOT-05) | Sans réponse, la modification tient — les relances du soir la redemandent |
 | D10 | « On décale ? » (COA-05) | **Une action `plan.move`** pour l'assistant, qui demande un appui | — |
 
 ### Pourquoi le coach modifie seul
@@ -63,7 +63,8 @@ le dit plutôt que d'écraser.
 - L'ordonnanceur : une passe de replanification toutes les 15 minutes ; une notification par
   modification.
 - Le poser du plan (R5) passe par le placement quand l'agenda est réglé.
-- `/plan` : la carte « Agenda », et « Ce que le coach a changé ».
+- `/planning` : la carte « Agenda », et « Ce que le coach a changé » — sur `/plan` jusqu'à M-03
+  ([`pages/modifications.md`](pages/modifications.md), `c9b1433`).
 - Le point du soir : les modifications en attente de réponse.
 
 ---
