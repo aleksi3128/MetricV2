@@ -56,6 +56,7 @@ Remplie : 1 905 px ; vide : 874. En-tête « Douleurs », **Retour au corps**.
 | Corriger des mensurations | « corriger » → même formulaire ; une case vidée efface la valeur | `PATCH /api/body/measurements/{id}` | `If-Match` |
 | Supprimer des mensurations | `SwipeRow` : glisser, armer, confirmer | `DELETE /api/body/measurements/{id}` | `If-Match` |
 | Noter une douleur | formulaire `PainForm` (zone, côté, intensité, base, moment, type, boiterie), ou **dictée** rangée par le modèle | `POST /api/pain/parse` (rien), `POST /api/pain` | addition |
+| Noter une douleur depuis l'assistant (M-10) | `pain.add` dans le fil — du jour ou de la veille, marquée `ia`, « Annuler » sur la carte | `POST /api/pain` par le service ; l'annulation `DELETE /api/pain/{id}` | addition, `If-Match` à l'annulation |
 | Répondre « pas de douleur » sur une sortie | Non | `POST /api/pain/none` | addition |
 | Supprimer un relevé de douleur | deux appuis | `DELETE /api/pain/{id}` | `If-Match` |
 | Corriger un matin (M-09) | « corriger » → formulaire date, FC, VFC ; une case vidée efface | `PATCH /api/body/morning/{id}` | `If-Match` |

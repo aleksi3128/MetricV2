@@ -57,7 +57,7 @@ visée ne parlait à aucun autre écran — elle parle à l'accueil depuis M-19.
 
 | Id | Sorte | Pages | En une ligne | Prio. |
 |---|---|---|---|---|
-| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), sauf l'assistant | **P1** |
+| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), l'assistant avec M-10 (`21fb4f4`) | **P1** |
 | [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`), sauf le point 4 | **P1** |
 | [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables, les douleurs à leur adresse — **fait** (`ae706b7`, `cdeda08`) | **P1** / P2 |
 | [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
@@ -67,7 +67,7 @@ visée ne parlait à aucun autre écran — elle parle à l'accueil depuis M-19.
 | [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil — **fait** (`c67f06f`) | P2 |
 | [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
 | [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série — **fait** (`96d81d9`) | P2 |
-| [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant | P2 |
+| [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant — **fait** (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) | P2 |
 | [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens — **fait** (`21a1672` → `c2f44fa`, `827b293`) | P2 |
 | [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
 | [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning — **fait** (`9f1e991`) | P2 |
@@ -151,9 +151,9 @@ client que le **choix** d'un jour servi, ce que le §2 du `CLAUDE.md` autorise
 
 **Reste.**
 
-- **`meal.add` de l'assistant** (M-10) : le service accepte déjà `day="yesterday"`, il
-  suffit de le passer depuis l'`ActionSpec` et de nommer le champ dans son schéma ; la
-  phrase « noter un repas **du jour** » est à changer avec.
+- ~~**`meal.add` de l'assistant**~~ Fait avec M-10 (`21fb4f4`) : `day` (`today` |
+  `yesterday`) relu par `resolve_day`, l'heure du type non relevée, et pour hier l'un des
+  quatre types exigé.
 - ~~**Rejouer un favori** se date toujours de l'instant.~~ Fait avec M-23 (`34bbce7`) :
   `POST /favorites/{id}/replay` prend `{day}`, validé comme les deux autres POST.
 - **La fiche d'un repas** ne corrige toujours pas l'heure ni le jour.
@@ -731,6 +731,47 @@ serveur comme la saisie), noter un effort perçu sur une séance **du jour**
 (`effort.rate`), et `meal.add` pour **hier** — le reste de M-01. Les cas de `make eval`
 s'écrivent et **ne se lancent pas** : ce sont des appels payants.
 
+**Fait le 28 octobre** (session 9 c ; `21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`). Seize actions au catalogue — les treize,
+plus `pain.add`, `swim.add` et `effort.rate` ; `meal.add` a gagné `day`.
+
+- **`meal.add` pour hier** : `day` relu par `resolve_day`, l'heure du type marquée non
+  relevée, le résumé dit « journal d'hier ». Pour hier, le type est l'un des quatre ou
+  l'action est refusée — le défaut de la 4 b ne revient pas par le modèle.
+- **`pain.add`** réemploie `PainPayload` et `PainService.create`. Le condensé nomme le
+  `pain_id` des épisodes ouverts. Trois bornes au serveur : le jour ou la veille
+  seulement (un relevé rangé après coup changerait la « hausse » qu'a lue le coach), la
+  zone passée au filtre de diagnostics de la dictée (`names_a_diagnosis`), la provenance
+  `ia` (valeur nouvelle de `pain.csv`). `run_id` est tu au modèle. La règle d'`IA-12`
+  garde sa phrase et nomme l'exception : « hormis la noter avec pain.add si je te demande
+  de la noter ».
+- **`swim.add`** : `SwimPayload` lu par `SwimService.create`, le chemin de la saisie. La
+  notation arrive au fil ordinaire par une tranche, `notation_natation` ; une notation
+  fautive relance le modèle une fois, comme au planning, sinon le refus porte
+  `swim_notation_invalid` — `ActionReport.code` est nouveau, et tout refus en porte un.
+- **`effort.rate`** : course, natation, sortie, séance Cadence ; séance du jour seulement,
+  vérifié au serveur. Sur une séance sans effort, elle s'exécute et « Annuler » remet
+  l'effort à vide — `Undo` a gagné `method`, `suffix`, `body`, dont les défauts gardent les
+  six usages en `DELETE`. Sur une séance qui en a un, elle attend (`confirm_if`, lu sur la
+  donnée). Le condensé nomme les séances du jour : sorte, ligne, jeton, effort noté ou non.
+- Une réponse qui a écrit relit tous les écrans sauf le fil ; l'annulation suit le geste
+  rendu par le serveur. L'écran n'apprend aucune des quatre par son nom.
+- **make eval** : huit cas écrits (`repas-hier`, `repas-hier-sans-type`, `douleur-ajout`,
+  `douleur-suivi`, `douleur-il-y-a-trois-jours`, `natation-ajout`, `effort-du-jour`,
+  `effort-seance-hier`), **jamais lancés** ; `tests/test_evals_cases.py` vérifie sans modèle
+  qu'ils se chargent.
+
+**Changé en route.**
+
+- Les séances Cadence portaient un `rpe` sans route pour le noter après coup :
+  `PUT /api/activity/sessions/{id}/rpe`, sous `If-Match`, ajoutée.
+- La notation n'entre pas d'office dans le fil ordinaire (un test l'exige) : une tranche, et
+  la relance du planning réemployée.
+- Vu sur le banc et corrigé (`0c4c28d`) : l'invalidation après une réponse relisait le fil
+  ouvert, qui affichait le tour deux fois ; et « Douleur notée — Douleur (genou…) »
+  répétait la phrase des règles.
+
+**Reste** : au §7.
+
 <a id="m-11"></a>
 
 ### M-11 — L'état vide de l'accueil ouvre « Noter »
@@ -1137,7 +1178,7 @@ serveur, contrairement au coût annoncé.
 
 1. ~~**M-21** — une heure, et l'écran ne dit plus rien de faux.~~ Fait (`3bcde3f`).
 2. ~~**M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
-   défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` reste pour M-10.
+   défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` fait avec M-10 (`21fb4f4`).
 3. ~~**M-02 (1–3)** — après avoir tranché le seuil de facile.~~ Fait (`385871a`,
    `1fa151b`) ; le point 4 reste un lot à part.
 4. ~~**M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.~~ Faits (`34bbce7`,
@@ -1155,7 +1196,7 @@ serveur, contrairement au coût annoncé.
 8. **M-10**, **M-16** à **M-20** : décisions prises le 27 octobre (sous chaque fiche).
    Session 9 a : ~~**M-16** et **M-17**~~ faits (`2cc88e0`, `7eaa41f`, `defb1cd`).
    Session 9 b : ~~**M-19**~~ fait (`af2202d`) ; **M-18** écartée sans code (`9e75cd0`).
-   Session 9 c : **M-10** et **M-20**.
+   Session 9 c : ~~**M-10**~~ fait (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) ; **M-20** passe à la session 9 d.
 
 ## 6. Écarté, et pourquoi
 
@@ -1201,4 +1242,14 @@ passant.
 | Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) |
 | Deux liens « Détail » dans « Où je vais » (course et objectif), même nom pour un lecteur d'écran | ils mènent à `/plan` et `/objectif` ; un `aria-label` distinct serait le geste, pas fait en passant |
 | L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc) | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe |
+| Les huit cas M-10 de `make eval` jamais joués | décision du 27 octobre : appels payants. Le premier `make eval` dira ce que valent la consigne et les quatre actions. `need_contient` lit la dernière passe seulement : il ne prouve pas qu'une tranche a été demandée |
+| `charge-lundi` sert trois tranches que l'application n'a plus (`progression_charges`, `detail_seances`, `exercices`) | trouvé par `test_evals_cases.py` (M-10) ; antérieur, depuis la refonte de l'activité. Reprendre ce cas — ou le retirer — est une décision sur lui ; la liste est figée et ne peut que rétrécir |
+| Une natation notée par l'assistant est `source=manual` (« saisie »), pas `ia` | `swims.csv` ne connaît que `fit` et `manual`, et seule une `manual` se corrige d'un bloc : une valeur `ia` la rendrait incorrigible sans toucher à `SwimService.update` et à l'écran. Décision de schéma |
+| Une douleur notée par l'assistant n'est rattachée à aucune sortie | `run_id` est tu au modèle, qui ne voit aucun identifiant stable de sortie ; les patterns (R4) ne la lient donc à rien. Servir les identifiants stables du jour le permettrait |
+| Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran |
+| Les mensurations par l'assistant | la fiche les laissait attendre ; `measurements.csv` n'a toujours pas de colonne `source` |
+| `ActionReport.code` n'est lu par aucun écran | le code voyage depuis M-10 ; l'écran affiche la phrase et ne décide encore de rien sur un refus |
+| `ActionCard` reconnaît `plan.propose` à son nom | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait |
+| « La table refuse `plan.*`… quand la question porte une alerte médicale » (`assistant-agent.md` §4) | introuvable dans le code au 28 octobre : la garde d'`IA-12` est dans la consigne seule. Antérieur à M-10, noté pour être tranché |
+| Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main |
 

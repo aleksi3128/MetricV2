@@ -146,11 +146,15 @@ que le fil est ouvert.
 
 | Action | Domaine |
 |---|---|
-| `weight.add` | Corps |
-| `run.add` · `circuit.create` | Activité |
-| `meal.add` | Nutrition |
+| `weight.add` · `pain.add` | Corps |
+| `run.add` · `circuit.create` · `swim.add` · `effort.rate` | Activité |
+| `meal.add` — du jour ou d'hier | Nutrition |
 | `water.add` · `supplement.take` | Routine |
 | `plan.add` | Planning |
+
+`effort.rate` est le seul de ce niveau qui **modifie** une ligne : sur une séance sans
+effort perçu, il s'exécute et s'annule en remettant l'effort à vide ; sur une séance qui en
+a un, il passe au niveau du dessous (§10).
 
 ### Niveau `modification` — demande un appui
 
@@ -161,6 +165,7 @@ Un appui exécute, un autre écarte. Rien n'est écrit avant.
 |---|---|
 | `weight.delete` · `meal.delete` · `run.delete` | Il n'y a pas de corbeille |
 | `plan.propose` | Une semaine entière d'un coup |
+| `effort.rate` sur une séance qui a déjà un effort | L'ancienne valeur serait perdue |
 | `plan.move` · `plan.delete` | Défait un engagement daté |
 
 Le carnet ne passe pas par ce catalogue : ce que l'assistant retient tout seul suit son
@@ -385,3 +390,46 @@ l'écran, donc de toucher au contrat des rapports d'action.
 même jour. Le condensé rendu au modèle porte des identifiants explicites, et une action de
 modification affiche **la ligne visée en clair** avant confirmation — c'est précisément ce
 que ce niveau sert à permettre.
+
+---
+
+## 10. M-10 — seize actions (28 octobre 2026)
+
+Fiche M-10 de [`pages/modifications.md`](pages/modifications.md) : ce qu'on dit plutôt
+qu'on ne le tape. Le catalogue passe de **treize à seize** actions — `pain.add`, `swim.add`,
+`effort.rate` — et `meal.add` gagne un champ. Commits `21fb4f4`, `84977aa`, `26b8e68`,
+`388937f`, `0c4c28d`.
+
+| Action | Ce qu'elle réemploie | Ce que le serveur refuse |
+|---|---|---|
+| `meal.add` + `day` | `NutritionService.create(day=…)`, donc `resolve_day` | avant-hier ; pour hier, un type hors des quatre (le défaut de la 4 b) |
+| `pain.add` | `PainPayload`, `PainService.create`, le filtre de diagnostics de la dictée | une date avant la veille ; un nom de pathologie en guise de zone |
+| `swim.add` | `SwimPayload`, `SwimService.create` — la notation lue comme à la saisie | une notation fautive, avec `swim_notation_invalid` ; rien n'est écrit |
+| `effort.rate` | les quatre `PUT …/{id}/rpe` — dont celui des séances Cadence, ajouté | une séance d'un autre jour ; un jeton périmé (`conflict`) |
+
+**Trois mécanismes nouveaux**, chacun dans la table et non dans la consigne :
+
+- **`ActionSpec.hidden`** — des champs que *cette* action tait au modèle, en plus de
+  `HIDDEN_ARGS` : `run_id` pour `pain.add`, `rewrite` pour `swim.add`.
+- **`ActionSpec.confirm_if`** — lu sur la donnée, il met une action d'ajout en attente :
+  `effort.rate` sur une séance qui a déjà un effort. Le niveau reste hors de la main du
+  modèle.
+- **`Undo.method`, `suffix`, `body`** — une annulation qui n'est pas une suppression.
+  Défauts : l'ancien `DELETE`, que les six usages d'avant gardent sans rien déclarer.
+
+**Ce que le modèle lit de plus.** Le condensé nomme le `pain_id` des douleurs ouvertes et
+les séances du jour avec sorte, ligne et jeton — la seule entorse au partage « chiffres
+d'office, jetons en tranche », parce qu'une tranche coûterait un appel entier pour trois
+identifiants. La notation de nage, elle, reste une tranche (`notation_natation`) : le fil
+ordinaire ne la reçoit pas d'office. Une notation fautive relance le modèle une fois,
+comme au fil Planning, si la seconde passe n'est pas déjà prise.
+
+**`ActionReport.code`** : tout refus porte le code du catalogue d'erreurs —
+`validation_error` pour la table, celui du domaine sinon.
+
+**La règle d'`IA-12`** garde sa phrase et nomme son exception : « Aucune action à la suite
+d'une douleur…, hormis la noter avec pain.add si je te demande de la noter. »
+
+**Non lancé** : les huit cas d'évaluation écrits pour ce lot (`evals/cases.py`). Ils se
+chargent sans modèle (`tests/test_evals_cases.py`) ; ce qu'ils valent, seul un `make eval`
+payant le dira.

@@ -40,13 +40,21 @@ hauteur.
 
 ## 3. Ce que l'assistant sait écrire
 
-Treize actions ([`actions.py:542`](../../backend/app/domains/assistant/actions.py#L542)).
+Seize actions ([`actions.py`](../../backend/app/domains/assistant/actions.py), `catalogue()`).
 
 | S'exécutent et s'annulent | Demandent un appui |
 |---|---|
-| noter une pesée, une boisson, un repas du jour, une course | supprimer une pesée, un repas, une course |
-| cocher un supplément du jour | décaler une séance prévue, la retirer |
-| créer une séance Cadence ; prévoir une séance | proposer des séances au planning, une par une — **seulement dans le fil de `/planning`** |
+| noter une pesée, une boisson, une course | supprimer une pesée, un repas, une course |
+| noter un repas, du jour **ou d'hier** (M-10) | décaler une séance prévue, la retirer |
+| noter une **douleur** — du jour ou de la veille —, ou son suivi (M-10) | proposer des séances au planning, une par une — **seulement dans le fil de `/planning`** |
+| noter une **natation**, dans la notation lue par le serveur (M-10) | remplacer l'**effort perçu** d'une séance qui en a déjà un (M-10) |
+| noter l'**effort perçu** d'une séance du jour qui n'en a pas — « Annuler » le remet à vide (M-10) | |
+| cocher un supplément du jour ; créer une séance Cadence ; prévoir une séance | |
+
+L'annulation est le geste que l'écran ferait lui-même : la suppression de la ligne, ou pour
+un effort perçu `PUT …/{id}/rpe` à vide. Le serveur rend le geste entier (`UndoRef` :
+méthode, suffixe, corps) ; l'écran n'apprend aucune action par son nom. Un refus porte son
+`code`.
 
 ## 4. Liens sortants
 
@@ -54,10 +62,11 @@ Treize actions ([`actions.py:542`](../../backend/app/domains/assistant/actions.p
 
 ## 5. Constats
 
-- **Ce que l'assistant ne sait pas écrire** est justement ce qui se dit le mieux à voix
-  haute : une **douleur** (« j'ai mal au genou gauche depuis la sortie »), une **natation**,
-  une **mensuration**, un **effort perçu**. La douleur dictée existe — dans `PainForm`, sur
-  `/corps` — mais pas dans le fil (M-10).
+- ~~**Ce que l'assistant ne sait pas écrire** est justement ce qui se dit le mieux à voix
+  haute : une **douleur**, une **natation**, un **effort perçu**.~~ Corrigé (M-10,
+  `21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) : `pain.add`, `swim.add`,
+  `effort.rate`, vus dans le fil à 402 px dans les deux thèmes, annulés au toucher. Reste
+  la **mensuration**, que la fiche laissait attendre.
 - ~~**« Ce que l'assistant sait de toi » vit à deux endroits.**~~ Corrigé (M-05,
   `58cf652`) : profil et carnet sont deux onglets de la même feuille ; « Ce que je suis »
   a quitté `/reglages`. Quand rien n'existe avec le matériel déclaré, la consigne du
@@ -65,10 +74,15 @@ Treize actions ([`actions.py:542`](../../backend/app/domains/assistant/actions.p
 - **Un second fil d'assistant vit sur `/planning`** (« Demander au planning », M-13), avec ses
   propres suggestions et son propre historique (`GET /api/assistant/threads/planning`). Il
   n'apparaît pas dans « Tes discussions » — c'est le seul fil qu'on ne retrouve pas ici.
-- « noter un repas **du jour** » : l'assistant ne rattrape pas plus que `/nutrition` un repas
-  d'hier (M-01).
+  *Relu le 28 octobre (M-10) : c'est inexact.* Le fil y est listé, marqué « planning · »,
+  depuis `01da357` (`test_the_list_marks_the_planning_thread_and_does_not_resume_it`) ;
+  seule la réouverture automatique l'écarte (`_resumable`). Ce qui reste de M-20, c'est
+  l'entrée depuis `/planning` à la place du fil.
+- ~~« noter un repas **du jour** » : l'assistant ne rattrape pas plus que `/nutrition` un
+  repas d'hier (M-01).~~ Corrigé (M-10, `21fb4f4`) : `meal.add` prend `day`.
 
 ## 6. Non vu
 
-Une réponse réelle de modèle, une action exécutée puis annulée, la dictée (Chrome headless
-n'a pas de micro) ; décrits depuis le code.
+Une réponse réelle de modèle et la dictée (Chrome headless n'a pas de micro) ; décrites
+depuis le code. Les quatre actions de M-10, elles, ont été exécutées puis annulées au
+toucher sur le banc, avec des réponses de modèle écrites à la main.

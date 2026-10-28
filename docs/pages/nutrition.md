@@ -76,8 +76,8 @@ navigateur, jour compris.
 
 - ~~**Aucun repas ne se date dans le passé.**~~ Corrigé pour la feuille (M-01,
   `331ae7e`) et pour le rejeu d'un favori (`34bbce7`) ; l'heure posée se dit non relevée
-  (`7c895ff`). Restent la fiche (l'heure ne s'y corrige toujours pas) et l'assistant
-  (« noter un repas **du jour** », M-10).
+  (`7c895ff`). Reste la fiche (l'heure ne s'y corrige toujours pas) ; l'assistant note
+  hier depuis M-10 (`21fb4f4`).
 - ~~**Un repas rattrapé est intouchable.**~~ Corrigé (`74dfc9d`) : le journal lit hier, sa
   fiche s'ouvre, se corrige, et la ligne se supprime en deux appuis. **Au-delà d'hier**, un
   repas ne s'ouvre toujours nulle part : ouvrir un jour depuis la grille de l'historique
