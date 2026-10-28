@@ -498,9 +498,12 @@ async def _add_pain(store: FileStore, payload: PainPayload) -> Outcome:
 
     episode = await PainService(store).create(payload.model_copy(update={"source": SOURCE}))
     written = max(episode.reports, key=lambda entry: entry.id)
-    what = "Suivi noté" if payload.pain_id is not None else "Douleur notée"
+    # La phrase des règles commence par « Douleur (genou, gauche) » ou « Gêne (…) » : le
+    # résumé ne la répète pas, il la date (« Douleur notée le 28/10 — Douleur… » se lisait
+    # sur le banc).
+    what = "Suivi noté" if payload.pain_id is not None else "Noté"
     return Outcome(
-        summary=f"{what} le {written.date:%d/%m} — {episode.text}",
+        summary=f"{what} le {written.date:%d/%m}. {episode.text}",
         undo=Undo("pain", written.id, written.token),
     )
 

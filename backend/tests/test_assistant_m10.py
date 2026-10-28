@@ -133,7 +133,7 @@ def test_a_pain_is_opened_marked_as_the_assistants_and_undone_like_on_body(
 
     assert report["status"] == "done", report
     # La phrase de l'écran, rédigée par les règles et non par le modèle.
-    assert "(genou, gauche), 4/10" in report["summary"]
+    assert report["summary"].startswith(f"Noté le {TODAY:%d/%m}. Douleur (genou, gauche), 4/10")
     assert "Arrêt" in report["summary"]
     assert dav.content_of("Metric/body/pain.csv").strip().endswith(",ia")
     undo = report["undo"]

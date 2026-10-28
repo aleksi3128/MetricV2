@@ -115,9 +115,14 @@ export function useConversation({
        * effort perçu laissait `/charge` et l'accueil sans lui, jusqu'à la navigation
        * suivante. L'écran ne sait pas quel domaine une action touche — il n'apprend aucune
        * action par son nom —, d'où l'invalidation large, qui couvre `CROSS_CUTTING`.
+       *
+       * **Sauf l'assistant lui-même.** Elle part avant que l'échange soit rangé dans
+       * `exchanges` : la requête du fil ouvert est encore active, se relisait, rendait le
+       * tour qu'on vient d'avoir — et l'écran l'affichait deux fois, la copie rangée sans
+       * son « Annuler ». Vu sur le banc ; le fil, lui, n'a rien à relire.
        */
       if (result.actions.some((report) => report.status === 'done')) {
-        void client.invalidateQueries();
+        void client.invalidateQueries({ predicate: (query) => query.queryKey[0] !== 'assistant' });
       }
       onAnswer?.(result);
       setExchanges((current) => [

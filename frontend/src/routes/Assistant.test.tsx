@@ -761,7 +761,14 @@ describe('actions', () => {
     await askSomething();
 
     await screen.findByText(ADDED.summary);
-    expect(everything.mock.calls.some((call) => call.length === 0)).toBe(true);
+    const wide = everything.mock.calls.find((call) => typeof call[0]?.predicate === 'function');
+    expect(wide).toBeDefined();
+    const spares = wide?.[0]?.predicate as (query: { queryKey: readonly unknown[] }) => boolean;
+    // Tout se relit — l'accueil, la charge, `/corps` —, sauf le fil affiché : relu, il
+    // rendrait une seconde fois le tour qu'on vient d'avoir.
+    expect(spares({ queryKey: ['aggregates', 'training'] })).toBe(true);
+    expect(spares({ queryKey: ['body', 'pain'] })).toBe(true);
+    expect(spares({ queryKey: ['assistant', 'threads', 't-1'] })).toBe(false);
     everything.mockRestore();
   });
 
@@ -772,7 +779,9 @@ describe('actions', () => {
     await askSomething();
 
     await screen.findByRole('button', { name: 'Confirmer' });
-    expect(everything.mock.calls.some((call) => call.length === 0)).toBe(false);
+    expect(everything.mock.calls.some((call) => typeof call[0]?.predicate === 'function')).toBe(
+      false,
+    );
     everything.mockRestore();
   });
 
