@@ -75,6 +75,15 @@ MAIGRE = [
     "Respect du planning : rien n'était prévu sur la période",
 ]
 
+#: Une douleur ouverte, dans la forme de `context.running_lines` (M-10) : la phrase de
+#: l'écran, puis l'identifiant stable que `pain.add` exige pour un suivi.
+DOULEUR_OUVERTE = (
+    "Douleur ouverte depuis le 15/08/2026 : Gêne (genou, gauche), 3/10 pour une base à 0. "
+    "Séance adaptée : du facile, sans hausse de volume, et un suivi chaque matin jusqu'à "
+    "son retour à la base. Repère : suivi de la douleur (Silbernagel) — elle doit revenir à "
+    "sa base le lendemain. (pain_id=p-genou)"
+)
+
 # ── Les carnets ───────────────────────────────────────
 #
 # Rendus par `context.memory_lines`, donc « sujet — note (noté le …) ». Le commentaire qui
@@ -178,6 +187,7 @@ TRANCHES = {
 __all__ = [
     "CARNET_FOURNI",
     "CARNET_VIDE",
+    "DOULEUR_OUVERTE",
     "MAIGRE",
     "RICHE",
     "TRANCHES",

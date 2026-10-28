@@ -51,6 +51,15 @@ _DIAGNOSES = (
 )
 
 
+def names_a_diagnosis(zone: str) -> bool:
+    """Vrai quand une « zone » porte un nom de pathologie (MED-06).
+
+    La dictée l'efface ; l'assistant, qui écrit sans formulaire à relire, le refuse
+    (`pain.add`). Une seule liste pour les deux lectures d'une même phrase.
+    """
+    return any(word in zone.casefold() for word in _DIAGNOSES)
+
+
 def prompt(text: str) -> str:
     return _TEMPLATE.format(text=text.strip().replace("»", "").replace("«", ""))
 
@@ -58,7 +67,7 @@ def prompt(text: str) -> str:
 def read(payload: dict[str, Any]) -> PainProposal:
     zone = payload.get("zone")
     zone = zone.strip()[:60] if isinstance(zone, str) and zone.strip() else None
-    if zone is not None and any(word in zone.casefold() for word in _DIAGNOSES):
+    if zone is not None and names_a_diagnosis(zone):
         zone = None
     side = payload.get("side") if payload.get("side") in SIDES else None
     moment = payload.get("moment") if payload.get("moment") in MOMENTS else None

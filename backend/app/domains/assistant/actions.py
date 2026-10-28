@@ -65,6 +65,7 @@ if TYPE_CHECKING:  # pragma: no cover - annotations seulement, jamais exécuté
     from app.domains.body.schemas import WeightPayload
     from app.domains.hydration.schemas import IntakePayload
     from app.domains.nutrition.schemas import MealPayload
+    from app.domains.pain.schemas import PainPayload
     from app.domains.planning.schemas import PlanPayload
 
 # **Aucun import de domaine en tête de module**, ni service ni schéma.
@@ -226,7 +227,7 @@ def _field_doc(
 HIDDEN_ARGS = frozenset({"source", "datetime"})
 
 
-def _args_doc(payload: type[BaseModel]) -> str:
+def _args_doc(payload: type[BaseModel], hidden: frozenset[str] = HIDDEN_ARGS) -> str:
     """Les arguments d'une action, **rendus depuis le schéma** et jamais à la main.
 
     C'est un correctif, et il vaut d'être expliqué. La description était écrite à côté du
@@ -242,7 +243,7 @@ def _args_doc(payload: type[BaseModel]) -> str:
     return ", ".join(
         _field_doc(name, field, name in required, defs)
         for name, field in schema.get("properties", {}).items()
-        if name not in HIDDEN_ARGS
+        if name not in hidden
     )
 
 
@@ -265,11 +266,20 @@ class ActionSpec:
     #: Une confirmation, elle, passe quelle que soit la portée : elle vient d'un appui sur
     #: ce que la table a déjà accepté de mettre en attente.
     scopes: frozenset[str] = frozenset({""})
+    #: Les champs du schéma de domaine que **cette** action tait au modèle, en plus de
+    #: `HIDDEN_ARGS` — retirés de la description et des arguments reçus, pour la même
+    #: raison. `pain.add` tait `run_id` : le modèle ne voit aucun identifiant stable de
+    #: sortie, et un lien inventé rattacherait la douleur à une séance qui n'existe pas.
+    hidden: frozenset[str] = frozenset()
+
+    @property
+    def unseen(self) -> frozenset[str]:
+        return HIDDEN_ARGS | self.hidden
 
     @property
     def describe(self) -> str:
         """La ligne montrée au modèle : le nom, l'effet, et les arguments du schéma."""
-        return f"{self.name} — {self.label}. args : {{{_args_doc(self.payload)}}}"
+        return f"{self.name} — {self.label}. args : {{{_args_doc(self.payload, self.unseen)}}}"
 
 
 # ── Les charges utiles propres à l'assistant ──────────
@@ -408,6 +418,45 @@ async def _add_meal(store: FileStore, payload: MealPayload) -> Outcome:
     return Outcome(
         summary=f"Repas « {meal.meal_type} » ajouté {when}.",
         undo=Undo("nutrition", meal.id, meal.token),
+    )
+
+
+async def _add_pain(store: FileStore, payload: PainPayload) -> Outcome:
+    """Une douleur, ou le suivi d'une douleur ouverte (`docs/douleurs.md`, M-10).
+
+    **Le risque que la fiche nomme** : une douleur notée par erreur oriente le coach dès le
+    lendemain — le cadre se resserre, la séance proposée devient facile ou repos. D'où
+    trois bornes, toutes au serveur :
+
+    * **le jour ou la veille seulement.** Un relevé d'il y a trois jours, rangé après coup,
+      changerait l'ordre des relevés d'un épisode, donc sa « hausse », donc ce que le coach
+      a déjà lu. `/corps` garde la saisie datée, où la date se choisit sous les yeux ;
+    * **une zone, jamais un diagnostic** — le filtre de la dictée, réemployé tel quel ;
+    * **la provenance `ia`**, que la colonne porte désormais : le relevé dit d'où il vient.
+
+    L'annulation est la suppression du relevé, celle du glissement de `/corps`. Le relevé
+    écrit est le dernier du fichier, donc la plus haute position de l'épisode rendu.
+    """
+    from app.domains.pain import dictation
+    from app.domains.pain.service import PainService
+
+    today = today_local()
+    if payload.date not in (today, today - dt.timedelta(days=1)):
+        raise ValidationFailedError(
+            "Je ne note une douleur que du jour ou de la veille. Une plus ancienne se note "
+            "sur la page Corps, où sa date se choisit."
+        )
+    if payload.pain_id is None and dictation.names_a_diagnosis(payload.zone or ""):
+        raise ValidationFailedError(
+            "La zone est un lieu du corps, pas un diagnostic : dis où tu as mal."
+        )
+
+    episode = await PainService(store).create(payload.model_copy(update={"source": SOURCE}))
+    written = max(episode.reports, key=lambda entry: entry.id)
+    what = "Suivi noté" if payload.pain_id is not None else "Douleur notée"
+    return Outcome(
+        summary=f"{what} le {written.date:%d/%m} — {episode.text}",
+        undo=Undo("pain", written.id, written.token),
     )
 
 
@@ -564,8 +613,11 @@ def _spec(
     run: Any,
     *,
     scopes: frozenset[str] = ORDINARY,
+    hidden: frozenset[str] = frozenset(),
 ) -> ActionSpec:
-    return ActionSpec(name=name, level=level, label=label, payload=payload, run=run, scopes=scopes)
+    return ActionSpec(
+        name=name, level=level, label=label, payload=payload, run=run, scopes=scopes, hidden=hidden
+    )
 
 
 @cache
@@ -583,6 +635,7 @@ def catalogue() -> dict[str, ActionSpec]:
     from app.domains.body.schemas import WeightPayload
     from app.domains.hydration.schemas import IntakePayload
     from app.domains.nutrition.schemas import MealPayload
+    from app.domains.pain.schemas import PainPayload
     from app.domains.planning.schemas import PlanPayload
 
     # `ProposePlanArgs` est déclaré en tête sur une annotation en chaîne, faute de pouvoir
@@ -625,6 +678,19 @@ def catalogue() -> dict[str, ActionSpec]:
             "et il se dit : ne le déduis pas de l'heure, demande-le",
             add_meal,
             _add_meal,
+        ),
+        _spec(
+            "pain.add",
+            Level.ADD,
+            "noter une douleur que je te demande de noter. Sans pain_id, une nouvelle : "
+            "zone (un lieu du corps, jamais un diagnostic), side, et baseline — le niveau "
+            "d'avant la séance. Avec le pain_id d'une douleur ouverte vue plus haut, son "
+            "suivi : seulement intensity, moment, kind, limp. date : aujourd'hui ou hier, "
+            "rien de plus ancien. Ce que je n'ai pas dit — intensité, moment, type, côté, "
+            "niveau d'avant — se demande, ne se devine pas",
+            PainPayload,
+            _add_pain,
+            hidden=frozenset({"run_id"}),
         ),
         _spec(
             "run.add",
@@ -732,7 +798,7 @@ def validate(
 
     try:
         payload = spec.payload.model_validate(
-            {key: value for key, value in args.items() if key not in HIDDEN_ARGS}
+            {key: value for key, value in args.items() if key not in spec.unseen}
         )
     except ValidationError as error:
         return _refusal(error)

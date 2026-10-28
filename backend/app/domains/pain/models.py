@@ -25,7 +25,7 @@ SIDES: tuple[str, ...] = ("left", "right", "both", "na")
 MOMENTS: tuple[str, ...] = ("during", "after", "next_day", "rest")
 #: `sharp` est « vive » : un signe qualifiant, qui arrête la course à toute intensité.
 KINDS: tuple[str, ...] = ("dull", "sharp", "pulling", "burning", "stiff", "other")
-SOURCES: tuple[str, ...] = ("import", "morning", "manual")
+SOURCES: tuple[str, ...] = ("import", "morning", "manual", "ia")
 
 
 class PainRow(CsvModel):

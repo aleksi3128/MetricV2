@@ -13,7 +13,8 @@ PainLevel = Annotated[int, Field(ge=0, le=10, description="Intensité, de 0 à 1
 Side = Literal["left", "right", "both", "na"]
 Moment = Literal["during", "after", "next_day", "rest"]
 Kind = Literal["dull", "sharp", "pulling", "burning", "stiff", "other"]
-Source = Literal["import", "morning", "manual"]
+#: `ia` : noté par l'assistant (M-10), comme partout où une colonne `source` le permet.
+Source = Literal["import", "morning", "manual", "ia"]
 Zone = Annotated[str, Field(max_length=60, description="La zone, en texte libre")]
 
 

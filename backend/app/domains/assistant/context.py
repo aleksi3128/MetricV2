@@ -227,11 +227,19 @@ async def running_lines(store: FileStore, today: date) -> list[str]:
     ]
     # Les douleurs ouvertes, dans la phrase de l'écran : le modèle les répète, il ne les
     # juge pas — la réponse graduée est une règle (`docs/douleurs.md` §3).
+    #
+    # **Avec leur `pain_id`** (M-10) : c'est ce que `pain.add` exige pour noter un suivi
+    # plutôt qu'ouvrir une seconde douleur au même genou. Un identifiant stable, pas une
+    # position ni un jeton — un suivi est une addition, il ne modifie aucune ligne.
     from app.domains.pain.service import PainService
 
     opened = [item for item in await PainService(store).episodes(today) if item.status != "closed"]
     lines.extend(
-        [f"Douleur ouverte depuis le {item.opened:%d/%m/%Y} : {item.text}" for item in opened]
+        [
+            f"Douleur ouverte depuis le {item.opened:%d/%m/%Y} : {item.text} "
+            f"(pain_id={item.pain_id})"
+            for item in opened
+        ]
         or ["Douleur ouverte : aucune notée"]
     )
     # Le dossier médical, **en titres seulement** et de quatre natures (`docs/dossier-

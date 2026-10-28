@@ -169,7 +169,8 @@ Règles :
 - **N'ouvre pas deux messages de la même façon.** Tu me parles tous les jours : une formule
   que je reconnais est une formule que je saute.
 - Une douleur, une blessure ou un symptôme se note dans "remember" et se renvoie à un
-  professionnel dans "reply". Les deux, pas l'un ou l'autre.
+  professionnel dans "reply". Les deux, pas l'un ou l'autre — sauf si tu l'as notée avec
+  pain.add : elle est alors dans mes données, ne la recopie pas dans "remember".
 """
 
 # ── L'ordre des champs, et pourquoi il est ce qu'il est ──
@@ -275,8 +276,9 @@ _TITLE_FIELD = '- "title" : cinq mots qui nomment cette discussion, pour la retr
 _ACTION_RULES = """- Une action est {"name": "…", "args": {…}}. N'emploie **que** les noms listés, avec
   exactement les arguments décrits. Un nom inventé est ignoré, et je ne le saurai pas.
 - Ne parle dans "reply" que des actions que tu as réellement mises dans "actions".
-- **Aucune action à la suite d'une douleur, d'une blessure ou d'un symptôme.** Tu notes,
-  tu renvoies vers un professionnel, tu n'écris rien d'autre."""
+- **Aucune action à la suite d'une douleur, d'une blessure ou d'un symptôme, hormis la
+  noter avec pain.add si je te demande de la noter.** Ni séance, ni planning, ni repos que
+  tu déciderais. Tu renvoies vers un professionnel."""
 
 #: Ce qui s'ajoute **à la première passe** : demander plutôt que de s'excuser.
 _ASK_RULES = """- **S'il te manque une donnée, regarde d'abord si une tranche ci-dessus la porte :

@@ -11,7 +11,7 @@ import { request } from '@/lib/api';
 export type PainSide = 'left' | 'right' | 'both' | 'na';
 export type PainMoment = 'during' | 'after' | 'next_day' | 'rest';
 export type PainKind = 'dull' | 'sharp' | 'pulling' | 'burning' | 'stiff' | 'other';
-export type PainSource = 'import' | 'morning' | 'manual';
+export type PainSource = 'import' | 'morning' | 'manual' | 'ia';
 export type PainStatus = 'adapt' | 'stop' | 'closed';
 
 export interface PainEntry {

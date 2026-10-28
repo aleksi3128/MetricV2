@@ -103,6 +103,9 @@ def test_the_medical_guard_forbids_acting_not_only_advising() -> None:
     text = prompt(actions=CATALOGUE, slices=SLICES)
 
     assert "Aucune action à la suite d'une douleur" in text
+    # La seule exception (M-10) : noter la douleur elle-même, et seulement si on le demande.
+    # Elle est écrite dans la règle, pas laissée à la lecture du catalogue.
+    assert "hormis la\n  noter avec pain.add si je te demande de la noter" in text
 
 
 def test_the_title_is_only_asked_when_a_thread_opens() -> None:

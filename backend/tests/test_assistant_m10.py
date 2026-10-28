@@ -108,3 +108,113 @@ def test_the_meal_day_is_described_to_the_model() -> None:
 
     assert 'day ("today" | "yesterday", ou null)' in described
     assert "source" not in described
+
+
+# ── pain.add ──────────────────────────────────────────
+
+KNEE = {
+    "intensity": 4,
+    "moment": "after",
+    "kind": "sharp",
+    "zone": "genou",
+    "side": "left",
+    "baseline": 0,
+}
+
+
+def test_a_pain_is_opened_marked_as_the_assistants_and_undone_like_on_body(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter, dav: FakeWebDav
+) -> None:
+    """La douleur arrive dans `pain.csv`, avec la réponse graduée du serveur dans le fil,
+    et s'annule par la suppression que ferait le glissement de `/corps`."""
+    say(openrouter, "pain.add", date=TODAY.isoformat(), **KNEE)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "done", report
+    # La phrase de l'écran, rédigée par les règles et non par le modèle.
+    assert "(genou, gauche), 4/10" in report["summary"]
+    assert "Arrêt" in report["summary"]
+    assert dav.content_of("Metric/body/pain.csv").strip().endswith(",ia")
+    undo = report["undo"]
+    assert undo["domain"] == "pain"
+    response = ai_app_client.delete(
+        f"/api/pain/{undo['row_id']}", headers={**auth, "If-Match": undo["token"]}
+    )
+    assert response.status_code == 204
+    assert ai_app_client.get("/api/pain", headers=auth).json()["open"] == []
+
+
+def test_a_follow_up_names_the_open_episode(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    opened = ai_app_client.post(
+        "/api/pain", json={"date": YESTERDAY.isoformat(), **KNEE}, headers=auth
+    ).json()
+    say(
+        openrouter,
+        "pain.add",
+        date=TODAY.isoformat(),
+        pain_id=opened["pain_id"],
+        intensity=2,
+        moment="next_day",
+        kind="dull",
+    )
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "done", report
+    assert report["summary"].startswith("Suivi noté le")
+    episode = ai_app_client.get("/api/pain", headers=auth).json()["open"][0]
+    assert sorted(entry["intensity"] for entry in episode["reports"]) == [2, 4]
+    # L'annulation vise le suivi, pas l'ouverture : c'est la dernière ligne écrite.
+    assert report["undo"]["row_id"] == 1
+
+
+def test_the_condensed_view_names_the_open_episode(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    opened = ai_app_client.post(
+        "/api/pain", json={"date": TODAY.isoformat(), **KNEE}, headers=auth
+    ).json()
+    openrouter.say(answer())
+
+    acted(ai_app_client, auth, "Comment va mon genou ?")
+
+    assert f"(pain_id={opened['pain_id']})" in openrouter.calls[0].prompt
+
+
+def test_a_pain_three_days_old_is_refused_by_the_server(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter, dav: FakeWebDav
+) -> None:
+    """Rangée après coup, elle changerait l'ordre des relevés — donc la « hausse » qu'a
+    déjà lue le coach. La saisie datée reste sur `/corps`."""
+    say(openrouter, "pain.add", date=(TODAY - timedelta(days=3)).isoformat(), **KNEE)
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert "page Corps" in report["summary"]
+    assert "Metric/body/pain.csv" not in dav.files
+
+
+def test_a_diagnosis_is_not_a_zone(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter, dav: FakeWebDav
+) -> None:
+    """Le filtre de la dictée (MED-06), réemployé : une seule liste pour deux lectures."""
+    say(openrouter, "pain.add", date=TODAY.isoformat(), **{**KNEE, "zone": "tendinite rotulienne"})
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "refused"
+    assert "Metric/body/pain.csv" not in dav.files
+
+
+def test_the_model_never_links_a_pain_to_a_run_it_cannot_see() -> None:
+    from app.domains.assistant.actions import catalogue, validate
+
+    assert "run_id" not in catalogue()["pain.add"].describe
+    checked = validate("pain.add", {"date": TODAY.isoformat(), **KNEE, "run_id": "invente"})
+    assert not isinstance(checked, str)
+    assert checked[1].model_dump()["run_id"] is None
+    assert checked[1].model_dump()["source"] == "manual", "forcée à `ia` à l'écriture seulement"

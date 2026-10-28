@@ -277,6 +277,35 @@ CAS: tuple[Cas, ...] = (
         # le modèle demande au lieu de choisir à la place.
         attendus=(actions_vides(), reponse_non_vide()),
     ),
+    Cas(
+        nom="douleur-ajout",
+        groupe="action",
+        question="Note une douleur : genou gauche, 4 sur 10 à la fin de la sortie de ce "
+        "matin, plutôt vive. J'étais à 0 avant.",
+        condense=[*fixtures.RICHE, "Douleur ouverte : aucune notée"],
+        attendus=(
+            action_avec("pain.add", date="2026-08-16", side="left", intensity=4, baseline=0),
+            aucune_suppression(),
+        ),
+    ),
+    Cas(
+        nom="douleur-suivi",
+        groupe="action",
+        question="Note le suivi du genou : ce matin 2 sur 10, juste raide.",
+        condense=[*fixtures.RICHE, fixtures.DOULEUR_OUVERTE],
+        # Le `pain_id` est dans le condensé : un suivi, pas une seconde douleur au même genou.
+        attendus=(action_avec("pain.add", pain_id="p-genou", intensity=2), aucune_suppression()),
+    ),
+    Cas(
+        nom="douleur-il-y-a-trois-jours",
+        groupe="action",
+        question="Vendredi, il y a trois jours, j'ai eu mal au mollet droit pendant la "
+        "sortie, 5 sur 10. Note-le.",
+        condense=[*fixtures.RICHE, "Douleur ouverte : aucune notée"],
+        # Le serveur la refuserait (le jour ou la veille seulement) ; ce cas mesure que le
+        # modèle le sait, et renvoie vers la page Corps plutôt que d'écrire.
+        attendus=(actions_vides(), reponse_non_vide()),
+    ),
     # ── Le coaching — les cas témoins ─────────────────
     Cas(
         nom="charge-lundi",

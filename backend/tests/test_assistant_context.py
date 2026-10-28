@@ -203,6 +203,11 @@ async def test_les_tranches_vides_disent_l_absence_sans_chiffre_invente(
 #: `water.add` sans hydratation lisible, `meal.add` sans les macros, `workout.add` sans les
 #: charges. Cette table rend la règle vérifiable — une action ajoutée sans sa tranche fait
 #: échouer le test suivant plutôt que de rouvrir l'angle mort en silence.
+#: Ce que le condensé sert **sans tranche**, ligne par ligne dans `context.build` : une
+#: action qui s'y lit n'a rien à demander. Un nom à part plutôt qu'une absence, pour que
+#: l'oubli d'une tranche reste une faute visible.
+D_OFFICE = "condensé"
+
 LECTURE_PAR_ECRITURE = {
     "weight.add": "pesees_recentes",
     "weight.delete": "pesees_recentes",
@@ -220,6 +225,9 @@ LECTURE_PAR_ECRITURE = {
     "plan.propose": "planning_a_venir",
     "plan.move": "planning_a_venir",
     "plan.delete": "planning_a_venir",
+    # Le `pain_id` d'un épisode ouvert est servi d'office (M-10) : une douleur se dit sans
+    # prévenir, et la redemander coûterait un appel entier pour un identifiant.
+    "pain.add": D_OFFICE,
 }
 
 
@@ -227,7 +235,7 @@ def test_toute_action_du_catalogue_a_sa_tranche_de_lecture() -> None:
     manquantes = sorted(set(catalogue()) - set(LECTURE_PAR_ECRITURE))
     assert not manquantes, f"actions sans tranche de lecture déclarée : {manquantes}"
 
-    inconnues = sorted(set(LECTURE_PAR_ECRITURE.values()) - set(context.SLICES))
+    inconnues = sorted(set(LECTURE_PAR_ECRITURE.values()) - set(context.SLICES) - {D_OFFICE})
     assert not inconnues, f"tranches déclarées mais absentes de SLICES : {inconnues}"
 
 
