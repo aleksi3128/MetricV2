@@ -30,7 +30,7 @@ import { IconActivity, IconChat, IconHome, IconMore, IconPlus } from '@/componen
 import { cx } from '@/lib/cx';
 
 import { MoreSheet } from './MoreSheet';
-import { QuickLog } from './QuickLog';
+import { useQuickLog } from './quickLogContext';
 import styles from './TabBar.module.css';
 
 /**
@@ -86,7 +86,8 @@ function useTyping(): boolean {
 export function TabBar() {
   const typing = useTyping();
   const [more, setMore] = useState(false);
-  const [quick, setQuick] = useState(false);
+  // La saisie rapide n'est plus d'ici : la coquille la tient, l'accueil vide l'ouvre aussi.
+  const quick = useQuickLog();
 
   return (
     <>
@@ -111,10 +112,8 @@ export function TabBar() {
           type="button"
           className={cx(styles.tab, styles.action)}
           aria-haspopup="dialog"
-          aria-expanded={quick}
-          onClick={() => {
-            setQuick(true);
-          }}
+          aria-expanded={quick.open}
+          onClick={quick.show}
         >
           <span className={styles.actionDisc}>
             <IconPlus />
@@ -140,13 +139,6 @@ export function TabBar() {
         open={more}
         onClose={() => {
           setMore(false);
-        }}
-      />
-
-      <QuickLog
-        open={quick}
-        onClose={() => {
-          setQuick(false);
         }}
       />
     </>

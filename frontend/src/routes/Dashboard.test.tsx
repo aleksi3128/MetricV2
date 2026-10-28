@@ -1,9 +1,10 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { QuickLogProvider } from '@/app/QuickLog';
 import { Toaster } from '@/components/ui';
 import { createQueryClient } from '@/lib/query';
 import { DASHBOARD } from '@/test/fixtures';
@@ -521,7 +522,10 @@ describe('où je vais — la course A (M-19)', () => {
     expect(
       screen.getByText(/Semi-marathon — 15\/11\/2026 — chrono visé 1:45:00/),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Détail' })).toHaveAttribute('href', '/plan');
+    expect(screen.getByRole('link', { name: 'Détail du plan : Semi de Lyon' })).toHaveAttribute(
+      'href',
+      '/plan',
+    );
     // La cible de poids ne s'affiche qu'à défaut des deux.
     expect(screen.queryByText(/Cible de poids/)).toBeNull();
     expect(screen.queryByText('Aucun objectif en cours')).toBeNull();
@@ -535,6 +539,15 @@ describe('où je vais — la course A (M-19)', () => {
     const goal = screen.getByText('Trois séances par semaine');
     expect(race.compareDocumentPosition(goal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText(/Cible de poids/)).toBeNull();
+    // Deux « Détail » dans la section : un lecteur d'écran les distingue par leur nom.
+    expect(screen.getByRole('link', { name: 'Détail du plan : Semi de Lyon' })).toHaveAttribute(
+      'href',
+      '/plan',
+    );
+    expect(
+      screen.getByRole('link', { name: 'Détail de l’objectif : Trois séances par semaine' }),
+    ).toHaveAttribute('href', '/objectif');
+    expect(screen.queryByRole('link', { name: 'Détail' })).toBeNull();
   });
 
   it('sans plan posé, ne dit aucune phase et mène à /plan', async () => {
@@ -678,6 +691,47 @@ describe('tableau de bord', () => {
     // Un tiret, jamais un zéro qui passerait pour une mesure.
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     expect(screen.queryByText('0 g')).toBeNull();
+  });
+
+  it('ouvre « Noter » sur place depuis une journée vide, sans changer d’écran (M-11)', async () => {
+    const served = stub({ ...DASHBOARD, day: { ...DASHBOARD.day, logged: false } });
+    // Les sections chiffrées de la feuille n'importent pas ici : une panne les tait.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        /\/(hydration|supplements|body\/weight)/.test(input as string)
+          ? Promise.resolve(json(503, { code: 'storage_unavailable', message: 'panne' }))
+          : served(input, init),
+      ),
+    );
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <MemoryRouter initialEntries={['/']}>
+          <Toaster>
+            <QuickLogProvider>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="*" element={<p>ailleurs</p>} />
+              </Routes>
+            </QuickLogProvider>
+          </Toaster>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText('Aucun relevé aujourd’hui');
+    // Les deux liens d'avant envoyaient sur /corps et /routine.
+    expect(screen.queryByRole('link', { name: 'Noter une pesée' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Boire un verre' })).toBeNull();
+
+    const button = screen.getByRole('button', { name: 'Noter' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(button);
+
+    // La saisie rapide elle-même — la feuille du bouton central —, et l'accueil reste là.
+    expect(await screen.findByRole('dialog', { name: 'Noter' })).toBeInTheDocument();
+    expect(screen.getByText('Aucun relevé aujourd’hui')).toBeInTheDocument();
+    expect(screen.queryByText('ailleurs')).toBeNull();
   });
 
   it('affiche le message du serveur quand la lecture échoue', async () => {

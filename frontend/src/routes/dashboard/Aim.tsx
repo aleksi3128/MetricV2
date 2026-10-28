@@ -58,7 +58,14 @@ function CurrentGoal({ active }: { active: ActiveGoal }) {
           <p className="eyebrow">Objectif en cours</p>
           <h3>{goal.title}</h3>
         </div>
-        <LinkButton variant="ghost" to="/objectif">
+        {/* Deux « Détail » dans la même section, l'un vers `/objectif`, l'autre vers `/plan` :
+            un lecteur d'écran les annonçait pareils. Le nom accessible commence par le mot
+            visible, et dit lequel. */}
+        <LinkButton
+          variant="ghost"
+          to="/objectif"
+          aria-label={`Détail de l’objectif : ${goal.title}`}
+        >
           Détail
         </LinkButton>
       </div>
@@ -95,7 +102,7 @@ function NextRace({ aim }: { aim: RaceAim }) {
           <h3>{race.name}</h3>
         </div>
         {aim.plan === 'posed' && (
-          <LinkButton variant="ghost" to="/plan">
+          <LinkButton variant="ghost" to="/plan" aria-label={`Détail du plan : ${race.name}`}>
             Détail
           </LinkButton>
         )}

@@ -22,7 +22,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
@@ -45,6 +45,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
 import styles from './QuickLog.module.css';
+import { QuickLogContext, type QuickLogControl } from './quickLogContext';
 
 export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const client = useQueryClient();
@@ -255,5 +256,37 @@ export function QuickLog({ open, onClose }: { open: boolean; onClose: () => void
         />
       </SheetGroup>
     </Sheet>
+  );
+}
+
+/**
+ * La feuille, et la seule façon de l'ouvrir (M-11).
+ *
+ * Posée dans la coquille, au-dessus de l'écran et de la barre d'onglets : le bouton central
+ * et l'état vide de l'accueil ouvrent **la même** feuille, par `useQuickLog`. Elle était
+ * montée par `TabBar`, qui l'ouvrait seul.
+ */
+export function QuickLogProvider({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const control = useMemo<QuickLogControl>(
+    () => ({
+      open,
+      show: () => {
+        setOpen(true);
+      },
+    }),
+    [open],
+  );
+
+  return (
+    <QuickLogContext.Provider value={control}>
+      {children}
+      <QuickLog
+        open={open}
+        onClose={() => {
+          setOpen(false);
+        }}
+      />
+    </QuickLogContext.Provider>
   );
 }

@@ -25,7 +25,8 @@
 
 import { Link } from 'react-router';
 
-import { Badge, Card, Empty, LinkButton, Progress, Rule, Stat } from '@/components/ui';
+import { useQuickLog } from '@/app/quickLogContext';
+import { Badge, Button, Card, Empty, Progress, Rule, Stat } from '@/components/ui';
 import type { DashboardView, DayTask } from '@/features/aggregates/api';
 import type { PlannedSession } from '@/features/planning/api';
 import { cx } from '@/lib/cx';
@@ -189,6 +190,7 @@ function Session({ session, today }: { session: PlannedSession; today: string })
 
 export function Today({ data }: { data: DashboardView }) {
   const { day, next_session: session, weight, training, streak } = data;
+  const quickLog = useQuickLog();
 
   return (
     <>
@@ -201,16 +203,24 @@ export function Today({ data }: { data: DashboardView }) {
 
           Il se déclenche sur `day.logged`, servi par le serveur : l'écran le recollait à
           partir de quatre champs et annonçait « aucun relevé » un jour où l'on avait
-          couru. */}
+          couru.
+
+          Un bouton et non deux liens (M-11) : « Noter une pesée » et « Boire un verre »
+          menaient à `/corps` et `/routine`, quand la saisie rapide fait les deux sans quitter
+          l'accueil. C'est **la** feuille du bouton central, ouverte par la coquille. */}
       {!day.logged && (
         <div className={styles.dayEmpty}>
           <Empty
             title="Aucun relevé aujourd’hui"
             action={
-              <div className="row">
-                <LinkButton to="/corps">Noter une pesée</LinkButton>
-                <LinkButton to="/routine">Boire un verre</LinkButton>
-              </div>
+              <Button
+                variant="primary"
+                aria-haspopup="dialog"
+                aria-expanded={quickLog.open}
+                onClick={quickLog.show}
+              >
+                Noter
+              </Button>
             }
           >
             Deux chiffres suffisent pour que la journée compte.

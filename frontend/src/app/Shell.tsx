@@ -8,6 +8,7 @@ import { useScrollTop } from '@/lib/scroll';
 import { EveningFlowProvider } from '@/routes/evening/EveningFlow';
 import { MorningFlowProvider } from '@/routes/morning/MorningFlow';
 
+import { QuickLogProvider } from './QuickLog';
 import styles from './Shell.module.css';
 import { TabBar } from './TabBar';
 
@@ -71,61 +72,65 @@ export function Shell() {
       {/* Le point du soir, même principe à l'autre bout de la journée
           (`docs/notifications-v3.md`). */}
       <EveningFlowProvider>
-        <div className={styles.shell}>
-          <header className={styles.header}>
-            <div className={styles.headerInner}>
-              <NavLink to="/" className={cx(styles.brand)}>
-                Metric
-              </NavLink>
+        {/* La saisie rapide, une feuille pour toute l'application : la barre d'onglets
+            l'ouvre, et l'accueil vide aussi (M-11). */}
+        <QuickLogProvider>
+          <div className={styles.shell}>
+            <header className={styles.header}>
+              <div className={styles.headerInner}>
+                <NavLink to="/" className={cx(styles.brand)}>
+                  Metric
+                </NavLink>
 
-              <nav className={styles.nav} aria-label="Navigation principale">
-                {NAV.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.end}
-                    className={({ isActive }) => cx(styles.navLink, isActive && styles.navActive)}
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
+                <nav className={styles.nav} aria-label="Navigation principale">
+                  {NAV.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      end={item.end}
+                      className={({ isActive }) => cx(styles.navLink, isActive && styles.navActive)}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </nav>
 
-              {/* Une icône et non « aleksi · Déconnexion » : les 186 px qu'ils prenaient
+                {/* Une icône et non « aleksi · Déconnexion » : les 186 px qu'ils prenaient
                   manquaient à la navigation pour tenir sur une rangée. Le nom du compte
                   reste dans l'infobulle et dans le nom accessible. */}
-              <div className={styles.user}>
-                <Button
-                  variant="quiet"
-                  className={styles.exit}
-                  aria-label={
-                    state.status === 'authenticated'
-                      ? `Déconnexion (${state.username})`
-                      : 'Déconnexion'
-                  }
-                  title={
-                    state.status === 'authenticated'
-                      ? `Connecté comme ${state.username} — se déconnecter`
-                      : 'Se déconnecter'
-                  }
-                  onClick={() => {
-                    void logout();
-                  }}
-                >
-                  <IconExit size={18} />
-                </Button>
+                <div className={styles.user}>
+                  <Button
+                    variant="quiet"
+                    className={styles.exit}
+                    aria-label={
+                      state.status === 'authenticated'
+                        ? `Déconnexion (${state.username})`
+                        : 'Déconnexion'
+                    }
+                    title={
+                      state.status === 'authenticated'
+                        ? `Connecté comme ${state.username} — se déconnecter`
+                        : 'Se déconnecter'
+                    }
+                    onClick={() => {
+                      void logout();
+                    }}
+                  >
+                    <IconExit size={18} />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          {/* La clé change avec l'adresse : c'est ce qui fait rejouer l'animation d'entrée à
+            {/* La clé change avec l'adresse : c'est ce qui fait rejouer l'animation d'entrée à
           chaque navigation, sans bibliothèque de transition et sans état à tenir. */}
-          <main key={pathname} className={cx(styles.main, 'enter')}>
-            <Outlet />
-          </main>
+            <main key={pathname} className={cx(styles.main, 'enter')}>
+              <Outlet />
+            </main>
 
-          <TabBar />
-        </div>
+            <TabBar />
+          </div>
+        </QuickLogProvider>
       </EveningFlowProvider>
     </MorningFlowProvider>
   );
