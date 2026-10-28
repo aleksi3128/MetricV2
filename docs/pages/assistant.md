@@ -6,7 +6,7 @@ formulaire.
 
 **Comment on y arrive.** Onglet « Assistant » (barre basse) ; entrée de la barre du haut
 sur ordinateur ; la lecture du jour (`?fil=…`) ; « Demander à l'assistant » sur
-`/objectif`. Les adresses `?ouvre=discussions`, `?ouvre=memoire` (le carnet) et
+`/objectif` ; « Ouvrir le fil du planning » sur `/planning` (`?portee=planning`, M-20). Les adresses `?ouvre=discussions`, `?ouvre=memoire` (le carnet) et
 `?ouvre=profil` (M-05) ouvrent leur feuille ; plus aucun écran n'y mène depuis que la
 rangée de l'accueil est partie (M-22, `fc178f8`), elles servent aux favoris.
 
@@ -27,7 +27,8 @@ hauteur.
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| En-tête | Titre du fil ; boutons **Mémoire** et **Discussions** | `GET /api/assistant/threads/{id}` | « Nouvelle discussion » |
+| En-tête | Titre du fil ; boutons **Mémoire** et **Discussions** | `GET /api/assistant/threads/{id}` | « Nouvelle discussion » ; « Planning » dans le fil du planning |
+| Fil du planning (M-20) | En tête du fil, ce qu'il fait et **Voir le planning** ; au-dessus de la saisie, champ vide, trois débuts de question (« Ma semaine de natation », « Une séance technique », « Ajuste à ce que j'ai nagé ») qui remplissent le champ. Rien de cela dans un fil ordinaire | `GET /api/assistant/threads/planning` (par `?portee=planning`), ou la portée du fil rouvert | attente dessinée pendant qu'il se cherche ; « Fil du planning illisible » |
 | Fil | Questions et réponses ; sous chaque réponse : copier, **Écouter**, réessayer ; le condensé envoyé, replié ; les comptes rendus d'actions (annuler un ajout, confirmer un changement, oublier une note) ; une séance Cadence proposée s'affiche en `CircuitCard` | `POST /api/assistant/chat/stream` | « Pose ta question : le fil commence ici. » ; sans clé : « Assistance indisponible », le carnet reste utilisable |
 | Saisie | Champ de question, **Dicter ta question**, Envoyer | — | désactivée sans clé |
 
@@ -46,7 +47,7 @@ Seize actions ([`actions.py`](../../backend/app/domains/assistant/actions.py), `
 |---|---|
 | noter une pesée, une boisson, une course | supprimer une pesée, un repas, une course |
 | noter un repas, du jour **ou d'hier** (M-10) | décaler une séance prévue, la retirer |
-| noter une **douleur** — du jour ou de la veille —, ou son suivi (M-10) | proposer des séances au planning, une par une — **seulement dans le fil de `/planning`** |
+| noter une **douleur** — du jour ou de la veille —, ou son suivi (M-10) | proposer des séances au planning, une par une — **seulement dans le fil du planning**, qui s'y confirment seulement (M-20) |
 | noter une **natation**, dans la notation lue par le serveur (M-10) | remplacer l'**effort perçu** d'une séance qui en a déjà un (M-10) |
 | noter l'**effort perçu** d'une séance du jour qui n'en a pas — « Annuler » le remet à vide (M-10) | |
 | cocher un supplément du jour ; créer une séance Cadence ; prévoir une séance | |
@@ -58,7 +59,9 @@ méthode, suffixe, corps) ; l'écran n'apprend aucune action par son nom. Un ref
 
 ## 4. Liens sortants
 
-« Ouvrir dans Cadence » sur une séance proposée ; aucun lien vers les autres écrans.
+« Ouvrir dans Cadence » sur une séance proposée ; dans le fil du planning, **Voir le
+planning** (en tête) et **Voir au planning** sous une adoption, sur le premier jour écrit
+(`/planning?jour=…`, M-20).
 
 ## 5. Constats
 
@@ -77,7 +80,11 @@ méthode, suffixe, corps) ; l'écran n'apprend aucune action par son nom. Un ref
   *Relu le 28 octobre (M-10) : c'est inexact.* Le fil y est listé, marqué « planning · »,
   depuis `01da357` (`test_the_list_marks_the_planning_thread_and_does_not_resume_it`) ;
   seule la réouverture automatique l'écarte (`_resumable`). Ce qui reste de M-20, c'est
-  l'entrée depuis `/planning` à la place du fil.
+  l'entrée depuis `/planning` à la place du fil. ~~Fait~~ (M-20, `bbacdd7`) : l'entrée
+  ouvre ce fil ici ; il se reconnaît (titre, mention, suggestions), se quitte par la feuille
+  comme un autre, et ses propositions ne se confirment que dans sa portée (`685c4af`). En
+  route : la feuille ne voyait pas un fil qu'une réponse venait d'ouvrir — l'invalidation de
+  M-10 épargnait la liste avec le fil ; elle se relit seule depuis.
 - ~~« noter un repas **du jour** » : l'assistant ne rattrape pas plus que `/nutrition` un
   repas d'hier (M-01).~~ Corrigé (M-10, `21fb4f4`) : `meal.add` prend `day`.
 

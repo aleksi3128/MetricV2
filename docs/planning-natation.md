@@ -279,6 +279,12 @@ derniers messages et « Tout le fil » ouvre `/assistant` sur ce fil.
 C'est la partie la plus risquée du lot pour ce qui existe déjà : les tests de `/assistant`
 doivent passer **sans être retouchés**.
 
+> **Depuis M-20 (28 octobre 2026), un seul écran.** Le fil a quitté `/planning`, qui n'en garde
+> qu'une entrée vers `/assistant?portee=planning` ; ses suggestions et ses propositions vivent
+> dans l'assistant. La portée tient aussi à la confirmation : `POST /actions/confirm` nomme son
+> fil, et `plan.propose` ne s'y confirme que dans le fil du planning
+> ([`pages/modifications.md`](pages/modifications.md), M-20).
+
 ### 5.5 Ce que le modèle voit en plus
 
 Le planning du mois, les natations réalisées des quatre dernières semaines (après la

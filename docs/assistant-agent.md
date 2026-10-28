@@ -433,3 +433,21 @@ d'une douleur…, hormis la noter avec pain.add si je te demande de la noter. »
 **Non lancé** : les huit cas d'évaluation écrits pour ce lot (`evals/cases.py`). Ils se
 chargent sans modèle (`tests/test_evals_cases.py`) ; ce qu'ils valent, seul un `make eval`
 payant le dira.
+
+---
+
+## 11. M-20 — la portée tient aussi à la confirmation (28 octobre 2026)
+
+Le fil du planning a quitté `/planning` pour l'assistant
+([`pages/modifications.md`](pages/modifications.md), M-20). En le faisant, un trou est apparu
+sous la décision « `plan.propose` garde sa portée » : **`confirm()` validait sans portée**. Le
+modèle d'un fil ordinaire ne voyait pas `plan.propose`, mais le serveur en confirmait un depuis
+n'importe quel fil, ou sans fil du tout ; et une suppression de pesée depuis le fil du planning.
+
+Depuis `685c4af`, `ConfirmRequest` porte `thread_id`, **obligatoire** — absent, `422` ; inconnu,
+`404 storage_not_found`. La portée se lit sur le fil, comme dans `ask`, et un refus hors portée
+est celui d'un nom inventé. L'écran renvoie le fil où la réponse est arrivée
+(`Exchange.thread`), jamais celui qu'il croit ouvert.
+
+`ActionReport.day` : le premier jour écrit par une adoption, pour que l'écran mène à
+`/planning?jour=…` sans choisir lui-même parmi les dates. Seul `plan.propose` le remplit.

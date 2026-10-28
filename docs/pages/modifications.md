@@ -78,7 +78,7 @@ visée ne parlait à aucun autre écran — elle parle à l'accueil depuis M-19.
 | [M-17](#m-17) | ajouter | Plan | Corriger une course visée — **fait** (`defb1cd`) | P3 |
 | [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran — **écartée** (27 octobre : aucune synchro Garmin, voir §6) | P3 |
 | [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » — **fait** (`af2202d`) | P3 |
-| [M-20](#m-20) | fusionner | Planning | Un seul coach sur le planning | P3 |
+| [M-20](#m-20) | fusionner | Planning, Assistant | Un seul coach sur le planning — **fait** (`685c4af`, `bbacdd7`) | P3 |
 | [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil — **fait** (`fc178f8`) | P3 |
 
 ---
@@ -1062,6 +1062,44 @@ l'assistant** : une entrée sur `/planning` ouvre l'assistant sur ce fil, le fil
 dans « Tes discussions », et ses actions réservées (`plan.propose`) **gardent leur
 portée** — elles ne s'ouvrent pas au fil ordinaire.
 
+**Fait le 28 octobre** (session 9 d) : `685c4af` (la confirmation dans la portée de son fil),
+`bbacdd7` (l'entrée, le fil dans l'assistant, le retour).
+
+- **Vérifié avant de bâtir.** Ce que la 9 c avait établi tient : le fil est listé
+  (« planning · »), seul `_resumable` l'écarte de la reprise, `ask()` relit la portée du fil.
+  **Sauf `confirm()`**, qui validait sans portée : un `plan.propose` se confirmait depuis un
+  fil ordinaire ou sans fil — refait sur le banc avant correction (200, deux séances
+  écrites). Corrigé à part (`685c4af`) : `thread_id` obligatoire (absent, 422 ; inconnu,
+  404), validation dans la portée du fil, et l'inverse tenu aussi (une suppression de pesée
+  refusée dans le fil du planning). Trois tests.
+- **`/planning`.** `PlanningChat` (235 lignes), ses trois classes et ses cinq tests partent ;
+  une carte « Demander au planning » mène à `/assistant?portee=planning`, sans rien lire.
+  La carte du coach de course reste, inchangée. 2 766 → 2 307 px rempli, 2 562 → 2 331 vide.
+- **Le cas sans fil** — décision (par défaut) : une **portée dans l'adresse**, pas un
+  identifiant. L'assistant demande `GET /threads/planning` ; s'il rend un fil, il l'ouvre,
+  sinon la première question part avec `scope: "planning"` et c'est le serveur qui ouvre le
+  fil. Écarté : un fil créé à l'appui de l'entrée — il laisserait un fil vide à chaque
+  visite, ce que `ask()` évite exprès.
+- **Dans le fil du planning** : titre « Planning », une mention en tête (ce que fait le fil,
+  **Voir le planning**), et les trois débuts de question au-dessus de la saisie, champ vide.
+  Aucun des trois dans un fil ordinaire ; un fil du planning rouvert depuis la feuille les
+  retrouve, la portée se lisant sur lui.
+- **Le retour** : `ActionReport.day`, le premier jour écrit par une adoption, servi par le
+  serveur ; la carte adoptée offre **Voir au planning** → `/planning?jour=…`, que `/planning`
+  lisait déjà. Éprouvé au toucher sur le banc : le jour s'ouvre, la séance adoptée y est.
+- **Invalidation.** Rien à déplacer : c'est `ProposalCard` qui invalide tout à l'adoption
+  (planning, `CROSS_CUTTING`), sous `PlanningChat` comme dans l'assistant. `PlanningChat` lui-même
+  n'invalidait que `keys.assistant.all()` en vidant le fil — geste parti avec lui, que la
+  feuille des fils porte (« Supprimer », deux appuis).
+- **En route** : la feuille « Tes discussions » ne voyait pas un fil qu'une réponse venait
+  d'ouvrir. L'invalidation de M-10 (`0c4c28d`) épargne tout ce qui commence par `assistant`,
+  la liste comprise ; avec 30 s de fraîcheur, le fil neuf manquait. La liste se relit seule
+  (`exact`), le fil ouvert toujours pas. Et le titre d'un fil neuf restait « Nouvelle
+  discussion » après sa première réponse ; il prend celui que la réponse rend.
+- **`ActionCard` reconnaît encore `plan.propose` par son nom** — pas aggravé : le retour suit
+  `day`, les suggestions suivent la portée du fil. Il faudrait le corriger (`sessions` non vide
+  suffit), sans décision ; laissé au §7.
+
 <a id="m-21"></a>
 
 ### M-21 — Quatre phrases fausses ou illisibles
@@ -1197,6 +1235,7 @@ serveur, contrairement au coût annoncé.
    Session 9 a : ~~**M-16** et **M-17**~~ faits (`2cc88e0`, `7eaa41f`, `defb1cd`).
    Session 9 b : ~~**M-19**~~ fait (`af2202d`) ; **M-18** écartée sans code (`9e75cd0`).
    Session 9 c : ~~**M-10**~~ fait (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) ; **M-20** passe à la session 9 d.
+   Session 9 d : ~~**M-20**~~ fait (`685c4af`, `bbacdd7`).
 
 ## 6. Écarté, et pourquoi
 
@@ -1226,8 +1265,7 @@ serveur, contrairement au coût annoncé.
 ## 7. Ce qui reste — à reprendre pour lui-même
 
 Les restes des fiches faites avant le 27 octobre sont sous chaque fiche, en **Reste.**
-Ceux des sessions 9 a et 9 b sont rassemblés ici, pour que 9 c ne les reprenne pas en
-passant.
+Ceux des sessions 9 a à 9 d sont rassemblés ici, pour qu'aucune ne les reprenne en passant.
 
 | Reste | Pourquoi laissé |
 |---|---|
@@ -1249,7 +1287,12 @@ passant.
 | Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran |
 | Les mensurations par l'assistant | la fiche les laissait attendre ; `measurements.csv` n'a toujours pas de colonne `source` |
 | `ActionReport.code` n'est lu par aucun écran | le code voyage depuis M-10 ; l'écran affiche la phrase et ne décide encore de rien sur un refus |
-| `ActionCard` reconnaît `plan.propose` à son nom | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait |
+| `ActionCard` reconnaît `plan.propose` à son nom | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait. M-20 ne l'a pas aggravé (le retour suit `day`) ; se corrige sans décision |
 | « La table refuse `plan.*`… quand la question porte une alerte médicale » (`assistant-agent.md` §4) | introuvable dans le code au 28 octobre : la garde d'`IA-12` est dans la consigne seule. Antérieur à M-10, noté pour être tranché |
 | Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main |
+| Une adoption n'est pas rangée dans le fil (M-20) | rouvert, le fil du planning montre la réponse sans « 2 séances ajoutées » : `confirm()` écrit au planning, pas au fil. Antérieur (`planning-natation.md` §9) ; l'écrire au fil demande de rattacher une confirmation à son message |
+| Le refus hors portée nomme l'action (« « plan.propose » n'est pas quelque chose que je sais faire ») | la phrase de `validate()` pour un nom inconnu, antérieure ; vue dans un fil ordinaire sur le banc. Dire le geste plutôt que le nom se corrige sans décision |
+| `day` n'est servi que par `plan.propose` | `plan.add` et `plan.move` écrivent aussi au planning, sans lien de retour. Les étendre est une ligne chacun ; M-20 ne visait que le fil du planning |
+| Un fil ouvert par `?fil` n'a ni attente ni erreur | antérieur : pendant la lecture, et si elle échoue, l'écran dit « Pose ta question : le fil commence ici » au-dessus d'un fil qui existe. M-20 n'a dessiné les deux états que pour la recherche du fil du planning |
+| Le fil du planning jamais essayé sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; les propositions du banc sont écrites à la main |
 

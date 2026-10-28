@@ -100,9 +100,10 @@ pied de `/planning` et de `/activite/natations`).
 | Nutrition | `/nutrition/catalogue` |
 | Corps | `/corps/douleurs` (la porte en tête) ; le parcours du matin (feuille, deux portes : l'en-tête, et l'état vide de « Le matin ») |
 | Douleurs (`/corps/douleurs`) | `/corps` (retour) |
-| Planning | `/planning/sigles` (pied, M-04) |
+| Planning | `/planning/sigles` (pied, M-04) ; `/assistant?portee=planning` (« Ouvrir le fil du planning », M-20) |
 | Planning (`/planning/sigles`) | `/planning` (retour) |
-| Plan, Charge, Routine, Dossier, Réglages, Assistant | aucun lien vers un autre écran |
+| Assistant | `/planning`, dans le fil du planning seul : « Voir le planning », et « Voir au planning » sous une adoption (`?jour=`, M-20) |
+| Plan, Charge, Routine, Dossier, Réglages | aucun lien vers un autre écran |
 
 Les déménagements sans lien nouveau : l'agenda et « ce que le coach a changé » sont passés
 de `/plan` à `/planning` (M-03), le profil de l'assistant de `/reglages` à la feuille du
@@ -135,8 +136,8 @@ Un repère de ce qu'un écran demande de défilement — la hauteur d'écran du 
 | `/activite/courses` | 3 920 ⁴ | 874 ⁴ |
 | `/nutrition` | 3 124 ¹ | 2 609 |
 | `/activite` | 2 392 ⁵ | 1 367 ⁵ |
-| `/planning` | 2 969 ⁴ | 2 562 ⁴ |
 | `/planning/sigles` | 2 326 ⁴ | 2 326 ⁴ |
+| `/planning` | 2 307 ⁶ | 2 331 ⁶ |
 | `/` | 2 070 ³ | 1 766 ³ |
 | `/plan` | 1 955 ³ | 874 ³ |
 | `/corps/douleurs` | 1 905 ² | 874 ² |
@@ -185,3 +186,9 @@ qu'un écran de plus de 50 px : `/activite`, dont le lien d'en-tête « Poids de
 l'avant mesuré sur une copie de l'arbre à `d575cde`. Les autres écrans touchés gardent leur
 hauteur du ⁴ (`/reglages`, `/routine`, `/planning`, `/plan` 1 955 et 874 ; `/corps` 5 242 et
 3 228, `/nutrition` 2 675 et 2 675 sur ce banc).
+
+⁶ Remesurés le 28 octobre, après M-20, sur le banc de la session 9 d (celui de M-10 plus trois
+séances prévues ; « rempli » avec un fil du planning qui a déjà une proposition adoptée,
+« vide » sans aucun semis). Sur ce même banc, **avant** le lot : 2 766 rempli, 2 562 vide.
+Le fil et sa saisie quittent la page pour une carte d'entrée : −459 rempli, −231 vide. La
+carte du coach de course, inchangée, reste au-dessus.
