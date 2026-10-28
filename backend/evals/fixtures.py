@@ -139,20 +139,17 @@ CARNET_FOURNI: list[context.MemoryNote] = [
 
 TRANCHES = {
     # ── Servies depuis le lot 1 ──
-    "progression_charges": [
-        "« Développé couché » (pectoraux, exercise_id=dev-couche) : 65 kg le 13/08/2026 — "
-        "+2.5 kg depuis la fois d'avant — record 65 kg — 1RM estimé 81,3 kg — "
-        "charges par séance : 57,5 kg, 60 kg, 60 kg, 62,5 kg, 65 kg",
-        "« Squat » (jambes, exercise_id=squat) : 90 kg le 11/08/2026 — "
-        "+0 kg depuis la fois d'avant — record 92,5 kg — 1RM estimé 104,5 kg — "
-        "charges par séance : 85 kg, 90 kg, 92,5 kg, 90 kg, 90 kg",
-        "« Tractions » (dos, exercise_id=tractions) : poids du corps le 13/08/2026 — "
-        "record poids du corps — charges par séance : poids du corps, poids du corps",
-    ],
-    "detail_seances": [
-        "Séance du 11/08/2026 : Squat 4×6 à 90 kg (volume 2160 kg)",
-        "Séance du 13/08/2026 : Développé couché 3×7 à 65 kg (volume 1365 kg) · "
-        "Tractions 4×8 au poids du corps (32 répétitions)",
+    # `progression_charges`, `detail_seances` et `exercices` sont parties avec la refonte de
+    # l'activité (tout par Cadence) : `progression_tabata` les remplace, au format exact de
+    # `context._tabata_progress` — la charge, depuis quand elle tient, combien de séances.
+    "progression_tabata": [
+        "dumbbell neutral grip bench press : 22,5 kg — dernier changement il y a "
+        "12 jour(s), 3 séance(s) tenue(s) depuis",
+        "dumbbell biceps curl : 12 kg — dernier changement il y a 40 jour(s), "
+        "6 séance(s) tenue(s) depuis",
+        "push-up : poids du corps",
+        "Groupes par ancienneté de sollicitation — jambes : il y a 9 jour(s) · "
+        "dos : il y a 4 jour(s) · pectoraux : il y a 2 jour(s)",
     ],
     "hydratation_du_jour": [
         "Hydratation du jour : 1100 ml sur une cible de 2500 ml (44,0 %), il reste 1400 ml à boire",
@@ -171,11 +168,6 @@ TRANCHES = {
     "pesees_recentes": [
         "Pesée du 15/08/2026 : 78,6 kg (row_id=30, token=c3a9f1b6)",
         "Pesée du 12/08/2026 : 78,9 kg (row_id=29, token=d8e4b2c7)",
-    ],
-    "exercices": [
-        "Exercice « Développé couché » (exercise_id=dev-couche, pectoraux)",
-        "Exercice « Squat » (exercise_id=squat, jambes)",
-        "Exercice « Tractions » (exercise_id=tractions, dos)",
     ],
     "planning_a_venir": [
         "Prévu le 18/08/2026 à 18:30 : Séance haut du corps (row_id=4, token=e5c8d3a1)",

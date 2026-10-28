@@ -348,13 +348,20 @@ CAS: tuple[Cas, ...] = (
     Cas(
         nom="charge-lundi",
         groupe="coaching",
-        question="Je charge combien lundi au développé couché ?",
+        question="Je charge combien lundi au développé couché haltères ?",
         condense=fixtures.RICHE,
         # Basculé le 2026-08-16 avec le lot 1. L'attente était « dit ne pas savoir » : la
         # donnée n'existait pas. Elle existe, donc la bonne réponse est une charge chiffrée,
         # et le cas mesure maintenant qu'elle est tirée du relevé et non estimée.
-        tranches=("progression_charges", "detail_seances", "exercices"),
-        attendus=(cite("65"), aucun_chiffre_invente(), aucune_suppression()),
+        #
+        # Réécrit le 28 octobre 2026 (session 10 a), **sans être lancé** : il servait
+        # `progression_charges`, `detail_seances` et `exercices`, que la refonte de
+        # l'activité a retirées. La charge d'un exercice se lit maintenant dans
+        # `progression_tabata` — la charge déclarée, depuis quand elle tient, combien de
+        # séances —, sous le nom anglais du catalogue Cadence. Ni record ni 1RM : la
+        # tranche n'en porte pas, et le modèle n'a pas à en inventer.
+        tranches=("progression_tabata",),
+        attendus=(cite("22,5"), aucun_chiffre_invente(), aucune_suppression()),
     ),
     Cas(
         nom="hydratation-du-jour",

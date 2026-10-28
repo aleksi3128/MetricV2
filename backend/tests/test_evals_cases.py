@@ -35,25 +35,16 @@ def test_the_actions_named_by_the_cases_exist() -> None:
     assert named <= set(catalogue()), named - set(catalogue())
 
 
-#: Trois tranches que le jeu sert encore et que l'application n'a plus.
-#:
-#: Trouvées par ce fichier le 28 octobre 2026 (M-10) : `charge-lundi` les réclame depuis
-#: le lot 1, et la refonte de l'activité (tout par Cadence) les a retirées de
-#: `context.SLICES`. Le cas mesure donc une seconde passe que la production ne ferait plus.
-#: Le reprendre est une décision sur ce cas, pas un correctif en passant — elle est notée
-#: au §7 de `docs/pages/modifications.md`. La liste ne peut que rétrécir.
-GONE = {"progression_charges", "detail_seances", "exercices"}
-
-
 def test_the_slices_a_case_serves_exist_both_frozen_and_live() -> None:
-    gone: set[str] = set()
+    """Une tranche figée que l'application n'a plus ferait mesurer une seconde passe que la
+    production ne ferait pas. `charge-lundi` en servait trois jusqu'au 28 octobre 2026 ; il
+    est réécrit sur `progression_tabata`, et aucune n'est tolérée depuis."""
     for cas in CAS:
         for name in cas.tranches:
             assert name in TRANCHES, (cas.nom, name)
-            if name not in context.SLICES:
-                gone.add(name)
+            assert name in context.SLICES, (cas.nom, name)
 
-    assert gone <= GONE, gone - GONE
+    assert set(TRANCHES) <= set(context.SLICES), set(TRANCHES) - set(context.SLICES)
 
 
 def test_every_check_runs_offline_on_an_empty_answer() -> None:
