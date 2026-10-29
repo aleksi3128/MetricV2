@@ -240,3 +240,7 @@ class ImportResult(BaseModel):
     distance_km: float | None = None
     #: Toujours `apple` ici : l'origine reste lisible jusque dans le CSV (`IMP-05`).
     source: str
+    #: L'identifiant **stable** de la course écrite : la douleur demandée en fin de saisie
+    #: s'y rattache (session 10 b), et `id`, une position, se décale à la première
+    #: suppression.
+    run_id: str | None = None

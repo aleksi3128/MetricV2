@@ -14,10 +14,16 @@
  *
  * Course    1. un .fit, une capture, ou rien      → Suivant
  *           2. temps, allure, distance, cadence   → Enregistrer
+ *           3. une douleur ?                      → Non · Oui · Plus tard   (10 b)
  *
  * Vélo ou   1. le troisième choix de l'étape 1
  * marche    2. sport, date, durée, distance, effort → Enregistrer   (M-16)
+ *           3. une douleur ?                                         (10 b)
  * ```
+ *
+ * **La douleur se demande après toute sortie écrite ici**, comme après un `.fit`
+ * (`docs/douleurs.md`, D1) : elle se rattache à la sortie par son identifiant stable —
+ * `run_id`, `other_id` —, jamais par sa position.
  *
  * **Le `.fit` ne passe pas par l'étape 2.** Il écrit la course et ferme la feuille
  * (`docs/import-fit.md`, **F5**) : il n'y a rien à pré-remplir parce qu'il n'y a rien à
@@ -261,6 +267,8 @@ function RunWizard({
   const [rated, setRated] = useState(false);
   /** Une sortie vélo ou marche qu'un `.fit` vient d'écrire : même suite qu'une course. */
   const [other, setOther] = useState<Other | null>(null);
+  /** La course que l'étape 2 vient d'écrire : la feuille demande alors la douleur. */
+  const [saved, setSaved] = useState<{ date: string; run_id: string } | null>(null);
 
   /*
    * On n'envoie que celui qu'on défend, quand les deux sont là. **Sans retouche, c'est la
@@ -273,9 +281,11 @@ function RunWizard({
     edited === 'pace' || fields.distance_km === '' ? fields.pace_min_km || null : null;
 
   const save = useMutation({
-    mutationFn: async () => {
+    // Rend ce qu'il faut pour rattacher la douleur : le jour et l'identifiant **stable**
+    // de la course écrite, saisie à la main ou relue d'une capture.
+    mutationFn: async (): Promise<{ date: string; run_id: string | null }> => {
       if (draft === null) {
-        await activityApi.createRun({
+        return activityApi.createRun({
           date: fields.date,
           duration_min: fields.duration_min,
           distance_km: distance,
@@ -284,13 +294,12 @@ function RunWizard({
           avg_hr: fields.avg_hr || null,
           note: fields.note || null,
         });
-        return;
       }
       // Une capture lue : ce qu'elle porte et qu'aucun champ ne montre — calories totales,
       // heures, paliers — traverse tel quel. Le retoucher au pouce donnerait à l'écran les
       // moyens de fausser ce que le serveur vient de vérifier. `kind` est `run` : la
       // feuille enregistre une course, même lue comme une séance.
-      await importsApi.confirm({
+      return importsApi.confirm({
         kind: 'run',
         type: 'Course',
         date: fields.date,
@@ -316,10 +325,13 @@ function RunWizard({
         })),
       });
     },
-    onSuccess: () => {
+    onSuccess: (written) => {
       invalidate();
       notify('Course enregistrée.', 'effort');
-      onDone();
+      // La douleur, comme après un import (session 10 b) : une course à la main n'y
+      // échappait pas pour une raison, seulement faute d'identifiant à qui la rattacher.
+      if (written.run_id) setSaved({ date: written.date, run_id: written.run_id });
+      else onDone();
     },
     onError: (caught: unknown) => {
       setError(caught instanceof ApiError ? caught : null);
@@ -344,6 +356,13 @@ function RunWizard({
   useLayoutEffect(() => {
     if (step === 2) scrollSheetTop(top.current);
   }, [step]);
+
+  if (saved !== null) {
+    // L'effort perçu d'une saisie à la main ne se demande pas ici : il n'a pas été décidé
+    // (`docs/pages/modifications.md` §7). La douleur, si — c'est elle qui protège la séance
+    // suivante.
+    return <PainCheck date={saved.date} activityId={saved.run_id} today={today} onDone={onDone} />;
+  }
 
   if (other !== null) {
     if (rated) {

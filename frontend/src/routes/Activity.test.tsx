@@ -311,6 +311,40 @@ describe('écran Activité', () => {
     });
   });
 
+  it('demande la douleur après une course saisie, et la rattache par son run_id', async () => {
+    // Session 10 b : seul un import la demandait ; une course à la main s'en passait faute
+    // d'identifiant, et le point du soir la redemandait seul.
+    stub((url, init) => {
+      if (url === '/api/activity/runs' && init?.method === 'POST') {
+        return json(201, { id: 4, token: 'tr', run_id: 'r-stable', date: '2026-07-26' });
+      }
+      if (url === '/api/pain/none') return json(201, {});
+      return undefined;
+    });
+    renderActivity();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Enregistrer une course' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Saisir une course à la main' }),
+    );
+    await userEvent.type(await screen.findByLabelText('Temps'), '44:12');
+    await userEvent.type(screen.getByLabelText('Distance (km)'), '8,4');
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la course' }));
+
+    expect(
+      await screen.findByText(/Une douleur pendant ou après cette séance/),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Non' }));
+
+    await waitFor(() => {
+      const none = calls.find((call) => call.url === '/api/pain/none');
+      expect(JSON.parse(none?.init?.body as string)).toEqual({
+        date: '2026-07-26',
+        run_id: 'r-stable',
+      });
+    });
+  });
+
   it('affiche le message du serveur sur une durée inintelligible', async () => {
     stub((_url, init) =>
       init?.method === 'POST'

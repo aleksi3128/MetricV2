@@ -151,6 +151,7 @@ class AppleImportService:
                 duration_min=run.duration_min,
                 distance_km=run.distance_km,
                 source=run.source,
+                run_id=run.run_id,
             )
 
         # **L'import ne crée plus de séance de musculation.** Elles n'ont plus de fichier

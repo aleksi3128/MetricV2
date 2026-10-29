@@ -10,21 +10,32 @@
  * seconde liste écrite ici finirait par proposer un sport que le serveur refuse. Aucun
  * n'est choisi d'office — une pastille cochée d'avance serait un vélo que personne n'a
  * fait.
+ *
+ * **Puis la douleur** (session 10 b), comme après un `.fit` : la sortie écrite, le
+ * formulaire cède la place à `PainCheck`, rattaché par l'`other_id` — l'identifiant
+ * stable, que la position de la ligne n'est pas.
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Button, Chip, ChipStrip, Empty, Field, Skeleton, Stepper } from '@/components/ui';
-import { activityApi, type OtherSport, type SportChoice } from '@/features/activity/api';
+import {
+  activityApi,
+  type Other,
+  type OtherSport,
+  type SportChoice,
+} from '@/features/activity/api';
 import { ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
+import { PainCheck } from '../body/PainCheck';
+import { EffortScale } from './run/Rate';
+
 import styles from '../Activity.module.css';
 import own from './OtherEntry.module.css';
-import { EffortScale } from './run/Rate';
 import { useInvalidateActivity } from './shared';
 
 export function OtherEntry({
@@ -76,6 +87,8 @@ function OtherForm({
   const [distance, setDistance] = useState('');
   const [rpe, setRpe] = useState<number | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+  /** La sortie écrite : la feuille demande alors la douleur. */
+  const [saved, setSaved] = useState<Other | null>(null);
 
   const save = useMutation({
     mutationFn: (chosen: OtherSport) =>
@@ -90,12 +103,18 @@ function OtherForm({
       invalidate();
       const label = sports.find((item) => item.value === other.sport)?.label ?? other.sport;
       notify(`Sortie enregistrée : ${label.toLowerCase()}.`, 'effort');
-      onDone();
+      setSaved(other);
     },
     onError: (caught: unknown) => {
       setError(caught instanceof ApiError ? caught : null);
     },
   });
+
+  if (saved !== null) {
+    return (
+      <PainCheck date={saved.date} activityId={saved.other_id} today={today} onDone={onDone} />
+    );
+  }
 
   return (
     <div className={styles.form}>

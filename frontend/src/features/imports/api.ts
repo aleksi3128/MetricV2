@@ -115,6 +115,8 @@ export interface ImportResult {
   duration_min: number;
   distance_km: number | null;
   source: string;
+  /** L'identifiant stable de la course écrite : la douleur demandée ensuite s'y rattache. */
+  run_id: string | null;
 }
 
 export const importsApi = {

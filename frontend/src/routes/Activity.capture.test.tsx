@@ -96,6 +96,7 @@ const IMPORTED = {
   duration_min: 44.2,
   distance_km: 8.369,
   source: 'apple',
+  run_id: 'r-capture',
 };
 
 function stub(custom?: (url: string, init?: RequestInit) => Response | undefined) {
@@ -190,6 +191,27 @@ describe('une capture lue dans la feuille « Course »', () => {
     expect(screen.getByText('Le dénivelé')).toBeInTheDocument();
     // La durée lue se redit comme une montre l'écrit.
     expect(screen.getByText('lue : 44:12')).toBeInTheDocument();
+  });
+
+  it('demande la douleur après la course relue, rattachée par le run_id servi', async () => {
+    // Session 10 b : l'import sert l'identifiant stable de la course qu'il écrit.
+    stub();
+    renderSheet();
+    await readScreenshot();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer la course' }));
+
+    expect(
+      await screen.findByText(/Une douleur pendant ou après cette séance/),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Non' }));
+    await waitFor(() => {
+      const none = writes().find((item) => item.url === '/api/pain/none');
+      expect(JSON.parse(none?.init?.body as string)).toEqual({
+        date: '2026-07-28',
+        run_id: 'r-capture',
+      });
+    });
   });
 
   it('écrit par l’import tout ce que la carte écrivait', async () => {

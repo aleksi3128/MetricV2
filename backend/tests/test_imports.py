@@ -353,6 +353,23 @@ def test_a_validated_run_is_written_with_its_source(
     assert dict(zip(header.split(","), line.split(","), strict=True))["source"] == "apple"
 
 
+def test_a_validated_run_serves_its_stable_id_for_the_pain_question(
+    store_client: TestClient, dav: FakeWebDav, auth: dict[str, str]
+) -> None:
+    """Session 10 b : la feuille enchaîne sur « Une douleur ? », rattachée à la course par
+    son identifiant **stable** — la position `id` se décale à la première suppression."""
+    response = store_client.post(
+        "/api/import/apple",
+        json={"kind": "run", "date": "2026-07-28", "distance_km": "8,4", "duration_min": "44:12"},
+        headers=auth,
+    )
+
+    assert response.status_code == 201
+    run_id = response.json()["run_id"]
+    header, line = dav.content_of(RUNS_FILE).rstrip().splitlines()
+    assert run_id and dict(zip(header.split(","), line.split(","), strict=True))["run_id"] == run_id
+
+
 def test_a_strength_session_is_refused_rather_than_written_elsewhere(
     store_client: TestClient, auth: dict[str, str]
 ) -> None:
