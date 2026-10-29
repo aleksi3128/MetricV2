@@ -41,6 +41,8 @@ export interface Exchange {
    * (M-20). Absent du passé relu, qui ne range aucune action en attente.
    */
   thread?: string;
+  /** Le rang de la réponse dans son fil : une confirmation s'y range (session 10 b). */
+  seq?: number | null;
 }
 
 /** Le passé d'un fil, **dérivé** de ce que le serveur rend — jamais recopié dans un état. */
@@ -61,6 +63,7 @@ export function pastFrom(messages: ThreadMessage[]): Exchange[] {
       actions: answer?.role === 'assistant' ? (answer.actions ?? []) : [],
       remembered: [],
       context: answer?.role === 'assistant' ? (answer.context ?? []) : [],
+      seq: answer?.role === 'assistant' ? answer.seq : null,
     });
   }
   return rebuilt;
@@ -148,6 +151,7 @@ export function useConversation({
           remembered: result.remember,
           context: result.context,
           thread: result.thread_id,
+          seq: result.seq,
         },
       ]);
     },

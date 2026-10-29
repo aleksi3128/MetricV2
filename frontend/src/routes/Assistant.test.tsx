@@ -47,6 +47,7 @@ const EMPTY_MEMORY: AssistantView = {
 
 const REPLY: ChatReply = {
   thread_id: 'fil-1',
+  seq: 1,
   title: 'Où j’en suis cette semaine',
   reply: 'Tu tournes à 1,8 séance par semaine, contre 2,4 le mois dernier.',
   actions: [],
@@ -864,6 +865,7 @@ describe('actions', () => {
         name: 'weight.delete',
         args: PENDING.args,
         thread_id: REPLY.thread_id,
+        seq: REPLY.seq,
       });
     });
   });

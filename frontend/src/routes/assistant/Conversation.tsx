@@ -70,7 +70,15 @@ function toPayload(session: ProposedSession): Record<string, unknown> {
  *
  * Les programmes de nage arrivent **lus** : lignes réécrites, total. Rien n'est relu ici.
  */
-function ProposalCard({ report, thread }: { report: ActionReport; thread: string }) {
+function ProposalCard({
+  report,
+  thread,
+  seq,
+}: {
+  report: ActionReport;
+  thread: string;
+  seq: number | null;
+}) {
   const client = useQueryClient();
   const { notify } = useToast();
   const sessions = report.sessions ?? [];
@@ -87,6 +95,7 @@ function ProposalCard({ report, thread }: { report: ActionReport; thread: string
         report.name,
         { sessions: kept.map((item) => toPayload(item)) },
         thread,
+        seq,
       ),
     onSuccess: (result) => {
       if (result.status !== 'done') {
@@ -229,16 +238,33 @@ function DroppedList({ dropped }: { dropped: string[] }) {
  * * `refused` — rien n'a eu lieu, et la phrase dit pourquoi. Elle vient du serveur, en
  *   français, et s'affiche telle quelle.
  */
-export function ActionCard({ report, thread }: { report: ActionReport; thread: string }) {
+export function ActionCard({
+  report,
+  thread,
+  seq = null,
+}: {
+  report: ActionReport;
+  thread: string;
+  /** Le rang de la réponse qui porte l'action : la confirmation s'y range (session 10 b). */
+  seq?: number | null | undefined;
+}) {
   // Sur la forme servie, pas sur le nom : l'écran n'apprend aucune action par son nom. Des
   // séances à retenir une par une, c'est une proposition — quelle que soit l'action.
   if (report.status === 'pending' && (report.sessions ?? []).length > 0) {
-    return <ProposalCard report={report} thread={thread} />;
+    return <ProposalCard report={report} thread={thread} seq={seq} />;
   }
-  return <PlainAction report={report} thread={thread} />;
+  return <PlainAction report={report} thread={thread} seq={seq} />;
 }
 
-function PlainAction({ report, thread }: { report: ActionReport; thread: string }) {
+function PlainAction({
+  report,
+  thread,
+  seq,
+}: {
+  report: ActionReport;
+  thread: string;
+  seq: number | null;
+}) {
   const client = useQueryClient();
   const { notify } = useToast();
   const [settled, setSettled] = useState<'undone' | 'confirmed' | 'dismissed' | 'conflict' | null>(
@@ -280,7 +306,7 @@ function PlainAction({ report, thread }: { report: ActionReport; thread: string 
   });
 
   const confirm = useMutation({
-    mutationFn: () => assistantApi.confirmAction(report.name, report.args, thread),
+    mutationFn: () => assistantApi.confirmAction(report.name, report.args, thread, seq),
     onSuccess: (result) => {
       if (result.status !== 'done') {
         // Décidé sur le code, jamais sur la phrase. Un conflit `If-Match` ne se force pas :
@@ -554,6 +580,7 @@ export function TurnView({
           key={`${report.name}-${String(position)}`}
           report={report}
           thread={turn.thread ?? ''}
+          seq={turn.seq}
         />
       ))}
 

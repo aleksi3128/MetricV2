@@ -77,6 +77,7 @@ const PROPOSAL: ActionReport = {
 
 const REPLY: ChatReply = {
   thread_id: 'fil-plan',
+  seq: 3,
   title: 'Planning',
   reply: 'Deux séances pour la semaine.',
   remember: [],
@@ -289,6 +290,33 @@ describe('l’entrée du planning, avec un fil', () => {
     expect(await screen.findByText('Mardi, des éducatifs.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ma semaine de natation' })).toBeInTheDocument();
   });
+
+  it('rouvert après une adoption, montre ce qu’elle a ajouté et mène au jour (session 10 b)', async () => {
+    const adopted: ActionReport = {
+      ...PROPOSAL,
+      status: 'done',
+      summary: '2 séances ajoutées au planning.',
+      sessions: [],
+      dropped: [],
+      undo: null,
+      day: '2026-08-17',
+    };
+    const [question, answer] = PLANNING_THREAD.messages;
+    if (question === undefined || answer === undefined) throw new Error('fil incomplet');
+    stub({
+      thread: { ...PLANNING_THREAD, messages: [question, { ...answer, actions: [adopted] }] },
+    });
+    renderScreen('/assistant?fil=fil-plan');
+
+    expect(await screen.findByText('2 séances ajoutées au planning.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Voir au planning' })).toHaveAttribute(
+      'href',
+      '/planning?jour=2026-08-17',
+    );
+    // Rangée faite, elle ne se propose plus : ni « Adopter », ni « Annuler ».
+    expect(screen.queryByRole('button', { name: /Adopter/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Annuler' })).toBeNull();
+  });
 });
 
 describe('un fil ordinaire', () => {
@@ -335,8 +363,11 @@ describe('une proposition, dans le fil du planning', () => {
       name: string;
       args: { sessions: { title: string }[] };
       thread_id: string;
+      seq: number;
     };
     expect(body.name).toBe('plan.propose');
+    // Le rang de la réponse : le serveur y range l'adoption (session 10 b).
+    expect(body.seq).toBe(3);
     expect(body.args.sessions.map((item) => item.title)).toEqual(['Vitesse']);
     // Le fil de la réponse : sa portée dit qu'un `plan.propose` s'y confirme.
     expect(body.thread_id).toBe('fil-plan');

@@ -584,12 +584,15 @@ class AssistantService:
         *,
         moment: datetime,
         actions: list[ActionReport] | None = None,
-    ) -> None:
-        """Ajoute des tours à un fil et repousse sa date d'activité.
+    ) -> int:
+        """Ajoute des tours à un fil et repousse sa date d'activité. Rend le rang du dernier.
 
         Chaque entrée est un triplet `(rôle, contenu, condensé)`. Le condensé n'accompagne
         que la réponse — une question n'en a pas — et il est **rangé**, pas recalculé : il
         dépend des chiffres du jour où elle a été posée.
+
+        Le rang rendu est celui de la réponse : l'écran le renvoie avec une confirmation,
+        qui se range ainsi avec le message qui la proposait (session 10 b).
         """
         existing = [
             row.model.seq
@@ -615,11 +618,13 @@ class AssistantService:
             ]
         )
 
+        last = next_seq + len(entries) - 1
         rows = await self._threads.read_all(fresh=True)
         for index, row in enumerate(rows):
             if row.model.id == thread_id:
                 await self._repo_replace_thread(index, row.token, row.model, moment)
-                return
+                break
+        return last
 
     async def _repo_replace_thread(
         self, index: int, token: str, existing: ThreadRow, moment: datetime
@@ -912,7 +917,41 @@ class AssistantService:
             )
 
         spec, payload = checked
-        return await self._perform(spec, payload, request.args)
+        message = None
+        if request.seq is not None:
+            message = await self._message(request.thread_id, request.seq)
+        report = await self._perform(spec, payload, request.args)
+        if message is not None and report.status == "done":
+            await self._file_with(message, report)
+        return report
+
+    async def _message(self, thread_id: str, seq: int) -> Row[MessageRow]:
+        """La réponse d'un fil, à son rang — celle qui portait l'action à confirmer."""
+        for row in await self._messages.read_all(fresh=True):
+            model = row.model
+            if model.thread_id == thread_id and model.seq == seq and model.role == "assistant":
+                return row
+        raise StorageNotFoundError("Ce message n'est plus dans la discussion.")
+
+    async def _file_with(self, message: Row[MessageRow], report: ActionReport) -> None:
+        """Range une confirmation faite avec le message qui la proposait (session 10 b).
+
+        `confirm()` écrit au domaine, pas au fil : rouvert, le fil du planning montrait la
+        proposition sans « 2 séances ajoutées ». Le rapport rejoint les actions du message,
+        **sans son annulation**, comme toute action rangée (`_render_actions`) — elle
+        périmerait avec le jeton de sa ligne. Une proposition en attente n'y est jamais
+        rangée : la relire offrirait de la confirmer une seconde fois.
+
+        L'écriture vient **après** le domaine : si elle échoue, l'action est faite et le
+        fil ne le dit pas — le défaut d'avant ce lot, pas une écriture fausse. L'ordre
+        inverse rangerait une action qui n'a peut-être pas eu lieu.
+        """
+        kept = _read_actions(message.model.actions)
+        await self._messages.replace_by_token(
+            message.index,
+            message.token,
+            message.model.model_copy(update={"actions": _render_actions([*kept, report])}),
+        )
 
     # ── La conversation (`IA-09`, `IA-10`) ────────────
 
@@ -1167,7 +1206,7 @@ class AssistantService:
             thread_id = await self._open_thread(title, moment=moment, scope=scope)
         if thread_id is None:  # pragma: no cover - `opening` vient de l'ouvrir
             raise StorageNotFoundError("Cette discussion n'existe pas.")
-        await self._append_messages(
+        seq = await self._append_messages(
             thread_id,
             [("user", request.question, []), ("assistant", reply, facts)],
             moment=moment,
@@ -1176,6 +1215,7 @@ class AssistantService:
 
         return ChatReply(
             thread_id=thread_id,
+            seq=seq,
             title=title,
             reply=reply,
             remember=remembered,

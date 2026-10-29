@@ -219,6 +219,10 @@ class ConfirmRequest(BaseModel):
     #: ordinaire — ou sans fil du tout —, et la portée ne tenait qu'à ce que le modèle
     #: voyait. Un fil absent est un refus, comme un `If-Match` absent est un conflit.
     thread_id: str = Field(min_length=1, max_length=32)
+    #: Le rang du message qui portait l'action (`ChatReply.seq`, `ThreadMessage.seq`).
+    #: Donné, la confirmation faite s'y range : rouvert, le fil la montre (session 10 b).
+    #: Inconnu dans ce fil, `404` — avant toute écriture.
+    seq: int | None = Field(default=None, ge=0)
 
 
 class ChatReply(BaseModel):
@@ -226,6 +230,9 @@ class ChatReply(BaseModel):
 
     #: Le fil, ouvert ou poursuivi. L'écran s'en sert pour la question suivante.
     thread_id: str
+    #: Le rang de la réponse dans son fil — à renvoyer avec une confirmation, pour qu'elle
+    #: s'y range (session 10 b).
+    seq: int | None = None
     title: str = ""
     reply: str
     #: Ce qui vient d'être **retenu**. Écrit, pas proposé (`IA-10`).

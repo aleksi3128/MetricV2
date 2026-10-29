@@ -159,6 +159,8 @@ export interface ActionReport {
 export interface ChatReply {
   /** Le fil, ouvert ou poursuivi. À redonner à la question suivante. */
   thread_id: string;
+  /** Le rang de la réponse dans son fil — à renvoyer avec une confirmation (session 10 b). */
+  seq: number | null;
   title: string;
   reply: string;
   /** Ce qui vient d'être **retenu** — écrit, avec de quoi le retirer (`IA-10`). */
@@ -398,10 +400,17 @@ export const assistantApi = {
    * Exécute une action laissée en attente. Elle est revalidée côté serveur, **dans la
    * portée du fil** où elle a été proposée (M-20).
    */
-  confirmAction: (name: string, args: Record<string, unknown>, threadId: string) =>
+  confirmAction: (
+    name: string,
+    args: Record<string, unknown>,
+    threadId: string,
+    seq: number | null = null,
+  ) =>
     request<ActionReport>('/api/assistant/actions/confirm', {
       method: 'POST',
-      body: { name, args, thread_id: threadId },
+      // `seq` : la réponse qui portait l'action. Donné, le serveur y range la confirmation
+      // faite, et le fil rouvert la montre (session 10 b).
+      body: { name, args, thread_id: threadId, seq },
     }),
 
   /**
