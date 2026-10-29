@@ -290,8 +290,9 @@ class ActionSpec:
     scopes: frozenset[str] = frozenset({""})
     #: Les champs du schéma de domaine que **cette** action tait au modèle, en plus de
     #: `HIDDEN_ARGS` — retirés de la description et des arguments reçus, pour la même
-    #: raison. `pain.add` tait `run_id` : le modèle ne voit aucun identifiant stable de
-    #: sortie, et un lien inventé rattacherait la douleur à une séance qui n'existe pas.
+    #: raison. `pain.add` taisait `run_id` jusqu'à la session 10 b : le modèle ne voyait
+    #: aucun identifiant stable de séance. Le condensé les sert désormais pour les séances
+    #: du jour, et le serveur refuse un lien qui n'en désigne aucune.
     hidden: frozenset[str] = frozenset()
     #: Ce qui fait **attendre** une action de niveau `AJOUT`, lu sur la donnée (M-10).
     #:
@@ -505,6 +506,19 @@ async def _add_pain(store: FileStore, payload: PainPayload) -> Outcome:
             "La zone est un lieu du corps, pas un diagnostic : dis où tu as mal."
         )
 
+    # **Rattachée à sa séance**, si le modèle la nomme (session 10 b) : par l'identifiant
+    # stable que le condensé sert à côté de chaque séance du jour — les patterns (R4) et le
+    # point du soir lisent `run_id`, quelle que soit la sorte de séance. Un lien qui ne
+    # désigne aucune séance de ce jour-là est refusé, jamais écrit : il rattacherait la
+    # douleur à une séance qui n'existe pas, et le point du soir croirait la question posée.
+    # Sans lien, la douleur reste valable : les patterns la rattachent seuls à la course du
+    # jour quand elle est la seule (D6).
+    if payload.run_id and payload.run_id not in await _session_ids(store, payload.date):
+        raise ValidationFailedError(
+            "Je ne rattache une douleur qu'à une séance de son jour, telle que je la vois "
+            "plus haut. Sans séance désignée, je la note seule."
+        )
+
     episode = await PainService(store).create(payload.model_copy(update={"source": SOURCE}))
     written = max(episode.reports, key=lambda entry: entry.id)
     # La phrase des règles commence par « Douleur (genou, gauche) » ou « Gêne (…) » : le
@@ -515,6 +529,30 @@ async def _add_pain(store: FileStore, payload: PainPayload) -> Outcome:
         summary=f"{what} le {written.date:%d/%m}. {episode.text}",
         undo=Undo("pain", written.id, written.token),
     )
+
+
+async def _session_ids(store: FileStore, day: dt.date) -> set[str]:
+    """Les identifiants stables des séances d'un jour : courses, natations, sorties, Cadence.
+
+    Ceux que le condensé sert (`context._training_today`) et que lit le point du soir — la
+    même colonne `run_id` de `pain.csv` les reçoit tous, comme depuis `PainCheck`.
+    """
+    from app.domains.activity.models import CircuitSessionRow, OtherRow, RunRow, SwimRow
+    from app.storage.csv_repo import CsvRepository
+    from app.storage.paths import CIRCUIT_SESSIONS, OTHERS, RUNS, SWIMS
+
+    ids: set[str] = set()
+    for path, model, field in (
+        (RUNS, RunRow, "run_id"),
+        (SWIMS, SwimRow, "swim_id"),
+        (OTHERS, OtherRow, "other_id"),
+        (CIRCUIT_SESSIONS, CircuitSessionRow, "session_id"),
+    ):
+        for row in await CsvRepository(store, path, model).read_all():
+            stable = getattr(row.model, field)
+            if getattr(row.model, "date", None) == day and stable:
+                ids.add(stable)
+    return ids
 
 
 async def _add_swim(store: FileStore, payload: SwimPayload) -> Outcome:
@@ -887,10 +925,11 @@ def catalogue() -> dict[str, ActionSpec]:
             "d'avant la séance. Avec le pain_id d'une douleur ouverte vue plus haut, son "
             "suivi : seulement intensity, moment, kind, limp. date : aujourd'hui ou hier, "
             "rien de plus ancien. Ce que je n'ai pas dit — intensité, moment, type, côté, "
-            "niveau d'avant — se demande, ne se devine pas",
+            "niveau d'avant — se demande, ne se devine pas. run_id, facultatif : la séance "
+            "du jour où elle est venue, par l'identifiant que je te donne à côté d'elle "
+            "(pain.add : run_id=…) — jamais inventé ; sans séance nommée, ne le mets pas",
             PainPayload,
             _add_pain,
-            hidden=frozenset({"run_id"}),
             gesture="noter une douleur",
         ),
         _spec(

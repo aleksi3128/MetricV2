@@ -448,6 +448,8 @@ async def today_lines(store: FileStore, today: date) -> list[str]:
     leur ligne et leur jeton, pour `effort.rate` — « c'était dur, 8 sur 10 » se dit en
     sortant de séance, et la tranche coûterait un appel entier pour trois identifiants. Le
     jeton reste exigé : le servir n'assouplit pas `STO-05`, il évite de le payer deux fois.
+    Depuis la session 10 b, elles portent aussi leur identifiant **stable**, pour qu'une
+    douleur notée par `pain.add` se rattache à sa séance.
 
     ## Aucun zéro pour une absence
 
@@ -543,7 +545,7 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
         travail = f" — {groupes}" if groupes else ""
         lines.append(
             f"Aujourd'hui — séance : {seance.name}, {', '.join(details)}{travail} "
-            f"{_rating('session', row.index, row.token)}"
+            f"{_rating('session', row.index, row.token)} {_linking(seance.session_id)}"
         )
 
     # Les séries du jour : ce que la séance a réellement contenu, exercice par exercice.
@@ -566,7 +568,8 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
             details.append(f"allure {fr(run.pace_min_km)} min/km")
         details.append(_effort(run.rpe))
         lines.append(
-            f"Aujourd'hui — course : {', '.join(details)} {_rating('run', run.id, run.token)}"
+            f"Aujourd'hui — course : {', '.join(details)} {_rating('run', run.id, run.token)} "
+            f"{_linking(run.run_id)}"
         )
 
     for nage in await SwimService(store).records():
@@ -580,7 +583,7 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
         ]
         lines.append(
             f"Aujourd'hui — natation : {', '.join(details)} "
-            f"{_rating('swim', nage.index, nage.token)}"
+            f"{_rating('swim', nage.index, nage.token)} {_linking(swim.swim_id)}"
         )
 
     for other in (await OtherService(store).all()).others:
@@ -592,7 +595,7 @@ async def _training_today(store: FileStore, today: date) -> list[str]:
         details.append(_effort(other.rpe))
         lines.append(
             f"Aujourd'hui — sortie ({other.sport}) : {', '.join(details)} "
-            f"{_rating('other', other.id, other.token)}"
+            f"{_rating('other', other.id, other.token)} {_linking(other.other_id)}"
         )
 
     return lines
@@ -606,6 +609,13 @@ def _effort(rpe: int | None) -> str:
 def _rating(kind: str, row_id: int, token: str) -> str:
     """De quoi noter l'effort de cette séance, sous la forme qu'attend `effort.rate`."""
     return f"(effort.rate : kind={kind}, row_id={row_id}, token={token})"
+
+
+def _linking(stable: str) -> str:
+    """De quoi rattacher une douleur à cette séance (session 10 b) : son identifiant
+    **stable**, que `pain.add` reçoit en `run_id` — la position se décale, lui non. Vide
+    pour une ligne retapée sans identifiant : rien à rattacher."""
+    return f"(pain.add : run_id={stable})" if stable else ""
 
 
 def memory_lines(entries: list[MemoryNote]) -> list[str]:

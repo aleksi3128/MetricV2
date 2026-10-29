@@ -210,14 +210,75 @@ def test_a_diagnosis_is_not_a_zone(
     assert "Metric/body/pain.csv" not in dav.files
 
 
-def test_the_model_never_links_a_pain_to_a_run_it_cannot_see() -> None:
+def test_the_model_links_a_pain_only_to_a_session_it_was_shown() -> None:
+    """Session 10 b : `run_id` n'est plus tu — le condensé sert l'identifiant stable des
+    séances du jour, et la description dit de ne jamais l'inventer."""
     from app.domains.assistant.actions import catalogue, validate
 
-    assert "run_id" not in catalogue()["pain.add"].describe
-    checked = validate("pain.add", {"date": TODAY.isoformat(), **KNEE, "run_id": "invente"})
+    described = catalogue()["pain.add"].describe
+    assert "run_id" in described and "jamais inventé" in described
+    checked = validate("pain.add", {"date": TODAY.isoformat(), **KNEE, "run_id": "r1"})
     assert not isinstance(checked, str)
-    assert checked[1].model_dump()["run_id"] is None
+    assert checked[1].model_dump()["run_id"] == "r1"
     assert checked[1].model_dump()["source"] == "manual", "forcée à `ia` à l'écriture seulement"
+
+
+def test_a_pain_linked_to_todays_run_is_seen_by_the_patterns_and_the_evening(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    """Deux courses le même jour : la règle D6 des patterns ne rattache rien seule. Le lien
+    que l'assistant pose, lui, désigne la seconde — et les patterns la comptent répondue."""
+    a_run(ai_app_client, auth)
+    second = a_run(ai_app_client, auth)
+    say(openrouter, "pain.add", date=TODAY.isoformat(), **KNEE, run_id=second["run_id"])
+
+    report = acted(ai_app_client, auth)[0]
+
+    assert report["status"] == "done", report
+    entry = ai_app_client.get("/api/pain", headers=auth).json()["open"][0]["reports"][0]
+    assert entry["run_id"] == second["run_id"]
+    patterns = ai_app_client.get("/api/pain/patterns", headers=auth).json()
+    unanswered = [item["run_id"] for item in patterns["unanswered"]]
+    assert second["run_id"] not in unanswered
+    assert len(unanswered) == 1, "la première course reste à renseigner"
+    assert patterns["zones"][0]["with_pain"] == 1
+    # Le point du soir ne la redemande pas : il lit la même colonne.
+    evening = ai_app_client.get("/api/evening", headers=auth).json()
+    assert (evening.get("pain") or {}).get("activity_id") != second["run_id"]
+
+
+def test_a_link_to_no_session_of_that_day_is_refused_and_nothing_written(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter, dav: FakeWebDav
+) -> None:
+    yesterday = a_run(ai_app_client, auth, day=YESTERDAY)
+    say(openrouter, "pain.add", date=TODAY.isoformat(), **KNEE, run_id="invente")
+    say(openrouter, "pain.add", date=TODAY.isoformat(), **KNEE, run_id=yesterday["run_id"])
+
+    invented = acted(ai_app_client, auth)[0]
+    other_day = acted(ai_app_client, auth)[0]
+
+    for report in (invented, other_day):
+        assert report["status"] == "refused", report
+        assert "séance de son jour" in report["summary"]
+    assert "Metric/body/pain.csv" not in dav.files
+
+
+def test_the_condensed_view_gives_each_session_its_stable_id(
+    ai_app_client: TestClient, auth: dict[str, str], openrouter: FakeOpenRouter
+) -> None:
+    run = a_run(ai_app_client, auth)
+    walk = ai_app_client.post(
+        "/api/activity/others",
+        json={"date": TODAY.isoformat(), "sport": "marche", "duration_min": "30"},
+        headers=auth,
+    ).json()
+    openrouter.say(answer())
+
+    acted(ai_app_client, auth, "Bonjour")
+
+    prompt = openrouter.calls[0].prompt
+    assert f"(pain.add : run_id={run['run_id']})" in prompt
+    assert f"(pain.add : run_id={walk['other_id']})" in prompt
 
 
 # ── swim.add ──────────────────────────────────────────
