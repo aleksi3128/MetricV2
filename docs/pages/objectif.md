@@ -14,7 +14,7 @@ Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| **Objectif en cours** | Titre, anneau (ou « avancement indéterminé »), résumé chiffré, fenêtre d'observation, jours restants ; Clore / Abandonner (armé) | `GET /api/goals` | « Aucun objectif en cours » + **Demander à l'assistant** |
+| **Objectif en cours** | Titre, anneau (ou « avancement indéterminé »), résumé chiffré, **ce que compte le pourcentage et depuis quelle base** (`ratio_text`), fenêtre d'observation, jours restants ; Clore / Abandonner (armé) | `GET /api/goals` | « Aucun objectif en cours » + **Demander à l'assistant** |
 | **Se fixer un objectif** | « Ce que tu veux travailler » → **Proposer un objectif** → proposition en `AiBlock`, titre modifiable → **Adopter** | `POST /api/goals/proposal`, `POST /api/goals` | — |
 | **Bilan de la semaine** | La dernière semaine achevée : progrès, décrochages, une action ; **Faire le bilan**, **Conserver** | `GET /api/goals/weekly`, `POST /api/goals/weekly`, `POST /api/goals/weekly/keep` | bouton seul |
 | Bilans conservés | Les bilans gardés, à relire ou retirer | même appel | — |
@@ -43,6 +43,30 @@ Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
   « Où je vais » affiche la cible de poids faute d'objectif~~ : depuis M-19 (`af2202d`), la
   course A passe avant, l'objectif daté dessous, et la cible de poids ne se montre qu'à
   défaut des deux.
+- ~~**L'anneau dit « 0 % » sous « 2,2 sur 3 séances », et rien ne dit d'où il compte.**~~
+  Dit (`bd6704a`, décision du 29 octobre) : la règle de `GOAL-04` ne change pas — le
+  pourcentage est le chemin fait depuis la base relevée à l'adoption. Le serveur rédige la
+  phrase (`GoalProgress.ratio_text`, `goals/progress.py`), l'écran l'affiche sous le
+  résumé, ici et sur l'accueil. Elle dit la base selon la métrique : une cadence est une
+  moyenne « par semaine » ou « par jour » sur la fenêtre d'avant l'adoption, le poids la
+  dernière pesée au plus tard ce jour-là, datée quand elle est plus ancienne. Les cas
+  limites :
+
+  | Cas | Phrase |
+  |---|---|
+  | Au départ | « 0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption (moyenne des 4 semaines complètes d'avant). » |
+  | À la baisse | « 50 % du chemin depuis ta base : 82 kg, dernier relevé avant l'adoption (24/09). » |
+  | En recul | « 0 % … — en recul depuis, et le chemin ne se compte pas en négatif. » |
+  | Cible dépassée | « 100 % … — cible dépassée. » (« cible atteinte » pile dessus) |
+  | Base déjà sur la cible | « 100 % d'office : ta base, …, tenait déjà la cible — il n'y avait aucun chemin à compter. » |
+  | Aucune base | « Chemin fait : — (aucun relevé au 29/09, jour de l'adoption, donc aucune base d'où le compter). Un relevé daté de ce jour-là ou d'avant en donnerait une. » |
+
+  Deux effets de bord, voulus. Le texte que l'écran écrivait lui-même pour le cas sans base
+  est parti : la phrase du serveur le remplace. Et `baseline` et `current` sont servis arrondis
+  comme les phrases les citent (`core/text.shown`) : sur le banc, la tuile « Départ »
+  disait 2,3 (`Intl` arrondit 2,25 vers le haut) sous une phrase qui disait 2,2 (`round`).
+  Le condensé de l'assistant reprend la phrase mot pour mot. Le point du soir ne cite pas
+  l'objectif : rien à y dire.
 - **Cet écran-ci ne dit toujours rien de la course A.** M-19 l'a mise sur l'accueil, pas
   ici : `/objectif` reste celui de l'objectif chiffré. Voir `modifications.md` §7.
 

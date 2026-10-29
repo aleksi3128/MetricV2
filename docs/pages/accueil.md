@@ -26,7 +26,7 @@ avant, sur le banc du lot M-03).
 | **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + **Noter**, qui ouvre la saisie rapide sur place (M-11, `8e632c1`) ; « Aucune séance prévue d'ici deux semaines » |
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
 | **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une : la durée du sommeil saisie au parcours du matin (`c6c10b4`), ou un jour de l'archive `body/health.csv`, que plus rien n'écrit depuis `1c161e1`. Le stress et la Body Battery, sans source, ne sont pas dits |
-| **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `plan_notice`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; le plan d'une course passée en B, ou retirée, dans sa carte à part (« Plan de course », `plan_notice`, session 10 b) : la même phrase que `/plan`, **Voir le plan**, ni repose ni retrait ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
+| **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, la phrase qui dit d'où se compte le pourcentage — `ratio_text`, `bd6704a` —, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `plan_notice`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; le plan d'une course passée en B, ou retirée, dans sa carte à part (« Plan de course », `plan_notice`, session 10 b) : la même phrase que `/plan`, **Voir le plan**, ni repose ni retrait ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
 | ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
 | ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
 | ~~**Assistant**~~ | Retirée (M-22, `fc178f8`) : la barre du haut et la barre basse ont leur entrée, « Mémoire » est un bouton de l'en-tête de `/assistant` | — | — |
@@ -109,9 +109,12 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 - ~~**L'état vide envoie ailleurs ce que « Noter » fait sur place.**~~ Corrigé (M-11,
   `8e632c1`) : un bouton « Noter » ouvre la saisie rapide — la feuille du bouton central,
   dont l'état est monté dans la coquille — sans quitter l'accueil.
-- **L'anneau de l'objectif peut dire « 0 % » sous « 2,2 sur 3 séances »** (vu le 28 octobre) :
-  le pourcentage est le chemin depuis la base de l'adoption, que l'écran ne dit pas. C'est
-  la règle de `GOAL-04`, pas l'affichage : laissé, au §7 de `modifications.md`.
+- ~~**L'anneau de l'objectif peut dire « 0 % » sous « 2,2 sur 3 séances »**~~ (vu le 28
+  octobre). Dit (`bd6704a`, décision du 29 octobre) : la règle ne change pas, le serveur
+  rédige sous l'anneau ce que compte le pourcentage et quelle était la base — « 0 % du
+  chemin depuis ta base : 2,2 séances par semaine à l'adoption (…) ». La même phrase qu'à
+  `/objectif` ; sans base, pas d'anneau et « Chemin fait : — », avec le relevé qui en
+  donnerait une.
 - ~~**La rangée « Assistant » en pied d'écran a perdu sa raison d'être.**~~ Retirée (M-22,
   `fc178f8`). Les adresses `?ouvre=discussions` et `?ouvre=memoire` restent lues par
   `/assistant`.
