@@ -182,8 +182,23 @@ Relevé par l'audit du 17 octobre (fiche 30) : une table qui promet une action q
 ne peut pas appeler fait chercher là où il n'y a rien.
 
 **Aucune action n'est déclenchable par une plainte physique** (`IA-12`) : la consigne
-l'interdit, et la table refuse `plan.*`, `goal.*` et `settings.*` quand la question porte
-une alerte médicale repérée en relecture.
+l'interdit — « aucune action à la suite d'une douleur…, hormis la noter avec pain.add si
+je te demande de la noter » (§10) —, et **la consigne seule**. La table ne refuse rien sur
+alerte médicale : ni `plan.*`, ni `goal.*` (qui n'existe pas), ni `settings.*` (non plus).
+Ce paragraphe disait le contraire jusqu'au 28 octobre ; c'était introuvable dans le code, et
+c'est **assumé** (décision du 28 octobre, `pages/modifications.md` §7) :
+
+- la relecture ne repère aucune « alerte médicale » — `conversation.py` le dit : elle **ne
+  censure rien**, et la garde est en amont, dans la consigne, et en aval, dans la mention
+  permanente de l'écran ;
+- les actions qui défont un engagement — `plan.move`, `plan.delete`, `plan.propose` —
+  attendent déjà un appui : une séance retirée « parce qu'on a parlé d'un genou » ne
+  s'écrit pas sans que l'utilisateur la confirme sous ses yeux ;
+- une table qui jugerait une question « médicale » serait une seconde lecture du texte,
+  moins bonne que celle du modèle, et qui refuserait en silence ce qu'on lui demande.
+
+Ce que le serveur tient, lui, ce sont les bornes de `pain.add` : le jour ou la veille, une
+zone et jamais un diagnostic, une séance du jour désignée par son identifiant ou aucune.
 
 ---
 
