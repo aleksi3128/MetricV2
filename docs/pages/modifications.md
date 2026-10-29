@@ -2,8 +2,9 @@
 
 Les treize documents de ce dossier disent ce que chaque destination contient. Celui-ci en
 tire les conséquences : ce qui se répète, ce qui manque, ce qui est rangé ailleurs que là
-où on le cherche. **Rien n'est codé.** Chaque fiche dit ce qui change, pourquoi, ce que ça
-coûte et ce que ça risque ; l'ordre de réalisation est au §5.
+où on le cherche. Il a été écrit **avant de coder** : chaque fiche dit ce qui change,
+pourquoi, ce que ça coûte et ce que ça risque ; l'ordre de réalisation est au §5. Tout ce
+qu'il proposait est fait ou écarté depuis — le [bilan](#bilan) le dit en une page.
 
 Le regard est celui de l'**usage quotidien** d'un seul utilisateur : le matin (relevés,
 séance du jour), la séance (lancer, noter), le repas, le soir (bilan, demain). Une
@@ -15,6 +16,45 @@ gagner aucun part.
 - **P1** : gêne l'usage quotidien, ou fait dire à l'écran quelque chose de faux.
 - **P2** : redondance ou détour qui coûte du défilement ou de l'hésitation.
 - **P3** : confort, ou décision de produit à prendre avant de coder.
+
+---
+
+<a id="bilan"></a>
+
+## Bilan au 29 octobre
+
+Après les sessions 9 a à 10 d et les lots du 29 octobre, jusqu'à `4050c46`.
+
+- **Les fiches.** Vingt-trois : **vingt-deux faites**, **une écartée** (M-18 : aucune
+  synchro Garmin, et son code retiré, `1c161e1`). Aucune n'est partielle — M-02 a ses
+  quatre points depuis `22a53dd`. M-16 est faite puis sa saisie a **quitté l'écran** par
+  décision (`11bdd17` ; `git revert 11bdd17` la rétablit). Treize gardent un reste, dit
+  dans la colonne « Reste ouvert » du §2.
+- **L'ordre (§5).** Les dix étapes sont faites ; il n'y en a plus à venir.
+- **Les restes (§7).** Cinquante et une lignes : **vingt et une faites**, **dix décidées**
+  (gardées, aucune, retirée, hors de l'estimation, pas lancés, attendent), **vingt
+  ouvertes**, rassemblées sous le tableau.
+- **Les décisions de produit en attente.**
+  - **Le sommeil** se saisit le matin depuis `c6c10b4`, mais n'entre **ni dans la forme,
+    ni dans le coach, ni dans les corrélations**, et n'a pas de courbe : un lot à décider
+    (`synchro-garmin.md` §6.4).
+  - **L'effort perçu d'une course saisie à la main** n'est pas demandé (`ab4b27a`).
+  - **Les séances retouchées à la main** partent au retrait et à la repose d'un plan :
+    tranché par la session 10 b, jamais relu par l'utilisateur.
+  - **`/objectif` et la course A** : attend.
+  - **Les mensurations par l'assistant** : attendent (`measurements.csv` n'a pas de
+    colonne `source`).
+  - **Les huit cas `make eval` de M-10** : appels payants, jamais lancés.
+  - **Ouvrir un jour passé depuis la grille de `/nutrition`** (M-01) : décider d'abord ce
+    que « servi » veut dire pour une date passée.
+- **Décidé, à garder en tête.** **La course B reposée** sans autre course A refait un plan
+  complet, affûtage compris : c'est **à rebours de `plan-course.md` D9** (la B « courue,
+  mais sans affûtage ni pic de forme »), et **validé** le 29 octobre (`2fd42eb`).
+  `plan-course.md` §4 décrit le comportement ; D9 ne dit pas l'exception. Aussi : la saisie
+  d'un vélo ou d'une marche retirée de l'écran, réversible ; le vélo et la marche `.fit` hors
+  de l'estimation depuis la FC ; aucune notification « Séance reçue ».
+- **Ce qui reste transverse** : rien n'a été touché sur un vrai téléphone ni avec un vrai
+  modèle (`CLAUDE.md` §7), et le retrait comme la pose d'un plan n'ont pas d'`If-Match`.
 
 ---
 
@@ -56,31 +96,34 @@ visée ne parlait à aucun autre écran — elle parle à l'accueil depuis M-19.
 
 ## 2. Synthèse
 
-| Id | Sorte | Pages | En une ligne | Prio. |
-|---|---|---|---|---|
-| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier — **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), l'assistant avec M-10 (`21fb4f4`) | **P1** |
-| [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile — **fait** (`385871a`, `1fa151b`, `22a53dd`) | **P1** |
-| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables, les douleurs à leur adresse — **fait** (`ae706b7`, `cdeda08`) | **P1** / P2 |
-| [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant — **fait** (`3bcde3f`) | **P1** |
-| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » — **fait** (`34bbce7`, type au rejeu `d1de02d`) | P2 |
-| [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning — **fait** (`c9b1433`) | P2 |
-| [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle — **fait** (`96f1f8f`, `1d05b4d`, `3d5c8c8`, `58ba44b`, `4d902ce`) | P2 |
-| [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil — **fait** (`c67f06f`) | P2 |
-| [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` — **fait** (`c67f06f`) | P2 |
-| [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série — **fait** (`96d81d9`) | P2 |
-| [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant — **fait** (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) | P2 |
-| [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens — **fait** (`21a1672` → `c2f44fa`, `827b293`) | P2 |
-| [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 — **fait** (`ded7779`) | P2 |
-| [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning — **fait** (`9f1e991`) | P2 |
-| [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit — **fait** (`ea1aeb4`, `58cf652`) | P3 |
-| [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran — **fait** (`8e632c1`) | P3 |
-| [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée — **fait** (`64e3f49`) | P3 |
-| [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main — **fait** (`2cc88e0`, `7eaa41f`), corrigés (`d5bc4ac`) ; la saisie a **quitté l'écran** le 29 octobre (`11bdd17`, se rétablit par `git revert`) | P3 |
-| [M-17](#m-17) | ajouter | Plan | Corriger une course visée — **fait** (`defb1cd`) ; le plan d'une course passée en B ou retirée (`2cfff5e`, `e2cf6e4`) | P3 |
-| [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran — **écartée** (27 octobre : aucune synchro Garmin, voir §6) ; le code **retiré** le 28 octobre (`1c161e1`) | P3 |
-| [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » — **fait** (`af2202d`) | P3 |
-| [M-20](#m-20) | fusionner | Planning, Assistant | Un seul coach sur le planning — **fait** (`685c4af`, `bbacdd7`) ; l'adoption rangée dans son fil (`949d218`) | P3 |
-| [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil — **fait** (`fc178f8`) | P3 |
+| Id | Sorte | Pages | En une ligne | État | Reste ouvert | Prio. |
+|---|---|---|---|---|---|---|
+| [M-01](#m-01) | ajouter | Nutrition, matin, assistant | Noter un repas d'hier | **fait** (`331ae7e`, restes `34bbce7`, `7c895ff`, `74dfc9d`, `d1de02d`), l'assistant avec M-10 (`21fb4f4`) | l'heure et le jour d'un repas ne se corrigent pas à la fiche ; un jour au-delà d'hier ne s'ouvre pas depuis la grille | **P1** |
+| [M-02](#m-02) | fusionner | Activité (courses), Charge, Accueil | Une seule règle du facile | **fait**, quatre points (`385871a`, `1fa151b`, puis `22a53dd` pour l'estimation depuis la FC) | « historique noté » compte les courses estimées ; « Charge de course (FC) » couvre aussi des zones d'allure (§7) | **P1** |
+| [M-08](#m-08) | ajouter, déplacer | Corps | Mensurations corrigeables, les douleurs à leur adresse | **fait** (`ae706b7`, `cdeda08`) | la note d'un relevé ne se saisit pas à l'écran ; les mensurations par l'assistant attendent (§7) | **P1** / P2 |
+| [M-21](#m-21) | corriger | Charge, Activité | Quatre phrases fausses ou illisibles relevées en passant | **fait** (`3bcde3f`, la phrase de forme avec `3930cfb`) | — | **P1** |
+| [M-23](#m-23) | déplacer | Nutrition, Noter | Les favoris dans la feuille « Ajouter un repas » | **fait** (`34bbce7`, type au rejeu `d1de02d`) | — | P2 |
+| [M-03](#m-03) | déplacer | Plan, Planning | L'agenda et « ce que le coach a changé » au planning | **fait** (`c9b1433`, carte repliée `6c2e003`) | — | P2 |
+| [M-04](#m-04) | déplacer | Réglages et six écrans | Chaque réglage à côté de l'écran qu'il règle | **fait** (`96f1f8f`, `1d05b4d`, `3d5c8c8`, `58ba44b`, `4d902ce`) | prévenir avant de quitter `/reglages` (fiche 24, second volet) : non repris, la page est devenue courte | P2 |
+| [M-06](#m-06) | supprimer | Accueil | « Tendance » et « Entraînement » quittent l'accueil | **fait** (`c67f06f`) | des champs d'`AGG-01` sans lecteur à l'écran, laissés au serveur — un lot serveur à part | P2 |
+| [M-07](#m-07) | fusionner | Accueil, Activité, Charge | Le volume hebdomadaire tous sports n'a qu'une maison : `/charge` | **fait** (`c67f06f`) | plus de répartition par sport sur la période ; si elle manque, au service de `/api/training` | P2 |
+| [M-09](#m-09) | ajouter | Corps | FC de repos et VFC relues en série | **fait** (`96d81d9`) | un matin de plus de trente jours ne se corrige plus à l'écran | P2 |
+| [M-10](#m-10) | ajouter | Assistant | Douleur, natation, effort perçu par l'assistant | **fait** (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`), la douleur rattachée à sa séance (`31d9068`) | les huit cas `make eval` jamais lancés ; une douleur d'hier rattachée à rien (§7) | P2 |
+| [M-13](#m-13) | renommer | toutes | « Objectif », « Planning », « Charge », « Course », « Coach » : un mot, un sens | **fait** (`21a1672` → `c2f44fa`, `827b293`) | — | P2 |
+| [M-14](#m-14) | supprimer | Activité | La carte « Import d'une capture », doublon de l'étape 1 | **fait** (`ded7779`) | la date, le temps et l'allure lus d'une capture ne portent pas la marque « proposée » | P2 |
+| [M-15](#m-15) | corriger | Activité | Une natation `.fit` s'ouvre dans sa feuille, pas au planning | **fait** (`9f1e991`) | — | P2 |
+| [M-05](#m-05) | fusionner | Assistant, Réglages | Profil et carnet au même endroit | **fait** (`ea1aeb4`, `58cf652`) | — | P3 |
+| [M-11](#m-11) | corriger | Accueil | L'état vide ouvre « Noter » au lieu de changer d'écran | **fait** (`8e632c1`) | — | P3 |
+| [M-12](#m-12) | déplacer | Plus | Des groupes qui suivent les moments de la journée | **fait** (`64e3f49`) | — | P3 |
+| [M-16](#m-16) | ajouter | Activité | Un vélo ou une marche saisis à la main | **fait** (`2cc88e0`, `7eaa41f`), corrigés en place (`d5bc4ac`) ; la saisie a **quitté l'écran** le 29 octobre (`11bdd17`, `git revert 11bdd17` la rétablit) | la puce d'un vélo ne nomme pas la correction (§7) | P3 |
+| [M-17](#m-17) | ajouter | Plan | Corriger une course visée | **fait** (`defb1cd`), et le plan d'une course passée en B ou retirée (`2cfff5e`, `e2cf6e4`) | un nom corrigé garde l'ancien titre au jour de course posé jusqu'à la repose ; ni le retrait ni la pose d'un plan n'ont d'`If-Match` (§7) | P3 |
+| [M-18](#m-18) | ajouter | Réglages | L'état de la synchro Garmin à l'écran | **écartée** (27 octobre : aucune synchro Garmin, §6) ; le code **retiré** le 28 (`1c161e1`) | — | P3 |
+| [M-19](#m-19) | ajouter | Accueil, Objectif, Plan | La course A dans « Où je vais » | **fait** (`af2202d`) | `/objectif` ne dit rien de la course A — attend (§7) | P3 |
+| [M-20](#m-20) | fusionner | Planning, Assistant | Un seul coach sur le planning | **fait** (`685c4af`, `bbacdd7`), l'adoption rangée dans son fil (`949d218`) | « Voir au planning » garde son jour après un `plan.move` ; une confirmation faite reste ambre (§7) | P3 |
+| [M-22](#m-22) | supprimer | Accueil | La rangée « Assistant » en pied d'accueil | **fait** (`fc178f8`) | — | P3 |
+
+« Reste ouvert » ne reprend que ce qui attend encore ; le détail est sous chaque fiche, en
+**Reste.**, ou au §7.
 
 ---
 
@@ -1311,11 +1354,11 @@ serveur, contrairement au coût annoncé.
 2. ~~**M-01** et **M-08 (1)** — les deux trous qui salissent des données qu'on ne peut pas
    défaire.~~ Faits (`331ae7e`, `ae706b7`) ; `meal.add` fait avec M-10 (`21fb4f4`).
 3. ~~**M-02 (1–3)** — après avoir tranché le seuil de facile.~~ Fait (`385871a`,
-   `1fa151b`) ; le point 4 reste un lot à part.
+   `1fa151b`) ; le point 4, lot à part, fait à l'étape 9 (`22a53dd`).
 4. ~~**M-23**, **M-15**, **M-14** — Nutrition et Activité, front seul.~~ Faits (`34bbce7`,
    `9f1e991`, `ded7779`), avec deux restes de M-01 (`7c895ff`) et le liseré de `SwipeRow`
    (`e1a0a1c`) ; puis le journal d'hier et le type d'un favori rejoué (`74dfc9d`, `d1de02d`).
-   Reste à part : ouvrir un jour depuis la grille de l'historique.
+   Reste à part, et ouvert : ouvrir un jour depuis la grille de l'historique (M-01).
 5. ~~**M-06 + M-07** ensemble, puis **M-08 (2)** et **M-09** — l'accueil allégé, le corps
    réorganisé.~~ Faits (`c67f06f`, `cdeda08`, `96d81d9`).
 6. ~~**M-03**, puis **M-04** + **M-05** + **M-22** — le grand rangement des réglages.~~
@@ -1324,19 +1367,25 @@ serveur, contrairement au coût annoncé.
 7. ~~**M-13** et **M-12** à la fin, quand les écrans ont trouvé leur place : renommer avant
    de déplacer ferait renommer deux fois.~~ Faits (`21a1672` → `c2f44fa`, `827b293`, puis
    `64e3f49`).
-8. **M-10**, **M-16** à **M-20** : décisions prises le 27 octobre (sous chaque fiche).
+8. ~~**M-10**, **M-16** à **M-20**~~ : décisions prises le 27 octobre (sous chaque fiche) ;
+   faits, sauf M-18, écartée.
    Session 9 a : ~~**M-16** et **M-17**~~ faits (`2cc88e0`, `7eaa41f`, `defb1cd`).
    Session 9 b : ~~**M-19**~~ fait (`af2202d`) ; **M-18** écartée sans code (`9e75cd0`).
    Session 9 c : ~~**M-10**~~ fait (`21fb4f4`, `84977aa`, `26b8e68`, `388937f`, `0c4c28d`) ; **M-20** passe à la session 9 d.
    Session 9 d : ~~**M-20**~~ fait (`685c4af`, `bbacdd7`).
-9. **Les restes du §7**, décisions du 28 octobre (colonne du §7, et M-02 point 4 sous sa
+9. ~~**Les restes du §7**~~, décisions du 28 octobre (colonne du §7, et M-02 point 4 sous sa
    fiche). Session 10 a : ~~**M-11** et les restes qui se corrigent sans décision~~ faits
    (`8e632c1` → `1bca600`, `18b6520`), ce qui en reste est au §7. Session
    10 b : ~~la douleur après une saisie à la main, la correction d'un vélo ou d'une marche,
    le plan caduc d'une course passée en B ou retirée, l'adoption rangée dans son fil, la doc
    d'`IA-12`~~ faits (`ab4b27a` → `e2cf6e4`), et la saisie vélo et marche retirée de l'écran
    le 29 octobre (`11bdd17`). Session 10 c : ~~M-02 point 4~~ fait (`22a53dd`, `6772f07`).
-   Session 10 d : ~~le retrait de la synchro Garmin~~ fait (`1c161e1`).
+   Session 10 d : ~~le retrait de la synchro Garmin~~ fait (`1c161e1`). Ce que ces sessions
+   ont laissé est au §7.
+10. ~~**Les décisions du 29 octobre**~~ : le sommeil saisi le matin (`253f03f`, `c6c10b4`,
+    `42594f7`) ; l'anneau de l'objectif qui dit sa base (`a96f83a`, `4050c46`) ; la repose
+    d'une course passée en B, sans autre course A, validée telle quelle (`2fd42eb`). Plus
+    aucune étape à venir : ce qui reste est au [bilan](#bilan) et au §7.
 
 ## 6. Écarté, et pourquoi
 
@@ -1369,66 +1418,95 @@ serveur, contrairement au coût annoncé.
 Les restes des fiches faites avant le 27 octobre sont sous chaque fiche, en **Reste.**
 Ceux des sessions 9 a à 9 d sont rassemblés ici, pour qu'aucune ne les reprenne en passant.
 
-**Les décisions du 28 octobre** (de l'utilisateur, relayées par le superviseur) sont dans la
-dernière colonne, avec la session qui les prend : 10 a (cette clôture), 10 b, 10 c, 10 d.
-« Aucune à prendre » : le reste se corrige sans décision de produit. « — » : rien n'a été
-décidé, le reste attend tel quel. Celle du point 4 de M-02 est sous sa fiche. Les lignes
-« session 10 b » et « session 10 c », en fin de tableau, sont ce que ces deux sessions ont
-trouvé ou laissé, et les décisions de l'utilisateur qu'elles ont reçues en route. Les dix
-lignes d'avant viennent de la session 10 a : quatre restes vus par les sessions d'avant
-sans être écrits ici, faits, puis six trouvés en route, laissés.
+**Les décisions du 28 et du 29 octobre** (de l'utilisateur, relayées par le superviseur) sont
+dans la dernière colonne, avec la session qui les prend : 10 a, 10 b, 10 c, 10 d, puis les
+lots du 29. Chaque ligne y a un état : **fait** (avec son commit), une décision (**gardée**,
+**aucune**, **retirée**, **pas lancés**, **attend**), ou **ouvert** — rien n'a été décidé,
+le reste attend tel quel. Les lignes ouvertes sont rassemblées sous le tableau. Celle du
+point 4 de M-02 est sous sa fiche. Les lignes « session 10 b » et « session 10 c », en fin
+de tableau, sont ce que ces deux sessions ont trouvé ou laissé, et les décisions de
+l'utilisateur qu'elles ont reçues en route. Les dix lignes d'avant viennent de la session
+10 a : quatre restes vus par les sessions d'avant sans être écrits ici, faits, puis six
+trouvés en route, laissés.
 
-| Reste | Pourquoi laissé | Décision du 28 octobre |
+| Reste | Pourquoi laissé | Décision ou état |
 |---|---|---|
 | ~~Corriger une sortie vélo ou marche (durée, sport, distance)~~ | pas de route `PATCH /others/{id}` ; une addition se défait par le glissement de l'historique | **fait** (`d5bc4ac`) : `PATCH /api/activity/others/{id}` sous `If-Match`, et « Corriger la sortie » dans `OtherSheet`, en place |
 | ~~La douleur après une sortie saisie à la main~~ | une course à la main ne la demande pas non plus ; l'étendre aux deux est une décision | **fait** (`ab4b27a`) : course à la main, course relue d'une capture, vélo, marche — le vélo et la marche à la main ont quitté l'écran le 29 octobre (`11bdd17`) |
 | ~~Un plan posé pour une course passée de A en B, ou retirée~~ | M-17 ne vise que la date ; la priorité et la suppression défont aussi le plan, autrement | **fait** (`2cfff5e`, `e2cf6e4`) : `stale_plan` dit `priority` ou `removed` ; « Reposer » et « Retirer le plan », ou « Retirer les séances posées », armés, un seul à l'écran ; l'accueil le dit à part (`plan_notice`), sans geste |
 | ~~`DISTANCES` écrite dans `Plan.tsx`~~ | même défaut que les sports avant M-16 ; le serveur a `catalog.SPECS`, il pourrait la servir | **fait** (`ed46495`) : `GET /api/races` sert `distances`, depuis `catalog.SPECS` |
-| Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système | — |
+| Aucune des deux saisies essayée sur un vrai téléphone | `CLAUDE.md` §7 — le banc émule le toucher, pas le clavier système | **ouvert** |
 | ~~Le code de la synchro Garmin (`domains/sync/`, son planificateur, `make sync`, la ligne Garmin de `make status` et `make doctor` ; `garminconnect` n'est importé que s'il est installé, et ne l'est pas)~~ | M-18 est écartée : aucune synchro, même en production. Le retirer — ou le garder dormant — est une **décision à prendre** ; la session 9 b n'y a pas touché | **fait** (`1c161e1`, 28 octobre) : `/api/sync` n'existe plus ; restent le décodeur `.fit`, l'import à la main d'un `.fit` et `activity/dedup.py` |
 | La phase lue dans la note d'une séance posée (M-19) | une note récrite à la main perd sa phase (les autres séances de la semaine la portent encore) ; une séance déplacée d'une semaine à l'autre garde celle de sa semaine d'origine. Une colonne `plan_week` serait plus solide — une colonne de plus pour un cas qu'on n'a pas vu | **gardée** : pas de colonne `plan_week` |
 | `/objectif` ne dit rien de la course A | M-19 vise « Où je vais » ; la page de l'objectif chiffré reste la sienne | **attend** |
-| Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) | — |
+| Le jour J et le lendemain vus sur le banc | l'horloge du banc est la vraie ; couverts par les tests à date fixe (`test_m19_race_day_then_the_day_after`) | **ouvert** : couvert par les tests, jamais vu à l'écran |
 | ~~Deux liens « Détail » dans « Où je vais » (course et objectif), même nom pour un lecteur d'écran~~ | ils mènent à `/plan` et `/objectif` ; un `aria-label` distinct serait le geste, pas fait en passant | **fait** (`8e632c1`) : « Détail du plan : … », « Détail de l'objectif : … » |
-| ~~L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc)~~ | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe | regardé le 28 octobre : **il trompe**, et c'est la règle, pas l'affichage. **Décision du 29 octobre : le dire sous l'anneau** — **fait** (`bd6704a`) : la règle ne change pas ; le serveur rédige « 0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption (…) » (`ratio_text`), et `/objectif` comme l'accueil l'affichent tels quels. Recul, cible dépassée, base déjà sur la cible et absence de base ont chacun leur phrase ([`objectif.md`](objectif.md) §3) |
+| ~~L'anneau de l'objectif à « 0 % » sous « 2 sur 3 séances » (vu sur le banc)~~ | antérieur à M-19 : le ratio se compte depuis la base relevée à l'adoption, égale ici au relevé actuel. À relire si la lecture trompe | regardé le 28 octobre : **il trompe**, et c'est la règle, pas l'affichage. **Décision du 29 octobre : le dire sous l'anneau** — **fait** (`a96f83a`) : la règle ne change pas ; le serveur rédige « 0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption (…) » (`ratio_text`), et `/objectif` comme l'accueil l'affichent tels quels. Recul, cible dépassée, base déjà sur la cible et absence de base ont chacun leur phrase ([`objectif.md`](objectif.md) §3) |
 | Les huit cas M-10 de `make eval` jamais joués | décision du 27 octobre : appels payants. Le premier `make eval` dira ce que valent la consigne et les quatre actions. `need_contient` lit la dernière passe seulement : il ne prouve pas qu'une tranche a été demandée | **pas lancés** |
 | ~~`charge-lundi` sert trois tranches que l'application n'a plus (`progression_charges`, `detail_seances`, `exercices`)~~ | trouvé par `test_evals_cases.py` (M-10) ; antérieur, depuis la refonte de l'activité. Reprendre ce cas — ou le retirer — est une décision sur lui ; la liste est figée et ne peut que rétrécir | **fait** (`81721aa`) : réécrit sur `progression_tabata`, jamais lancé ; les trois tranches figées sont parties |
 | Une natation notée par l'assistant est `source=manual` (« saisie »), pas `ia` | `swims.csv` ne connaît que `fit` et `manual`, et seule une `manual` se corrige d'un bloc : une valeur `ia` la rendrait incorrigible sans toucher à `SwimService.update` et à l'écran. Décision de schéma | **gardée** en `manual` |
 | ~~Une douleur notée par l'assistant n'est rattachée à aucune sortie~~ | `run_id` est tu au modèle, qui ne voit aucun identifiant stable de sortie ; les patterns (R4) ne la lient donc à rien. Servir les identifiants stables du jour le permettrait | **fait** (`31d9068`) : le condensé sert l'identifiant stable de chaque séance du jour, `pain.add` le reçoit, le serveur refuse un lien qui n'en désigne aucune ; patterns et point du soir la voient |
-| Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran | — |
+| Une douleur de plus d'un jour ne se note pas par l'assistant | borne voulue (M-10) : elle se note sur `/corps`, date choisie à l'écran | **gardée** : c'est la borne de M-10 |
 | Les mensurations par l'assistant | la fiche les laissait attendre ; `measurements.csv` n'a toujours pas de colonne `source` | **attendent** |
 | ~~`ActionReport.code` n'est lu par aucun écran~~ | le code voyage depuis M-10 ; l'écran affiche la phrase et ne décide encore de rien sur un refus | **fait** (`b252a98`) : un conflit `conflict` à la confirmation retire « Confirmer » ; un autre refus laisse réessayer |
 | ~~`ActionCard` reconnaît `plan.propose` à son nom~~ | antérieur : la seule action dont l'écran dessine une carte à part ; « `sessions` non vide » suffirait. M-20 ne l'a pas aggravé (le retour suit `day`) ; se corrige sans décision | **fait** (`b252a98`) : la carte décide sur `sessions` non vide |
 | ~~« La table refuse `plan.*`… quand la question porte une alerte médicale » (`assistant-agent.md` §4)~~ | introuvable dans le code au 28 octobre : la garde d'`IA-12` est dans la consigne seule. Antérieur à M-10, noté pour être tranché | **fait** (`09e1653`) : `assistant-agent.md` §4 le dit, et dit ce qui la complète |
-| Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main | — |
+| Aucune des quatre actions essayée sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; le banc sert des réponses écrites à la main | **ouvert** |
 | ~~Une adoption n'est pas rangée dans le fil (M-20)~~ | rouvert, le fil du planning montre la réponse sans « 2 séances ajoutées » : `confirm()` écrit au planning, pas au fil. Antérieur (`planning-natation.md` §9) ; l'écrire au fil demande de rattacher une confirmation à son message | **fait** (`949d218`) : le rapport se range avec le message (`seq`), pour toute action confirmée |
 | ~~Le refus hors portée nomme l'action (« « plan.propose » n'est pas quelque chose que je sais faire »)~~ | la phrase de `validate()` pour un nom inconnu, antérieure ; vue dans un fil ordinaire sur le banc. Dire le geste plutôt que le nom se corrige sans décision | **fait** (`b252a98`) : « Je ne sais pas proposer des séances au planning dans cette discussion : seulement dans le fil du planning » ; un nom inventé ne se répète plus |
 | ~~`day` n'est servi que par `plan.propose`~~ | `plan.add` et `plan.move` écrivent aussi au planning, sans lien de retour. Les étendre est une ligne chacun ; M-20 ne visait que le fil du planning | **fait** (`b252a98`) : `plan.add` et `plan.move` le servent, « Voir au planning » suit |
 | ~~Un fil ouvert par `?fil` n'a ni attente ni erreur~~ | antérieur : pendant la lecture, et si elle échoue, l'écran dit « Pose ta question : le fil commence ici » au-dessus d'un fil qui existe. M-20 n'a dessiné les deux états que pour la recherche du fil du planning | **fait** (`b252a98`) : squelette, puis « Fil illisible » et le message du serveur ; la reprise s'attend aussi |
-| Le fil du planning jamais essayé sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; les propositions du banc sont écrites à la main | — |
+| Le fil du planning jamais essayé sur un vrai téléphone, ni avec un vrai modèle | `CLAUDE.md` §7 ; les propositions du banc sont écrites à la main | **ouvert** |
 | ~~« Repas supprimé. La photo reste sur Nextcloud. » même sans photo~~ (vu en session, écrit nulle part) | — | **fait** (`1bca600`) : la phrase suit le champ `photo` |
 | ~~Le nom accessible « Fiche du repas de heure non relevée »~~, et « Supprimer le repas de heure non relevée » | — | **fait** (`1bca600`) : « … repas « dîner », heure non relevée » |
 | ~~Deux commentaires CSS orphelins dans `Assistant.module.css`~~ | — | **fait** (`b252a98`) : trois, en fait — `IA-12`, une action, les gestes d'une bulle |
 | ~~`/charge` : la tuile Fatigue à 7 sous « fatigue 6 », des cartes qui se touchent, l'étiquette « 10 » de la frise qui déborde~~ (`charge.md` §2) | — | **fait** (`98b0ac8`) : forme, fatigue, fraîcheur arrondies une fois au serveur ; une pile ; les bornes de la frise dans le cadre — `Chart`, donc aussi `/nutrition` |
-| La phrase de conflit du stockage, affichée telle quelle, porte un détail technique (« body/weight.csv, ligne 8 : jeton … périmé, la ligne vaut désormais … ») | vue dans le fil de l'assistant le 28 octobre ; elle vient de la couche de stockage et sert tous les écrans | — |
-| L'étiquette « 10 » de la frise, rentrée dans le cadre, se lit juste sous « 08/10 » | `98b0ac8` l'a mise dans le cadre, à gauche, comme les graduations ; collée à la première date, elle peut se lire avec elle | — |
-| « 2,2 sur 3 séances » pour une moyenne de 2,25 | `core/text.fr` arrondit au dixième par `round`, au pair sur un flottant — le défaut que `whole` corrige pour les entiers | — |
-| Les pastilles de distance de `/plan` tiennent sur quatre rangées | `ed46495` : les libellés servis sont ceux du catalogue (« Half Ironman (70.3) ») ; un libellé court serait un second vocabulaire | — |
-| « Voir au planning » d'une séance prévue garde son jour après qu'un `plan.move` l'a décalée | le jour est celui que l'action a écrit ; la carte de la séance décalée mène au nouveau | — |
-| Une confirmation faite garde le ton ambre de l'attente (« Fait. ») | antérieur ; `b252a98` n'a changé que le ton d'un conflit | — |
+| La phrase de conflit du stockage, affichée telle quelle, porte un détail technique (« body/weight.csv, ligne 8 : jeton … périmé, la ligne vaut désormais … ») | vue dans le fil de l'assistant le 28 octobre ; elle vient de la couche de stockage et sert tous les écrans | **ouvert** |
+| L'étiquette « 10 » de la frise, rentrée dans le cadre, se lit juste sous « 08/10 » | `98b0ac8` l'a mise dans le cadre, à gauche, comme les graduations ; collée à la première date, elle peut se lire avec elle | **ouvert** |
+| « 2,2 sur 3 séances » pour une moyenne de 2,25 | `core/text.fr` arrondit au dixième par `round`, au pair sur un flottant — le défaut que `whole` corrige pour les entiers | **en partie** (`a96f83a`) : la base et le relevé sont servis arrondis comme la phrase les cite (`core/text.shown`), la tuile et la phrase disent la même chose. L'arrondi au pair de `fr` reste : le changer toucherait tous les textes du serveur, écarté par la session, **ouvert** |
+| Les pastilles de distance de `/plan` tiennent sur quatre rangées | `ed46495` : les libellés servis sont ceux du catalogue (« Half Ironman (70.3) ») ; un libellé court serait un second vocabulaire | **ouvert** |
+| « Voir au planning » d'une séance prévue garde son jour après qu'un `plan.move` l'a décalée | le jour est celui que l'action a écrit ; la carte de la séance décalée mène au nouveau | **ouvert** |
+| Une confirmation faite garde le ton ambre de l'attente (« Fait. ») | antérieur ; `b252a98` n'a changé que le ton d'un conflit | **ouvert** |
 | ~~Le sommeil de la nuit (session 10 b)~~ | `body/health.csv` n'a plus d'écrivain depuis `1c161e1` : la ligne de la nuit de l'accueil reste muette | **décision du 28 octobre** : **saisi à la main le matin**. **Fait** (`c6c10b4`, 29 octobre) : la durée, en heures et minutes, dans l'étape « Ta nuit » à côté de la FC et de la VFC (décision du 29 : ni score, ni ressenti, ni stress, ni Body Battery) ; une colonne `sleep_min` de `body/morning.csv`, corrigée sur `/corps` sous `If-Match` ; `health.csv` reste une archive lue (`synchro-garmin.md` §6) |
-| Le sommeil sans courbe, hors de la forme et des corrélations (lot du sommeil) | `synchro-garmin.md` §6.4 : une courbe demanderait de dire la référence d'un sommeil ; la forme et le coach jugent *par règle* sur la FC et la VFC ; un facteur de corrélation n'aura de données que dans plusieurs semaines | — |
+| Le sommeil sans courbe, hors de la forme, du coach et des corrélations (lot du sommeil) | `synchro-garmin.md` §6.4 : une courbe demanderait de dire la référence d'un sommeil ; la forme et le coach jugent *par règle* sur la FC et la VFC ; un facteur de corrélation n'aura de données que dans plusieurs semaines | **ouvert** : un lot à décider |
 | Une notification « Séance reçue » après un import `.fit` (session 10 b) | la synchro la rendait possible ; l'import à la main se fait l'écran sous les yeux | **décision du 28 octobre** : **aucune** |
 | La saisie à la main d'un vélo ou d'une marche (session 10 b) | M-16 l'avait mise au troisième choix de la feuille « Course » | **décision du 29 octobre** : **retirée de l'écran** (`11bdd17`), route et formulaire gardés ; `git revert 11bdd17` la rétablit |
-| L'effort perçu d'une course saisie à la main (session 10 b) | `ab4b27a` enchaîne sur la douleur seule ; après un `.fit`, l'effort est demandé avant elle. Le formulaire de l'étape 2 ne le porte pas non plus | — |
+| L'effort perçu d'une course saisie à la main (session 10 b) | `ab4b27a` enchaîne sur la douleur seule ; après un `.fit`, l'effort est demandé avant elle. Le formulaire de l'étape 2 ne le porte pas non plus | **ouvert** : hors de la décision du 28 octobre, une décision à prendre |
 | « Reposer le plan » d'une course passée en B, sans autre course A (session 10 b) | le serveur repose alors pour elle, en B — un plan complet, affûtage compris, pour une course que `plan-course.md` D9 veut courue « sans affûtage ni pic ». Avec une course A, il repose pour celle-ci. Interprétation de la session, dite au bandeau | **gardée** (29 octobre) : l'utilisateur la valide — sans autre course A, la course B redevient le but du plan reposé |
-| Les séances posées retouchées à la main partent avec le retrait et la repose (session 10 b) | décidé au serveur (`RaceService._sweep`) et dit avant l'appui (« dont 2 retouchées à la main ») ; les garder laisserait des séances `plan` sans plan, que la pose suivante retirerait sans rien dire | — |
-| Le retrait et la pose d'un plan n'ont pas de garde `If-Match` (session 10 b) | antérieur (`DELETE /api/races/plan`, `POST /api/races/plan/{id}`) ; la phrase dit ce qui partirait à la lecture, un changement entre la lecture et l'appui n'est pas vu | — |
-| La phrase du plan sur l'accueil nomme « reposer » et « retirer », qui ne s'y font pas (session 10 b) | c'est la phrase de `/plan`, servie telle quelle ; l'accueil n'offre que « Voir le plan » | — |
-| La puce d'un vélo dans l'historique dit « noter » ou « effort 5 » (session 10 b) | la correction est derrière elle, dans `OtherSheet`, sans que la puce la nomme | — |
-| La feuille dit « Étape 2 sur 2 » pendant la question de douleur (session 10 b) | antérieur, comme après un `.fit` | — |
-| Une douleur d'hier notée par l'assistant n'est rattachée à rien (session 10 b) | le condensé ne nomme que les séances du jour ; `pain.add` accepte la veille. Les patterns la rattachent encore seuls à la course de son jour quand elle est la seule (D6) | — |
+| Les séances posées retouchées à la main partent avec le retrait et la repose (session 10 b) | décidé au serveur (`RaceService._sweep`) et dit avant l'appui (« dont 2 retouchées à la main ») ; les garder laisserait des séances `plan` sans plan, que la pose suivante retirerait sans rien dire | **en place, ouvert** : tranché par la session, pas par l'utilisateur ; à relire à côté de `plan-course.md` D10 |
+| Le retrait et la pose d'un plan n'ont pas de garde `If-Match` (session 10 b) | antérieur (`DELETE /api/races/plan`, `POST /api/races/plan/{id}`) ; la phrase dit ce qui partirait à la lecture, un changement entre la lecture et l'appui n'est pas vu | **ouvert** |
+| La phrase du plan sur l'accueil nomme « reposer » et « retirer », qui ne s'y font pas (session 10 b) | c'est la phrase de `/plan`, servie telle quelle ; l'accueil n'offre que « Voir le plan » | **ouvert** |
+| La puce d'un vélo dans l'historique dit « noter » ou « effort 5 » (session 10 b) | la correction est derrière elle, dans `OtherSheet`, sans que la puce la nomme | **ouvert** |
+| La feuille dit « Étape 2 sur 2 » pendant la question de douleur (session 10 b) | antérieur, comme après un `.fit` | **ouvert** |
+| Une douleur d'hier notée par l'assistant n'est rattachée à rien (session 10 b) | le condensé ne nomme que les séances du jour ; `pain.add` accepte la veille. Les patterns la rattachent encore seuls à la course de son jour quand elle est la seule (D6) | **ouvert** |
 | Le vélo et la marche `.fit` avec FC hors de l'estimation (session 10 c) | `others.csv` n'a que FC moyenne et max, pas de zones ; ils restent hors de la charge sans effort perçu (M-02, `22a53dd`) | **décision de l'utilisateur** : ils **y restent hors** |
-| Le titre « Charge de course (FC) » couvre aussi des zones d'allure (session 10 c) | une course sans FC seconde par seconde a une charge d'allure, que la page Courses range sous ce titre ; l'estimation, elle, ne prend que les zones cardiaques | — |
-| « Historique noté » compte les courses estimées (session 10 c) | « 21 jours d'historique **noté** » compte aussi les jours estimés depuis la FC | — |
+| Le titre « Charge de course (FC) » couvre aussi des zones d'allure (session 10 c) | une course sans FC seconde par seconde a une charge d'allure, que la page Courses range sous ce titre ; l'estimation, elle, ne prend que les zones cardiaques | **ouvert** |
+| « Historique noté » compte les courses estimées (session 10 c) | « 21 jours d'historique **noté** » compte aussi les jours estimés depuis la FC | **ouvert** |
 
+### Ce qui reste vraiment ouvert
+
+Les vingt lignes **ouvert** du tableau, rangées par ce qu'elles attendent. Aucune n'est
+tranchée ici.
+
+- **Une décision de produit** (trois).
+  - Le sommeil, saisi depuis `c6c10b4`, n'entre ni dans la forme, ni dans le coach, ni dans
+    les corrélations, et n'a pas de courbe : un lot à décider.
+  - L'effort perçu d'une course saisie à la main n'est pas demandé.
+  - Les séances posées retouchées à la main partent au retrait et à la repose : tranché par
+    la session 10 b, pas par l'utilisateur.
+- **Un regard hors du banc** (quatre) : les deux saisies jamais essayées sur un vrai
+  téléphone ; les quatre actions de l'assistant et le fil du planning, ni sur un vrai
+  téléphone ni avec un vrai modèle ; le jour J et son lendemain jamais vus à l'écran.
+- **Des constats d'écran ou de serveur** (treize).
+  - Le retrait et la pose d'un plan sans `If-Match` — un écart à l'invariant du §2 de
+    `CLAUDE.md`.
+  - La phrase de conflit du stockage, qui porte un détail technique, sur tous les écrans.
+  - L'arrondi au pair de `core/text.fr`.
+  - `/charge` : l'étiquette « 10 » de la frise collée à la première date.
+  - `/plan` : les pastilles de distance sur quatre rangées ; la phrase du plan, reprise à
+    l'accueil, qui nomme deux gestes qui ne s'y font pas.
+  - L'assistant : « Voir au planning » qui garde son jour après un `plan.move` ; une
+    confirmation faite qui reste ambre ; une douleur d'hier rattachée à rien.
+  - Activité : la puce d'un vélo qui ne nomme pas la correction ; « Étape 2 sur 2 »
+    pendant la question de douleur ; le titre « Charge de course (FC) » qui couvre des
+    zones d'allure ; « historique noté » qui compte les courses estimées.

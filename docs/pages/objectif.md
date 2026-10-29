@@ -44,7 +44,7 @@ Fichier : [`Goals.tsx`](../../frontend/src/routes/Goals.tsx).
   course A passe avant, l'objectif daté dessous, et la cible de poids ne se montre qu'à
   défaut des deux.
 - ~~**L'anneau dit « 0 % » sous « 2,2 sur 3 séances », et rien ne dit d'où il compte.**~~
-  Dit (`bd6704a`, décision du 29 octobre) : la règle de `GOAL-04` ne change pas — le
+  Dit (`a96f83a`, décision du 29 octobre) : la règle de `GOAL-04` ne change pas — le
   pourcentage est le chemin fait depuis la base relevée à l'adoption. Le serveur rédige la
   phrase (`GoalProgress.ratio_text`, `goals/progress.py`), l'écran l'affiche sous le
   résumé, ici et sur l'accueil. Elle dit la base selon la métrique : une cadence est une

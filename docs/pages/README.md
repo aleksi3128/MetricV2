@@ -1,5 +1,9 @@
 # Les pages de Metric — inventaire du 22 octobre 2026
 
+À jour au 29 octobre : la navigation ci-dessous suit le code après les fiches M-01 à M-23 et
+les lots qui ont suivi. Où en est chaque fiche, ce qui reste ouvert et les décisions en
+attente : le [bilan de `modifications.md`](modifications.md#bilan).
+
 Ce dossier dit **ce que chaque destination contient** : les données qu'elle affiche, d'où
 elles viennent, les gestes qu'elle offre et ce qu'ils écrivent. Il sert de base aux
 décisions de structure — fusionner, déplacer, retirer, ajouter — rassemblées dans
@@ -20,8 +24,8 @@ le matin, la séance, le repas, le soir.
   Chrome sans tête à 402 × 874, vingt adresses, puis vingt et une feuilles ouvertes une à
   une sans rien y remplir.
 - **Aucun service réel** : Nextcloud, OpenRouter, Open Food Facts, Open-Meteo, Garmin sur
-  doublures. L'IA du banc ne rend aucune réponse exploitable — d'où les blocs « Non vu »
-  de chaque page. Le banc tournait à 13 h : ni le parcours du matin ni le point du soir
+  doublures (la synchro Garmin est retirée depuis le 28 octobre, `1c161e1`). L'IA du banc
+  ne rend aucune réponse exploitable — d'où les blocs « Non vu » de chaque page. Le banc tournait à 13 h : ni le parcours du matin ni le point du soir
   n'étaient dus ; ils sont décrits depuis le code.
 - Les scripts et les captures sont restés hors du dépôt.
 
@@ -43,6 +47,7 @@ le matin, la séance, le repas, le soir.
 | Dossier médical | `/dossier` | [`dossier.md`](dossier.md) |
 | Réglages | `/reglages` | [`reglages.md`](reglages.md) |
 | **Les modifications** | — | [`modifications.md`](modifications.md) |
+| **Leur bilan au 29 octobre** | — | [`modifications.md#bilan`](modifications.md#bilan) |
 
 Hors périmètre : `/connexion`, `/_kitchen-sink` (la vitrine de la charte), `NotFound`.
 
@@ -55,12 +60,14 @@ Accueil · Activité · Assistant · [ Noter ] · Plus
 ```
 
 **Noter** ([`QuickLog.tsx`](../../frontend/src/app/QuickLog.tsx)) — ce qui tient en un
-chiffre, sans changer d'écran :
+chiffre, sans changer d'écran. La coquille la tient (`QuickLogProvider`) : le bouton central
+l'ouvre, et l'état vide de l'accueil aussi (M-11) — sur ordinateur, où la barre basse est
+masquée, c'est sa seule porte.
 
 - Hydratation : raccourcis, autre volume, total du jour ;
 - Suppléments à prendre (les dus non pris) ;
 - Pesée ;
-- deux liens : « Ajouter un repas » → `/nutrition?ajout=repas` (la feuille d'ajout, ouverte — M-23), « Noter une séance » → `/activite/seances`.
+- « Ce qui demande un formulaire », deux liens : « Ajouter un repas » → `/nutrition?ajout=repas` (la feuille d'ajout, ouverte — M-23), « Noter une séance » → `/activite/seances`.
 
 **Plus** ([`MoreSheet.tsx`](../../frontend/src/app/MoreSheet.tsx)) — « Tout le reste » :
 
@@ -84,7 +91,8 @@ n'existent pas.
 ### Les pages sans entrée de navigation
 
 On n'y arrive que depuis leur page mère : `/activite/seances`, `/activite/creer`,
-`/activite/charges`, `/activite/courses`, `/activite/natations`, `/activite/course/:id`,
+`/activite/charges`, `/activite/courses`, `/activite/natations`, `/activite/course/:id`
+(et `/activite/course` sans numéro, la dernière course),
 `/nutrition/catalogue`, `/corps/douleurs` (M-08 — on y arrive aussi par les alertes de
 douleur et le rappel de suivi), `/planning/sigles` (M-04 — le glossaire de nage, depuis le
 pied de `/planning` et de `/activite/natations`).
@@ -93,15 +101,16 @@ pied de `/planning` et de `/activite/natations`).
 
 | Depuis | Vers |
 |---|---|
-| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge`, `/objectif`, `/corps` et `/routine` (état vide), `/assistant` par la lecture du jour seule (la rangée de trois liens est partie — M-22), chaque alerte — celles de douleur vers `/corps/douleurs` |
+| Accueil | `/routine` (eau, suppléments), `/nutrition` (protéines), `/planning` (séance), `/charge` (forme), `/plan` et `/objectif` (« Où je vais » : détail, « Poser le plan », « Voir le plan », « Viser une course », « Fixer un objectif »), `/assistant` par la lecture du jour seule (la rangée de trois liens est partie — M-22), chaque alerte — celles de douleur vers `/corps/douleurs`. L'état vide ne change plus d'écran : « Noter » ouvre la saisie rapide (M-11) |
 | Activité | ses six sous-pages ; la page d'une course → `/activite/courses#reperes` (zones, M-04) ; `/activite/natations` → `/planning/sigles` |
 | Assiduité | aucun lien : « Régler les pistes » ouvre une feuille sur place (M-04) |
 | Objectif | `/assistant` |
-| Nutrition | `/nutrition/catalogue` |
+| Nutrition | `/nutrition/catalogue`, et retour |
 | Corps | `/corps/douleurs` (la porte en tête) ; le parcours du matin (feuille, deux portes : l'en-tête, et l'état vide de « Le matin ») |
 | Douleurs (`/corps/douleurs`) | `/corps` (retour) |
 | Planning | `/planning/sigles` (pied, M-04) ; `/assistant?portee=planning` (« Ouvrir le fil du planning », M-20) |
 | Planning (`/planning/sigles`) | `/planning` (retour) |
+| Parcours du matin | `/nutrition?ajout=hier` (« Aucun repas noté hier », M-01) ; le parcours se ferme |
 | Assistant | `/planning`, dans le fil du planning seul : « Voir le planning », et « Voir au planning » sous une adoption (`?jour=`, M-20) |
 | Plan, Charge, Routine, Dossier, Réglages | aucun lien vers un autre écran |
 
