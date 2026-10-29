@@ -203,7 +203,7 @@ la vraie valeur** dès que l'effort perçu est noté.
   estimation ; une course estimée passe à `estimated`. « Toutes les séances ont un effort
   perçu » se tait dès qu'une estimation existe.
 
-### Livré le 29 octobre
+### Livré le 29 octobre (`7d7a111`)
 
 `training/estimate.py` (pur), `banister.Session.estimated` et `hr_load`, `load.Session.zone_kind`
 et `hr_load`, `TrainingService` qui lit les courses par `RunTrendsService` (la même charge FC

@@ -253,7 +253,7 @@ Le point 4 est un lot à part.
 dans le même commit.
 
 **Fait le 22 octobre** (`385871a`, `1fa151b`), points 1 à 3. Les lignes citées étaient
-exactes. **Le point 4 reste ouvert.**
+exactes. Le point 4, le 29 octobre (session 10 c) : sous **Reste.**
 
 - **Ce qui a été mesuré avant de trancher.** `EASY_SHARE_MIN` ne servait pas qu'au texte :
   `coach/frame.py` s'en servait pour fermer le dur. Sur le cadre pur, 14 jours de course :
@@ -282,15 +282,51 @@ exactes. **Le point 4 reste ouvert.**
 
 **Reste.**
 
-- **Le point 4** : une course `.fit` avec FC et sans effort perçu n'entre toujours pas dans
-  la charge globale. Sur le banc, la page Courses montre une charge 7 jours de 310 pendant
-  que l'accueil dit « Pas encore de charge globale » ; chacune dit désormais son nom, mais
-  l'écart demeure. Lot à part, avec son plan.
+- ~~**Le point 4** : une course `.fit` avec FC et sans effort perçu n'entre toujours pas dans
+  la charge globale.~~ Sur le banc, la page Courses montrait une charge 7 jours de 310
+  pendant que l'accueil disait « Pas encore de charge globale ».
 
   **Décision du 28 octobre** (session 10 c) : une course avec FC et sans effort perçu entre
   dans la charge globale par sa **charge FC convertie**, dite à l'écran « **estimée depuis
   la FC** » ; dès que l'effort perçu est noté, il la **remplace**. Le lot garde son plan à
   part, comme le demandait le risque de la fiche.
+
+  **Fait le 29 octobre** (session 10 c, `7d7a111`), seul dans son commit comme le
+  demandait le risque. Le plan est au §7 de
+  [`charge-multisport.md`](../charge-multisport.md) ; ce qu'il a tranché :
+  - **La conversion** : facteur × charge FC, le facteur étant la **médiane** des
+    `sRPE ÷ charge FC` des courses de l'utilisateur qui ont les deux — aucune constante
+    écrite en dur. **Cinq paires** au moins ; en dessous, pas d'estimation, et `/charge`,
+    la page de la course et l'accueil (sans séance notée) disent combien il en manque.
+  - **Seules les zones cardiaques** comptent (`zone_kind = heart_rate`) : une charge
+    d'allure n'est pas « avec FC ».
+  - **Le dire** : des phrases du serveur — la parenthèse de la forme (« Banister, dont 2
+    courses des 4 semaines estimées depuis la FC »), `estimated_text` sur `/charge`, la
+    ligne « Dans la charge globale : 183, estimée depuis la FC — ta charge FC 122 × 1,5… »
+    sous l'effort perçu de la page d'une course, et la raison du coach et l'avertissement
+    du planning. Ni `AiBlock` ni `proposed` : une estimation calculée n'est pas une
+    proposition.
+  - **Ce qui change de sens** : forme, fatigue et fraîcheur de toutes les dates passées
+    (banc : 20 / 34 / −19 → 34 / 97 / −79) ; le facteur se recalcule à chaque effort noté,
+    et avec lui toutes les estimations. Le coach lit le rapport comme les autres et le dit
+    estimé. Facile / modéré / dur, `EASY_TARGET` et les sauts de volume ne bougent pas.
+  - **Vu** : un appui tactile sur 6 a changé « 183, estimée depuis la FC » en « 244, ton
+    effort perçu 6 × 40,6 min », et `/charge` est passé de trois courses estimées à deux.
+
+  **Restes du point 4.**
+  - **Le vélo et la marche `.fit` avec FC** n'ont pas de zones (`others.csv` : FC moyenne
+    et max) ; ils restent hors de la charge sans effort perçu. Les estimer demanderait une
+    autre conversion — une **décision**.
+  - **Sous cinq paires, l'écart de la fiche demeure** : c'est la règle, dite à l'écran. Un
+    utilisateur qui n'a jamais noté un effort sur une course avec FC le verra tant qu'il
+    n'en aura pas noté cinq.
+  - « 21 jours d'historique **noté** » compte aussi les jours estimés ; la phrase n'a pas
+    été reprise.
+  - Le banc du constat semait des `.fit` **sans FC seconde par seconde** (`run_file`) :
+    leur « charge de course (FC) » de 310 était une charge d'**allure**, que l'estimation
+    n'atteint pas. Le banc de la session 10 c sème des FC (`stream_file`). Le titre
+    « Charge de course (FC) » de la page Courses couvre donc aussi des zones d'allure — non
+    repris.
 - **Les phrases du rapport aigu/chronique** (« au-dessus de 1,5, on ne fait plus que du
   facile ») sont aussi un conseil et restent sur la page Courses : `/charge` dit la même
   chose de son propre rapport, et les retirer d'une page seule recréerait l'écart.

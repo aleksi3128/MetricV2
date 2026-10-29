@@ -102,7 +102,7 @@ Haut d'écran rempli : 4 749 px.
 |---|---|---|
 | Tuiles | Distance, temps (+ pause), allure (+ en mouvement), cadence, cardio, dénivelé, puissance | `GET /api/activity/runs/{id}` ; analyse |
 | Séance prévue | Le respect bloc par bloc de la séance planifiée ce jour-là | `GET /api/activity/runs/{id}/adherence` |
-| Conditions | **Effort perçu 1–10** ; météo au départ ; « Le matin » (FC de repos, VFC) ; autour de la sortie (Cadence dans les 48 h, poids du jour) | `GET /api/activity/runs/{id}/conditions` |
+| Conditions | **Effort perçu 1–10**, et ce que la sortie pèse dans la charge globale — mesurée, « estimée depuis la FC », ou ce qu'il manque (M-02, point 4) ; météo au départ ; « Le matin » (FC de repos, VFC) ; autour de la sortie (Cadence dans les 48 h, poids du jour) | `GET /api/activity/runs/{id}/conditions` (`global_load_text`) |
 | Faire une story | Feuille : image 1080 × 1920 à fond transparent | lecture du `.fit` |
 | Ce qu'il faut retenir | Constats rédigés par le serveur | `GET /api/activity/runs/{id}/analysis` |
 | Allure et parcours | Courbe liée au tracé, FC ou cadence en superposition | analyse |
@@ -136,8 +136,12 @@ Sans `.fit` : une carte « Sortie sans fichier .fit » remplace l'analyse.
   ([`training/intensity.py`](../../backend/app/domains/training/intensity.py)). Le coach
   garde un plancher à lui, 70 % en course sur 14 jours
   ([`coach/frame.py`](../../backend/app/domains/coach/frame.py), `EASY_SHARE_FLOOR`). La
-  section s'appelle « Charge de course (FC) » et renvoie à `/charge`. **Reste** le
-  point 4 : une course sans effort perçu n'a toujours pas de charge globale.
+  section s'appelle « Charge de course (FC) » et renvoie à `/charge`. ~~**Reste** le
+  point 4~~ : fait le 29 octobre (session 10 c, `7d7a111`) — une course avec FC sans effort perçu
+  entre dans la charge globale par sa charge FC convertie, dite « estimée depuis la FC » sur
+  sa page et sur `/charge`, dès cinq courses notées avec FC ; l'effort noté la remplace
+  ([`charge-multisport.md`](../charge-multisport.md) §7). La page Courses n'a pas changé :
+  elle montre la charge de course, pas la globale.
 - ~~**Trois portes vers la capture Apple.**~~ Corrigé (M-14, `ded7779`) : la carte
   « Import d'une capture » est partie, après que l'étape 1 de la feuille a repris tout ce
   qu'elle écrivait — dénivelé, calories, heures, paliers, `source=apple` —, qu'elle lisait

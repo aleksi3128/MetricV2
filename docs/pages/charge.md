@@ -17,7 +17,7 @@ Haut d'écran rempli : 1 810 px.
 
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
-| **Forme et fatigue** | Forme (CTL), fatigue (ATL), fraîcheur (TSB) ; phrase de forme ; courbe de charge avec la douleur en frise (alerte au-dessus du seuil d'arrêt) | `GET /api/training` | « Pas encore de charge globale : aucune séance n'a d'effort perçu… » ; séances sans effort perçu comptées par sport |
+| **Forme et fatigue** | Forme (CTL), fatigue (ATL), fraîcheur (TSB) ; phrase de forme — qui dit « dont N courses des 4 semaines estimées depuis la FC » ; la phrase des courses estimées (`estimated_text` : le facteur et ses paires, ou ce qu'il manque pour estimer) ; courbe de charge avec la douleur en frise (alerte au-dessus du seuil d'arrêt) | `GET /api/training` | « Pas encore de charge globale : aucune séance n'a d'effort perçu… » ; séances sans effort perçu ni estimation comptées par sport |
 | **Rapport et monotonie** | Rapport aigu / chronique, monotonie, séances non notées | même appel | « Pas de rapport de charge sans séance notée » |
 | **Intensité** | Facile / modéré / dur sur 28 jours, tous sports, contre une cible de **80 %** de facile | même appel | « Pas de répartition » |
 | **Volume** | Huit semaines : durée totale et détail par sport | même appel | « Rien » par semaine |
@@ -30,9 +30,13 @@ Haut d'écran rempli : 1 810 px.
   l'effort perçu × les minutes, et ignore toute séance sans effort perçu ; celle de
   `/activite/courses` compte les minutes pondérées par zone de FC, et ne concerne que la
   course. ~~Un conseil pour la sortie suivante~~ : parti (M-02, `385871a`), et la page
-  Courses nomme la sienne « Charge de course (FC) » avec un lien ici. **Reste** l'écart
-  (M-02, point 4, ouvert) : sur le banc, dix courses `.fit` sans effort perçu, ici
-  « aucune charge globale », là une charge 7 jours de 310.
+  Courses nomme la sienne « Charge de course (FC) » avec un lien ici. ~~**Reste** l'écart
+  (M-02, point 4)~~ : fermé le 29 octobre (session 10 c, `7d7a111`) — une course avec FC sans effort
+  perçu entre ici par sa charge FC convertie, **dite estimée depuis la FC**, sur un facteur
+  appris des courses qui ont les deux, et rien sous cinq paires
+  ([`charge-multisport.md`](../charge-multisport.md) §7). Sous le seuil, l'écart demeure, et
+  la page dit ce qu'il manque. Le vélo et la marche avec FC n'ont pas de zones : hors de
+  l'estimation.
 - ~~**Deux cibles de facile.**~~ Corrigé (M-02, `1fa151b`) : `EASY_TARGET`, 80 %, est la
   seule cible, et la phrase se rédige depuis elle. La page Courses ne juge plus ; le
   coach garde son plancher de 70 % (`coach/frame.py`), qui n'est pas une cible.
