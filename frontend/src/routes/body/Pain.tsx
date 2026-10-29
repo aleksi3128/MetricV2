@@ -134,8 +134,8 @@ export function PainSection() {
           {data.open.length === 0 && data.closed.length === 0 && !adding && (
             <Card>
               <Empty title="Aucune douleur notée">
-                Une gêne se note ici ou à la fin d’un import : le coach en tient compte dès le
-                lendemain.
+                Une gêne se note ici ou à la fin de la saisie d’une sortie : le coach en tient
+                compte dès le lendemain.
               </Empty>
             </Card>
           )}

@@ -1,5 +1,6 @@
 /**
- * « Une douleur ? » à la fin d'un import (`docs/douleurs.md`, D1).
+ * « Une douleur ? » à la fin de la saisie d'une sortie — un `.fit`, une capture, ou à la
+ * main depuis la session 10 b (`docs/douleurs.md`, D1).
  *
  * Deux appuis quand c'est non — et le non s'écrit : il dit que la question a été posée,
  * ce que l'absence de ligne ne dit pas, et c'est sur lui que les patterns compareront les

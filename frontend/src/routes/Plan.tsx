@@ -310,7 +310,9 @@ function StalePlanBanner({ stale, onPlaced }: { stale: StalePlan; onPlaced: () =
         <h3>{stale.title}</h3>
         <p className={styles.text}>{stale.text}</p>
         <div className={styles.actions}>
-          {repose !== null && (
+          {/* Un seul geste armé à la fois, et seul à l'écran : vu sur le banc, « Reposer »
+              restait en bouton principal à côté d'un retrait armé. */}
+          {repose !== null && armed !== 'clear' && (
             <Button
               variant="primary"
               busy={place.isPending}
@@ -326,9 +328,9 @@ function StalePlanBanner({ stale, onPlaced }: { stale: StalePlan; onPlaced: () =
               {armed === 'place' ? 'Remplacer les séances posées ?' : 'Reposer le plan'}
             </Button>
           )}
-          {stale.clear && (
+          {stale.clear && armed !== 'place' && (
             <Button
-              variant={repose === null ? 'primary' : undefined}
+              variant={repose === null || armed === 'clear' ? 'primary' : undefined}
               busy={clear.isPending}
               disabled={place.isPending}
               onClick={() => {

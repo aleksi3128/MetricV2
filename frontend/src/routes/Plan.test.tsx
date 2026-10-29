@@ -326,9 +326,11 @@ describe('corriger une course visée (M-17)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Retirer le plan' }));
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
-    // Armer l'un désarme l'autre : un seul geste en attente à la fois.
+    // Un seul geste armé, et seul à l'écran : l'autre revient avec « Annuler ».
+    expect(screen.queryByRole('button', { name: 'Reposer le plan' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Annuler' }));
     await userEvent.click(screen.getByRole('button', { name: 'Reposer le plan' }));
-    expect(screen.queryByRole('button', { name: 'Retirer les 12 séances ?' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retirer le plan' })).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Remplacer les séances posées ?' }));
     await waitFor(() => {
       expect(
