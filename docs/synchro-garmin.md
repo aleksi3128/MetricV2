@@ -263,3 +263,29 @@ jour d'avant le 28 octobre.
 - **Le sommeil dans la carte « Conditions » d'une sortie**, ni dans le condensé de
   l'assistant.
 - **Le sommeil dans la forme et le coach** (S8).
+
+### 6.5 Livré (29 octobre 2026)
+
+Livré tel que planifié (`c6c10b4`), sans route ni code d'erreur nouveaux.
+
+**Vu sur le banc** — la vraie API sur `fake_webdav`, toutes les doublures branchées, un
+proxy mort, et l'horloge du seul routeur du matin posée à 8 h : l'étape « Ta nuit » à
+402 px, en sombre et en clair, sans matin la veille (aucun rappel, quatre cases vides)
+puis avec (« Ton dernier matin, le mercredi 28 octobre : FC 52 bpm · VFC 61 ms · sommeil
+6 h 48. », cases vides) ; l'enregistrement, qui mène à l'étape suivante ; la ligne de la
+nuit de l'accueil (« Relevé du 29/10 — 7 h 12 de sommeil. ») ; la liste et la correction
+de `/corps`, et le refus d'un « 0 min » dit par sa phrase. `audit-surfaces.mjs` : le
+parcours du matin à 0 défaut à 402, 390 et 360 px.
+
+**Ce que l'écran a trouvé** : à 402 px, la liste de `/corps` coupait « sommeil » en fin de
+ligne et « 7 h 12 » sous elle. Les mesures sont désormais insécables ; la ligne se coupe
+entre elles.
+
+**Laissé** — le §6.4, et :
+
+- Les deux pas-à-pas du sommeil font 50 px de haut, ceux de la FC et de la VFC 56 : le
+  pas-à-pas se mesure à sa colonne et tombe à `--tap` dans une demi-largeur. Au-dessus du
+  plancher, mais la rangée se voit plus basse.
+- Chaque matin change de jeton au déploiement : l'empreinte d'une ligne porte toutes les
+  colonnes du modèle, `sleep_min` vide comprise. Un écran lu avant et corrigé après reçoit
+  un conflit et relit — c'est la garde, pas une panne.

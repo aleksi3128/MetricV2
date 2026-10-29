@@ -26,7 +26,7 @@ des douleurs, **5 261** avec la carte « Le matin » (voir le `README`).
 | En-tête | **Parcours du matin** (porte manuelle) | — | — |
 | **Douleurs** (porte, M-08) | Chaque épisode ouvert, son état servi, « suivi à noter aujourd'hui » ; un appui ouvre `/corps/douleurs` | `GET /api/pain` | « Aucune douleur en cours » ; en panne, le message du serveur — la porte reste |
 | **Indicateurs** | Dernier poids et sa date, variation sur N pesées, écart à l'objectif (cible de `/reglages`), amplitude | `GET /api/body/weight` | tirets, « objectif 70 kg » (défaut serveur) |
-| **Le matin** (M-09) | FC de repos ou VFC (segment) sur 30 jours ; la ligne de référence quand chaque point a la sienne ; la phrase servie (« encore N matins ») ; la liste des matins de la fenêtre, corriger, supprimer | `GET /api/body/morning/trend` | « Aucun matin sur les 30 derniers jours » + **Parcours du matin** ; un seul matin : « pas encore de courbe » |
+| **Le matin** (M-09) | FC de repos ou VFC (segment) sur 30 jours ; la ligne de référence quand chaque point a la sienne ; la phrase servie (« encore N matins ») ; la liste des matins de la fenêtre — FC, VFC et durée du sommeil, chacune seulement si elle existe —, corriger, supprimer. Le sommeil n'a pas de courbe (`synchro-garmin.md` §6.4) | `GET /api/body/morning/trend` | « Aucun matin sur les 30 derniers jours » + **Parcours du matin** ; un seul matin : « pas encore de courbe » |
 | **Courbe** | Poids, 60 derniers points | même appel que les indicateurs | « Deux pesées suffisent » |
 | **Historique** | Toutes les pesées : date, poids, note, source ; corriger, supprimer | même appel | « Aucune pesée » |
 | **Nouvelle pesée** | Date (jour du serveur), poids, note | — | « Saisie indisponible » sans le jour serveur |
@@ -59,7 +59,7 @@ Remplie : 1 905 px ; vide : 874. En-tête « Douleurs », **Retour au corps**.
 | Noter une douleur depuis l'assistant (M-10) | `pain.add` dans le fil — du jour ou de la veille, marquée `ia`, « Annuler » sur la carte | `POST /api/pain` par le service ; l'annulation `DELETE /api/pain/{id}` | addition, `If-Match` à l'annulation |
 | Répondre « pas de douleur » sur une sortie | Non | `POST /api/pain/none` | addition |
 | Supprimer un relevé de douleur | deux appuis | `DELETE /api/pain/{id}` | `If-Match` |
-| Corriger un matin (M-09) | « corriger » → formulaire date, FC, VFC ; une case vidée efface | `PATCH /api/body/morning/{id}` | `If-Match` |
+| Corriger un matin (M-09) | « corriger » → formulaire date, FC, VFC, sommeil en heures et minutes (`c6c10b4`) ; une case vidée efface ; la phrase d'une règle sur plusieurs cases (« 0 min ») au-dessus | `PATCH /api/body/morning/{id}` | `If-Match` |
 | Supprimer un matin (M-09) | `SwipeRow` : glisser, armer, confirmer | `DELETE /api/body/morning/{id}` | `If-Match` |
 | Ouvrir le parcours du matin | bouton | — | — |
 | Ouvrir les douleurs | la porte en tête | — | — |

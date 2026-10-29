@@ -188,9 +188,10 @@ contre une archive piégée.
 
 ### Le matin : `body/morning.csv`
 
-`date, resting_hr, hrv_ms, source`. Des **mesures** lues sur la montre : la FC de repos du
-widget, la VFC moyenne de la nuit. Famille *mesure* du §2 d'`etat-du-projet.md`, rangée
-dans le domaine Corps à côté des pesées.
+`date, resting_hr, hrv_ms, sleep_min, source`. Des **mesures** lues sur la montre : la FC
+de repos du widget, la VFC moyenne de la nuit, et depuis le 29 octobre la durée du sommeil
+([`synchro-garmin.md`](synchro-garmin.md) §6 — elle n'entre pas dans la forme). Famille
+*mesure* du §2 d'`etat-du-projet.md`, rangée dans le domaine Corps à côté des pesées.
 
 La **référence personnelle** se calcule sur les 28 jours précédents, et n'existe qu'à
 partir de **10 matins**. Avant : « encore N matins », et aucun jugement.

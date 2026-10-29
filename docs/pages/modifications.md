@@ -28,6 +28,7 @@ gagner aucun part.
 | Poids | L ×3 | L | É | — | — | — | — | — | L É | — | — | R (cible) | É |
 | Mensurations | — (M-06) | — | — | — | — | — | — | — | L É (courbe, historique, correction — M-08) | — | — | — | — |
 | FC de repos, VFC | L (nuit) | L (page course) | — | — | — | — | — | — | L É (courbe, liste, correction — M-09) | — | — | — | É (matin) |
+| Durée du sommeil | L (nuit, `Shape`) | — | — | — | — | — | — | — | L É (liste, correction — `c6c10b4`) | — | — | — | É (matin) |
 | Douleur | L (alertes → `/corps/douleurs`) | É (après une saisie — 10 b) | — | — | — | — | — | — | L É (`/corps/douleurs`, porte en tête de `/corps` — M-08) | L (frise) | — | — | É |
 | Eau | L ×2 | — | É | — | L É R (cible, raccourcis — M-04) | — | — | — | — | — | L | — | É |
 | Suppléments | L | — | É | — | L É R | — | — | — | — | — | L | — | É |
@@ -1094,8 +1095,8 @@ son planificateur, `make sync` — : le retirer est un lot à part, que personne
 (`activity/fit.py`, et les champs Garmin qu'il lit, `activity/garmin.py`), l'import à la
 main d'un `.fit`, et `activity/dedup.py`, qui rapproche une sortie importée de sa saisie.
 Deux décisions de l'utilisateur, du même jour, au §7 : **le sommeil se saisira à la main
-le matin** (un lot à venir ; d'ici là la ligne de la nuit de l'accueil reste muette,
-`body/health.csv` n'ayant plus d'écrivain), et **aucune notification « Séance reçue »**
+le matin** (fait le 29 octobre, `c6c10b4` : la durée dans l'étape « Ta nuit », et la ligne
+de la nuit de l'accueil s'allume avec elle), et **aucune notification « Séance reçue »**
 après un import `.fit`.
 
 <a id="m-19"></a>
@@ -1415,7 +1416,8 @@ sans être écrits ici, faits, puis six trouvés en route, laissés.
 | Les pastilles de distance de `/plan` tiennent sur quatre rangées | `ed46495` : les libellés servis sont ceux du catalogue (« Half Ironman (70.3) ») ; un libellé court serait un second vocabulaire | — |
 | « Voir au planning » d'une séance prévue garde son jour après qu'un `plan.move` l'a décalée | le jour est celui que l'action a écrit ; la carte de la séance décalée mène au nouveau | — |
 | Une confirmation faite garde le ton ambre de l'attente (« Fait. ») | antérieur ; `b252a98` n'a changé que le ton d'un conflit | — |
-| Le sommeil de la nuit (session 10 b) | `body/health.csv` n'a plus d'écrivain depuis `1c161e1` : la ligne de la nuit de l'accueil reste muette | **décision du 28 octobre** : **saisi à la main le matin**, dans un lot à venir — pas dans la 10 b |
+| ~~Le sommeil de la nuit (session 10 b)~~ | `body/health.csv` n'a plus d'écrivain depuis `1c161e1` : la ligne de la nuit de l'accueil reste muette | **décision du 28 octobre** : **saisi à la main le matin**. **Fait** (`c6c10b4`, 29 octobre) : la durée, en heures et minutes, dans l'étape « Ta nuit » à côté de la FC et de la VFC (décision du 29 : ni score, ni ressenti, ni stress, ni Body Battery) ; une colonne `sleep_min` de `body/morning.csv`, corrigée sur `/corps` sous `If-Match` ; `health.csv` reste une archive lue (`synchro-garmin.md` §6) |
+| Le sommeil sans courbe, hors de la forme et des corrélations (lot du sommeil) | `synchro-garmin.md` §6.4 : une courbe demanderait de dire la référence d'un sommeil ; la forme et le coach jugent *par règle* sur la FC et la VFC ; un facteur de corrélation n'aura de données que dans plusieurs semaines | — |
 | Une notification « Séance reçue » après un import `.fit` (session 10 b) | la synchro la rendait possible ; l'import à la main se fait l'écran sous les yeux | **décision du 28 octobre** : **aucune** |
 | La saisie à la main d'un vélo ou d'une marche (session 10 b) | M-16 l'avait mise au troisième choix de la feuille « Course » | **décision du 29 octobre** : **retirée de l'écran** (`11bdd17`), route et formulaire gardés ; `git revert 11bdd17` la rétablit |
 | L'effort perçu d'une course saisie à la main (session 10 b) | `ab4b27a` enchaîne sur la douleur seule ; après un `.fit`, l'effort est demandé avant elle. Le formulaire de l'étape 2 ne le porte pas non plus | — |
