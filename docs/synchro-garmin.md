@@ -22,11 +22,14 @@
 > - **La santé de la nuit déjà reçue (D5)** : `GET /api/body/health` relit
 >   `body/health.csv` tel qu'il est, l'accueil n'affiche la nuit que si elle existe. Le
 >   fichier n'a **plus d'écrivain** — et, la synchro n'ayant jamais été configurée, il est
->   probablement absent : rien ne l'a jamais écrit en production.
+>   probablement absent : rien ne l'a jamais écrit en production. **Depuis le 29 octobre,
+>   la durée du sommeil se saisit le matin**, dans `body/morning.csv`, et la même route
+>   réunit les deux (§6).
 > - **Les données de la synchro**, `sync/imported.csv` et `sync/state.csv`, si elles
 >   existent, restent au stockage : rien ne les lit plus, rien ne les efface.
 >
-> Le reste du document est l'historique du lot R7, laissé tel quel.
+> Les §1 à §5 sont l'historique du lot R7, laissé tel quel ; le §6 est le plan du sommeil
+> saisi le matin.
 
 Lot **R7** de [`runfurther-dans-metric.md`](runfurther-dans-metric.md), plan du 20/10/2026.
 Exigences ANA-01, ANA-02, NOT-04 ; critères d'acceptation CA-03 et CA-08.
@@ -153,3 +156,110 @@ tests de la synchro (la passe par sport, le fichier déjà déposé, la panne CA
 annoncé) partent aussi ; ceux du dédoublonnage restent, dans `tests/test_dedup.py`, et la
 lecture de la nuit est éprouvée sur un `body/health.csv` semé (`tests/test_body.py`) — elle
 ne l'était qu'à travers la synchro.
+
+---
+
+## 6. Le sommeil saisi le matin (plan du 29 octobre 2026)
+
+**Décision de l'utilisateur, le 29 octobre** : le matin, il saisit **la VFC, la FC de repos
+et la durée du sommeil**, toutes trois lues sur la montre. Ni score de sommeil, ni ressenti,
+ni stress, ni Body Battery. La durée est une **mesure**, pas un ressenti.
+
+Ce plan est écrit ici et non dans un document neuf : il prend la suite directe de **D5** (la
+santé de la nuit), et la ligne du §1 de `CLAUDE.md` qui mène à ce fichier nomme déjà « la
+santé de la nuit ». Une page de plus pour une section aurait demandé une ligne d'index de
+plus pour le même sujet.
+
+### 6.1 Ce qu'on a trouvé en lisant
+
+- **Un seul lecteur du sommeil.** `sleep_min` n'est lu que par `HealthService.view`
+  (`GET /api/body/health`), que seule la ligne « nuit » de la carte Forme de l'accueil
+  affiche. **Ni la corrélation, ni les tendances, ni le coach ne lisent le sommeil** :
+  `activity/correlations.py` et `trends.py` ne prennent du matin que la VFC et l'écart de
+  FC ; le coach, le replanificateur et l'assistant ne lisent que la *forme*
+  (`readiness`), qui ne repose que sur la FC de repos et la VFC.
+- **`body/health.csv` est probablement absent en production** (encadré en tête) : la
+  synchro n'a jamais été configurée.
+- **Le matin a deux écrivains à l'écran** : l'étape « Ta nuit » du parcours (`POST` puis,
+  le jour même, `PATCH`) et la correction de la carte « Le matin » de `/corps` (M-09,
+  `PATCH` sous `If-Match`). Le `PATCH` **remplace la ligne entière**.
+
+### 6.2 Les décisions
+
+| # | Question | Décision | Ce que ça coûte |
+|---|---|---|---|
+| S1 | Où vit la durée | **Une colonne `sleep_min` de `body/morning.csv`**, à côté de `resting_hr` et `hrv_ms`. `body/health.csv` reste ce qu'il est : une archive de la montre, lue, jamais écrite | L'historique du sommeil a deux fichiers : l'archive (avant le 28 octobre), le matin (depuis). Une règle de lecture, en un seul endroit (S5) |
+| S2 | Le geste | **Un champ de plus dans l'étape « Ta nuit »**, sous la FC et la VFC : deux cases, heures et minutes, 16 px, vides. Un enregistrement écrit les trois | L'étape s'allonge d'une rangée ; le parcours ne gagne pas d'écran |
+| S3 | Le relevé de la veille | **Rappelé sous chaque mesure, jamais prérempli** — « Dernier matin, le mardi 28 octobre : 7 h 12. » —, comme la pesée. Ce n'est pas une proposition : ni `AiBlock`, ni `proposed` | Le serveur sert `MorningView.previous`, le dernier matin avant aujourd'hui |
+| S4 | La correction | **Le formulaire de la carte « Le matin » de `/corps`** gagne les deux cases ; même `PATCH /api/body/morning/{id}`, même `If-Match`. Le parcours corrige le matin du jour comme aujourd'hui | Le `PATCH` remplaçant la ligne, **les deux écrivains envoient la durée** — sans quoi corriger une FC effacerait le sommeil. Le type du client la rend obligatoire |
+| S5 | La lecture de la nuit | `GET /api/body/health` **réunit** l'archive et les matins : un jour a une nuit si l'un des deux porte un sommeil, ou l'archive un stress ou une Body Battery. **La durée saisie l'emporte** sur celle de l'archive, et le score de la montre n'est alors pas repris — il notait une autre durée | Les deux sources ne se rencontrent qu'un jour corrigé après coup : avant le 28 octobre l'une, depuis l'autre |
+| S6 | Une ligne `garmin` de l'archive | **Jamais réécrite.** Corriger la durée d'un jour se fait sur son matin ; la ligne de la montre garde tous ses champs, puisque rien n'y écrit | Une durée de la montre ne se corrige pas en place — elle se recouvre |
+| S7 | Le stress et la Body Battery | **Rien n'est dit quand ils manquent** : la phrase de la nuit ne nomme que ce qui existe (« 7 h 12 de sommeil. »). Ni zéro, ni tiret, ni promesse d'une source qui ne viendra pas | La carte ne dit pas pourquoi ils ont disparu ; l'archive les montre encore pour ses jours |
+| S8 | Les lecteurs de la forme | **Le sommeil n'entre pas dans la forme**, ni donc dans le coach. Un matin qui ne porte **que** le sommeil ne compte pas parmi les dix matins d'une référence, et la forme du jour dit « Ni FC de repos ni VFC ce matin » au lieu de « Pas encore de mesure » | Faire peser le sommeil sur la séance est une décision de produit (le coach allège *par règle*) : pas prise ici |
+
+### Pourquoi `morning.csv` et non `health.csv`
+
+La recommandation de départ était `health.csv`, pour garder une seule vérité du sommeil
+« puisque tous les lecteurs existants la lisent là ». La lecture du code dit autre chose :
+il n'y a **qu'un** lecteur, et il est réécrit ici en dix lignes. Restent les raisons de
+`morning.csv` :
+
+1. **Un geste, une ligne, un jeton.** Les trois nombres se lisent sur la montre au même
+   moment. Dans deux fichiers, l'enregistrement ferait deux écritures sans transaction :
+   la FC passée et la durée refusée laisseraient un matin à moitié écrit, et sa reprise
+   devrait savoir laquelle des deux a abouti. La correction porterait deux jetons
+   `If-Match` pour une seule ligne à l'écran.
+2. **La correction existe déjà.** La carte « Le matin » (M-09) corrige et supprime un
+   matin ; elle gagne deux cases. Dans `health.csv`, il faudrait une seconde liste, une
+   seconde route `PATCH`, et décider si une nuit de la montre se supprime.
+3. **`health.csv` a été dessiné pour la montre** : cinq colonnes dont quatre (score,
+   stress, Body Battery haute et basse) ne seront plus jamais remplies. Y écrire à la main
+   ferait d'une archive figée un fichier vivant à moitié vide.
+4. **La nature de la donnée.** `MorningRow` se définit comme « des mesures lues sur la
+   montre, pas un ressenti » : c'est mot pour mot la durée telle que l'utilisateur l'a
+   décidée.
+
+Le prix — deux fichiers pour l'historique du sommeil — se paie **une fois, dans
+`HealthService`**, et les deux sources ne se recouvrent que si l'on corrige après coup un
+jour d'avant le 28 octobre.
+
+### 6.3 Ce qui change
+
+**Serveur**
+
+- `MorningRow.sleep_min` (`int | None`). Une colonne absente d'un fichier ancien se lit
+  vide.
+- `MorningPayload` : `sleep_hours` (0–16) et `sleep_minutes` (0–59). **Le serveur compose
+  la durée** : un client qui additionnerait des minutes serait un second analyseur de
+  saisie. Heures sans minutes vaut « h 00 » ; une durée nulle ou au-delà de 16 h est
+  refusée, en français. « Au moins une » mesure devient « la FC, la VFC ou le sommeil ».
+- `MorningEntry` : `sleep_min`, et sa décomposition `sleep_hours` / `sleep_minutes`, pour
+  que le formulaire se rouvre sans calcul.
+- `MorningView.previous` : le dernier matin avant aujourd'hui (S3).
+- L'historique de la forme ne prend que les matins qui portent une FC ou une VFC (S8).
+- `HealthService.view` réunit l'archive et les matins (S5) ; `HealthDay.source` dit d'où
+  vient la durée.
+- Aucune route nouvelle, aucun code d'erreur nouveau : `validation_error` et `conflict`
+  servent.
+
+**Client**
+
+- L'étape « Ta nuit » : la phrase dit les trois mesures, deux cases pour la durée, le
+  rappel sous chacune ; l'invalidation reste `keys.body.all()`, `keys.activity.all()` et
+  `CROSS_CUTTING` — c'est elle qui rafraîchit la nuit de l'accueil (`keys.aggregates`).
+- La carte « Le matin » de `/corps` : « sommeil 7 h 12 » dans la liste, les deux cases dans
+  la correction.
+- La ligne « nuit » de l'accueil ne change pas de forme ; elle s'allume dès le premier
+  matin qui porte un sommeil.
+
+### 6.4 Ce que ce plan ne fait pas
+
+- **Une courbe du sommeil sur `/corps`** : la carte « Le matin » trace la FC et la VFC
+  contre leur référence ; une troisième série demanderait de dire ce qu'est la référence
+  d'un sommeil. Les durées se relisent dans la liste.
+- **Le sommeil comme facteur de corrélation** (« ce qui va avec une bonne sortie ») : un
+  facteur de plus, cinq sorties par groupe avant tout constat — il n'aura de données que
+  dans plusieurs semaines. À ajouter quand elles existeront.
+- **Le sommeil dans la carte « Conditions » d'une sortie**, ni dans le condensé de
+  l'assistant.
+- **Le sommeil dans la forme et le coach** (S8).
