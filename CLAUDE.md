@@ -59,6 +59,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | Planifier une séance, deuxième version — la notation de course lue par le serveur, les garde-fous, la montre, le respect bloc par bloc | [`docs/planifier-une-seance.md`](docs/planifier-une-seance.md) |
 | Corriger une natation importée — un tour en distance, temps et nage, la fusion, le retrait, les réglages, la réécriture en notation | [`docs/natation-corriger.md`](docs/natation-corriger.md) |
 | Les correctifs de l'audit du 17 octobre — les arbitrages, fiche par fiche, ce qui attend | [`docs/correctifs-audit.md`](docs/correctifs-audit.md) |
+| L'inventaire des pages — ce que chaque écran montre et fait, et le plan des modifications M-01 à M-23 | [`docs/pages/README.md`](docs/pages/README.md) |
 
 [`docs/charte-runfurther/`](docs/charte-runfurther/LISEZMOI.md) est la **référence** des
 couleurs, de la typographie et des formes. [`docs/GuidelinesUI.html`](docs/GuidelinesUI.html),
@@ -193,8 +194,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (347 fichiers), 2 338 tests backend
-               # prettier, eslint, tsc, 804 tests d'écran
+make check     # ruff, ruff format, mypy (353 fichiers), 2 523 tests backend
+               # prettier, eslint, tsc, 934 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.
@@ -343,7 +344,9 @@ ce qui a été mesuré, ce qui a été écarté et pourquoi, et finit par ce qui
 | Les phases 4 et 6 de [`refonte-activite.md`](docs/refonte-activite.md) | la copie de sauvegarde, puis la suppression de `workouts.csv`, `exercises.csv` et `exercise_log.csv`. **À la main, par l'utilisateur** — ce sont de vraies données de santé et le projet n'a aucune annulation |
 | La démonstration d'un exercice ne s'affiche que sur un nom **exact** du catalogue | `exercise_media.py` ; un rapprochement approximatif reproduirait celui de Cadence, ce que le dépôt refuse en toutes lettres |
 | Aucun écran n'a jamais été touché sur un **vrai téléphone** | l'émulation ne reproduit ni le pouce, ni le clavier système, ni la latence |
-| Les champs Garmin **non documentés** — VO2max, récupération, condition de performance, stamina | décodés et rangés, **masqués** tant que `garmin.CONFIRMED` est vide : leurs valeurs du 19/09 attendent d'être relues sur Garmin Connect ([`coach-course.md`](docs/coach-course.md) §11) |
+| Les champs Garmin **non documentés** — VO2max, récupération, condition de performance, stamina | décodés par `activity/garmin.py` et rangés, **masqués** tant que `garmin.CONFIRMED` est vide : leurs valeurs du 19/09 attendent d'être relues sur Garmin Connect ([`coach-course.md`](docs/coach-course.md) §11). La synchro est retirée (`1c161e1`) : ils n'arrivent plus que par le `.fit` qu'on importe, le décodeur reste |
+| Retirer ou poser un plan de course n'a **pas de garde `If-Match`** (`DELETE /api/races/plan`, `POST /api/races/plan/{id}`) | un écart au §2, antérieur : la phrase dit à la lecture ce qui partirait, un changement entre la lecture et l'appui n'est pas vu ([`modifications.md`](docs/pages/modifications.md) §7) |
+| Les décisions de produit que les fiches M-01 à M-23 ont laissées — le sommeil hors de la forme, du coach et des corrélations, l'effort d'une course saisie à la main, `make eval` jamais lancé | rassemblées, sans être tranchées, dans le [bilan](docs/pages/modifications.md#bilan) ; aucune ne se prend en passant |
 | Le coach n'a **jamais été appelé en réel** ; Open-Meteo l'a été une fois, par erreur, depuis un banc le 22 octobre (dix requêtes, coordonnées de synthèse). | doublures partout, y compris à l'écran ; le premier import en production sera le premier appel |
 
 Deux lignes sont sorties de ce tableau avec la phase 5 : les calculs métier de `/activite`
