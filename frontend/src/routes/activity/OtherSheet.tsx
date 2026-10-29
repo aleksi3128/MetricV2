@@ -8,8 +8,9 @@
  *
  * **Elles se corrigent aussi** (session 10 b) : « Corriger la sortie » remplace la feuille
  * par le formulaire de la saisie, pré-rempli, en place — le motif d'une pesée de `/corps`.
- * Un seul formulaire pour saisir et corriger : deux auraient fini par lire la durée
- * différemment. L'effort reste à un appui au-dessus, puisque c'est le geste fréquent.
+ * C'est le formulaire de la saisie à la main (M-16), qui a quitté l'écran le 29 octobre :
+ * le garder pour corriger, c'est garder de quoi la rétablir. L'effort reste à un appui
+ * au-dessus, puisque c'est le geste fréquent.
  */
 
 import { useState } from 'react';

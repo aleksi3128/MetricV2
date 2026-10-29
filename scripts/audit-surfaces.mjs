@@ -72,14 +72,6 @@ const SURFACES = [
   // demandent de remplir des champs, ce que ce script s'interdit — il ouvre et il mesure,
   // il ne saisit rien.
   ["/activite", "Enregistrer une course", "assistant de course"],
-  // Son troisième choix (M-16) : un vélo ou une marche à la main — le sport, la date, la
-  // durée, l'échelle d'effort. Ni pastille ni « Enregistrer la sortie » ne sont appuyés :
-  // ce serait écrire.
-  [
-    "/activite",
-    ["Enregistrer une course", "Vélo ou marche, à la main"],
-    "vélo ou marche à la main",
-  ],
   // Enregistrer une natation (`docs/natation-activite.md`) : le fichier, puis la saisie
   // dans la notation — champ de programme, puces, glossaire replié. « Enregistrer » n'est
   // pas appuyé : ce serait écrire.
@@ -94,9 +86,10 @@ const SURFACES = [
     "effort d’une sortie vélo ou marche",
   ],
   // La même feuille, sur sa correction (session 10 b) : « Corriger la sortie » remplace
-  // l'effort par le formulaire de la saisie, pré-rempli. L'appui n'écrit rien ; le second
-  // « Corriger la sortie », au pied du formulaire, écrirait — il n'est pas appuyé. La
-  // douleur demandée après une saisie, elle, ne se gagne qu'en écrivant : hors de portée.
+  // l'effort par le formulaire de la saisie à la main (retirée de l'écran le 29 octobre),
+  // pré-rempli. L'appui n'écrit rien ; le second « Corriger la sortie », au pied du
+  // formulaire, écrirait — il n'est pas appuyé. La douleur demandée après une saisie, elle,
+  // ne se gagne qu'en écrivant : hors de portée.
   [
     "/activite",
     ["Effort de la sortie marche du 18/10/2026", "Corriger la sortie"],

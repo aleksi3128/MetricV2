@@ -15,11 +15,12 @@
  * Course    1. un .fit, une capture, ou rien      → Suivant
  *           2. temps, allure, distance, cadence   → Enregistrer
  *           3. une douleur ?                      → Non · Oui · Plus tard   (10 b)
- *
- * Vélo ou   1. le troisième choix de l'étape 1
- * marche    2. sport, date, durée, distance, effort → Enregistrer   (M-16)
- *           3. une douleur ?                                         (10 b)
  * ```
+ *
+ * **Le vélo ou la marche à la main a quitté la feuille** (décision du 29 octobre) : il
+ * était le troisième choix de l'étape 1 (M-16). La route `POST /api/activity/others`
+ * reste, et le formulaire `OtherEntry` corrige les sorties existantes ; un `.fit` de vélo
+ * est toujours reconnu ici. `git revert` du commit qui l'a retiré le rétablit entier.
  *
  * **La douleur se demande après toute sortie écrite ici**, comme après un `.fit`
  * (`docs/douleurs.md`, D1) : elle se rattache à la sortie par son identifiant stable —
@@ -73,7 +74,6 @@ import { scrollSheetTop } from '@/lib/scroll';
 import { useToast } from '@/lib/toast';
 
 import { PainCheck } from '../body/PainCheck';
-import { OtherEntry } from './OtherEntry';
 import { RateEffort, RateRun } from './run/Rate';
 
 import styles from '../Activity.module.css';
@@ -97,56 +97,29 @@ export function NewActivitySheet({
   onSwimImported: (swim: SwimDetail) => void;
 }) {
   const [step, setStep] = useState(1);
-  /**
-   * Ce que l'étape 2 saisit. Un vélo n'est pas une course : le titre de la feuille suit,
-   * sans quoi on remplirait une sortie à vélo sous le mot « Course » (M-16).
-   */
-  const [kind, setKind] = useState<'run' | 'other'>('run');
 
   function close(): void {
     setStep(1);
-    setKind('run');
     onClose();
   }
 
   return (
-    <Sheet
-      open={open}
-      onClose={close}
-      title={kind === 'other' ? 'Vélo ou marche' : 'Course'}
-      lede={`Étape ${String(step)} sur 2`}
-      wide
-    >
+    <Sheet open={open} onClose={close} title="Course" lede={`Étape ${String(step)} sur 2`} wide>
       {/* **L'étape 0 a disparu avec la séance.** Elle demandait « Course ou Séance ? » ;
           il ne reste qu'une nature à saisir à la main, et poser une question dont la
           réponse est déjà connue est un appui de plus pour rien. « Retour », à la
           première étape, ferme donc la feuille au lieu de remonter à ce choix. */}
-      {kind === 'other' ? (
-        <OtherEntry
-          today={today}
-          onBack={() => {
-            setKind('run');
-            setStep(1);
-          }}
-          onDone={close}
-        />
-      ) : (
-        <RunWizard
-          today={today}
-          step={step}
-          onStep={setStep}
-          onBack={close}
-          onDone={close}
-          onOther={() => {
-            setKind('other');
-            setStep(2);
-          }}
-          onSwimImported={(swim) => {
-            close();
-            onSwimImported(swim);
-          }}
-        />
-      )}
+      <RunWizard
+        today={today}
+        step={step}
+        onStep={setStep}
+        onBack={close}
+        onDone={close}
+        onSwimImported={(swim) => {
+          close();
+          onSwimImported(swim);
+        }}
+      />
     </Sheet>
   );
 }
@@ -214,7 +187,6 @@ function RunWizard({
   onStep,
   onBack,
   onDone,
-  onOther,
   onSwimImported,
 }: {
   today: string;
@@ -222,8 +194,6 @@ function RunWizard({
   onStep: (step: number) => void;
   onBack: () => void;
   onDone: () => void;
-  /** Le troisième choix : une sortie vélo ou marche, à la main (M-16). */
-  onOther: () => void;
   onSwimImported: (swim: SwimDetail) => void;
 }) {
   const invalidate = useInvalidateActivity();
@@ -442,7 +412,6 @@ function RunWizard({
         onSkip={() => {
           onStep(2);
         }}
-        onOther={onOther}
         onBack={onBack}
         onImported={(run) => {
           invalidate();
@@ -753,16 +722,12 @@ function RunWizard({
  * La **capture** pré-remplit l'étape 2, qu'on relit et corrige avant d'enregistrer.
  *
  * La **saisie** n'ouvre rien du tout.
- *
- * Le **vélo ou la marche, à la main** (M-16) est la troisième porte : un `.fit` de vélo
- * était déjà reconnu ici, une sortie sans montre n'avait nulle part où entrer.
  */
 function AppleStep({
   today,
   enabled,
   onRead,
   onSkip,
-  onOther,
   onBack,
   onImported,
   onSwimImported,
@@ -772,7 +737,6 @@ function AppleStep({
   enabled: boolean;
   onRead: (draft: AppleDraft) => void;
   onSkip: () => void;
-  onOther: () => void;
   onBack: () => void;
   onImported: (run: Run) => void;
   /** Le fichier était une natation : le serveur l'a dit par son code, et elle est importée. */
@@ -940,15 +904,6 @@ function AppleStep({
             </>
           )}
         </div>
-
-        <div className={wide.choice}>
-          <h3 className={wide.choiceTitle}>Sans montre</h3>
-          <Button onClick={onOther}>Vélo ou marche, à la main</Button>
-          <p className={styles.note}>
-            Le sport, la durée et l’effort perçu : de quoi compter une sortie sans montre dans la
-            charge.
-          </p>
-        </div>
       </div>
 
       <div className={styles.sheetCommit}>
@@ -964,8 +919,8 @@ function AppleStep({
             Lire la capture
           </Button>
         ) : (
-          // « une course » : depuis M-16, « Vélo ou marche, à la main » est juste au-dessus,
-          // et deux « Saisir à la main » empilés se lisaient comme le même geste.
+          // « une course » : depuis M-16 — le nom est resté quand « Vélo ou marche, à la main »
+          // a quitté la feuille, le 29 octobre ; il dit toujours ce qu'on saisit.
           <Button variant="primary" className={styles.commit} onClick={onSkip}>
             Saisir une course à la main
           </Button>

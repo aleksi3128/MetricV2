@@ -983,8 +983,6 @@ export const activityApi = {
 
   /** Vélo, marche, randonnée (`docs/charge-multisport.md`, D8) : comptés, pas analysés. */
   others: () => request<OtherList>('/api/activity/others'),
-  createOther: (payload: OtherPayload) =>
-    request<Other>('/api/activity/others', { method: 'POST', body: payload }),
   /** Appelé quand l'import de course répond `fit_is_other`, comme pour la nage. */
   importOtherFit: (file: File) => {
     const form = new FormData();
@@ -1207,14 +1205,4 @@ export interface OtherCorrection {
   duration_min: number | string;
   distance_km: number | string | null;
   rpe: number | null;
-}
-
-export interface OtherPayload {
-  date: string;
-  sport: OtherSport;
-  duration_min: number | string;
-  distance_km?: number | string | null;
-  avg_hr?: number | null;
-  rpe?: number | null;
-  note?: string | null;
 }

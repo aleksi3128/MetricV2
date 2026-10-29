@@ -1,25 +1,19 @@
 /**
- * Un vélo ou une marche saisis à la main (M-16, `docs/pages/modifications.md`).
+ * Corriger un vélo ou une marche (session 10 b, `docs/pages/modifications.md`).
  *
- * Sans montre, ces sorties n'entraient nulle part : la route existait, pas l'écran. Elles
- * existent pour **compter dans la charge**, et c'est l'effort perçu qui les y fait
- * entrer — d'où sa place dans ce formulaire plutôt qu'après, où il s'oublie. Il reste
- * facultatif, et la phrase dessous dit ce que coûte de le laisser vide.
+ * **Le formulaire de la saisie à la main** (M-16), qui n'en fait plus qu'une correction :
+ * l'entrée « Vélo ou marche, à la main » a quitté la feuille « Course » le 29 octobre, et
+ * `git revert` du commit qui l'a retirée rétablit la saisie, et sa douleur demandée après.
+ * Ces sorties existent pour **compter dans la charge**, et c'est l'effort perçu qui les y
+ * fait entrer ; il reste facultatif, et la phrase dessous dit ce que coûte de le vider.
  *
  * **La liste des sports vient du serveur** (`GET /api/activity/others`, `sports`) : une
- * seconde liste écrite ici finirait par proposer un sport que le serveur refuse. Aucun
- * n'est choisi d'office — une pastille cochée d'avance serait un vélo que personne n'a
- * fait.
+ * seconde liste écrite ici finirait par proposer un sport que le serveur refuse.
  *
- * **Puis la douleur** (session 10 b), comme après un `.fit` : la sortie écrite, le
- * formulaire cède la place à `PainCheck`, rattaché par l'`other_id` — l'identifiant
- * stable, que la position de la ligne n'est pas.
- *
- * **Le même formulaire corrige** (session 10 b), comme celui d'une pesée sur `/corps` :
- * `editing` désigne la ligne, relue dans la liste servie avec les sports, et le formulaire
- * s'ouvre pré-rempli de ce qu'elle porte — des valeurs relues, pas proposées. Il envoie sous
- * `If-Match` le jeton de cette lecture-là, celle que le formulaire montre. Une correction
- * ne redemande pas la douleur : elle a été demandée à la saisie.
+ * **Corriger en place**, comme une pesée sur `/corps` : `editing` désigne la ligne, relue
+ * dans la liste servie avec les sports, et le formulaire s'ouvre pré-rempli de ce qu'elle
+ * porte — des valeurs relues, pas proposées. Il envoie sous `If-Match` le jeton de cette
+ * lecture-là, celle que le formulaire montre.
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -37,7 +31,6 @@ import { cx } from '@/lib/cx';
 import { keys } from '@/lib/query';
 import { useToast } from '@/lib/toast';
 
-import { PainCheck } from '../body/PainCheck';
 import { EffortScale } from './run/Rate';
 
 import styles from '../Activity.module.css';
@@ -52,7 +45,7 @@ export function OtherEntry({
 }: {
   today: string;
   /** La position de la ligne à corriger, telle que l'historique la donne. */
-  editing?: number | undefined;
+  editing: number;
   onBack: () => void;
   onDone: () => void;
 }) {
@@ -74,9 +67,8 @@ export function OtherEntry({
       </div>
     );
   }
-  const current =
-    editing === undefined ? undefined : data.others.find((other) => other.id === editing);
-  if (editing !== undefined && current === undefined) {
+  const current = data.others.find((other) => other.id === editing);
+  if (current === undefined) {
     return (
       <div className={styles.form}>
         <Empty title="Sortie introuvable">
@@ -91,7 +83,7 @@ export function OtherEntry({
   return (
     <OtherForm
       // Remonté sur un nouveau jeton : le formulaire repart de la ligne relue.
-      key={current?.token ?? 'new'}
+      key={current.token}
       today={today}
       sports={data.sports}
       editing={current}
@@ -115,50 +107,39 @@ function OtherForm({
 }: {
   today: string;
   sports: readonly SportChoice[];
-  editing: Other | undefined;
+  editing: Other;
   onBack: () => void;
   onDone: () => void;
 }) {
   const invalidate = useInvalidateActivity();
   const { notify } = useToast();
-  const [sport, setSport] = useState<OtherSport | null>(editing?.sport ?? null);
-  const [day, setDay] = useState(editing?.date ?? today);
-  const [minutes, setMinutes] = useState(editing ? fieldText(editing.duration_min) : '');
-  const [distance, setDistance] = useState(editing ? fieldText(editing.distance_km) : '');
-  const [rpe, setRpe] = useState<number | null>(editing?.rpe ?? null);
+  const [sport, setSport] = useState<OtherSport>(editing.sport);
+  const [day, setDay] = useState(editing.date);
+  const [minutes, setMinutes] = useState(fieldText(editing.duration_min));
+  const [distance, setDistance] = useState(fieldText(editing.distance_km));
+  const [rpe, setRpe] = useState<number | null>(editing.rpe);
   const [error, setError] = useState<ApiError | null>(null);
-  /** La sortie écrite : la feuille demande alors la douleur. */
-  const [saved, setSaved] = useState<Other | null>(null);
 
   const save = useMutation({
-    mutationFn: (chosen: OtherSport) => {
-      const fields = {
+    mutationFn: () =>
+      activityApi.updateOther(editing.id, editing.token, {
         date: day,
-        sport: chosen,
+        sport,
         duration_min: minutes,
         distance_km: distance || null,
         rpe,
-      };
-      return editing
-        ? activityApi.updateOther(editing.id, editing.token, fields)
-        : activityApi.createOther(fields);
-    },
+      }),
     onSuccess: (other) => {
       invalidate();
       const label = sports.find((item) => item.value === other.sport)?.label ?? other.sport;
-      if (editing) {
-        notify(`Sortie corrigée : ${label.toLowerCase()}.`, 'effort');
-        onDone();
-        return;
-      }
-      notify(`Sortie enregistrée : ${label.toLowerCase()}.`, 'effort');
-      setSaved(other);
+      notify(`Sortie corrigée : ${label.toLowerCase()}.`, 'effort');
+      onDone();
     },
     onError: (caught: unknown) => {
       // Un conflit ne se force pas : la ligne a changé depuis qu'on l'a lue. La liste se
       // relit et le formulaire remonte sur elle — le message passe donc en toast, qu'un
       // remontage n'emporte pas (le motif de M-17, sur `/plan`).
-      if (editing && caught instanceof ApiError && caught.code === 'conflict') {
+      if (caught instanceof ApiError && caught.code === 'conflict') {
         notify(caught.message, 'recover');
         invalidate();
         return;
@@ -166,12 +147,6 @@ function OtherForm({
       setError(caught instanceof ApiError ? caught : null);
     },
   });
-
-  if (saved !== null) {
-    return (
-      <PainCheck date={saved.date} activityId={saved.other_id} today={today} onDone={onDone} />
-    );
-  }
 
   return (
     <div className={styles.form}>
@@ -244,19 +219,17 @@ function OtherForm({
           variant="primary"
           className={styles.commit}
           busy={save.isPending}
-          disabled={sport === null || day === '' || minutes.trim() === ''}
+          disabled={day === '' || minutes.trim() === ''}
           onClick={() => {
-            if (sport !== null) save.mutate(sport);
+            save.mutate();
           }}
         >
-          {editing ? 'Corriger la sortie' : 'Enregistrer la sortie'}
+          Corriger la sortie
         </Button>
         <Button variant="quiet" disabled={save.isPending} onClick={onBack}>
           Retour
         </Button>
       </div>
-
-      {sport === null && <p className={styles.empty}>Choisis d’abord le sport.</p>}
     </div>
   );
 }
