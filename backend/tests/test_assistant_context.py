@@ -34,6 +34,8 @@ from app.domains.assistant.actions import Level, catalogue
 from app.domains.assistant.conversation import Need
 from app.domains.body.schemas import WeightPayload
 from app.domains.body.service import WeightService
+from app.domains.goals.schemas import GoalPayload
+from app.domains.goals.service import GoalService
 from app.domains.hydration.schemas import IntakePayload
 from app.domains.hydration.service import HydrationService
 from app.domains.nutrition.service import NutritionService
@@ -1055,3 +1057,29 @@ async def test_la_langue_des_noms_est_dite_partout_pareil(store: FileStore) -> N
     naming = next(line for line in lines if line.startswith("Noms d'exercices"))
     assert "anglais" in naming
     assert "en français si tu veux" not in naming
+
+
+async def test_l_avancement_de_l_objectif_dit_sa_base(store: FileStore) -> None:
+    """« 0 % du chemin » seul se lisait comme un échec — à l'écran comme pour le modèle.
+
+    Décision du 29 octobre : l'avancement se dit depuis la base de l'adoption. Le condensé
+    reprend la phrase de l'anneau mot pour mot, plutôt qu'une seconde rédaction.
+    """
+    goals = GoalService(store)
+    await goals.adopt(
+        GoalPayload(
+            title="Trois séances par semaine",
+            metric="weekly_sessions",
+            target=3,
+            deadline=TODAY + timedelta(weeks=6),
+        ),
+        today=TODAY,
+    )
+    view = await goals.view(today=TODAY)
+    assert view.active is not None
+
+    lines = await context.build(store, adherence=_AUCUN_PLAN, today=TODAY)
+    line = next(line for line in lines if line.startswith("Objectif en cours"))
+
+    assert line.endswith(f"Avancement : {view.active.progress.ratio_text}")
+    assert "0 % du chemin depuis ta base : 0 séance par semaine à l'adoption" in line

@@ -375,6 +375,8 @@ describe('où je vais', () => {
           current: 2.4,
           target: 3,
           ratio: 0.5,
+          ratio_text:
+            "50 % du chemin depuis ta base : 1,8 séance par semaine à l'adoption (moyenne des 4 semaines complètes d'avant).",
           summary: '2,4 sur 3 séances',
           basis: 'moyenne des 4 dernières semaines complètes',
         },
@@ -388,6 +390,8 @@ describe('où je vais', () => {
     // Le libellé chiffré et la fenêtre d'observation arrivent **rédigés**.
     expect(screen.getByText('2,4 sur 3 séances')).toBeInTheDocument();
     expect(screen.getByText('moyenne des 4 dernières semaines complètes')).toBeInTheDocument();
+    // Ce que compte l'anneau, et d'où — la phrase de `/objectif`, servie telle quelle.
+    expect(screen.getByText(/^50 % du chemin depuis ta base : 1,8 séance/)).toBeInTheDocument();
     expect(screen.getByText(/42 jours restants/)).toBeInTheDocument();
   });
 
@@ -421,6 +425,8 @@ describe('où je vais', () => {
           current: null,
           target: 3,
           ratio: null,
+          ratio_text:
+            "Chemin fait : — (aucun relevé au 15/07, jour de l'adoption, donc aucune base d'où le compter). Un relevé daté de ce jour-là ou d'avant en donnerait une.",
           summary: '— sur 3 séances',
           basis: 'moyenne des 4 dernières semaines complètes',
         },
@@ -433,6 +439,8 @@ describe('où je vais', () => {
     await screen.findByText('Trois séances par semaine');
     expect(screen.queryByRole('img', { name: 'Séances par semaine' })).toBeNull();
     expect(screen.queryByText('0 %')).toBeNull();
+    // Sans anneau, la phrase dit pourquoi : un tiret, et le geste qui donnerait une base.
+    expect(screen.getByText(/^Chemin fait : — \(aucun relevé au 15\/07/)).toBeInTheDocument();
   });
 
   it('retombe sur la cible de poids, en disant que c’est un réglage', async () => {
@@ -503,6 +511,8 @@ const GOAL = {
     current: 2.4,
     target: 3,
     ratio: 0.5,
+    ratio_text:
+      "50 % du chemin depuis ta base : 1,8 séance par semaine à l'adoption (moyenne des 4 semaines complètes d'avant).",
     summary: '2,4 sur 3 séances',
     basis: 'moyenne des 4 dernières semaines complètes',
   },

@@ -160,10 +160,13 @@ async def build(
     if view.active is not None:
         active = view.active
         progress = active.progress
-        share = "" if progress.ratio is None else f", {fr(progress.ratio * 100)} % du chemin"
+        # L'avancement en toutes lettres, base comprise — la phrase de l'anneau, mot pour
+        # mot. « 0 % du chemin » seul, le modèle le lisait comme l'écran le faisait lire :
+        # un échec, là où ce n'était qu'un départ (décision du 29 octobre).
         lines.append(
-            f"Objectif en cours : {active.goal.title} — {progress.summary}{share} "
-            f"({progress.basis}), échéance dans {active.days_left} jour(s)"
+            f"Objectif en cours : {active.goal.title} — {progress.summary} "
+            f"({progress.basis}), échéance dans {active.days_left} jour(s). "
+            f"Avancement : {progress.ratio_text}"
         )
     else:
         lines.append("Objectif en cours : aucun")

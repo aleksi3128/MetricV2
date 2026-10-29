@@ -27,6 +27,12 @@ export interface GoalProgress {
   target: number;
   /** `0` → au point de départ, `1` → cible atteinte. `null` faute de point de départ. */
   ratio: number | null;
+  /**
+   * Ce que compte le pourcentage, et depuis quelle base, rédigé par le serveur :
+   * « 0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption (…) ». Sans
+   * base, un tiret et ce qui en donnerait une. S'affiche sous l'anneau, tel quel.
+   */
+  ratio_text: string;
   /** Libellé chiffré prêt à afficher, virgule française comprise. */
   summary: string;
   /** Fenêtre d'observation, en français : « moyenne des 4 dernières semaines complètes ». */

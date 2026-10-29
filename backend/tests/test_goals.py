@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 from app.core.dates import today_local, week_start
 from app.domains.aggregates.service import METRICS
 from app.domains.goals.metrics import GOAL_METRICS
-from app.domains.goals.progress import current_value, ratio, summary, window
+from app.domains.goals.progress import current_value, ratio, ratio_text, summary, window
 from app.storage.files import FileStore
 from app.storage.provider import StorageProvider
 from tests.fake_webdav import FakeWebDav
@@ -476,6 +476,126 @@ def test_without_a_starting_point_progress_is_unknown_rather_than_zero() -> None
     assert ratio(baseline=None, current=80, target=78) is None
 
 
+# ── 7 bis. Ce que compte le pourcentage (décision du 29 octobre) ──
+
+ADOPTED = date(2026, 10, 12)
+
+
+def sessions_text(baseline: float | None, current: float | None, target: float = 3) -> str:
+    return ratio_text(
+        baseline,
+        current,
+        target,
+        unit="séances",
+        reduction="rate",
+        granularity="week",
+        adopted=ADOPTED,
+        measured=None,
+    )
+
+
+def weight_text(
+    baseline: float | None, current: float | None, target: float = 78, *, measured: date | None
+) -> str:
+    return ratio_text(
+        baseline,
+        current,
+        target,
+        unit="kg",
+        reduction="latest",
+        granularity="day",
+        adopted=ADOPTED,
+        measured=measured,
+    )
+
+
+def test_a_ring_at_zero_says_it_counts_from_the_adoption_base() -> None:
+    """Le cas vu sur le banc : « 0 % » au centre, « 2,2 sur 3 séances » dessous, et rien
+    ne disait que 0 % est un départ, pas un échec."""
+    text = sessions_text(2.2, 2.2)
+    assert text.startswith("0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption")
+    assert "4 semaines complètes d'avant" in text
+
+
+def test_the_percentage_in_the_sentence_is_the_one_the_ring_draws() -> None:
+    """Arrondi comme `Intl.NumberFormat` : la moitié s'éloigne de zéro. `round` de Python
+    écrirait 12 % sous un anneau à 13 %."""
+    assert sessions_text(2.0, 2.125, target=3).startswith("13 % du chemin")
+
+
+def test_a_daily_cadence_says_per_day_and_its_own_window() -> None:
+    text = ratio_text(
+        100,
+        125,
+        150,
+        unit="g",
+        reduction="rate",
+        granularity="day",
+        adopted=ADOPTED,
+        measured=None,
+    )
+    assert text == (
+        "50 % du chemin depuis ta base : 100 g par jour à l'adoption (moyenne des 7 jours d'avant)."
+    )
+
+
+def test_a_weight_base_says_which_weighing_it_is() -> None:
+    """Le poids se lit à sa dernière pesée **au plus tard** le jour de l'adoption, qui peut
+    dater d'avant. La dire « à l'adoption » sans sa date mentirait d'une semaine."""
+    earlier = weight_text(82, 80, measured=date(2026, 10, 5))
+    assert earlier == (
+        "50 % du chemin depuis ta base : 82 kg, dernier relevé avant l'adoption (05/10)."
+    )
+    same_day = weight_text(82, 80, measured=ADOPTED)
+    assert "82 kg, relevé le jour de l'adoption" in same_day
+
+
+def test_a_downward_goal_reads_the_same_way() -> None:
+    assert weight_text(82, 79, measured=ADOPTED).startswith("75 % du chemin depuis ta base : 82 kg")
+
+
+def test_going_backwards_is_said_and_not_left_to_look_like_a_start() -> None:
+    """Borné à zéro, un recul se lirait comme un départ."""
+    text = weight_text(82, 85, measured=ADOPTED)
+    assert text.startswith("0 % du chemin")
+    assert "en recul" in text
+
+
+def test_a_target_passed_is_said_beyond_the_full_ring() -> None:
+    assert sessions_text(2, 4).endswith("— cible dépassée.")
+    assert sessions_text(2, 3).endswith("— cible atteinte.")
+
+
+def test_a_base_already_on_target_says_there_was_no_path() -> None:
+    """« 100 % » d'office : la phrase dit que l'anneau plein ne mesure aucun chemin."""
+    text = sessions_text(3, 2)
+    assert text.startswith("100 % d'office : ta base, 3 séances par semaine à l'adoption")
+    assert "aucun chemin à compter" in text
+
+
+def test_without_a_base_the_sentence_is_a_dash_and_the_gesture_that_gives_one() -> None:
+    """Aucune valeur inventée : un tiret, et ce que coûte le prochain geste."""
+    text = weight_text(None, 80, measured=None)
+    assert text.startswith("Chemin fait : — (aucun relevé au 12/10, jour de l'adoption")
+    assert "%" not in text
+    assert "daté de ce jour-là ou d'avant" in text
+
+
+def test_a_line_without_an_adoption_date_says_its_base_is_today() -> None:
+    text = ratio_text(
+        2,
+        2,
+        3,
+        unit="séances",
+        reduction="rate",
+        granularity="week",
+        adopted=None,
+        measured=None,
+    )
+    assert "aujourd'hui, faute de date d'adoption" in text
+    assert "à l'adoption" not in text
+
+
 def test_a_weekly_window_stops_at_last_sunday() -> None:
     """Compter le mardi en cours dans une moyenne hebdomadaire ferait ressembler chaque
     lundi matin à un effondrement."""
@@ -562,6 +682,31 @@ def test_progress_on_real_sessions_uses_the_four_complete_weeks(
     assert active["progress"]["baseline"] == 1.0
     assert active["progress"]["ratio"] == 0.0
     assert "4 dernières semaines complètes" in active["progress"]["basis"]
+    # La phrase sous l'anneau vient du serveur, base comprise : l'écran n'en rédige rien.
+    assert active["progress"]["ratio_text"].startswith(
+        "0 % du chemin depuis ta base : 1 séance par semaine à l'adoption"
+    )
+
+
+def test_the_start_tile_shows_the_figure_the_sentence_quotes(
+    app_client: TestClient, auth: dict[str, str], dav: FakeWebDav
+) -> None:
+    """Vu sur le banc : neuf séances en quatre semaines font 2,25. La phrase disait 2,2
+    (`round` de Python), la tuile « Départ » 2,3 (`Intl`, qui arrondit la moitié vers le
+    haut). Le serveur sert la base déjà arrondie comme la phrase la cite."""
+    monday = week_start(TODAY)
+    days = [
+        monday - timedelta(weeks=week) + timedelta(days=d) for week in range(1, 5) for d in (0, 2)
+    ]
+    seed_workouts(dav, [*days, monday - timedelta(days=3)])
+    adopted(app_client, auth, target=3)
+
+    progress = view(app_client, auth)["active"]["progress"]
+
+    assert progress["baseline"] == 2.2
+    assert progress["current"] == 2.2
+    assert "ta base : 2,2 séances" in progress["ratio_text"]
+    assert progress["summary"].startswith("2,2 sur 3")
 
 
 def test_a_weight_goal_progresses_downwards(
@@ -590,6 +735,9 @@ def test_a_weight_goal_progresses_downwards(
     assert progress["current"] == 80
     assert progress["ratio"] == 0.5
     assert progress["summary"].startswith("80 sur 78 kg")
+    assert progress["ratio_text"] == (
+        "50 % du chemin depuis ta base : 82 kg, relevé le jour de l'adoption."
+    )
 
 
 def test_a_distance_goal_counts_kilometres_not_sessions(

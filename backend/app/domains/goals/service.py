@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 
 from app.core.dates import today_local, week_start
 from app.core.exceptions import AiUnreadableError, ValidationFailedError
+from app.core.text import shown
 from app.domains.aggregates.metrics import METRICS
 from app.domains.ai.service import AiService
 from app.domains.app_settings.service import SettingsService
@@ -61,6 +62,7 @@ from app.domains.goals.progress import (
     fr,
     latest,
     ratio,
+    ratio_text,
     summary,
     window,
 )
@@ -241,7 +243,7 @@ class GoalService:
         # Sans date de création — ligne écrite à la main dans un tableur —, le point de
         # départ est celui d'aujourd'hui : l'avancement vaut alors zéro, ce qui est faux
         # d'une manière visible, plutôt que n'importe quoi d'une manière plausible.
-        baseline, _ = current_value(
+        baseline, measured = current_value(
             points,
             reduction=rule.reduction,
             granularity=granularity,
@@ -252,10 +254,23 @@ class GoalService:
             metric=key,
             label=label_of(key),
             unit=unit_of(key),
-            baseline=None if baseline is None else round(baseline, 2),
-            current=None if current is None else round(current, 2),
+            # Servis **arrondis comme les phrases les citent** (`shown`) : la tuile « Départ »
+            # arrondissait 2,25 à 2,3 sous une phrase qui disait 2,2. Le ratio, lui, se
+            # calcule sur les valeurs entières, comme avant.
+            baseline=None if baseline is None else shown(baseline),
+            current=None if current is None else shown(current),
             target=model.target,
             ratio=ratio(baseline, current, model.target),
+            ratio_text=ratio_text(
+                baseline,
+                current,
+                model.target,
+                unit=unit_of(key),
+                reduction=rule.reduction,
+                granularity=granularity,
+                adopted=model.created,
+                measured=measured,
+            ),
             summary=summary(current, model.target, unit_of(key)),
             basis=basis(rule.reduction, granularity, as_of),
         )

@@ -107,6 +107,11 @@ class GoalProgress(BaseModel):
     target: float
     #: `0` → au point de départ, `1` → cible atteinte. `null` faute de point de départ.
     ratio: float | None = Field(default=None, ge=0, le=1)
+    #: Ce que compte le pourcentage, et depuis quelle base, rédigé pour être affiché sous
+    #: l'anneau : « 0 % du chemin depuis ta base : 2,2 séances par semaine à l'adoption
+    #: (…) ». Sans base, un tiret et ce qui en donnerait une. Décision du 29 octobre : le
+    #: « 0 % » sous « 2,2 sur 3 séances » se lisait comme un échec, c'était un départ.
+    ratio_text: str
     #: Libellé chiffré prêt à afficher : « 2,4 sur 3 séances · séances par semaine ».
     summary: str
     #: Fenêtre d'observation, dite en français : « moyenne des 4 dernières semaines

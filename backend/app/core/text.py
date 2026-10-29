@@ -37,6 +37,17 @@ def fold(value: str) -> str:
     return " ".join(keepable.split())
 
 
+def shown(value: float) -> float:
+    """La valeur que `fr` écrit, en nombre : une décimale sous cent, aucune au-delà.
+
+    Pour servir à l'écran **le chiffre qu'une phrase cite**, plutôt que le nombre brut que
+    l'écran arrondirait à sa façon : `round` de Python rend 2,25 → 2,2, `Intl` 2,25 → 2,3,
+    et la tuile « Départ » de l'objectif disait 2,3 sous une phrase qui disait 2,2 (vu sur le
+    banc, le 29 octobre). Même règle que `whole` : le serveur arrondit une fois.
+    """
+    return round(value, 0 if abs(value) >= 100 else 1)
+
+
 def fr(value: float) -> str:
     """Un nombre tel qu'il se lit en français, sans décimale inutile.
 
@@ -49,8 +60,7 @@ def fr(value: float) -> str:
     `goals` importe déjà `aggregates` pour le registre des métriques. L'y laisser aurait
     posé un cycle, ou une seconde virgule décimale quelque part.
     """
-    rounded = round(value, 0 if abs(value) >= 100 else 1)
-    text = f"{rounded:g}"
+    text = f"{shown(value):g}"
     return text.replace(".", ",")
 
 

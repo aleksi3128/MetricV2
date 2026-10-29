@@ -87,6 +87,9 @@ function CurrentGoal({ active }: { active: ActiveGoal }) {
           {/* Tous ces textes arrivent **rédigés** par le serveur : le libellé chiffré et
               la fenêtre d'observation. Les reformuler ici en donnerait deux versions. */}
           <span className={styles.aimSummary}>{progress.summary}</span>
+          {/* La phrase de l'anneau, la même qu'à `/objectif` : le pourcentage se compte
+              depuis la base de l'adoption, et rien d'autre à l'écran ne le dit. */}
+          <span className={styles.aimNote}>{progress.ratio_text}</span>
           <span className={styles.aimNote}>{progress.basis}</span>
           <span className={styles.aimNote}>{deadlineLine(active.days_left, goal.deadline)}</span>
         </div>

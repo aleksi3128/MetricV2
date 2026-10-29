@@ -35,6 +35,8 @@ const PROGRESS = {
   current: 2.4,
   target: 3,
   ratio: 0.5,
+  ratio_text:
+    "50 % du chemin depuis ta base : 1,8 séance par semaine à l'adoption (moyenne des 4 semaines complètes d'avant).",
   summary: '2,4 sur 3 séances',
   basis: 'moyenne des 4 dernières semaines complètes',
 };
@@ -194,13 +196,30 @@ describe('objectif en cours', () => {
     expect(screen.getByText(PROGRESS.basis)).toBeInTheDocument();
   });
 
+  it('dit sous l’anneau d’où se compte le pourcentage, tel que le serveur le rédige', async () => {
+    // Décision du 29 octobre : « 0 % » sous « 2,2 sur 3 séances » se lisait comme un
+    // échec. La phrase est servie, l'écran ne la compose pas — elle n'est qu'affichée.
+    stub();
+    renderScreen();
+
+    expect(await screen.findByText(PROGRESS.ratio_text)).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '50 %' })).toBeInTheDocument();
+  });
+
   it("n'invente aucun avancement quand le point de départ manque", async () => {
     stub({
       goals: {
         ...ACTIVE_GOAL,
         active: {
           ...activeOf(ACTIVE_GOAL),
-          progress: { ...PROGRESS, baseline: null, current: null, ratio: null },
+          progress: {
+            ...PROGRESS,
+            baseline: null,
+            current: null,
+            ratio: null,
+            ratio_text:
+              "Chemin fait : — (aucun relevé au 15/07, jour de l'adoption, donc aucune base d'où le compter). Un relevé daté de ce jour-là ou d'avant en donnerait une.",
+          },
         },
       },
     });
@@ -210,7 +229,10 @@ describe('objectif en cours', () => {
     // le chiffre que l'œil lit en premier. Défaut trouvé en regardant la page.
     expect(await screen.findByLabelText('avancement indéterminé')).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: '50 %' })).not.toBeInTheDocument();
-    expect(screen.getByText(/avancement indéterminé —/)).toBeInTheDocument();
+    // Le tiret et ce qui donnerait une base : la phrase du serveur, plus celle que
+    // l'écran écrivait lui-même pour ce cas.
+    expect(screen.getByText(/^Chemin fait : — \(aucun relevé au 15\/07/)).toBeInTheDocument();
+    expect(screen.queryByText(/avancement indéterminé —/)).toBeNull();
   });
 
   it("dit que l'échéance est passée sans clore l'objectif pour autant", async () => {

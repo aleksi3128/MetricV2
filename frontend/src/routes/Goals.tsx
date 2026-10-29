@@ -120,11 +120,12 @@ function CurrentGoal({ active }: { active: ActiveGoal }) {
 
         <div className={styles.figures}>
           <span className={styles.summary}>{progress.summary}</span>
-          <span className={styles.basis}>
-            {progress.ratio === null
-              ? 'avancement indéterminé — rien n’avait été relevé au moment de l’adoption'
-              : progress.basis}
-          </span>
+          {/* Ce que compte l'anneau, et d'où : sans cette phrase, « 0 % » sous « 2,2 sur
+              3 séances » se lisait comme un échec, là où c'était un départ (décision du
+              29 octobre). Rédigée par le serveur, cas sans base compris — l'écran écrivait
+              lui-même celui-là, et c'était un texte décidé ici. */}
+          <span className={styles.basis}>{progress.ratio_text}</span>
+          <span className={styles.basis}>{progress.basis}</span>
           {goal.rationale !== '' && <span className={styles.basis}>{goal.rationale}</span>}
         </div>
       </div>

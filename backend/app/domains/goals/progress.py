@@ -44,7 +44,7 @@ from app.core.dates import week_start
 # `fr` est né ici et vit désormais dans `core/text.py` — les agrégats en ont besoin, et
 # `goals` importe déjà `aggregates`. Réexporté sous son nom : c'est l'adresse que trois
 # modules connaissent, et la déplacer n'apporterait rien à personne.
-from app.core.text import fr
+from app.core.text import fr, whole
 
 #: Comment une série devient une valeur courante. Le type vit ici et non dans
 #: `metrics.py` pour que ce module ne dépende de rien d'autre que du découpage du temps :
@@ -172,6 +172,113 @@ def basis(reduction: Reduction, granularity: str, as_of: date | None) -> str:
     return f"moyenne des {DAY_WINDOW} derniers jours révolus"
 
 
+def _base_text(
+    baseline: float,
+    *,
+    unit: str,
+    reduction: Reduction,
+    granularity: str,
+    adopted: date | None,
+    measured: date | None,
+) -> str:
+    """La base, dite avec ce qu'elle est vraiment pour la métrique.
+
+    Une mesure (`latest`, le poids) a une date, et ce n'est pas toujours celle de
+    l'adoption : la base est la dernière pesée **au plus tard** ce jour-là, qui peut dater
+    d'une semaine. Une cadence est une moyenne sur la fenêtre d'avant l'adoption, et
+    l'écrire « 2,2 séances » tout court la ferait passer pour un compte.
+    """
+    # Au singulier sous deux, comme le veut le français : « 1 séance », « 1,5 séance ».
+    # Des unités du registre, seule « séances » porte un pluriel ; kg, km, g et ml n'en ont
+    # pas. `summary` n'en a pas besoin — « 1 sur 3 séances » accorde sur la cible.
+    word = unit[:-1] if unit.endswith("s") and abs(baseline) < 2 else unit
+    value = f"{fr(baseline)} {word}".strip()
+    if adopted is None:
+        # Ligne écrite à la main, sans date : `GoalService.progress` prend alors la base
+        # d'aujourd'hui. Le dire, plutôt que d'écrire « à l'adoption » d'un jour inconnu.
+        return f"{value} aujourd'hui, faute de date d'adoption dans le fichier"
+    if reduction == "latest":
+        if measured is None or measured == adopted:
+            return f"{value}, relevé le jour de l'adoption"
+        return f"{value}, dernier relevé avant l'adoption ({measured:%d/%m})"
+    if granularity == "week":
+        return (
+            f"{value} par semaine à l'adoption "
+            f"(moyenne des {WEEK_WINDOW} semaines complètes d'avant)"
+        )
+    return f"{value} par jour à l'adoption (moyenne des {DAY_WINDOW} jours d'avant)"
+
+
+def ratio_text(
+    baseline: float | None,
+    current: float | None,
+    target: float,
+    *,
+    unit: str,
+    reduction: Reduction,
+    granularity: str,
+    adopted: date | None,
+    measured: date | None,
+) -> str:
+    """Ce que compte le pourcentage de l'anneau, et d'où (décision du 29 octobre).
+
+    L'anneau affichait « 0 % » au-dessus de « 2,2 sur 3 séances », et rien ne disait que
+    le pourcentage est le **chemin fait depuis la base de l'adoption** — égale ici au
+    relevé du jour. La règle reste celle de `ratio` ; cette phrase la dit, sous l'anneau,
+    là où le pourcentage se lit. Elle est rédigée ici pour que l'écran n'ait aucun texte à
+    décider : le pourcentage qu'elle cite est celui que `Ring` dessine, arrondi pareil
+    (`whole`, la moitié s'éloignant de zéro, comme `Intl.NumberFormat`).
+
+    Les deux bornes de `ratio` cachent chacune quelque chose, et la phrase le rend : un
+    recul se lit « 0 % » comme un départ, une cible dépassée « 100 % » comme une cible
+    tout juste tenue, et une base déjà égale à la cible donne « 100 % » sans qu'aucun
+    chemin n'ait été fait.
+    """
+    if baseline is None:
+        # Seul le poids peut manquer de base : une cadence vaut zéro, jamais rien. Une
+        # pesée antidatée se saisit dans Corps — c'est le seul geste qui en donne une, la
+        # base se relisant au jour de l'adoption et non au jour du premier relevé.
+        # Le tiret tient la place du pourcentage : sur l'accueil, aucun anneau n'est
+        # dessiné dans ce cas, et un « — : » en tête de phrase pendait (vu sur le banc).
+        if adopted is None:
+            return "Chemin fait : — (aucun relevé d'où le compter)."
+        return (
+            f"Chemin fait : — (aucun relevé au {adopted:%d/%m}, jour de l'adoption, donc "
+            "aucune base d'où le compter). Un relevé daté de ce jour-là ou d'avant en "
+            "donnerait une."
+        )
+
+    base = _base_text(
+        baseline,
+        unit=unit,
+        reduction=reduction,
+        granularity=granularity,
+        adopted=adopted,
+        measured=measured,
+    )
+    span = target - baseline
+    if span == 0:
+        return (
+            f"100 % d'office : ta base, {base}, tenait déjà la cible — "
+            "il n'y avait aucun chemin à compter."
+        )
+    if current is None:
+        return f"Chemin fait : — (aucun relevé récent d'où le mesurer depuis ta base, {base})."
+
+    share = ratio(baseline, current, target)
+    assert share is not None  # les deux bouts sont là, `ratio` rend un nombre
+    head = f"{whole(share * 100)} % du chemin depuis ta base : {base}"
+    travelled = (current - baseline) / span
+    if travelled > 1:
+        return f"{head} — cible dépassée."
+    if travelled == 1:
+        return f"{head} — cible atteinte."
+    if travelled < 0:
+        # Borné à zéro : sans ces mots, reculer et ne pas avoir bougé se liraient pareil.
+        return f"{head} — en recul depuis, et le chemin ne se compte pas en négatif."
+    return f"{head}."
+
+
 __all__ = [
     "DAY_WINDOW",
     "WEEK_WINDOW",
@@ -182,6 +289,7 @@ __all__ = [
     "latest",
     "rate",
     "ratio",
+    "ratio_text",
     "summary",
     "window",
 ]
