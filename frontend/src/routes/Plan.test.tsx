@@ -284,12 +284,19 @@ describe('corriger une course visée (M-17)', () => {
     list = {
       ...LIST,
       stale_plan: {
+        reason: 'date',
         race_id: 'm1',
+        title: 'Le plan posé ne suit plus',
         text: 'Le plan posé au planning mène au 11/04 ; Marathon de Paris est maintenant le 25/04.',
+        repose: 'm1',
+        clear: false,
+        leaving: 12,
       },
     };
     renderPlan();
     expect(await screen.findByText(/mène au 11\/04/)).toBeInTheDocument();
+    // La date (M-17) : reposer seulement — le serveur n'offre pas le retrait.
+    expect(screen.queryByRole('button', { name: 'Retirer le plan' })).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: 'Reposer le plan' }));
     expect(calls.some((call) => call.method === 'POST')).toBe(false);
@@ -298,6 +305,63 @@ describe('corriger une course visée (M-17)', () => {
       expect(
         calls.some((call) => call.method === 'POST' && call.url === '/api/races/plan/m1'),
       ).toBe(true);
+    });
+  });
+
+  it('passée en B : reposer et retirer, chacun armé, sur la course que le serveur nomme', async () => {
+    list = {
+      ...LIST,
+      stale_plan: {
+        reason: 'priority',
+        race_id: 'm1',
+        title: 'Le plan posé ne suit plus',
+        text: 'Marathon de Paris est en priorité B. Dans les deux cas : 12 séances à venir partent ; les 3 passées restent.',
+        repose: 'm2',
+        clear: true,
+        leaving: 12,
+      },
+    };
+    renderPlan();
+    expect(await screen.findByText(/les 3 passées restent/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retirer le plan' }));
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+    // Armer l'un désarme l'autre : un seul geste en attente à la fois.
+    await userEvent.click(screen.getByRole('button', { name: 'Reposer le plan' }));
+    expect(screen.queryByRole('button', { name: 'Retirer les 12 séances ?' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Remplacer les séances posées ?' }));
+    await waitFor(() => {
+      expect(
+        calls.some((call) => call.method === 'POST' && call.url === '/api/races/plan/m2'),
+      ).toBe(true);
+    });
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+  });
+
+  it('retirée : seulement « Retirer les séances posées », armé', async () => {
+    list = {
+      ...LIST,
+      stale_plan: {
+        reason: 'removed',
+        race_id: null,
+        title: 'Un plan sans course',
+        text: 'Le plan posé pour Semi de Lyon reste au planning, mais aucune course visée ne le porte plus.',
+        repose: null,
+        clear: true,
+        leaving: 12,
+      },
+    };
+    renderPlan();
+    expect(await screen.findByRole('heading', { name: 'Un plan sans course' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reposer le plan' })).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retirer les séances posées' }));
+    expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
+    await userEvent.click(screen.getByRole('button', { name: 'Retirer les 12 séances ?' }));
+    await waitFor(() => {
+      expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/races/plan')).toBe(
+        true,
+      );
     });
   });
 

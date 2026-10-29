@@ -55,7 +55,7 @@ from app.domains.hydration.service import HydrationService
 from app.domains.nutrition.schemas import DayTotals
 from app.domains.nutrition.service import NutritionService
 from app.domains.planning.schemas import PlannedSession
-from app.domains.races.schemas import RaceAim
+from app.domains.races.schemas import RaceAim, StalePlanView
 from app.domains.supplements.schemas import DayRatio
 from app.domains.supplements.service import SupplementService
 from app.storage.errors import StorageNotFoundError
@@ -200,6 +200,7 @@ class DashboardService:
         streak = await self.streak(today)
         logged = any(day.date == today and day.active for day in streak.last_seven)
 
+        race, plan_notice = await self._next_race(today)
         return DashboardView(
             date=today,
             weight=await WeightService(store).summary(),
@@ -219,7 +220,8 @@ class DashboardService:
             ),
             goal=await self._active_goal(today),
             next_session=await self._next_session(today),
-            race=await self._next_race(today),
+            race=race,
+            plan_notice=plan_notice,
         )
 
     # ── La journée à finir ────────────────────────────
@@ -343,8 +345,9 @@ class DashboardService:
         )
         return upcoming[0] if upcoming else None
 
-    async def _next_race(self, today: date) -> RaceAim | None:
-        """La prochaine course A, telle que `races` la sait (M-19).
+    async def _next_race(self, today: date) -> tuple[RaceAim | None, StalePlanView | None]:
+        """La prochaine course A, telle que `races` la sait (M-19), et l'avis sur un plan
+        posé qui ne la concerne pas — passée en B, ou retirée (session 10 b).
 
         Importé dans le corps, comme les deux précédents : `races` lit le planning et
         l'activité, et rien ici ne doit faire remonter une flèche vers les agrégats. Le
@@ -352,7 +355,7 @@ class DashboardService:
         """
         from app.domains.races.service import RaceService
 
-        return await RaceService(self._store).aim(today)
+        return await RaceService(self._store).aim_and_notice(today)
 
     # ── Série d'assiduité (`AGG-03`) ──────────────────
 

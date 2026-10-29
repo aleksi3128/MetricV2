@@ -35,11 +35,23 @@ export interface Conflict {
   text: string;
 }
 
-/** Le plan posé ne suit plus sa course, dont la date a changé (M-17). Le serveur le dit,
- *  et rédige la phrase. */
+/**
+ * Le plan posé ne suit plus sa course : sa date a changé (M-17), elle n'est plus en A, ou
+ * elle a été retirée (session 10 b). Le serveur le dit, rédige la phrase — ce qui partirait
+ * compris — et dit quels gestes s'offrent : l'écran ne décide d'aucun.
+ */
 export interface StalePlan {
-  race_id: string;
+  reason: 'date' | 'priority' | 'removed';
+  /** La course qui porte le plan ; `null` quand elle a été retirée. */
+  race_id: string | null;
+  title: string;
   text: string;
+  /** La course pour laquelle « Reposer le plan » repose ; `null` : rien à reposer. */
+  repose: string | null;
+  /** Le retrait est-il offert ici. */
+  clear: boolean;
+  /** Les séances qui partiraient. */
+  leaving: number;
 }
 
 /** Une distance du formulaire, servie depuis `races/catalog.SPECS` : libellé compris. */

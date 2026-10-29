@@ -49,11 +49,28 @@ class ConflictView(BaseModel):
 
 
 class StalePlanView(BaseModel):
-    """Le plan posé au planning ne suit plus sa course : sa date a changé depuis (M-17)."""
+    """Le plan posé au planning ne suit plus sa course — dit par le serveur, jamais déduit.
 
-    race_id: str
-    #: « Le plan posé mène au 12/04 ; … » — rédigé ici, affiché tel quel.
+    Trois raisons. `date` : la course a changé de date depuis la pose (M-17). `priority` :
+    la course qui porte le plan n'est plus en A — un plan mène à une course A, affûtage
+    compris (session 10 b). `removed` : des séances `plan` restent à venir, et aucune
+    course visée ne les porte plus — elle a été retirée (session 10 b).
+    """
+
+    reason: Literal["date", "priority", "removed"] = "date"
+    #: La course qui porte le plan ; `None` quand elle a été retirée.
+    race_id: str | None
+    #: « Le plan posé ne suit plus », « Un plan sans course » — rédigé ici.
+    title: str = "Le plan posé ne suit plus"
+    #: « Le plan posé mène au 12/04 ; … » — rédigé ici, affiché tel quel. Il dit **avant
+    #: l'appui** ce qui partirait : « 12 séances à venir partent ; les 3 passées restent ».
     text: str
+    #: La course pour laquelle « Reposer le plan » repose ; `None` : rien à reposer.
+    repose: str | None = None
+    #: Le retrait est-il offert ici — « Retirer le plan », « Retirer les séances posées ».
+    clear: bool = False
+    #: Les séances qui partiraient, à reposer comme à retirer.
+    leaving: int = 0
 
 
 class DistanceOption(BaseModel):

@@ -18,6 +18,11 @@
  * pesée de `/corps`. Si sa date a bougé alors que son plan est posé, c'est le serveur qui
  * le dit (`stale_plan`) : l'écran ne compare aucune date. Le bandeau offre de reposer le
  * plan — armé, puisque reposer remplace.
+ *
+ * **Une course passée en B, ou retirée** (session 10 b) : le même bandeau, le même serveur
+ * qui le dit. Passée en B, il offre de reposer et de retirer ; retirée, de retirer les
+ * séances posées. Ce qui part est décidé au serveur — les passées et celle du jour déjà
+ * faite restent — et la phrase le dit avant l'appui.
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -271,54 +276,90 @@ function RaceRow({
 }
 
 /**
- * Le plan posé ne suit plus sa course (M-17). La correction est enregistrée ; ce bandeau
- * dit ce qu'elle a laissé derrière elle, et offre d'y remédier. **Deux appuis** : reposer
- * remplace les séances `plan` à venir, et le projet n'a pas d'annulation.
+ * Le plan posé ne suit plus sa course : sa date a changé (M-17), elle est passée en B, ou
+ * elle a été retirée (session 10 b). Ce bandeau dit ce que la correction a laissé derrière
+ * elle et offre d'y remédier — **les gestes que le serveur offre**, aucun autre : reposer
+ * (`repose`), retirer (`clear`). **Deux appuis** chacun : l'un remplace les séances `plan`
+ * à venir, l'autre les retire, et le projet n'a pas d'annulation. La phrase dit avant le
+ * premier appui ce qui partirait.
  */
 function StalePlanBanner({ stale, onPlaced }: { stale: StalePlan; onPlaced: () => void }) {
   const { notify } = useToast();
-  const [armed, setArmed] = useState(false);
+  const [armed, setArmed] = useState<'place' | 'clear' | null>(null);
+  const repose = stale.repose;
   const place = useMutation({
-    mutationFn: () => racesApi.place(stale.race_id),
+    mutationFn: (raceId: string) => racesApi.place(raceId),
     onSuccess: (done) => {
-      setArmed(false);
+      setArmed(null);
       onPlaced();
       notify(`Plan reposé : ${String(done.created)} séances au planning.`, 'effort');
     },
   });
+  const clear = useMutation({
+    mutationFn: racesApi.clear,
+    onSuccess: (done) => {
+      setArmed(null);
+      onPlaced();
+      notify(`${String(done.removed)} séances retirées du planning.`, 'signal');
+    },
+  });
+  const failed = place.error ?? clear.error;
   return (
     <Card>
       <div className={styles.stack}>
-        <h3>Le plan posé ne suit plus</h3>
+        <h3>{stale.title}</h3>
         <p className={styles.text}>{stale.text}</p>
         <div className={styles.actions}>
-          <Button
-            variant="primary"
-            busy={place.isPending}
-            onClick={() => {
-              if (!armed) {
-                setArmed(true);
-                return;
-              }
-              place.mutate();
-            }}
-          >
-            {armed ? 'Remplacer les séances posées ?' : 'Reposer le plan'}
-          </Button>
-          {armed && (
+          {repose !== null && (
+            <Button
+              variant="primary"
+              busy={place.isPending}
+              disabled={clear.isPending}
+              onClick={() => {
+                if (armed !== 'place') {
+                  setArmed('place');
+                  return;
+                }
+                place.mutate(repose);
+              }}
+            >
+              {armed === 'place' ? 'Remplacer les séances posées ?' : 'Reposer le plan'}
+            </Button>
+          )}
+          {stale.clear && (
+            <Button
+              variant={repose === null ? 'primary' : undefined}
+              busy={clear.isPending}
+              disabled={place.isPending}
+              onClick={() => {
+                if (armed !== 'clear') {
+                  setArmed('clear');
+                  return;
+                }
+                clear.mutate();
+              }}
+            >
+              {armed === 'clear'
+                ? `Retirer les ${String(stale.leaving)} séances ?`
+                : stale.reason === 'removed'
+                  ? 'Retirer les séances posées'
+                  : 'Retirer le plan'}
+            </Button>
+          )}
+          {armed !== null && (
             <Button
               variant="quiet"
               onClick={() => {
-                setArmed(false);
+                setArmed(null);
               }}
             >
               Annuler
             </Button>
           )}
         </div>
-        {place.error !== null && (
+        {failed !== null && (
           <p className={styles.warning} role="alert">
-            {place.error instanceof ApiError ? place.error.message : 'Le serveur n’a pas répondu.'}
+            {failed instanceof ApiError ? failed.message : 'Le serveur n’a pas répondu.'}
           </p>
         )}
       </div>

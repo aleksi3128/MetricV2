@@ -546,12 +546,25 @@ class PlanningService:
         )
         return len(rows)
 
-    async def clear_plan(self, since: date) -> int:
+    async def clear_plan(self, since: date, *, keep_first_day: bool = False) -> int:
         """Retire les séances `plan` **à venir**. Le passé reste : il dit ce qui était prévu
-        le jour où on l'a couru, et l'écart au réalisé (`PLAN-06`) s'y lit."""
+        le jour où on l'a couru, et l'écart au réalisé (`PLAN-06`) s'y lit.
+
+        `keep_first_day` garde aussi celles de `since` : une séance du jour déjà faite est du
+        passé (session 10 b). C'est `races` qui le décide, et le dit avant l'appui.
+        """
         return await self._plan.remove_where(
-            lambda row: row.source == "plan" and row.date is not None and row.date >= since
+            lambda row: (
+                row.source == "plan"
+                and row.date is not None
+                and (row.date > since or (row.date == since and not keep_first_day))
+            )
         )
+
+    async def active_on(self, day: date) -> bool:
+        """Ce jour porte-t-il au moins une activité réelle ? La règle de `adherence` : une
+        séance prévue est honorée par n'importe quelle activité de son jour."""
+        return bool((await self._done_between(day, day)).get(day))
 
     async def placed_race_day(self, since: date) -> date | None:
         """Le jour de course d'un plan posé, à venir — `None` s'il n'y en a pas.

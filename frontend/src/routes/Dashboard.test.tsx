@@ -570,7 +570,15 @@ describe('où je vais — la course A (M-19)', () => {
         plan: 'stale',
         phase: null,
         phase_text: null,
-        stale_plan: { race_id: 'r1', text },
+        stale_plan: {
+          reason: 'date',
+          race_id: 'r1',
+          title: 'Le plan posé ne suit plus',
+          text,
+          repose: 'r1',
+          clear: false,
+          leaving: 12,
+        },
       },
     });
     renderDashboard();
@@ -580,6 +588,30 @@ describe('où je vais — la course A (M-19)', () => {
     expect(screen.queryByText(/Semaine \d+ sur/)).toBeNull();
     // Reposer est un geste armé : il n'a qu'une adresse, `/plan`.
     expect(screen.queryByRole('button', { name: /Reposer/ })).toBeNull();
+  });
+
+  it('dit le plan d’une course passée en B à part, sans geste (session 10 b)', async () => {
+    const text =
+      'Semi de Lyon est en priorité B, et le plan posé au planning la prépare comme une course A. Dans les deux cas : 12 séances à venir partent ; les 3 passées restent.';
+    stub({
+      ...DASHBOARD,
+      race: null,
+      plan_notice: {
+        reason: 'priority',
+        race_id: 'r1',
+        title: 'Le plan posé ne suit plus',
+        text,
+        repose: 'r1',
+        clear: true,
+        leaving: 12,
+      },
+    });
+    renderDashboard();
+
+    expect(await screen.findByText(text)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Voir le plan' })).toHaveAttribute('href', '/plan');
+    // Ni repose ni retrait : les deux sont armés, et n'ont qu'une adresse.
+    expect(screen.queryByRole('button', { name: /Reposer|Retirer/ })).toBeNull();
   });
 
   it('le jour J, dit « Jour J »', async () => {

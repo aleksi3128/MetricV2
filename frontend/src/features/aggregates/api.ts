@@ -8,7 +8,7 @@
 
 import type { ActiveGoal } from '@/features/goals/api';
 import type { PlannedSession } from '@/features/planning/api';
-import type { RaceAim } from '@/features/races/api';
+import type { RaceAim, StalePlan } from '@/features/races/api';
 import { request } from '@/lib/api';
 
 // ── Blocs repris des domaines ─────────────────────────
@@ -214,6 +214,11 @@ export interface DashboardView {
    * l'objectif daté ; la cible de poids ne s'affiche qu'à défaut des deux.
    */
   race: RaceAim | null;
+  /**
+   * Un plan posé qui ne suit plus une course autre que la course A — passée en B, ou
+   * retirée (session 10 b). La phrase de `/plan`, sans geste : reposer et retirer y restent.
+   */
+  plan_notice: StalePlan | null;
 }
 
 export const aggregatesApi = {

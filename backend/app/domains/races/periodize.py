@@ -304,6 +304,19 @@ def placed_note(notation: str, race_name: str, week: int, weeks: int, phase: Pha
     return f"{notation} — plan {race_name}, semaine {week}/{weeks}, {phase}."
 
 
+_PLACED_RACE = re.compile(r" — plan (.+), semaine \d+/\d+, [a-zéèû]+\.$")
+
+
+def read_placed_race(note: str) -> str | None:
+    """Le nom de la course qu'une séance posée prépare ; `None` si la note a été récrite.
+
+    C'est ce qui reconnaît un plan dont la course a été retirée (session 10 b) : la course
+    n'est plus dans `races.csv`, son nom reste dans chaque séance posée.
+    """
+    found = _PLACED_RACE.search(note.strip())
+    return found.group(1) if found else None
+
+
 def read_placed_note(note: str) -> Placed | None:
     """La semaine et la phase d'une séance posée ; `None` si la note a été récrite."""
     found = _PLACED.search(note.strip())

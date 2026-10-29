@@ -21,6 +21,10 @@
  * Quand le plan posé ne suit plus la course, le bloc le dit et mène à `/plan`. Reposer
  * remplace des séances : c'est un geste armé, en deux appuis, et il n'a qu'une adresse.
  *
+ * Le plan d'une course **passée en B, ou retirée** (session 10 b) ne se lit pas sur la
+ * course A : le serveur le sert à part (`plan_notice`), et l'accueil le dit dans sa propre
+ * carte — la phrase de `/plan`, « Voir le plan », et ni repose ni retrait.
+ *
  * ## Ce qui n'est pas dessiné
  *
  * **Pas d'anneau quand l'avancement est indéterminé.** `progress.ratio` vaut `null` quand
@@ -33,7 +37,7 @@
 import { Card, Empty, LinkButton, Ring, Rule, Stat } from '@/components/ui';
 import type { DashboardView } from '@/features/aggregates/api';
 import type { ActiveGoal } from '@/features/goals/api';
-import type { RaceAim } from '@/features/races/api';
+import type { RaceAim, StalePlan } from '@/features/races/api';
 import { cx } from '@/lib/cx';
 import { kg, num, plural, shortDate } from '@/lib/format';
 
@@ -154,8 +158,29 @@ function NextRace({ aim }: { aim: RaceAim }) {
   );
 }
 
+/** Un plan posé qui ne suit plus une autre course que la course A : dit, sans geste. */
+function PlanNotice({ notice }: { notice: StalePlan }) {
+  return (
+    <Card>
+      <p className="eyebrow">Plan de course</p>
+      <h3>{notice.title}</h3>
+      <div className={cx('stack', styles.aimFoot)}>
+        <p className={styles.aimWarning} role="status">
+          {notice.text}
+        </p>
+        <div className="row">
+          <LinkButton variant="ghost" to="/plan">
+            Voir le plan
+          </LinkButton>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 export function Aim({ data }: { data: DashboardView }) {
   const { goal, race, weight } = data;
+  const notice = data.plan_notice;
 
   return (
     <>
@@ -165,6 +190,7 @@ export function Aim({ data }: { data: DashboardView }) {
           lisaient comme une seule (vu sur le banc). */}
       <div className="stack">
         {race !== null && <NextRace aim={race} />}
+        {notice !== null && <PlanNotice notice={notice} />}
 
         {goal !== null ? (
           <CurrentGoal active={goal} />

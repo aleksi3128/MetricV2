@@ -23,7 +23,7 @@ from app.domains.goals.schemas import ActiveGoal
 from app.domains.hydration.schemas import HydrationStats
 from app.domains.nutrition.schemas import DayTotals
 from app.domains.planning.schemas import PlannedSession
-from app.domains.races.schemas import RaceAim
+from app.domains.races.schemas import RaceAim, StalePlanView
 from app.domains.supplements.schemas import DayRatio
 
 # ── Série d'assiduité (`AGG-03`) ──────────────────────
@@ -218,3 +218,8 @@ class DashboardView(BaseModel):
     #: avant l'objectif daté ; la cible de poids ne s'affiche qu'à défaut des deux. `null`
     #: sans course A à venir.
     race: RaceAim | None = None
+    #: Un plan posé qui ne suit plus une course autre que la course A — passée en B, ou
+    #: retirée (session 10 b) : la phrase de `GET /api/races`, sans geste. Reposer et
+    #: retirer sont armés et n'ont qu'une adresse, `/plan`. Le plan qui ne suit plus la
+    #: course A elle-même (sa date, M-17) reste dans `race.stale_plan`. `null` sinon.
+    plan_notice: StalePlanView | None = None

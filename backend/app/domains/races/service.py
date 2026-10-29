@@ -7,6 +7,7 @@ Ce module lit et écrit ; il ne décide rien lui-même. Les conflits viennent de
 from __future__ import annotations
 
 import secrets
+from dataclasses import dataclass
 from datetime import date, timedelta
 from statistics import median
 from typing import cast
@@ -94,27 +95,44 @@ class RaceService:
         quand le tableau de bord l'a déjà tirée. Les décisions de conflit ne sont pas lues :
         l'accueil ne les montre pas, et `/plan` les tranche.
         """
-        from app.domains.planning.service import PlanningService
+        return (await self.aim_and_notice(today))[0]
 
+    async def aim_and_notice(
+        self, today: date | None = None
+    ) -> tuple[RaceAim | None, StalePlanView | None]:
+        """La prochaine course A, et l'avis sur un plan posé qui ne la concerne pas.
+
+        Le plan d'une course passée en B, ou retirée (session 10 b), ne se lit pas sur la
+        course A : l'accueil le dit à part, avec la phrase de `/plan` et sans geste — reposer
+        et retirer sont armés, et n'ont qu'une adresse. Une seule lecture de `races.csv` et
+        du planning pour les deux.
+        """
         day = today or today_local()
         rows = [row for row in await self._repo.read_all() if row.model.date is not None]
         rows.sort(key=lambda row: row.model.date or day)
+        stale = await self._stale_plan(rows, day)
         found = self._next_a(rows, day)
         if found is None:
-            return None
+            return None, stale
         race = found.model
         days = ((race.date or day) - day).days
         countdown = "Jour J" if days == 0 else f"J-{days}"
         aim = RaceAim(race=self._schema(found, day), countdown=countdown, plan="absent")
 
-        stale = await self._stale_plan(rows, day)
-        if stale is not None and stale.race_id == race.race_id:
-            return aim.model_copy(update={"plan": "stale", "stale_plan": stale})
+        if stale is not None and stale.race_id == race.race_id and stale.reason == "date":
+            return aim.model_copy(update={"plan": "stale", "stale_plan": stale}), None
+        return await self._posed(aim, rows, day), stale
 
+    async def _posed(self, aim: RaceAim, rows: list[Row[RaceRow]], day: date) -> RaceAim:
+        """L'état du plan posé de la course A, et sa phase lue dans les séances posées."""
+        from app.domains.planning.service import PlanningService
+
+        race = aim.race
         sessions = await PlanningService(self._store).placed_plan()
         if not any(session.date is not None and session.date >= day for session in sessions):
             return aim
-        if race.plan_date is None:
+        model = next(row.model for row in rows if row.model.race_id == race.race_id)
+        if model.plan_date is None:
             # Un plan posé avant que les courses retiennent `plan_date` : son jour de course
             # posé, à la date de la course, dit qu'il est le sien — comme pour `_plan_date`.
             if any(row.model.plan_date is not None for row in rows) or not any(
@@ -122,7 +140,7 @@ class RaceService:
                 for session in sessions
             ):
                 return aim
-        elif race.plan_date != race.date:
+        elif model.plan_date != model.date:
             return aim
 
         monday = week_start(day)
@@ -152,35 +170,124 @@ class RaceService:
             return aim.model_copy(update={"plan": "posed"})
         return aim.model_copy(update={"plan": "posed", "phase": placed.phase, "phase_text": text})
 
+    async def _sweep(self, today: date) -> Sweep:
+        """Ce qu'un retrait — ou une repose — emporterait des séances `plan`, décidé ici une
+        fois pour les deux gestes et pour la phrase qui les annonce (session 10 b).
+
+        * **Les passées restent** : elles disent ce qui était prévu le jour où on l'a couru.
+        * **Celles d'aujourd'hui restent si le jour porte déjà une activité** : faites, elles
+          sont du passé. La règle d'honneur est celle de `PlanningService.adherence`.
+        * **Les retouchées à la main partent**, comptées à part dans la phrase : leur note
+          ne porte plus la marque du plan (`periodize.read_placed_note`). Le dire avant
+          l'appui suffit ; les garder laisserait des séances `plan` qu'aucun plan ne porte,
+          que la pose suivante retirerait sans rien dire.
+        """
+        from app.domains.planning.service import PlanningService
+
+        planning = PlanningService(self._store)
+        placed = await planning.placed_plan()
+        todays = [session for session in placed if session.date == today]
+        done_today = bool(todays) and await planning.active_on(today)
+        leaving = [
+            session
+            for session in placed
+            if session.date is not None
+            and (session.date > today or (session.date == today and not done_today))
+        ]
+        names = {name for session in placed if (name := periodize.read_placed_race(session.note))}
+        return Sweep(
+            leaving=len(leaving),
+            touched=sum(
+                1 for session in leaving if periodize.read_placed_note(session.note) is None
+            ),
+            past=sum(1 for session in placed if session.date is not None and session.date < today),
+            done_today=len(todays) if done_today else 0,
+            names=frozenset(names),
+            race_day=next(
+                (session.date for session in leaving if session.note.startswith("Course :")),
+                None,
+            ),
+        )
+
+    def _owner(self, rows: list[Row[RaceRow]], sweep: Sweep) -> RaceRow | None:
+        """La course qui porte le plan posé : celle qui retient `plan_date` — ou, pour un
+        plan posé avant la colonne (M-17), celle que nomment les séances posées, ou dont la
+        date est le jour de course posé. `None` : la course a été retirée."""
+        held = next((row.model for row in rows if row.model.plan_date is not None), None)
+        if held is not None:
+            return held
+        return next(
+            (
+                row.model
+                for row in rows
+                if row.model.name in sweep.names
+                or (sweep.race_day is not None and row.model.date == sweep.race_day)
+            ),
+            None,
+        )
+
     async def _stale_plan(self, rows: list[Row[RaceRow]], today: date) -> StalePlanView | None:
-        """Le plan posé ne suit plus sa course quand il a été calculé pour une autre date.
+        """Le plan posé ne suit plus sa course : sa date a changé (M-17), elle n'est plus en A,
+        ou elle n'existe plus (session 10 b).
 
         Ni le nom, ni la distance, ni le chrono ne le défont : le plan se calcule sur la
         date et la priorité, et seule la date déplace des séances. Un plan dont il ne reste
         rien à venir — retiré à la main, ou déjà couru — ne dit plus rien.
         """
-        from app.domains.planning.service import PlanningService
+        sweep = await self._sweep(today)
+        if sweep.leaving == 0:
+            return None
+        what = _sweep_text(sweep)
+        owner = self._owner(rows, sweep)
 
-        moved = next(
-            (
-                row.model
-                for row in rows
-                if row.model.plan_date is not None and row.model.plan_date != row.model.date
-            ),
-            None,
-        )
-        if moved is None or moved.plan_date is None or moved.date is None:
-            return None
-        if await PlanningService(self._store).planned_count(today) == 0:
-            return None
-        return StalePlanView(
-            race_id=moved.race_id,
-            text=(
-                f"Le plan posé au planning mène au {moved.plan_date:%d/%m} ; {moved.name} est "
-                f"maintenant le {moved.date:%d/%m}. Il ne suit plus : le reposer remplace les "
-                "séances à venir."
-            ),
-        )
+        if owner is None:
+            named = sorted(sweep.names)
+            whose = f"pour {named[0]} " if len(named) == 1 else ""
+            return StalePlanView(
+                reason="removed",
+                race_id=None,
+                title="Un plan sans course",
+                text=(
+                    f"Le plan posé {whose}reste au planning, mais aucune course visée ne le "
+                    f"porte plus. Retirer les séances posées : {what}"
+                ),
+                clear=True,
+                leaving=sweep.leaving,
+            )
+
+        if owner.plan_date is not None and owner.date is not None and owner.plan_date != owner.date:
+            return StalePlanView(
+                race_id=owner.race_id,
+                text=(
+                    f"Le plan posé au planning mène au {owner.plan_date:%d/%m} ; {owner.name} est "
+                    f"maintenant le {owner.date:%d/%m}. Il ne suit plus. Le reposer remplace "
+                    f"les séances posées : {what}"
+                ),
+                repose=owner.race_id,
+                leaving=sweep.leaving,
+            )
+
+        if owner.priority != "A":
+            next_a = self._next_a(rows, today)
+            target = (
+                f"le refait pour {next_a.model.name}, la course A"
+                if next_a is not None
+                else f"le refait pour {owner.name}, en {owner.priority}"
+            )
+            return StalePlanView(
+                reason="priority",
+                race_id=owner.race_id,
+                title="Le plan posé ne suit plus",
+                text=(
+                    f"{owner.name} est en priorité {owner.priority}, et le plan posé au "
+                    "planning la prépare comme une course A, affûtage compris. Le reposer "
+                    f"{target} ; le retirer ne pose rien à la place. Dans les deux cas : {what}"
+                ),
+                repose=next_a.model.race_id if next_a is not None else owner.race_id,
+                clear=True,
+                leaving=sweep.leaving,
+            )
+        return None
 
     async def create(self, payload: RacePayload) -> RaceList:
         await self._repo.append(
@@ -303,7 +410,10 @@ class RaceService:
         row = await self._find(race_id)
         built = await self._build(row.model, day)
         planning = PlanningService(self._store)
-        removed = await planning.clear_plan(day)
+        # La règle du retrait, que le bandeau a dite avant l'appui : une séance du jour déjà
+        # faite reste (session 10 b).
+        sweep = await self._sweep(day)
+        removed = await planning.clear_plan(day, keep_first_day=sweep.done_today > 0)
         weeks = len(built.weeks)
         busy = await self._busy(day, built)
         placed: list[date] = []
@@ -363,7 +473,11 @@ class RaceService:
     async def clear(self, today: date | None = None) -> PlacedView:
         from app.domains.planning.service import PlanningService
 
-        removed = await PlanningService(self._store).clear_plan(today or today_local())
+        day = today or today_local()
+        sweep = await self._sweep(day)
+        removed = await PlanningService(self._store).clear_plan(
+            day, keep_first_day=sweep.done_today > 0
+        )
         await self._repo.update_where(
             lambda race: race.plan_date is not None,
             lambda race: race.model_copy(update={"plan_date": None}),
@@ -451,3 +565,41 @@ class RaceService:
             countdown=countdown,
             past=days < 0,
         )
+
+
+@dataclass(frozen=True)
+class Sweep:
+    """Ce qu'un retrait des séances `plan` emporterait, et ce qu'il laisserait."""
+
+    leaving: int
+    #: Parmi celles qui partent, les retouchées à la main.
+    touched: int
+    past: int
+    #: Celles d'aujourd'hui, gardées parce que le jour porte déjà une activité.
+    done_today: int
+    #: Les courses que nomment les séances posées.
+    names: frozenset[str]
+    #: Le jour de course posé, à venir.
+    race_day: date | None
+
+
+def _sweep_text(sweep: Sweep) -> str:
+    """« 12 séances à venir partent, dont 2 retouchées à la main ; les 3 passées restent. »"""
+    many = sweep.leaving > 1
+    text = f"{sweep.leaving} séance{'s' if many else ''} à venir {'partent' if many else 'part'}"
+    if sweep.touched:
+        text += (
+            f", dont {sweep.touched} retouchée{'s' if sweep.touched > 1 else ''} à la main"
+            if many
+            else ", retouchée à la main"
+        )
+    kept: list[str] = []
+    if sweep.past:
+        kept.append(f"les {sweep.past} passées restent" if sweep.past > 1 else "la passée reste")
+    if sweep.done_today:
+        kept.append(
+            "celles d'aujourd'hui, déjà faites, restent"
+            if sweep.done_today > 1
+            else "celle d'aujourd'hui, déjà faite, reste"
+        )
+    return text + "".join(f" ; {part}" for part in kept) + "."
