@@ -24,7 +24,7 @@ Décisions prises seul (délégation du 19/10).
 | D6 | La notation (PLN-05) | **`EF`, `SL`, `T` (seuil), `VMA`, `AS10` / `ASS` / `ASM` (allure spécifique), `LD` (lignes droites), `RC` (retour au calme)** — `15' EF + 3 × 8' T r2' + 10' RC` | Une notation lue par l'œil, pas analysée comme celle de la nage |
 | D7 | La durée d'une séance en kilomètres | **Estimée à l'allure facile médiane des 28 derniers jours**, 6'30/km sans historique | C'est une durée **prévue** — une valeur de planning, pas une mesure |
 | D8 | Le triathlon | **La part course seulement** dans ce lot ; natation et vélo restent à poser | MSP-03 est en V2 |
-| D9 | Deux objectifs A qui se gênent (CA-07) | **Le coach tranche par règle** : la course la plus exigeante reste A, l'autre passe B — et **rien ne change sans un oui** | Un conflit refusé n'est plus redemandé |
+| D9 | Deux objectifs A qui se gênent (CA-07) | **Le coach tranche par règle** : la course la plus exigeante reste A, l'autre passe B — et **rien ne change sans un oui** | Un conflit refusé n'est plus redemandé. **Exception validée le 29 octobre** (`2fd42eb`) : une course passée en B sans autre course A garde un plan complet, affûtage compris, à « Reposer le plan » |
 | D10 | Écrire le plan au planning | **Un geste** : « Poser au planning » écrit les séances à venir, marquées `plan` ; le reposer remplace les séances `plan` futures | Une séance `plan` déplacée à la main redevient la sienne seulement si on la corrige — elle reste marquée `plan` |
 | D11 | Où ça vit | **Un écran `/plan`**, dans « Plus » | `/objectif` reste celui des métriques (poids, protéines…) |
 
