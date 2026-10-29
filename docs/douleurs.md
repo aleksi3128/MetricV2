@@ -156,7 +156,13 @@ coach la remplace dans sa proposition. Réécrire le planning est R6, avec un ou
 - **Corriger un relevé.** Il se supprime et se ressaisit ; une correction en place viendra
   si le besoin se montre. Le suivi ressaisi garde son `pain_id`.
 - **La natation et le renfo** : le relevé n'est demandé qu'à l'import d'une course. Une
-  douleur hors course se saisit dans `/corps`.
+  douleur hors course se saisit dans `/corps`. *Élargi depuis* : le point du soir le
+  demande pour la course, la natation et le vélo ou la marche du jour
+  ([`notifications-v3.md`](notifications-v3.md)) ; la feuille « Course » le demande aussi
+  après une course **saisie à la main** ou relue d'une capture (session 10 b, `ab4b27a`),
+  et après un vélo ou une marche importés ; et l'assistant rattache une douleur à une
+  séance du jour par son identifiant stable (`31d9068`). Le renfo Cadence, lui, ne le
+  demande nulle part : il n'entre pas dans le point du soir.
 - **Bloquer la natation ou le renfo** sur un arrêt : le cadre du coach ne porte que la
   course.
 - **La dictée** : R8. **Les patterns** : R4. **La frise sur la charge** : R10.

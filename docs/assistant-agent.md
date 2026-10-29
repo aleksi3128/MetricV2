@@ -425,7 +425,9 @@ qu'on ne le tape. Le catalogue passe de **treize à seize** actions — `pain.ad
 **Trois mécanismes nouveaux**, chacun dans la table et non dans la consigne :
 
 - **`ActionSpec.hidden`** — des champs que *cette* action tait au modèle, en plus de
-  `HIDDEN_ARGS` : `run_id` pour `pain.add`, `rewrite` pour `swim.add`.
+  `HIDDEN_ARGS` : `rewrite` pour `swim.add`. `pain.add` taisait aussi `run_id` ; il ne le
+  tait plus depuis la session 10 b (§12), le condensé servant l'identifiant stable des
+  séances du jour.
 - **`ActionSpec.confirm_if`** — lu sur la donnée, il met une action d'ajout en attente :
   `effort.rate` sur une séance qui a déjà un effort. Le niveau reste hors de la main du
   modèle.
@@ -466,3 +468,40 @@ est celui d'un nom inventé. L'écran renvoie le fil où la réponse est arrivé
 
 `ActionReport.day` : le premier jour écrit par une adoption, pour que l'écran mène à
 `/planning?jour=…` sans choisir lui-même parmi les dates. Seul `plan.propose` le remplit.
+
+---
+
+## 12. Session 10 b — une douleur rattachée, une confirmation rangée (29 octobre 2026)
+
+Deux restes du §7 de [`pages/modifications.md`](pages/modifications.md), qui se corrigeaient
+sans décision. Commits `31d9068`, `949d218`.
+
+**Une douleur notée se rattache à sa séance** (`31d9068`). Le condensé nommait déjà les
+séances du jour pour `effort.rate` ; il sert désormais, à côté, leur identifiant **stable**
+— « (pain.add : run_id=…) » —, celui d'une course, d'une natation, d'une sortie ou d'une
+séance Cadence, que la colonne `run_id` de `pain.csv` reçoit déjà depuis `PainCheck`.
+`pain.add` ne tait plus `run_id` ; sa description dit de ne jamais l'inventer, et de
+l'omettre sans séance nommée. Le serveur refuse un identifiant qui ne désigne **aucune
+séance du jour de la douleur** : écrit, il rattacherait la douleur à une séance qui
+n'existe pas, et le point du soir croirait la question posée. Sans lien, la douleur reste
+valable. Les patterns (R4) et le point du soir lisent `run_id` sans changer : deux courses
+le même jour, la seconde désignée, et les patterns la comptent répondue — ce que la règle
+D6 ne faisait pas seule.
+
+**Une confirmation se range avec le message qui la proposait** (`949d218`). `confirm()`
+écrivait au domaine, pas au fil ; le rapport ne vivait que dans l'état local de la carte.
+`ChatReply` sert `seq`, le rang de la réponse ; `ConfirmRequest` le renvoie, facultatif.
+Donné, le message est cherché **avant** l'exécution (inconnu, ou rang d'une question :
+`404`, rien n'est écrit) ; le rapport fait rejoint ses actions, **sans son annulation**,
+comme toute action rangée. Pour toute action confirmée — `plan.propose`, `plan.move`,
+`plan.delete`, les suppressions. Un refus ne se range pas ; une proposition en attente non
+plus, qui se confirmerait deux fois une fois relue. L'écriture au fil vient après celle du
+domaine : si elle échoue, l'action est faite et le fil ne le dit pas — le défaut d'avant,
+jamais une action rangée qui n'aurait pas eu lieu.
+
+**`IA-12`** : le §4 est corrigé (`09e1653`) — la garde est la consigne seule, et c'est
+assumé.
+
+**Ce qui reste.** Une douleur de la veille notée par l'assistant n'est rattachée à rien :
+le condensé ne nomme que les séances du jour. Rien n'a été essayé avec un vrai modèle ; le
+banc sert des réponses écrites à la main.

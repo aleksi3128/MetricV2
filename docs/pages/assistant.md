@@ -47,7 +47,7 @@ Seize actions ([`actions.py`](../../backend/app/domains/assistant/actions.py), `
 |---|---|
 | noter une pesée, une boisson, une course | supprimer une pesée, un repas, une course |
 | noter un repas, du jour **ou d'hier** (M-10) | décaler une séance prévue, la retirer |
-| noter une **douleur** — du jour ou de la veille —, ou son suivi (M-10) | proposer des séances au planning, une par une — **seulement dans le fil du planning**, qui s'y confirment seulement (M-20) |
+| noter une **douleur** — du jour ou de la veille —, ou son suivi (M-10), rattachée à une séance du jour par son identifiant stable (session 10 b) | proposer des séances au planning, une par une — **seulement dans le fil du planning**, qui s'y confirment seulement (M-20) |
 | noter une **natation**, dans la notation lue par le serveur (M-10) | remplacer l'**effort perçu** d'une séance qui en a déjà un (M-10) |
 | noter l'**effort perçu** d'une séance du jour qui n'en a pas — « Annuler » le remet à vide (M-10) | |
 | cocher un supplément du jour ; créer une séance Cadence ; prévoir une séance | |
@@ -61,13 +61,24 @@ ne se force pas. Une action demandée hors de sa portée dit son geste et où il
 (« Je ne sais pas proposer des séances au planning dans cette discussion : seulement dans le
 fil du planning »), plus son nom technique.
 
+**Une confirmation se range dans son fil** (session 10 b, `949d218`). La réponse porte
+son rang (`seq`) ; « Confirmer » ou « Adopter » le renvoie, et le serveur range le rapport
+fait avec le message qui proposait l'action. Rouvert, le fil montre « 2 séances ajoutées au
+planning. » et « Voir au planning », sans « Annuler » — un jeton rangé aurait périmé. Une
+action en attente ne se range jamais : relue, elle se confirmerait deux fois.
+
+**Une douleur se rattache à sa séance** (session 10 b, `31d9068`). Le condensé sert, à
+côté de chaque séance du jour, son identifiant stable (« pain.add : run_id=… ») ;
+`pain.add` le reçoit, et le serveur refuse un identifiant qui ne désigne aucune séance du
+jour de la douleur. Les patterns de douleur et le point du soir la voient.
+
 ## 4. Liens sortants
 
 « Ouvrir dans Cadence » sur une séance proposée ; dans le fil du planning, **Voir le
 planning** (en tête) et **Voir au planning** sous une adoption, sur le premier jour écrit
 (`/planning?jour=…`, M-20) ; **Voir au planning** aussi sous une séance prévue
 (`plan.add`) et sous une séance décalée, une fois confirmée (`plan.move`), depuis
-`b252a98`.
+`b252a98` — et dans un fil rouvert, sous l'adoption ou le décalage rangé (`949d218`).
 
 ## 5. Constats
 

@@ -64,8 +64,12 @@ Un conflit s'affiche ; il ne se force pas. Preuve : `routes/SettingsFile.test.ts
   désigne plus que l'objectif daté de `/objectif`.
 - **La synchro Garmin n'a aucune place à l'écran — par choix.** L'utilisateur l'a écartée
   le 27 octobre (M-18) : aucune synchro Garmin, même en production. Ce n'est plus un
-  manque. `GET/POST /api/sync` existent encore côté serveur, sans écran et sans usage ;
-  leur retrait est une décision à part (`modifications.md` §7).
+  manque. ~~`GET/POST /api/sync` existent encore côté serveur, sans écran et sans usage ;
+  leur retrait est une décision à part.~~ **Retirés** le 28 octobre (`1c161e1`), avec
+  `domains/sync/`, son planificateur et `make sync` ; une sortie n'entre plus que par son
+  `.fit`. Deux décisions du même jour (`modifications.md` §7) : aucune notification
+  « Séance reçue » après un import, et le sommeil saisi à la main le matin, dans un lot à
+  venir — aucun réglage de plus ici.
 - **La barre « Enregistrer » collante** (fiche 24 de l'audit) reste ici seulement : les
   formulaires déplacés ont deux champs au plus, sous leur bouton.
 

@@ -25,8 +25,8 @@ avant, sur le banc du lot M-03).
 | **Lecture du jour** (`Brief`) | Un message du modèle pour le moment de la journée (matin, mi-journée, soir), en `AiBlock` ; le condensé envoyé, replié | `GET /api/brief` | Absente : « Rien n'est encore écrit… » + **Demander la lecture**. Sans clé IA : la carte disparaît |
 | **Il reste aujourd'hui** (`Today`) | Eau, protéines, suppléments : fait / cible, et la phrase du restant. Puis la prochaine séance prévue (dans les 14 jours). Alerte « plafond de sucres dépassé » | `GET /api/aggregates/dashboard` (`day`, `next_session`, `nutrition`) | « Aucun relevé aujourd'hui » + **Noter**, qui ouvre la saisie rapide sur place (M-11, `8e632c1`) ; « Aucune séance prévue d'ici deux semaines » |
 | **Bande de trois chiffres** | Poids (dernier, variation sur N pesées), semaine (durée, séances, km), assiduité (série, record, jours suivis) | même appel (`weight`, `training.week`, `streak`) | Tirets et phrase du prochain geste |
-| **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit (Garmin) | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une — et sans synchro Garmin, écartée par choix (M-18), il n'y en a pas |
-| **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
+| **Forme** (`Shape`) | Alertes ouvertes (critique / à voir / pour info), phrase de forme et de rapport de charge, relevé de la nuit | `GET /api/notifications/alerts`, `GET /api/training`, `GET /api/body/health` | Chaque ligne a sa panne propre ; la nuit ne s'affiche que s'il y en a une — et la synchro Garmin retirée (`1c161e1`), `body/health.csv` n'a plus d'écrivain : il n'y en a pas, jusqu'à la saisie du sommeil le matin (lot à venir) |
+| **Où je vais** (`Aim`) | La prochaine course A (nom, « J-n », distance, date, chrono visé, phase du plan posé — M-19, `af2202d`), puis l'objectif en cours (anneau, résumé, fenêtre, jours restants) ; la cible de poids seulement à défaut des deux ; à défaut l'état vide | même appel (`race`, `plan_notice`, `goal`, `weight.to_target_kg`) | Course sans plan : « Aucun plan posé » + **Poser le plan** (→ `/plan`) ; plan qui ne suit plus : la phrase du serveur + **Voir le plan**, aucune repose ici ; le plan d'une course passée en B, ou retirée, dans sa carte à part (« Plan de course », `plan_notice`, session 10 b) : la même phrase que `/plan`, **Voir le plan**, ni repose ni retrait ; rien : « Aucun objectif en cours » + **Fixer un objectif** et **Viser une course** |
 | ~~**Tendance** (`Graph`)~~ | Retirée (M-06, `c67f06f`) : chacune de ses treize métriques a sa courbe sur son écran | — | — |
 | ~~**Entraînement** (`Training`)~~ | Retiré (M-06, M-07, `c67f06f`) : le volume tous sports est sur `/charge`, la semaine reste en tuile | — | — |
 | ~~**Assistant**~~ | Retirée (M-22, `fc178f8`) : la barre du haut et la barre basse ont leur entrée, « Mémoire » est un bouton de l'en-tête de `/assistant` | — | — |
@@ -90,10 +90,17 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
   dix courses `.fit` sans effort perçu, et l'accueil dit toujours « Pas encore de charge
   globale » pendant que la page Courses compte 310. Sans aucune séance, la phrase dit
   désormais « aucune séance enregistrée » (`3930cfb`).
-- **La nuit Garmin ne s'affiche pas — par choix.** Sommeil, stress et Body Battery
-  (`body/health.csv`) n'arrivaient que par la synchro Garmin, que l'utilisateur a écartée
-  le 27 octobre (M-18) : ce n'est plus un manque. La ligne reste dans `Shape`, qui ne la
-  dessine que s'il y a une nuit ; la FC de repos et la VFC passent par le parcours du matin.
+- **La nuit ne s'affiche pas — par choix, en attendant sa saisie.** Sommeil, stress et
+  Body Battery (`body/health.csv`) n'arrivaient que par la synchro Garmin, que
+  l'utilisateur a écartée le 27 octobre (M-18) et dont le code est **retiré** depuis le
+  28 octobre (`1c161e1`) : le fichier n'a plus d'écrivain. La ligne reste dans `Shape`,
+  qui ne la dessine que s'il y a une nuit. **Décision du 28 octobre** : le sommeil se
+  saisira **à la main, le matin** — un lot à venir (`modifications.md` §7) ; la FC de
+  repos et la VFC passent déjà par le parcours du matin.
+- **Le plan d'une course passée en B, ou retirée, se dit à l'accueil** (session 10 b,
+  `2cfff5e`) : `DashboardView.plan_notice`, dans sa carte « Plan de course » sous la course
+  A, la phrase de `/plan` et « Voir le plan ». La phrase nomme « reposer » et « retirer »,
+  qui ne se font que sur `/plan` — laissé, au §7 de `modifications.md`.
 - ~~**« Où je vais » ne dit rien de la course A.**~~ Corrigé (M-19, `af2202d`) : la
   prochaine course A passe en tête, avec son « J-n » et la phase du plan **posé**, lue
   par le serveur dans les notes des séances (le plan recalculé repartirait chaque jour de
@@ -118,5 +125,5 @@ mènent à `/corps/douleurs` depuis M-08 (`cdeda08`).
 ## 7. Non vu
 
 La lecture réellement écrite par un modèle (banc sans réponse de modèle) ; une alerte
-ouverte ; une nuit Garmin (il n'y en aura pas : M-18 est écartée) ; les deux parcours en situation (le banc tournait à 13 h, hors
+ouverte ; une nuit (il n'y en aura pas avant la saisie du sommeil : la synchro est retirée, `1c161e1`) ; les deux parcours en situation (le banc tournait à 13 h, hors
 des deux fenêtres) — ils sont décrits depuis le code.

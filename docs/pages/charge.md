@@ -31,7 +31,7 @@ Haut d'écran rempli : 1 810 px.
   `/activite/courses` compte les minutes pondérées par zone de FC, et ne concerne que la
   course. ~~Un conseil pour la sortie suivante~~ : parti (M-02, `385871a`), et la page
   Courses nomme la sienne « Charge de course (FC) » avec un lien ici. ~~**Reste** l'écart
-  (M-02, point 4)~~ : fermé le 29 octobre (session 10 c, `7d7a111`) — une course avec FC sans effort
+  (M-02, point 4)~~ : fermé le 29 octobre (session 10 c, `22a53dd`) — une course avec FC sans effort
   perçu entre ici par sa charge FC convertie, **dite estimée depuis la FC**, sur un facteur
   appris des courses qui ont les deux, et rien sous cinq paires
   ([`charge-multisport.md`](../charge-multisport.md) §7). Sous le seuil, l'écart demeure, et

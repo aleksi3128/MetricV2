@@ -19,7 +19,7 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 | Bloc | Ce qu'il montre | Source | Vide / erreur |
 |---|---|---|---|
 | Conflit (s'il y en a) | « Deux courses visées en A » et la phrase qui tranche ; **Oui, fais-le** / non | `GET /api/races` | — |
-| Plan qui ne suit plus (s'il y en a) | La phrase du serveur (« Le plan posé au planning mène au 16/02 ; … ») et **Reposer le plan** (M-17) | même appel, `stale_plan` | — |
+| Plan qui ne suit plus (s'il y en a) | Le titre et la phrase du serveur, qui dit ce qui partirait (« 30 séances à venir partent, dont 1 retouchée à la main ; les 2 passées restent ; celle d'aujourd'hui, déjà faite, reste. »). Trois raisons : la date a changé (M-17) — **Reposer le plan** ; la course est passée en B (session 10 b) — **Reposer le plan** et **Retirer le plan** ; la course a été retirée (« Un plan sans course ») — **Retirer les séances posées**. Les gestes offerts sont ceux que le serveur sert (`repose`, `clear`) | même appel, `stale_plan` (`reason`, `title`, `repose`, `clear`, `leaving`) | — |
 | **Courses visées** | Nom, date, distance, priorité, chrono visé ; **corriger** (M-17), supprimer ; **Ajouter une course visée** (formulaire en place, ses distances servies — `distances`, depuis `catalog.SPECS`, `ed46495`) | même appel | « Aucune course visée » |
 | ~~**Ce que le coach a changé**~~ | Parti sur `/planning` (M-03, `c9b1433`) | — | — |
 | **Plan jusqu'à la course A** | Synthèse (semaines, volume de départ et de pic, affûtage), avertissement de préparation courte ; les quatre semaines qui viennent, séance par séance en notation ; les autres repliées ; **Poser au planning** | `GET /api/races/plan/{race_id}` | « Plan indisponible » |
@@ -31,7 +31,8 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 |---|---|---|---|
 | Ajouter une course visée | formulaire | `POST /api/races` | addition |
 | Corriger une course visée | « corriger » sur la ligne : le formulaire d'ajout, pré-rempli, en place (M-17) | `PATCH /api/races/{id}` | `If-Match` ; un conflit passe en toast et recharge |
-| Reposer un plan qui ne suit plus | bandeau « Le plan posé ne suit plus » (`stale_plan`), **armé** | `POST /api/races/plan/{race_id}` | deux appuis |
+| Reposer un plan qui ne suit plus | bandeau (`stale_plan.repose`), **armé** — pour la course A s'il y en a une, sinon pour la course elle-même | `POST /api/races/plan/{race_id}` | deux appuis ; un seul geste armé à l'écran (`e2cf6e4`) |
+| Retirer un plan qui ne suit plus, ou sans course | bandeau (`stale_plan.clear`), **armé** — « Retirer les N séances ? » | `DELETE /api/races/plan` | deux appuis ; les passées et celle du jour déjà faite restent |
 | Supprimer une course visée | deux appuis | `DELETE /api/races/{id}` | `If-Match` |
 | Trancher un conflit | Oui / non | `POST /api/races/conflicts/{key}` | — |
 | Poser le plan | bouton ; **armé** s'il remplace un plan déjà posé | `POST /api/races/plan/{race_id}` · `DELETE /api/races/plan` | deux appuis au remplacement |
@@ -41,7 +42,15 @@ Haut d'écran rempli : 2 287 px à l'inventaire ; 1 955 depuis M-03, sur le banc
 - ~~**Une course visée ne se corrige pas.**~~ Corrigé (M-17, `defb1cd`) : « corriger »
   sur chaque ligne, le formulaire d'ajout en place, sous `If-Match`. Une date déplacée au
   plan posé fait dire au serveur que le plan ne suit plus ; le bandeau le repose, armé.
-  Seule la date le déclenche — une course A passée en B garde son plan sans rien dire.
+  ~~Seule la date le déclenche — une course A passée en B garde son plan sans rien dire.~~
+  Depuis la session 10 b (`2cfff5e`, `e2cf6e4`), une course passée en B et une course
+  retirée le font dire aussi au serveur. Ce qui part se décide au serveur, une fois, pour
+  le retrait, la repose et la phrase (`RaceService._sweep`) : les séances `plan` d'après
+  aujourd'hui, et celles d'aujourd'hui si le jour n'a encore aucune activité. Une course
+  retirée se reconnaît à ses séances qui la nomment encore (« — plan <nom>, semaine i/n »)
+  et que plus aucune course ne réclame. Vu sur le banc, au toucher, dans les deux thèmes :
+  passée en B, armée, désarmée, retirée au glissement, puis 30 séances retirées ; `/planning`
+  a gardé les deux passées et celle du jour, déjà faite.
 - ~~**Deux blocs n'ont rien de propre au plan de course**~~ Corrigé (M-03, `c9b1433`) :
   l'agenda et « Ce que le coach a changé » sont sur `/planning`. L'écran ne porte plus que
   les courses visées, leurs conflits et le plan, et n'appelle plus aucune route du

@@ -68,7 +68,20 @@ Famille *planning* : une cible, pas une mesure.
 - Depuis M-17 (27 octobre) : `races.csv.plan_date` retient la date pour laquelle le plan
   posé a été calculé ; `GET /api/races` sert `stale_plan` quand elle diffère de la date de
   la course. L'écran corrige une course en place et offre de reposer, armé.
-- L'écran `/plan` : courses, conflit à trancher, plan de la course A.
+- Depuis la session 10 b (29 octobre, `2cfff5e`, `e2cf6e4`) : `stale_plan` dit aussi
+  une course **passée en B** (celle qui porte le plan n'est plus en A — reposer pour la
+  course A s'il y en a une, sinon pour elle ; retirer) et une course **retirée** (des
+  séances `plan` à venir qu'aucune course ne réclame — ni `plan_date`, ni le nom que chaque
+  séance posée écrit, « — plan <nom>, semaine i/n », relu par `periodize.read_placed_race`,
+  ni le jour « Course : » ; retirer seul). Il sert `reason`, `title`, `repose`, `clear`,
+  `leaving`, et une phrase qui dit avant l'appui ce qui partirait. **Ce qui part** se décide
+  une fois, au serveur (`RaceService._sweep`), pour le retrait, la repose et la phrase :
+  les séances `plan` d'après aujourd'hui, et celles d'aujourd'hui si le jour n'a encore
+  aucune activité ; les passées et celle du jour déjà faite restent ; les retouchées à la
+  main (note sans la marque du plan) partent, comptées à part. Le tableau de bord sert le
+  même avis à part (`plan_notice`) quand il ne concerne pas la course A.
+- L'écran `/plan` : courses, conflit à trancher, plan de la course A, et le bandeau du plan
+  qui ne suit plus — un seul geste armé à la fois.
 
 ---
 
