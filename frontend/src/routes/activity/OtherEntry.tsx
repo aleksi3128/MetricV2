@@ -14,6 +14,12 @@
  * **Puis la douleur** (session 10 b), comme après un `.fit` : la sortie écrite, le
  * formulaire cède la place à `PainCheck`, rattaché par l'`other_id` — l'identifiant
  * stable, que la position de la ligne n'est pas.
+ *
+ * **Le même formulaire corrige** (session 10 b), comme celui d'une pesée sur `/corps` :
+ * `editing` désigne la ligne, relue dans la liste servie avec les sports, et le formulaire
+ * s'ouvre pré-rempli de ce qu'elle porte — des valeurs relues, pas proposées. Il envoie sous
+ * `If-Match` le jeton de cette lecture-là, celle que le formulaire montre. Une correction
+ * ne redemande pas la douleur : elle a été demandée à la saisie.
  */
 
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -40,10 +46,13 @@ import { useInvalidateActivity } from './shared';
 
 export function OtherEntry({
   today,
+  editing,
   onBack,
   onDone,
 }: {
   today: string;
+  /** La position de la ligne à corriger, telle que l'historique la donne. */
+  editing?: number | undefined;
   onBack: () => void;
   onDone: () => void;
 }) {
@@ -65,47 +74,95 @@ export function OtherEntry({
       </div>
     );
   }
-  return <OtherForm today={today} sports={data.sports} onBack={onBack} onDone={onDone} />;
+  const current =
+    editing === undefined ? undefined : data.others.find((other) => other.id === editing);
+  if (editing !== undefined && current === undefined) {
+    return (
+      <div className={styles.form}>
+        <Empty title="Sortie introuvable">
+          Elle a été supprimée ou déplacée depuis l’affichage de l’historique.
+        </Empty>
+        <Button variant="quiet" onClick={onBack}>
+          Retour
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <OtherForm
+      // Remonté sur un nouveau jeton : le formulaire repart de la ligne relue.
+      key={current?.token ?? 'new'}
+      today={today}
+      sports={data.sports}
+      editing={current}
+      onBack={onBack}
+      onDone={onDone}
+    />
+  );
+}
+
+/** Un nombre en texte de champ, virgule décimale — vide s'il n'y en a pas, jamais zéro. */
+function fieldText(value: number | null): string {
+  return value === null ? '' : String(value).replace('.', ',');
 }
 
 function OtherForm({
   today,
   sports,
+  editing,
   onBack,
   onDone,
 }: {
   today: string;
   sports: readonly SportChoice[];
+  editing: Other | undefined;
   onBack: () => void;
   onDone: () => void;
 }) {
   const invalidate = useInvalidateActivity();
   const { notify } = useToast();
-  const [sport, setSport] = useState<OtherSport | null>(null);
-  const [day, setDay] = useState(today);
-  const [minutes, setMinutes] = useState('');
-  const [distance, setDistance] = useState('');
-  const [rpe, setRpe] = useState<number | null>(null);
+  const [sport, setSport] = useState<OtherSport | null>(editing?.sport ?? null);
+  const [day, setDay] = useState(editing?.date ?? today);
+  const [minutes, setMinutes] = useState(editing ? fieldText(editing.duration_min) : '');
+  const [distance, setDistance] = useState(editing ? fieldText(editing.distance_km) : '');
+  const [rpe, setRpe] = useState<number | null>(editing?.rpe ?? null);
   const [error, setError] = useState<ApiError | null>(null);
   /** La sortie écrite : la feuille demande alors la douleur. */
   const [saved, setSaved] = useState<Other | null>(null);
 
   const save = useMutation({
-    mutationFn: (chosen: OtherSport) =>
-      activityApi.createOther({
+    mutationFn: (chosen: OtherSport) => {
+      const fields = {
         date: day,
         sport: chosen,
         duration_min: minutes,
         distance_km: distance || null,
         rpe,
-      }),
+      };
+      return editing
+        ? activityApi.updateOther(editing.id, editing.token, fields)
+        : activityApi.createOther(fields);
+    },
     onSuccess: (other) => {
       invalidate();
       const label = sports.find((item) => item.value === other.sport)?.label ?? other.sport;
+      if (editing) {
+        notify(`Sortie corrigée : ${label.toLowerCase()}.`, 'effort');
+        onDone();
+        return;
+      }
       notify(`Sortie enregistrée : ${label.toLowerCase()}.`, 'effort');
       setSaved(other);
     },
     onError: (caught: unknown) => {
+      // Un conflit ne se force pas : la ligne a changé depuis qu'on l'a lue. La liste se
+      // relit et le formulaire remonte sur elle — le message passe donc en toast, qu'un
+      // remontage n'emporte pas (le motif de M-17, sur `/plan`).
+      if (editing && caught instanceof ApiError && caught.code === 'conflict') {
+        notify(caught.message, 'recover');
+        invalidate();
+        return;
+      }
       setError(caught instanceof ApiError ? caught : null);
     },
   });
@@ -192,7 +249,7 @@ function OtherForm({
             if (sport !== null) save.mutate(sport);
           }}
         >
-          Enregistrer la sortie
+          {editing ? 'Corriger la sortie' : 'Enregistrer la sortie'}
         </Button>
         <Button variant="quiet" disabled={save.isPending} onClick={onBack}>
           Retour

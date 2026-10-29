@@ -991,6 +991,13 @@ export const activityApi = {
     form.append('file', file);
     return request<Other>('/api/activity/others/fit', { method: 'POST', form });
   },
+  /** Corriger une sortie en place, sous `If-Match` : son identifiant stable ne bouge pas. */
+  updateOther: (id: number, token: string, payload: OtherCorrection) =>
+    request<Other>(`/api/activity/others/${String(id)}`, {
+      method: 'PATCH',
+      headers: guard(token),
+      body: payload,
+    }),
   setOtherRpe: (id: number, token: string, rpe: number | null) =>
     request<Other>(`/api/activity/others/${String(id)}/rpe`, {
       method: 'PUT',
@@ -1193,6 +1200,15 @@ export interface OtherList {
 
 /** Durée et distance partent en texte : le serveur lit `1h30` et `12,5` comme pour une
  *  course. */
+/** Ce que la correction envoie — les champs du formulaire, et eux seuls. */
+export interface OtherCorrection {
+  date: string;
+  sport: OtherSport;
+  duration_min: number | string;
+  distance_km: number | string | null;
+  rpe: number | null;
+}
+
 export interface OtherPayload {
   date: string;
   sport: OtherSport;

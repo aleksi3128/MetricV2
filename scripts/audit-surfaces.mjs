@@ -93,6 +93,15 @@ const SURFACES = [
     "Effort de la sortie marche du 18/10/2026",
     "effort d’une sortie vélo ou marche",
   ],
+  // La même feuille, sur sa correction (session 10 b) : « Corriger la sortie » remplace
+  // l'effort par le formulaire de la saisie, pré-rempli. L'appui n'écrit rien ; le second
+  // « Corriger la sortie », au pied du formulaire, écrirait — il n'est pas appuyé. La
+  // douleur demandée après une saisie, elle, ne se gagne qu'en écrivant : hors de portée.
+  [
+    "/activite",
+    ["Effort de la sortie marche du 18/10/2026", "Corriger la sortie"],
+    "corriger une sortie vélo ou marche",
+  ],
   ["/assistant", "Mémoire", "carnet de l’assistant"],
   // La même feuille sur son onglet Profil (M-05) : le formulaire « Ce que je suis », venu
   // de `/reglages`, avec ses 28 pastilles de matériel repliées. « Profil » est un segment —

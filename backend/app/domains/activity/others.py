@@ -1,7 +1,8 @@
 """Le vélo, la marche et la randonnée : lire, écrire, noter (`docs/charge-multisport.md`, D8).
 
 Le service le plus court du domaine, et c'est voulu : ces sorties existent pour compter
-dans la charge globale. Elles se notent et se suppriment ; elles ne s'analysent pas.
+dans la charge globale. Elles se notent, se corrigent et se suppriment ; elles ne
+s'analysent pas.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from app.domains.activity.models import OtherRow
 from app.domains.activity.other_schemas import (
     SPORTS,
     Other,
+    OtherCorrection,
     OtherList,
     OtherPayload,
     SportChoice,
@@ -126,6 +128,30 @@ class OtherService:
             raise StorageNotFoundError("Cette sortie n'existe plus.")
         row = await self._repo.replace_by_token(
             index, token, rows[index].model.model_copy(update={"rpe": rpe})
+        )
+        return self.to_schema(row)
+
+    async def update(self, index: int, token: str, payload: OtherCorrection) -> Other:
+        """Corrige une sortie en place, sous le jeton lu (session 10 b).
+
+        **L'identifiant stable ne bouge pas** : une douleur s'y rattache, et en régénérer
+        un la détacherait sans bruit. Ce que le formulaire ne montre pas non plus.
+        """
+        rows = await self._repo.read_all(fresh=True)
+        if not 0 <= index < len(rows):
+            raise StorageNotFoundError("Cette sortie n'existe plus.")
+        row = await self._repo.replace_by_token(
+            index,
+            token,
+            rows[index].model.model_copy(
+                update={
+                    "date": payload.date,
+                    "sport": payload.sport,
+                    "duration_min": payload.duration_min,
+                    "distance_km": payload.distance_km,
+                    "rpe": payload.rpe,
+                }
+            ),
         )
         return self.to_schema(row)
 

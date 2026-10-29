@@ -184,12 +184,15 @@ export function Activity() {
           parcours, ce que fait l'étape 1 de « Enregistrer une course » — qui envoie
           désormais tout ce qu'elle envoyait. */}
 
-      <OtherSheet
-        item={otherOpened}
-        onClose={() => {
-          setOtherOpened(null);
-        }}
-      />
+      {today !== undefined && (
+        <OtherSheet
+          item={otherOpened}
+          today={today}
+          onClose={() => {
+            setOtherOpened(null);
+          }}
+        />
+      )}
 
       <SwimSheet
         swimId={swimOpened}

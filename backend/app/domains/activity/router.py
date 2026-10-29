@@ -17,7 +17,7 @@ from app.core.dates import now_local
 from app.core.deps import StoreDep
 from app.core.validation import today_local
 from app.domains.activity.models import MuscleGroup
-from app.domains.activity.other_schemas import Other, OtherList, OtherPayload
+from app.domains.activity.other_schemas import Other, OtherCorrection, OtherList, OtherPayload
 from app.domains.activity.others import OtherService
 from app.domains.activity.schemas import (
     ActivityOverview,
@@ -157,6 +157,15 @@ async def set_other_rpe(
     row_id: RowId, payload: RunRpePayload, store: StoreDep, if_match: IfMatch = None
 ) -> Other:
     return await OtherService(store).set_rpe(row_id, _token(if_match), payload.rpe)
+
+
+@router.patch("/others/{row_id}", response_model=Other, summary="Corriger une sortie")
+async def update_other(
+    row_id: RowId, payload: OtherCorrection, store: StoreDep, if_match: IfMatch = None
+) -> Other:
+    """Sport, date, durée, distance, effort — sous `If-Match`. Un jeton absent est un
+    conflit, jamais une permission (`STO-05`)."""
+    return await OtherService(store).update(row_id, _token(if_match), payload)
 
 
 @router.delete(
