@@ -190,7 +190,7 @@ plus pour le même sujet.
 |---|---|---|---|
 | S1 | Où vit la durée | **Une colonne `sleep_min` de `body/morning.csv`**, à côté de `resting_hr` et `hrv_ms`. `body/health.csv` reste ce qu'il est : une archive de la montre, lue, jamais écrite | L'historique du sommeil a deux fichiers : l'archive (avant le 28 octobre), le matin (depuis). Une règle de lecture, en un seul endroit (S5) |
 | S2 | Le geste | **Un champ de plus dans l'étape « Ta nuit »**, sous la FC et la VFC : deux cases, heures et minutes, 16 px, vides. Un enregistrement écrit les trois | L'étape s'allonge d'une rangée ; le parcours ne gagne pas d'écran |
-| S3 | Le relevé de la veille | **Rappelé sous chaque mesure, jamais prérempli** — « Dernier matin, le mardi 28 octobre : 7 h 12. » —, comme la pesée. Ce n'est pas une proposition : ni `AiBlock`, ni `proposed` | Le serveur sert `MorningView.previous`, le dernier matin avant aujourd'hui |
+| S3 | Le relevé de la veille | **Rappelé en une ligne au-dessus des cases, jamais prérempli** — « Ton dernier matin, le mardi 28 octobre : FC 52 bpm · VFC 61 ms · sommeil 7 h 12. » —, comme la dernière pesée. Ce n'est pas une proposition : ni `AiBlock`, ni `proposed`. Une ligne et non trois : la même date redite sous chaque case n'apprendrait rien la deuxième fois | Le serveur sert `MorningView.previous`, le dernier matin avant aujourd'hui ; ce qui lui manquait n'est pas nommé |
 | S4 | La correction | **Le formulaire de la carte « Le matin » de `/corps`** gagne les deux cases ; même `PATCH /api/body/morning/{id}`, même `If-Match`. Le parcours corrige le matin du jour comme aujourd'hui | Le `PATCH` remplaçant la ligne, **les deux écrivains envoient la durée** — sans quoi corriger une FC effacerait le sommeil. Le type du client la rend obligatoire |
 | S5 | La lecture de la nuit | `GET /api/body/health` **réunit** l'archive et les matins : un jour a une nuit si l'un des deux porte un sommeil, ou l'archive un stress ou une Body Battery. **La durée saisie l'emporte** sur celle de l'archive, et le score de la montre n'est alors pas repris — il notait une autre durée | Les deux sources ne se rencontrent qu'un jour corrigé après coup : avant le 28 octobre l'une, depuis l'autre |
 | S6 | Une ligne `garmin` de l'archive | **Jamais réécrite.** Corriger la durée d'un jour se fait sur son matin ; la ligne de la montre garde tous ses champs, puisque rien n'y écrit | Une durée de la montre ne se corrige pas en place — elle se recouvre |
@@ -237,15 +237,15 @@ jour d'avant le 28 octobre.
   que le formulaire se rouvre sans calcul.
 - `MorningView.previous` : le dernier matin avant aujourd'hui (S3).
 - L'historique de la forme ne prend que les matins qui portent une FC ou une VFC (S8).
-- `HealthService.view` réunit l'archive et les matins (S5) ; `HealthDay.source` dit d'où
-  vient la durée.
+- `HealthService.view` réunit l'archive et les matins (S5) ; `HealthDay.sleep_source` dit
+  d'où vient la durée.
 - Aucune route nouvelle, aucun code d'erreur nouveau : `validation_error` et `conflict`
   servent.
 
 **Client**
 
-- L'étape « Ta nuit » : la phrase dit les trois mesures, deux cases pour la durée, le
-  rappel sous chacune ; l'invalidation reste `keys.body.all()`, `keys.activity.all()` et
+- L'étape « Ta nuit » : la phrase dit les trois mesures, deux pas-à-pas pour la durée
+  (heures, minutes par cinq), le rappel du dernier matin au-dessus ; l'invalidation reste `keys.body.all()`, `keys.activity.all()` et
   `CROSS_CUTTING` — c'est elle qui rafraîchit la nuit de l'accueil (`keys.aggregates`).
 - La carte « Le matin » de `/corps` : « sommeil 7 h 12 » dans la liste, les deux cases dans
   la correction.

@@ -339,9 +339,11 @@ class MorningService:
         rows = await self._repo.read_all()
         current = next((row for row in rows if row.model.date == day), None)
         recent = sorted(rows, key=lambda row: (row.model.date, row.index), reverse=True)
+        previous = next((row for row in recent if row.model.date < day), None)
         return MorningView(
             today=day,
             entry=self._entry(current) if current else None,
+            previous=self._entry(previous) if previous else None,
             readiness=self._readiness(rows, day),
             recent=[self._entry(row) for row in recent[: self.RECENT]],
         )
@@ -354,7 +356,7 @@ class MorningService:
         """Les deux mesures sur trente jours, leur référence, et les matins à corriger (M-09)."""
         day = today or today_local()
         rows = await self._repo.read_all()
-        history = [Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms) for row in rows]
+        history = _history(rows)
         since = day - timedelta(days=self.TREND_DAYS - 1)
         inside = sorted(
             (row for row in rows if since <= row.model.date <= day),
@@ -418,10 +420,16 @@ class MorningService:
         return self._readiness(await self._repo.read_all(), day)
 
     async def mornings(self) -> list[Morning]:
-        return [
-            Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms)
+        """Les matins qui portent une FC ou une VFC — ceux dont la forme se juge."""
+        return _history(await self._repo.read_all())
+
+    async def sleeps(self) -> dict[date, int]:
+        """La durée du sommeil de chaque matin qui en porte une — la nuit de l'accueil."""
+        return {
+            row.model.date: row.model.sleep_min
             for row in await self._repo.read_all()
-        ]
+            if row.model.sleep_min is not None
+        }
 
     async def create(self, payload: MorningPayload) -> MorningEntry:
         """Un matin par jour : le second se corrige, il ne s'ajoute pas.
@@ -436,7 +444,12 @@ class MorningService:
                     "plutôt que d'en ajouter un second."
                 )
         row = await self._repo.append(
-            MorningRow(date=payload.date, resting_hr=payload.resting_hr, hrv_ms=payload.hrv_ms)
+            MorningRow(
+                date=payload.date,
+                resting_hr=payload.resting_hr,
+                hrv_ms=payload.hrv_ms,
+                sleep_min=payload.sleep_min,
+            )
         )
         return self._entry(row)
 
@@ -450,6 +463,7 @@ class MorningService:
                 date=payload.date,
                 resting_hr=payload.resting_hr,
                 hrv_ms=payload.hrv_ms,
+                sleep_min=payload.sleep_min,
                 source=source,
             ),
         )
@@ -460,9 +474,13 @@ class MorningService:
 
     @staticmethod
     def _readiness(rows: list[Row[MorningRow]], day: date) -> ReadinessView:
-        history = [Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms) for row in rows]
-        judged = assess(day, history)
-        return ReadinessView.model_validate(judged, from_attributes=True)
+        judged = ReadinessView.model_validate(assess(day, _history(rows)), from_attributes=True)
+        slept = any(row.model.date == day and row.model.sleep_min is not None for row in rows)
+        if judged.resting_hr is None and judged.hrv_ms is None and slept:
+            # « Pas encore de mesure ce matin » serait faux sous un sommeil qu'on vient de
+            # noter : il y a une mesure, ce n'est pas l'une des deux qui jugent (S8).
+            judged.text = "Ni FC de repos ni VFC ce matin\u00a0: la forme ne se juge pas."
+        return judged
 
     @staticmethod
     def _entry(row: Row[MorningRow]) -> MorningEntry:
@@ -472,5 +490,21 @@ class MorningService:
             date=row.model.date,
             resting_hr=row.model.resting_hr,
             hrv_ms=row.model.hrv_ms,
+            sleep_min=row.model.sleep_min,
+            sleep_hours=None if row.model.sleep_min is None else row.model.sleep_min // 60,
+            sleep_minutes=None if row.model.sleep_min is None else row.model.sleep_min % 60,
             source=row.model.source,
         )
+
+
+def _history(rows: list[Row[MorningRow]]) -> list[Morning]:
+    """Les matins dont la forme se juge : une FC de repos ou une VFC.
+
+    Un matin qui ne porte que le sommeil n'en est pas un pour la référence : compté, il
+    rapprocherait « encore N matins » d'une référence qu'il ne nourrit pas (S8).
+    """
+    return [
+        Morning(row.model.date, row.model.resting_hr, row.model.hrv_ms)
+        for row in rows
+        if row.model.resting_hr is not None or row.model.hrv_ms is not None
+    ]

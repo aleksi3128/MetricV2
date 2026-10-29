@@ -80,9 +80,10 @@ function Night() {
   });
   if (isPending) return <Skeleton lines={1} />;
   if (error) return <p className={styles.text}>{failure(error, 'Nuit illisible.')}</p>;
-  // Sans accès au compte Garmin (`docs/planifier-une-seance.md`, D13), aucune nuit
-  // n'arrive d'elle-même : la ligne ne s'affiche que s'il y en a une, sans promettre une
-  // synchro qui ne viendra pas.
+  // La nuit vient du parcours du matin — la durée du sommeil, depuis le 29 octobre — ou de
+  // l'archive de la montre (`docs/synchro-garmin.md` §6). Sans elle, rien : ni promesse
+  // d'une synchro qui ne viendra pas, ni stress ou Body Battery à zéro. La phrase du
+  // serveur ne nomme que ce qui existe.
   const last = data.days[0];
   if (last === undefined) return null;
   return (

@@ -108,13 +108,20 @@ function guard(token: string): Record<string, string> {
   return { 'If-Match': token };
 }
 
-/** FC de repos et VFC d'un matin, lues sur la montre (`docs/coach-course.md`, **C3**). */
+/**
+ * FC de repos, VFC et durée du sommeil d'un matin, lues sur la montre
+ * (`docs/coach-course.md`, **C3** ; `docs/synchro-garmin.md` §6).
+ */
 export interface MorningEntry {
   id: number;
   token: string;
   date: string;
   resting_hr: number | null;
   hrv_ms: number | null;
+  /** La durée en minutes, et sa décomposition servie : le formulaire se rouvre sans calcul. */
+  sleep_min: number | null;
+  sleep_hours: number | null;
+  sleep_minutes: number | null;
   source: string;
 }
 
@@ -140,6 +147,8 @@ export interface MorningView {
   /** Le jour du serveur — la saisie se date avec lui, jamais avec l'horloge du téléphone. */
   today: string;
   entry: MorningEntry | null;
+  /** Le dernier matin avant aujourd'hui, **rappelé** — jamais prérempli, jamais proposé. */
+  previous: MorningEntry | null;
   readiness: Readiness;
   recent: MorningEntry[];
 }
@@ -175,10 +184,17 @@ export interface MorningTrend {
   entries: MorningEntry[];
 }
 
+/**
+ * Le corps **remplace la ligne** : chaque champ est requis, `null` compris. Une durée
+ * omise effacerait le sommeil en corrigeant une FC — le type ne le laisse pas oublier.
+ * Heures et minutes partent telles quelles : le serveur compose la durée.
+ */
 export interface MorningPayload {
   date: string;
   resting_hr: number | null;
   hrv_ms: number | null;
+  sleep_hours: number | null;
+  sleep_minutes: number | null;
 }
 
 export const bodyApi = {

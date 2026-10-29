@@ -65,9 +65,39 @@ const TREND: MorningTrend = {
     }),
   ],
   entries: [
-    { id: 4, token: 'jeton-4', date: '2026-10-25', resting_hr: 55, hrv_ms: 61, source: 'manual' },
-    { id: 2, token: 'jeton-2', date: '2026-10-22', resting_hr: 52, hrv_ms: null, source: 'manual' },
-    { id: 1, token: 'jeton-1', date: '2026-10-20', resting_hr: 54, hrv_ms: null, source: 'manual' },
+    {
+      id: 4,
+      token: 'jeton-4',
+      date: '2026-10-25',
+      resting_hr: 55,
+      hrv_ms: 61,
+      sleep_min: 432,
+      sleep_hours: 7,
+      sleep_minutes: 12,
+      source: 'manual',
+    },
+    {
+      id: 2,
+      token: 'jeton-2',
+      date: '2026-10-22',
+      resting_hr: 52,
+      hrv_ms: null,
+      sleep_min: null,
+      sleep_hours: null,
+      sleep_minutes: null,
+      source: 'manual',
+    },
+    {
+      id: 1,
+      token: 'jeton-1',
+      date: '2026-10-20',
+      resting_hr: 54,
+      hrv_ms: null,
+      sleep_min: null,
+      sleep_hours: null,
+      sleep_minutes: null,
+      source: 'manual',
+    },
   ],
 };
 
@@ -196,11 +226,79 @@ describe('le matin, relu en série (M-09)', () => {
     });
     expect(patch?.url).toBe('/api/body/morning/4');
     expect(new Headers(patch?.init?.headers).get('If-Match')).toBe('jeton-4');
+    // La durée repart telle qu'elle était : le serveur remplace la ligne, et l'omettre
+    // l'effacerait en corrigeant la VFC.
     expect(JSON.parse(patch?.init?.body as string)).toEqual({
       date: '2026-10-25',
       resting_hr: 55,
       hrv_ms: null,
+      sleep_hours: 7,
+      sleep_minutes: 12,
     });
+  });
+
+  it('liste la durée du sommeil et la corrige en heures et minutes', async () => {
+    stub();
+    renderSection();
+
+    const rows = await list();
+    expect(within(rows).getByText('FC 55 bpm · VFC 61 ms · sommeil 7 h 12')).toBeInTheDocument();
+    // Un matin sans durée ne dit rien du sommeil — ni zéro, ni tiret.
+    expect(within(rows).getByText('FC 52 bpm')).toBeInTheDocument();
+
+    await userEvent.click(
+      within(rows).getByRole('button', { name: 'Corriger le matin du 25/10/2026' }),
+    );
+    expect(screen.getByLabelText('Sommeil (h)')).toHaveValue('7');
+    const minutes = screen.getByLabelText('Sommeil (min)');
+    await userEvent.clear(minutes);
+    await userEvent.type(minutes, '40');
+    await userEvent.click(screen.getByRole('button', { name: 'Corriger le matin' }));
+
+    const patch = await waitFor(() => {
+      const found = calls.find((call) => call.init?.method === 'PATCH');
+      expect(found).toBeDefined();
+      return found;
+    });
+    expect(JSON.parse(patch?.init?.body as string)).toMatchObject({
+      resting_hr: 55,
+      hrv_ms: 61,
+      sleep_hours: 7,
+      sleep_minutes: 40,
+    });
+  });
+
+  it('dit la règle du serveur quand elle porte sur plusieurs cases', async () => {
+    stub();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+        Promise.resolve(
+          init?.method === 'PATCH'
+            ? json(422, {
+                code: 'validation_error',
+                message: 'Les données envoyées sont invalides.',
+                fields: [
+                  {
+                    field: 'body',
+                    message: 'Un sommeil de 0 min ne se note pas : laisse les deux cases vides.',
+                  },
+                ],
+              })
+            : json(200, TREND),
+        ),
+      ),
+    );
+    renderSection();
+
+    await userEvent.click(
+      within(await list()).getByRole('button', { name: 'Corriger le matin du 25/10/2026' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Corriger le matin' }));
+
+    expect(
+      await screen.findByText('Un sommeil de 0 min ne se note pas : laisse les deux cases vides.'),
+    ).toBeInTheDocument();
   });
 
   it('supprime en deux appuis, sous If-Match', async () => {

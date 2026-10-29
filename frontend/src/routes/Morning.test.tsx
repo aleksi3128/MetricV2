@@ -51,7 +51,7 @@ function flow(overrides: Partial<MorningFlow> = {}): MorningFlow {
       title: titles[key] ?? key,
       done: resume === null ? true : order.indexOf(key) < order.indexOf(resume),
     })),
-    night: { today: '2026-09-20', entry: null, readiness: READINESS, recent: [] },
+    night: { today: '2026-09-20', entry: null, previous: null, readiness: READINESS, recent: [] },
     pain: [],
     weight: {
       today: null,
@@ -217,12 +217,84 @@ describe('le parcours du matin', () => {
 
     await screen.findByText('Étape 2 sur 4 · Pesée');
     const sent = posted.find((item) => item.url.endsWith('/api/body/morning'));
-    expect(sent?.body).toEqual({ date: '2026-09-20', resting_hr: 51, hrv_ms: null });
+    // Les trois mesures partent toujours, `null` compris : le serveur remplace la ligne.
+    expect(sent?.body).toEqual({
+      date: '2026-09-20',
+      resting_hr: 51,
+      hrv_ms: null,
+      sleep_hours: null,
+      sleep_minutes: null,
+    });
     // La dernière pesée est rappelée ; le champ, lui, reste vide.
     expect(
       screen.getByText('Dernière pesée : 59,85 kg le vendredi 18 septembre.'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Poids')).toHaveValue('');
+  });
+
+  it('écrit la durée du sommeil en heures et minutes, seule si c’est tout ce qu’on a', async () => {
+    renderApp();
+    const sheet = await screen.findByRole('dialog');
+    const save = within(sheet).getByRole('button', { name: 'Enregistrer' });
+    expect(save).toBeDisabled();
+
+    await userEvent.type(within(sheet).getByLabelText('Sommeil, heures'), '7');
+    await userEvent.type(within(sheet).getByLabelText('Sommeil, minutes'), '12');
+    expect(save).toBeEnabled();
+    await userEvent.click(save);
+
+    await screen.findByText('Étape 2 sur 4 · Pesée');
+    const sent = posted.find((item) => item.url.endsWith('/api/body/morning'));
+    // Les cases partent telles quelles : c'est le serveur qui compose les 432 minutes.
+    expect(sent?.body).toEqual({
+      date: '2026-09-20',
+      resting_hr: null,
+      hrv_ms: null,
+      sleep_hours: 7,
+      sleep_minutes: 12,
+    });
+  });
+
+  it('rappelle le dernier matin sans rien préremplir', async () => {
+    current = flow({
+      night: {
+        today: '2026-09-20',
+        entry: null,
+        previous: {
+          id: 2,
+          token: 'p',
+          date: '2026-09-19',
+          resting_hr: 52,
+          hrv_ms: null,
+          sleep_min: 432,
+          sleep_hours: 7,
+          sleep_minutes: 12,
+          source: 'manual',
+        },
+        readiness: READINESS,
+        recent: [],
+      },
+    });
+    renderApp();
+    const sheet = await screen.findByRole('dialog');
+
+    // Ce qui manquait ce matin-là n'est pas dit : ni VFC à zéro, ni tiret.
+    expect(
+      within(sheet).getByText(
+        'Ton dernier matin, le samedi 19 septembre : FC 52 bpm · sommeil 7 h 12.',
+      ),
+    ).toBeInTheDocument();
+    for (const label of ['FC de repos', 'VFC de la nuit', 'Sommeil, heures', 'Sommeil, minutes']) {
+      expect(within(sheet).getByLabelText(label)).toHaveValue('');
+    }
+  });
+
+  it('sans matin précédent, ne rappelle rien', async () => {
+    renderApp();
+    const sheet = await screen.findByRole('dialog');
+
+    expect(within(sheet).getByLabelText('Sommeil, heures')).toHaveValue('');
+    expect(within(sheet).queryByText(/Ton dernier matin/)).not.toBeInTheDocument();
   });
 
   it('se tait jusqu’au lendemain sur « Pas ce matin »', async () => {

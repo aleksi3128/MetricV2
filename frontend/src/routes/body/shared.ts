@@ -3,8 +3,29 @@
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { Tone } from '@/components/ui';
+import type { MorningEntry } from '@/features/body/api';
 import type { PainStatus } from '@/features/pain/api';
+import { hoursMinutes } from '@/lib/format';
 import { CROSS_CUTTING, keys } from '@/lib/query';
+
+/**
+ * « FC 52 bpm · VFC 61 ms · sommeil 7 h 12 » : les seules mesures qu'un matin porte, et
+ * seulement celles qu'il porte. La liste de `/corps` et le rappel du parcours la partagent.
+ */
+export function morningMeasures(entry: MorningEntry): string {
+  return (
+    [
+      entry.resting_hr === null ? null : `FC ${String(entry.resting_hr)} bpm`,
+      entry.hrv_ms === null ? null : `VFC ${String(entry.hrv_ms)} ms`,
+      entry.sleep_min === null ? null : `sommeil ${hoursMinutes(entry.sleep_min)}`,
+    ]
+      .filter((part) => part !== null)
+      // Insécables dans une mesure : « sommeil » en fin de ligne et « 7 h 12 » sous elle
+      // se lisaient comme deux choses (vu à 402 px). La ligne se coupe entre les mesures.
+      .map((part) => part.replaceAll(' ', '\u00a0'))
+      .join(' · ')
+  );
+}
 
 /** L'état d'un épisode, servi ; l'écran n'en choisit que le mot et le ton. */
 export const STATUS: Record<PainStatus, { label: string; tone: Tone }> = {

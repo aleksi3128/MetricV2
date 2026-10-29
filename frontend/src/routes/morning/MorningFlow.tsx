@@ -30,6 +30,7 @@ import { CROSS_CUTTING, keys } from '@/lib/query';
 
 import { RateRun } from '../activity/run/Rate';
 import { PainForm } from '../body/PainForm';
+import { morningMeasures } from '../body/shared';
 import { CoachCard } from '../coach/CoachCard';
 import { MorningContext } from './context';
 import styles from './MorningFlow.module.css';
@@ -235,6 +236,18 @@ function Pain({
 
 // ── 1. La nuit ────────────────────────────────────────
 
+function fieldText(value: number | null | undefined): string {
+  return value == null ? '' : String(value);
+}
+
+function whole(raw: string): number | null {
+  return raw.trim() === '' ? null : Number(raw);
+}
+
+/**
+ * FC de repos, VFC et durée du sommeil (`docs/synchro-garmin.md` §6, **S2**) : les trois se
+ * lisent sur la montre au même moment, et partent en une écriture — une ligne, un jeton.
+ */
 function Night({
   flow,
   onSaved,
@@ -244,18 +257,25 @@ function Night({
   onSaved: () => Promise<void>;
   onSkip: () => void;
 }) {
-  const entry = flow.night.entry;
+  const { entry, previous } = flow.night;
   // Vides, **jamais** préremplis de la veille : une FC d'hier dans le champ d'aujourd'hui
   // passerait pour une mesure de ce matin. Une saisie du jour, elle, se corrige ici.
-  const [resting, setResting] = useState(entry?.resting_hr == null ? '' : String(entry.resting_hr));
-  const [hrv, setHrv] = useState(entry?.hrv_ms == null ? '' : String(entry.hrv_ms));
+  const [resting, setResting] = useState(fieldText(entry?.resting_hr));
+  const [hrv, setHrv] = useState(fieldText(entry?.hrv_ms));
+  const [hours, setHours] = useState(fieldText(entry?.sleep_hours));
+  const [minutes, setMinutes] = useState(fieldText(entry?.sleep_minutes));
+  const empty = resting === '' && hrv === '' && hours === '' && minutes === '';
 
   const save = useMutation({
     mutationFn: () => {
+      // Les trois partent toujours : le serveur remplace la ligne, et une case omise
+      // effacerait ce qu'elle portait.
       const payload = {
         date: flow.today,
-        resting_hr: resting === '' ? null : Number(resting),
-        hrv_ms: hrv === '' ? null : Number(hrv),
+        resting_hr: whole(resting),
+        hrv_ms: whole(hrv),
+        sleep_hours: whole(hours),
+        sleep_minutes: whole(minutes),
       };
       return entry === null
         ? bodyApi.createMorning(payload)
@@ -263,12 +283,20 @@ function Night({
     },
     onSuccess: () => onSaved(),
   });
+  const failure = save.error instanceof ApiError ? save.error : null;
 
   return (
     <section className={styles.step} aria-label="Ta nuit">
       <p className={styles.lead}>
-        Lis-les sur ta montre : la FC de repos de son widget, la VFC moyenne de la nuit.
+        Lis-les sur ta montre : la FC de repos de son widget, la VFC moyenne de la nuit, la durée de
+        ton sommeil.
       </p>
+      {/* Un relevé passé **rappelé** — ni proposé, ni prérempli : les cases restent vides. */}
+      {previous !== null && (
+        <p className={styles.recall}>
+          {`Ton dernier matin, le ${longDate(previous.date)} : ${morningMeasures(previous)}.`}
+        </p>
+      )}
       <Stepper
         label="FC de repos"
         unit="bpm"
@@ -277,6 +305,7 @@ function Night({
         onChange={setResting}
         min={25}
         max={130}
+        error={failure?.messageFor('resting_hr')}
       />
       <Stepper
         label="VFC de la nuit"
@@ -286,17 +315,45 @@ function Night({
         onChange={setHrv}
         min={5}
         max={300}
+        error={failure?.messageFor('hrv_ms')}
       />
+      <div className={styles.sleep}>
+        <Stepper
+          label="Sommeil, heures"
+          unit="h"
+          inputMode="numeric"
+          value={hours}
+          onChange={setHours}
+          min={0}
+          max={16}
+          error={failure?.messageFor('sleep_hours')}
+        />
+        <Stepper
+          label="Sommeil, minutes"
+          unit="min"
+          inputMode="numeric"
+          value={minutes}
+          onChange={setMinutes}
+          step={5}
+          min={0}
+          max={59}
+          error={failure?.messageFor('sleep_minutes')}
+        />
+      </div>
       {save.error !== null && (
         <p className={styles.error} role="alert">
-          {save.error instanceof ApiError ? save.error.message : 'Mesures non enregistrées.'}
+          {failure === null
+            ? 'Mesures non enregistrées.'
+            : // Une règle qui porte sur plusieurs cases — « au moins une », « 0 min » — vient
+              // sur le corps de la requête : sa phrase dit plus que « données invalides ».
+              (failure.messageFor('body') ?? failure.message)}
         </p>
       )}
       <Button
         variant="primary"
         className={styles.finish}
         busy={save.isPending}
-        disabled={resting === '' && hrv === ''}
+        disabled={empty}
         onClick={() => {
           save.mutate();
         }}

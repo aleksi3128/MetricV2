@@ -13,12 +13,15 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 from app.core.validation import (
+    SLEEP_MAX_MIN,
     BodyFatPct,
     HrvMs,
     MeasurementCm,
     Note,
     PastDate,
     RestingHeartRate,
+    SleepHours,
+    SleepMinutes,
     WeightKg,
 )
 
@@ -161,16 +164,41 @@ class MeasurementView(BaseModel):
 
 
 class MorningPayload(BaseModel):
-    """FC de repos et VFC d'un matin, lues sur la montre. L'une des deux suffit."""
+    """FC de repos, VFC et durée du sommeil d'un matin, lues sur la montre. Une suffit.
+
+    **Le corps remplace la ligne** : une mesure omise part à `null`. C'est ce qui permet à
+    la correction de vider une case, et ce qui oblige chaque écrivain à renvoyer les trois.
+
+    La durée arrive en deux cases, heures et minutes, et **le serveur la compose** : un
+    client qui additionnerait des minutes serait un second analyseur de saisie.
+    """
 
     date: PastDate
     resting_hr: RestingHeartRate | None = None
     hrv_ms: HrvMs | None = None
+    sleep_hours: SleepHours | None = None
+    sleep_minutes: SleepMinutes | None = None
+
+    @property
+    def sleep_min(self) -> int | None:
+        """Heures sans minutes valent « h 00 », minutes sans heures une nuit de moins d'une heure."""
+        if self.sleep_hours is None and self.sleep_minutes is None:
+            return None
+        return (self.sleep_hours or 0) * 60 + (self.sleep_minutes or 0)
 
     @model_validator(mode="after")
     def require_one(self) -> MorningPayload:
-        if self.resting_hr is None and self.hrv_ms is None:
-            raise ValueError("Saisis au moins la FC de repos ou la VFC.")
+        sleep = self.sleep_min
+        if sleep == 0:
+            # Un zéro tapé passerait pour une nuit blanche mesurée : la montre qui n'a rien
+            # relevé se dit par deux cases vides.
+            raise ValueError(
+                "Un sommeil de 0 min ne se note pas\u00a0: laisse les deux cases vides."
+            )
+        if sleep is not None and sleep > SLEEP_MAX_MIN:
+            raise ValueError("Le sommeil se note jusqu'à 16 h.")
+        if self.resting_hr is None and self.hrv_ms is None and sleep is None:
+            raise ValueError("Saisis au moins la FC de repos, la VFC ou le sommeil.")
         return self
 
 
@@ -180,6 +208,11 @@ class MorningEntry(BaseModel):
     date: date
     resting_hr: int | None = None
     hrv_ms: int | None = None
+    #: La durée du sommeil en minutes, et sa décomposition : le formulaire se rouvre sur
+    #: les deux cases sans rien recalculer.
+    sleep_min: int | None = None
+    sleep_hours: int | None = None
+    sleep_minutes: int | None = None
     source: str
 
 
@@ -208,6 +241,9 @@ class MorningView(BaseModel):
     #: l'horloge du téléphone.
     today: date
     entry: MorningEntry | None = None
+    #: Le dernier matin avant aujourd'hui, **rappelé** sous chaque case du parcours — pas
+    #: une proposition, et jamais prérempli (`docs/synchro-garmin.md` §6, **S3**).
+    previous: MorningEntry | None = None
     readiness: ReadinessView
     recent: list[MorningEntry] = Field(default_factory=list)
 

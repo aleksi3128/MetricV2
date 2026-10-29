@@ -99,6 +99,11 @@ Rpe = Annotated[int, Field(ge=1, le=10, description="Effort perçu (`ACT-18`)")]
 #: faute de frappe, pas un cœur inhabituel.
 RestingHeartRate = Annotated[int, Field(ge=25, le=130, description="FC de repos, en bpm")]
 HrvMs = Annotated[int, Field(ge=5, le=300, description="VFC moyenne de la nuit, en ms")]
+#: La durée du sommeil, saisie en deux cases (`docs/synchro-garmin.md` §6). Seize heures au
+#: plus : au-delà, c'est une faute de frappe, pas une nuit.
+SleepHours = Annotated[int, Field(ge=0, le=16, description="Sommeil : les heures")]
+SleepMinutes = Annotated[int, Field(ge=0, le=59, description="Sommeil : les minutes")]
+SLEEP_MAX_MIN = 16 * 60
 Calories = Annotated[int, Field(ge=0, le=10000, description="Calories")]
 
 # ── Nutrition (`NUT`) ─────────────────────────────────

@@ -1,5 +1,6 @@
 /**
- * « Le matin » sur `/corps` — FC de repos et VFC relues en série (M-09).
+ * « Le matin » sur `/corps` — FC de repos et VFC relues en série (M-09), et la durée du
+ * sommeil dans la liste et sa correction (`docs/synchro-garmin.md` §6, **S4**).
  *
  * Le parcours du matin les demande chaque jour, et elles ne se relisaient nulle part : ni
  * courbe, ni liste. Une valeur ne se corrigeait qu'en rouvrant le parcours. Ce sont les deux
@@ -44,19 +45,9 @@ import { useToast } from '@/lib/toast';
 
 import { useOpenMorning } from '../morning/context';
 import styles from './Mornings.module.css';
-import { useInvalidateMorning } from './shared';
+import { morningMeasures, useInvalidateMorning } from './shared';
 
 type Key = MorningSeries['key'];
-
-/** « FC 52 · VFC 61 ms » : les seules mesures que le matin porte. */
-function measured(entry: MorningEntry): string {
-  return [
-    entry.resting_hr === null ? null : `FC ${String(entry.resting_hr)} bpm`,
-    entry.hrv_ms === null ? null : `VFC ${String(entry.hrv_ms)} ms`,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-}
 
 function fieldText(value: number | null): string {
   return value === null ? '' : String(value);
@@ -102,8 +93,9 @@ function Curve({ series }: { series: MorningSeries }) {
 
 /**
  * Corrige un matin **en entier** : le serveur remplace la ligne. Une case vidée part à
- * `null`, et c'est ainsi qu'une VFC tapée à la place de la FC se déplace ; les deux vides,
- * le serveur refuse et dit pourquoi.
+ * `null`, et c'est ainsi qu'une VFC tapée à la place de la FC se déplace ; toutes vides,
+ * le serveur refuse et dit pourquoi. La durée du sommeil part avec les deux autres — omise,
+ * corriger une FC l'effacerait.
  */
 function MorningForm({
   editing,
@@ -119,6 +111,8 @@ function MorningForm({
   const [day, setDay] = useState(editing.date);
   const [rhr, setRhr] = useState(fieldText(editing.resting_hr));
   const [hrv, setHrv] = useState(fieldText(editing.hrv_ms));
+  const [hours, setHours] = useState(fieldText(editing.sleep_hours));
+  const [minutes, setMinutes] = useState(fieldText(editing.sleep_minutes));
   const [error, setError] = useState<ApiError | null>(null);
 
   const save = useMutation({
@@ -143,13 +137,21 @@ function MorningForm({
       className={styles.form}
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate({ date: day, resting_hr: number(rhr), hrv_ms: number(hrv) });
+        save.mutate({
+          date: day,
+          resting_hr: number(rhr),
+          hrv_ms: number(hrv),
+          sleep_hours: number(hours),
+          sleep_minutes: number(minutes),
+        });
       }}
       noValidate
     >
       {error !== null && (
         <p className={styles.error} role="alert">
-          {error.message}
+          {/* Une règle sur plusieurs cases — « au moins une », « 0 min » — vient sur le corps
+              de la requête : sa phrase dit plus que « données invalides ». */}
+          {error.messageFor('body') ?? error.message}
         </p>
       )}
       <Field
@@ -179,6 +181,26 @@ function MorningForm({
           error={error?.messageFor('hrv_ms')}
           onChange={(event) => {
             setHrv(event.target.value);
+          }}
+        />
+      </div>
+      <div className={styles.formRow}>
+        <Field
+          label="Sommeil (h)"
+          inputMode="numeric"
+          value={hours}
+          error={error?.messageFor('sleep_hours')}
+          onChange={(event) => {
+            setHours(event.target.value);
+          }}
+        />
+        <Field
+          label="Sommeil (min)"
+          inputMode="numeric"
+          value={minutes}
+          error={error?.messageFor('sleep_minutes')}
+          onChange={(event) => {
+            setMinutes(event.target.value);
           }}
         />
       </div>
@@ -242,8 +264,8 @@ export function Mornings() {
       ) : data.entries.length === 0 || current === undefined ? (
         <Card>
           <Empty title={`Aucun matin sur les ${String(data.days)} derniers jours`}>
-            FC de repos et VFC se lisent sur la montre au réveil ; le parcours du matin les demande,
-            et leur courbe commence au deuxième.
+            FC de repos, VFC et durée du sommeil se lisent sur la montre au réveil ; le parcours du
+            matin les demande, et la courbe commence au deuxième.
           </Empty>
           <div className={styles.emptyAction}>
             <Button variant="ghost" onClick={openMorning}>
@@ -301,7 +323,7 @@ export function Mornings() {
                       <div className={styles.entry}>
                         <div className={styles.entryText}>
                           <span className={styles.entryDate}>{shortDate(entry.date)}</span>
-                          <span className={styles.meta}>{measured(entry)}</span>
+                          <span className={styles.meta}>{morningMeasures(entry)}</span>
                         </div>
                         <Chip
                           aria-label={`Corriger le matin du ${shortDate(entry.date)}`}

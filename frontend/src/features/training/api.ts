@@ -90,6 +90,8 @@ export interface HealthDay {
   stress_avg: number | null;
   body_battery_high: number | null;
   body_battery_low: number | null;
+  /** D'où vient la durée : `manual` (le matin), `garmin` (l'archive), `null` sans durée. */
+  sleep_source: string | null;
   text: string;
 }
 

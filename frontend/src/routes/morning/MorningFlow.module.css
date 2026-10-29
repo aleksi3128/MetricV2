@@ -27,6 +27,23 @@
   text-wrap: pretty;
 }
 
+/* Le dernier matin rappelé : une phrase de contexte, pas une valeur — rien ne la confond
+   avec une case remplie. */
+.recall {
+  margin: 0;
+  color: var(--ink-low);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  text-wrap: pretty;
+}
+
+/* Heures et minutes côte à côte : deux cases d'une seule mesure. */
+.sleep {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+}
+
 /* L'action qui termine une étape : la récompense du pouce (§3 de `CLAUDE.md`). */
 .finish {
   min-height: var(--tap-lg);
