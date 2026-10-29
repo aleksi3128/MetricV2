@@ -1596,6 +1596,12 @@ class RunConditions(BaseModel):
     #: Ce qui entourait la sortie, en phrases rédigées ici : la veille, le dernier repas,
     #: la musculation, le poids. Les faits que les corrélations comparent (§6).
     context: list[str] = Field(default_factory=list)
+    #: Ce que la sortie pèse dans la charge globale (`training/estimate.py`, M-02 point 4) :
+    #: mesurée par l'effort perçu, **estimée depuis la FC**, ou hors de la charge — et la
+    #: phrase qui le dit, rédigée ici. `None` et vide pour un doublon, qui n'y entre pas.
+    global_load: float | None = None
+    global_load_source: Literal["rpe", "hr"] | None = None
+    global_load_text: str = ""
 
 
 # ── Charge et corrélations (`docs/coach-course.md` §6) ─

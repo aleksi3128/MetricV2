@@ -41,6 +41,11 @@ export function Conditions({ run }: { run: Run }) {
         <small>Comment l’as-tu ressentie ?</small>
       </div>
       <RateRun run={run} />
+      {/* Ce que la sortie pèse dans la charge globale, mesurée ou « estimée depuis la FC » :
+          la phrase du serveur, qui change dès que l'effort est noté (M-02, point 4). */}
+      {data !== undefined && data.global_load_text !== '' && (
+        <p className={styles.note}>{data.global_load_text}</p>
+      )}
 
       {error !== null ? (
         <p className={styles.note}>

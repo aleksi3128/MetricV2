@@ -123,7 +123,11 @@ class CoachService:
             pain=pain,
             pain_text=pain_text,
             global_ratio=overall.ratio,
-            global_ratio_text=overall.ratio_text,
+            # Le rapport compte les courses estimées depuis la FC (M-02, point 4) : le coach le
+            # lit comme les autres, mais la raison qu'il en donne le dit.
+            global_ratio_text=" ".join(
+                text for text in (overall.ratio_text, overall.estimated_note) if text
+            ),
             volume_jumps=jumps,
         )
 

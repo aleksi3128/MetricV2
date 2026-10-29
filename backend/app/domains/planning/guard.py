@@ -62,6 +62,9 @@ class Context:
     busy: Sequence[Busy] | None
     #: Pour aujourd'hui : un créneau déjà passé n'en est pas un.
     now: datetime | None = None
+    #: « Charge en partie estimée depuis la FC… » (`banister.estimated_note`, M-02) : le
+    #: rapport compte des courses sans effort perçu, et l'avertissement qui le cite le dit.
+    ratio_note: str = ""
 
 
 def _ratio(value: float) -> str:
@@ -109,7 +112,8 @@ def check(context: Context) -> PlanCheck:
             PlanWarning(
                 key="ratio",
                 text=f"Rapport de charge à {_ratio(context.ratio)} : la charge monte vite, "
-                "une séance dure ou longue de plus la ferait encore monter.",
+                "une séance dure ou longue de plus la ferait encore monter."
+                + (f" {context.ratio_note}" if context.ratio_note else ""),
             )
         )
 

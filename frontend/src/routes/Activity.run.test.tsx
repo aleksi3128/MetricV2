@@ -26,7 +26,15 @@ const calls: string[] = [];
 /** Les conditions d'une course, vides sauf dans les cas qui les éprouvent. */
 /** La proposition du coach, vide sauf dans les cas qui l'éprouvent. */
 let COACH: unknown = { current: null, missing: 'Importe ta prochaine sortie.', pending: false };
-let CONDITIONS: unknown = { rpe: null, weather: null, morning: null, context: [] };
+let CONDITIONS: unknown = {
+  rpe: null,
+  weather: null,
+  morning: null,
+  context: [],
+  global_load: null,
+  global_load_source: null,
+  global_load_text: '',
+};
 
 function json(status: number, body: unknown): Response {
   return { ok: status < 400, status, json: () => Promise.resolve(body) } as Response;
@@ -383,7 +391,15 @@ function renderRun(at = '/activite/course') {
 beforeEach(() => {
   calls.length = 0;
   COACH = { current: null, missing: 'Importe ta prochaine sortie.', pending: false };
-  CONDITIONS = { rpe: null, weather: null, morning: null, context: [] };
+  CONDITIONS = {
+    rpe: null,
+    weather: null,
+    morning: null,
+    context: [],
+    global_load: null,
+    global_load_source: null,
+    global_load_text: '',
+  };
 });
 
 afterEach(() => {
@@ -785,6 +801,27 @@ describe('page Course — ce qui entourait la sortie', () => {
     expect(screen.getByText(/6 au-dessus de ta référence/)).toBeInTheDocument();
     expect(screen.getByText('La veille : 2150 kcal · 96 g de protéines.')).toBeInTheDocument();
     expect(screen.getByText('Poids du jour : 59,9 kg.')).toBeInTheDocument();
+  });
+
+  it('dit ce que la sortie pèse dans la charge globale, estimée depuis la FC', async () => {
+    // M-02, point 4 : la phrase est celle du serveur — l'écran ne calcule ni le facteur ni
+    // la charge, et n'emprunte pas le vocabulaire d'une proposition.
+    CONDITIONS = {
+      rpe: null,
+      weather: null,
+      morning: null,
+      context: [],
+      global_load: 192,
+      global_load_source: 'hr',
+      global_load_text:
+        'Dans la charge globale : 192, estimée depuis la FC — ta charge FC 120 × 1,6, la ' +
+        'médiane de tes 6 courses notées avec FC. Noter ton effort perçu la remplace.',
+    };
+    serve(FITTED);
+    renderRun();
+
+    expect(await screen.findByText(/192, estimée depuis la FC/)).toBeInTheDocument();
+    expect(screen.queryByText(/proposé/i)).not.toBeInTheDocument();
   });
 
   it('ne dessine ni météo ni matin qui n’existent pas', async () => {

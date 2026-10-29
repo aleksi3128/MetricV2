@@ -485,14 +485,20 @@ class RunService:
             None,
         )
         from app.domains.activity.trends import RunTrendsService
+        from app.domains.training.service import TrainingService
 
         morning = await MorningService(self._store).readiness(model.date)
         measured = morning.resting_hr is not None or morning.hrv_ms is not None
+        # La clé de `RunTrendsService.sessions` : l'identifiant stable, sinon la position.
+        share = await TrainingService(self._store).run_share(model.run_id or f"ligne-{index}")
         return RunConditions(
             rpe=model.rpe,
             weather=weather,
             morning=morning if measured else None,
             context=await RunTrendsService(self._store).context_lines(model),
+            global_load=share.load if share else None,
+            global_load_source=share.source if share else None,
+            global_load_text=share.text if share else "",
         )
 
     async def read_analysis(self, index: int) -> RunAnalysis:

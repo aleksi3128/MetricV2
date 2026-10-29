@@ -64,8 +64,16 @@ export interface TrainingView {
   monotony: number | null;
   strain: number | null;
   monotony_text: string;
+  /** Séances des 4 semaines hors de la charge : sans effort perçu ni estimation. */
   unrated: Record<string, number>;
   unrated_text: string;
+  /**
+   * Courses comptées par leur charge FC convertie, et la phrase qui les dit « estimées
+   * depuis la FC » — ou ce qu'il manque pour estimer (M-02, point 4). Une estimation du
+   * serveur, pas une proposition : une phrase, ni `AiBlock` ni `proposed`.
+   */
+  estimated: Record<string, number>;
+  estimated_text: string;
   series: LoadPoint[];
   weeks: LoadWeek[];
   findings: Finding[];

@@ -8,10 +8,12 @@ propose un fractionné.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 
 from app.core.dates import today_local
-from app.domains.training import banister, intensity, volume
+from app.domains.activity import load
+from app.domains.training import banister, estimate, intensity, volume
 from app.domains.training.schemas import (
     Finding,
     IntensityView,
@@ -23,19 +25,53 @@ from app.storage.files import FileStore
 from app.storage.paths import CIRCUIT_SESSIONS, OTHERS, RUNS, SWIMS
 
 
+@dataclass(frozen=True, slots=True)
+class _Read:
+    """Une lecture : les séances de tous les sports, les courses telles que la page Courses
+    les compte, et le facteur qui convertit la charge FC des unes en sRPE."""
+
+    sessions: list[banister.Session]
+    runs: list[load.Session]
+    calibration: estimate.Calibration
+
+
+def calibrate(runs: list[load.Session]) -> estimate.Calibration:
+    """Le facteur, appris des courses qui ont **les deux** : une charge FC et un effort."""
+    return estimate.calibrate(
+        [
+            estimate.Pair(hr_load=run.hr_load, srpe=run.rpe * run.duration_min)
+            for run in runs
+            if run.rpe is not None and run.hr_load is not None
+        ]
+    )
+
+
 class TrainingService:
     def __init__(self, store: FileStore) -> None:
         self._store = store
 
-    async def sessions(self) -> list[banister.Session]:
+    async def _read(self, today: date) -> _Read:
         from app.domains.activity.others import OtherService
-        from app.domains.activity.service import CircuitSessionService, RunService
+        from app.domains.activity.service import CircuitSessionService
         from app.domains.activity.swims import SwimService
+        from app.domains.activity.trends import RunTrendsService
 
         await self._store.prefetch([RUNS, SWIMS, CIRCUIT_SESSIONS, OTHERS])
+        # Les courses par `RunTrendsService`, la lecture de la page Courses : la même charge
+        # FC, sans quoi l'estimation convertirait un autre chiffre que celui qu'on y lit. Les
+        # mêmes lignes que `RunService.all` — doublons écartés.
+        runs = await RunTrendsService(self._store).sessions(today)
+        calibration = calibrate(runs)
         found = [
-            banister.Session(row.model.date, "course", row.model.duration_min, row.model.rpe)
-            for row in await RunService(self._store).all()
+            banister.Session(
+                run.day,
+                "course",
+                run.duration_min,
+                run.rpe,
+                estimated=calibration.estimate(run.hr_load) if run.rpe is None else None,
+                hr_load=run.hr_load,
+            )
+            for run in runs
         ]
         found += [
             banister.Session(swim.date, "natation", round(swim.duration_s / 60, 1), swim.rpe)
@@ -49,7 +85,19 @@ class TrainingService:
             banister.Session(other.date, other.sport, other.duration_min, other.rpe)
             for other in await OtherService(self._store).rows()
         ]
-        return found
+        return _Read(sessions=found, runs=runs, calibration=calibration)
+
+    async def sessions(self, today: date | None = None) -> list[banister.Session]:
+        return (await self._read(today or today_local())).sessions
+
+    async def run_share(self, run_id: str, today: date | None = None) -> estimate.RunShare | None:
+        """Ce qu'une course pèse dans la charge globale — `None` pour un doublon, qui n'y
+        entre pas et dont la page n'a rien à dire de ce côté."""
+        read = await self._read(today or today_local())
+        run = next((item for item in read.runs if item.run_id == run_id), None)
+        if run is None:
+            return None
+        return estimate.run_share(run.rpe, run.duration_min, run.hr_load, read.calibration)
 
     async def runs(self) -> list[volume.Run]:
         from app.domains.activity.service import RunService
@@ -59,11 +107,15 @@ class TrainingService:
             for row in await RunService(self._store).all()
         ]
 
-    async def split(self, today: date, sessions: list[banister.Session]) -> intensity.Intensity:
+    @staticmethod
+    def split(
+        today: date, runs: list[load.Session], sessions: list[banister.Session]
+    ) -> intensity.Intensity:
         """Les courses par leurs zones (`RunTrendsService`, la lecture de la page Course),
-        les autres séances par leur effort perçu."""
-        from app.domains.activity.trends import RunTrendsService
+        les autres séances par leur effort perçu.
 
+        L'estimation n'y entre pas : une course avec FC s'y range déjà par ses zones,
+        seconde par seconde — ce qui est plus fin que toute sRPE, mesurée ou estimée."""
         items = [
             intensity.Item(
                 day=run.day,
@@ -72,7 +124,7 @@ class TrainingService:
                 pace_zone=run.pace_zone,
                 rpe=run.rpe,
             )
-            for run in await RunTrendsService(self._store).sessions(today)
+            for run in runs
         ]
         items += [
             intensity.Item(day=item.day, minutes=item.minutes, rpe=item.rpe)
@@ -82,7 +134,8 @@ class TrainingService:
         return intensity.split(today, items)
 
     async def summary(self, today: date) -> banister.Summary:
-        return banister.summarize(today, await self.sessions())
+        read = await self._read(today)
+        return banister.summarize(today, read.sessions, read.calibration)
 
     async def findings(self, today: date) -> list[Finding]:
         return [
@@ -95,9 +148,9 @@ class TrainingService:
         from app.domains.pain.service import PainService
 
         day = today or today_local()
-        sessions = await self.sessions()
-        summary = banister.summarize(day, sessions)
-        split = await self.split(day, sessions)
+        read = await self._read(day)
+        summary = banister.summarize(day, read.sessions, read.calibration)
+        split = self.split(day, read.runs, read.sessions)
         since = summary.series[0].day if summary.series else day
         pains = await PainService(self._store).daily_max(since)
         longest = max((sum(w.minutes.values()) for w in summary.weeks), default=0.0)
@@ -118,6 +171,8 @@ class TrainingService:
             monotony_text=summary.monotony_text,
             unrated=summary.unrated,
             unrated_text=summary.unrated_text,
+            estimated=summary.estimated,
+            estimated_text=summary.estimated_text,
             series=[
                 LoadPoint(
                     date=p.day, load=p.load, ctl=p.ctl, atl=p.atl, tsb=p.tsb, pain=pains.get(p.day)

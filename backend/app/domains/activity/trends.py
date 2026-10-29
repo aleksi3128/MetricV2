@@ -78,6 +78,7 @@ class RunTrendsService:
                         measured.training_effect_anaerobic if measured else None
                     ),
                     rpe=model.rpe,
+                    zone_kind=measured.zone_kind if measured and seconds is not None else None,
                 )
             )
         return sessions

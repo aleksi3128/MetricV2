@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 class LoadPoint(BaseModel):
     date: date
-    #: Charge sRPE du jour, séances notées seulement.
+    #: Charge sRPE du jour : séances notées, et courses estimées depuis la FC (M-02).
     load: float
     ctl: float
     atl: float
@@ -76,9 +76,15 @@ class TrainingView(BaseModel):
     monotony: float | None = None
     strain: float | None = None
     monotony_text: str
-    #: Séances des 4 semaines sans effort perçu, par sport.
+    #: Séances des 4 semaines **hors** de la charge — sans effort perçu ni estimation.
     unrated: dict[str, int] = Field(default_factory=dict)
     unrated_text: str
+    #: Courses des 4 semaines comptées par leur charge FC convertie (M-02, point 4), et la
+    #: phrase qui le dit — « estimée depuis la FC », le facteur et sa calibration ; ou ce qu'il
+    #: manque pour estimer. Une estimation du serveur, **pas** une proposition : ni `AiBlock`
+    #: ni `proposed`, une phrase.
+    estimated: dict[str, int] = Field(default_factory=dict)
+    estimated_text: str = ""
     series: list[LoadPoint] = Field(default_factory=list)
     weeks: list[LoadWeek] = Field(default_factory=list)
     findings: list[Finding] = Field(default_factory=list)

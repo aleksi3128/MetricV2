@@ -150,7 +150,17 @@ function serve(run: unknown = RUN) {
           json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
         );
       if (url.includes('/conditions'))
-        return Promise.resolve(json(200, { rpe: null, weather: null, morning: null, context: [] }));
+        return Promise.resolve(
+          json(200, {
+            rpe: null,
+            weather: null,
+            morning: null,
+            context: [],
+            global_load: null,
+            global_load_source: null,
+            global_load_text: '',
+          }),
+        );
       return Promise.resolve(json(200, { run, splits: SPLITS, context: CONTEXT }));
     }),
   );

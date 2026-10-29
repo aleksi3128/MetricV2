@@ -64,6 +64,9 @@ function Form({ data }: { data: TrainingView }) {
         </div>
       </div>
       <p className={styles.text}>{data.form_text}</p>
+      {/* Les trois chiffres comptent les courses estimées depuis la FC : la phrase du
+          serveur le dit sous eux, et dit ce qui remplace l'estimation (M-02, point 4). */}
+      {data.estimated_text !== '' && <p className={styles.text}>{data.estimated_text}</p>}
       {series.length < 2 ? (
         data.unrated_text !== '' && <p className={styles.text}>{data.unrated_text}</p>
       ) : (
@@ -170,7 +173,8 @@ export function Load() {
   return (
     <div className={cx('wrap', styles.screen)}>
       <PageHead eyebrow="Tous sports" title="Charge">
-        Course, nage, renfo, vélo et marche, par leur effort perçu × leurs minutes.
+        Course, nage, renfo, vélo et marche, par leur effort perçu × leurs minutes ; une course sans
+        effort perçu, par sa FC.
       </PageHead>
 
       {isPending ? (

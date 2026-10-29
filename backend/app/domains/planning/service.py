@@ -203,6 +203,7 @@ class PlanningService:
                 pain_text=pain_text,
                 ratio=summary.ratio,
                 ratio_text=summary.ratio_text,
+                ratio_note=summary.estimated_note,
                 taper=taper,
                 busy=await self._busy(request.date),
                 now=now,

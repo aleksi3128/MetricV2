@@ -7,8 +7,13 @@ fichier, ni horloge — le jour est passé en argument.
 
 La charge d'une séance est son **effort perçu × ses minutes** (Foster 2001). C'est la seule
 mesure commune à une course, une nage, un circuit et une sortie à vélo. Une séance sans
-effort perçu n'a **pas** de charge : elle est comptée à part et nommée, jamais estimée —
+effort perçu n'a **pas** de charge : elle est comptée à part et nommée, jamais devinée —
 une valeur devinée dans une courbe qu'on lit comme une mesure serait une valeur inventée.
+
+**Une exception, décidée par l'utilisateur le 28 octobre (M-02, point 4)** : une course
+avec FC entre par sa charge FC convertie, sur un facteur appris de ses propres courses
+notées (`estimate.py`). Elle n'est pas devinée : elle est **estimée**, et chaque phrase qui
+la compte le dit — « estimée depuis la FC ». L'effort perçu, noté, la remplace.
 
 ## Les modèles
 
@@ -35,6 +40,7 @@ from datetime import date, timedelta
 from statistics import mean, pstdev
 
 from app.core.text import whole
+from app.domains.training.estimate import MIN_PAIRS, Calibration
 
 CTL_DAYS = 42
 ATL_DAYS = 7
@@ -62,10 +68,26 @@ class Session:
     sport: str
     minutes: float
     rpe: int | None = None
+    #: La sRPE estimée depuis la FC (`estimate.py`) — une course sans effort perçu, une fois
+    #: le facteur calibré. Ignorée dès que l'effort perçu est noté : la mesure remplace.
+    estimated: float | None = None
+    #: La charge FC de la course, estimée ou non : de quoi dire qu'elle **attend** un
+    #: facteur, plutôt que la ranger avec les séances qu'aucune mesure ne permet de compter.
+    hr_load: float | None = None
 
     @property
     def load(self) -> float | None:
-        return round(self.rpe * self.minutes, 1) if self.rpe is not None else None
+        if self.rpe is not None:
+            return round(self.rpe * self.minutes, 1)
+        return self.estimated
+
+    @property
+    def is_estimated(self) -> bool:
+        return self.rpe is None and self.estimated is not None
+
+    @property
+    def awaits_calibration(self) -> bool:
+        return self.rpe is None and self.estimated is None and self.hr_load is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +105,7 @@ class Week:
     #: Minutes par sport, toutes séances comptées — notées ou non : le volume est une durée,
     #: il n'a pas besoin d'effort perçu.
     minutes: dict[str, float]
-    #: La charge sRPE de la semaine, séances notées seulement.
+    #: La charge sRPE de la semaine : séances notées, et courses estimées depuis la FC.
     load: float
 
 
@@ -103,31 +125,55 @@ class Summary:
     monotony: float | None = None
     strain: float | None = None
     monotony_text: str = ""
+    #: Séances des 4 semaines **hors** de la charge : sans effort perçu ni estimation.
     unrated: dict[str, int] = field(default_factory=dict)
     unrated_text: str = ""
+    #: Séances des 4 semaines comptées par leur estimation depuis la FC, par sport.
+    estimated: dict[str, int] = field(default_factory=dict)
+    #: Ce qu'elles pèsent et d'où vient le facteur — ou ce qu'il manque pour estimer.
+    estimated_text: str = ""
+    #: La même chose en une ligne, pour les constats qui citent la charge : la raison du
+    #: coach, l'avertissement du planning. Vide sans estimation.
+    estimated_note: str = ""
     series: list[Point] = field(default_factory=list)
     weeks: list[Week] = field(default_factory=list)
 
 
-def summarize(today: date, sessions: Sequence[Session]) -> Summary:
+def summarize(
+    today: date, sessions: Sequence[Session], calibration: Calibration | None = None
+) -> Summary:
     past = [item for item in sessions if item.day <= today]
     unrated = _unrated(today, past)
-    unrated_text = _unrated_text(unrated, _windowed(today, past))
+    estimated = _estimated(today, past)
+    awaiting = _awaiting(today, past)
+    unrated_text = _unrated_text(unrated, estimated, _windowed(today, past))
+    estimated_text = _estimated_text(estimated, awaiting, calibration)
+    estimated_note = _estimated_note(estimated)
     weeks = _weeks(today, past)
     rated = [item for item in past if item.load is not None]
     if not rated:
         # Sans aucune séance, « aucune séance n'a d'effort perçu » laissait croire qu'il y
         # en avait (M-21, comme `_unrated_text`) : la phrase dit qu'il n'y a rien.
         missing = "aucune séance n'a d'effort perçu" if past else "aucune séance enregistrée"
+        # Des courses avec FC attendent le facteur : l'accueil le dit, sans quoi « pas de
+        # charge » se lisait à côté de la charge de course de la page Courses (M-02).
+        waiting = (
+            f" Tes courses avec FC y entreront, estimées depuis la FC, à {MIN_PAIRS} "
+            "courses notées avec FC."
+            if awaiting
+            else ""
+        )
         return Summary(
             form_text=(
                 f"Pas encore de charge globale : {missing}. "
-                "Note l'effort de ta prochaine séance, et la courbe commence."
+                f"Note l'effort de ta prochaine séance, et la courbe commence.{waiting}"
             ),
             ratio_text="Pas de rapport de charge sans séance notée.",
             monotony_text="Pas de monotonie sans séance notée.",
             unrated=unrated,
             unrated_text=unrated_text,
+            estimated=estimated,
+            estimated_text=estimated_text,
             weeks=weeks,
         )
 
@@ -147,7 +193,7 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         form=whole(current.ctl),
         fatigue=whole(current.atl),
         freshness=whole(current.tsb),
-        form_text=_form_text(current, history),
+        form_text=_form_text(current, history, sum(estimated.values())),
         ratio=ratio,
         ratio_text=_ratio_text(ratio, history),
         monotony=monotony,
@@ -155,6 +201,9 @@ def summarize(today: date, sessions: Sequence[Session]) -> Summary:
         monotony_text=monotony_text,
         unrated=unrated,
         unrated_text=unrated_text,
+        estimated=estimated,
+        estimated_text=estimated_text,
+        estimated_note=estimated_note,
         series=points[-SERIES_DAYS:],
         weeks=weeks,
     )
@@ -251,10 +300,22 @@ def _weeks(today: date, sessions: Sequence[Session]) -> list[Week]:
 
 
 def _unrated(today: date, sessions: Sequence[Session]) -> dict[str, int]:
+    return _count(today, [item for item in sessions if item.load is None])
+
+
+def _estimated(today: date, sessions: Sequence[Session]) -> dict[str, int]:
+    return _count(today, [item for item in sessions if item.is_estimated])
+
+
+def _awaiting(today: date, sessions: Sequence[Session]) -> int:
+    return sum(_count(today, [item for item in sessions if item.awaits_calibration]).values())
+
+
+def _count(today: date, sessions: Sequence[Session]) -> dict[str, int]:
     since = today - timedelta(days=UNRATED_DAYS - 1)
     counts: dict[str, int] = {}
     for item in sessions:
-        if item.day >= since and item.rpe is None:
+        if item.day >= since:
             counts[item.sport] = counts.get(item.sport, 0) + 1
     return counts
 
@@ -267,7 +328,15 @@ def _windowed(today: date, sessions: Sequence[Session]) -> int:
 # ── Les phrases ───────────────────────────────────────
 
 
-def _form_text(point: Point, history: int) -> str:
+def _form_text(point: Point, history: int, estimated: int = 0) -> str:
+    # Les trois chiffres comptent les courses estimées : la phrase qui les donne le dit, dans
+    # la parenthèse du modèle — l'accueil ne lit qu'elle (M-02, point 4).
+    plural = "s" if estimated > 1 else ""
+    source = (
+        f"Banister, dont {estimated} course{plural} des 4 semaines estimée{plural} depuis la FC"
+        if estimated
+        else "Banister"
+    )
     head = (
         # Arrondies toutes trois, et par `whole` comme les tuiles au-dessus : « forme 71,
         # fatigue 94,9 » lisait une précision que l'une avait et l'autre pas ; « fatigue 6 »
@@ -275,7 +344,7 @@ def _form_text(point: Point, history: int) -> str:
         # -34,9 » sous une tuile à -35, de la décimale gardée.
         f"Forme {whole(point.ctl)}, fatigue {whole(point.atl)}, "
         f"fraîcheur {_signed(whole(point.tsb))} "
-        "(Banister)."
+        f"({source})."
     )
     if history < CTL_DAYS:
         return (
@@ -310,19 +379,61 @@ def _ratio_text(ratio: float | None, history: int) -> str:
     return base
 
 
-def _unrated_text(unrated: dict[str, int], windowed: int) -> str:
+def _unrated_text(unrated: dict[str, int], estimated: dict[str, int], windowed: int) -> str:
     # Sans aucune séance, « toutes ont un effort perçu » est vrai au sens logique et se lit
     # comme une mesure (M-21) : la phrase se tait, et l'écran n'en dessine pas.
     if windowed == 0:
         return ""
     total = sum(unrated.values())
     if total == 0:
+        # Une course estimée n'a pas d'effort perçu : « toutes en ont un » serait faux, et
+        # `estimated_text` dit déjà ce qu'elle pèse.
+        if estimated:
+            return ""
         return "Toutes les séances des 4 semaines ont un effort perçu."
-    parts = ", ".join(f"{count} {sport}" for sport, count in unrated.items())
+    # « 3 courses », et non « 3 course » : vu sur le banc de M-02, point 4.
+    parts = ", ".join(
+        f"{count} {sport}{'s' if count > 1 else ''}" for sport, count in unrated.items()
+    )
     plural = "s" if total > 1 else ""
     return (
         f"{total} séance{plural} des 4 semaines sans effort perçu ({parts}) : "
         f"elle{plural} ne compte{'nt' if total > 1 else ''} pas dans la charge globale."
+    )
+
+
+def _estimated_text(
+    estimated: dict[str, int], awaiting: int, calibration: Calibration | None
+) -> str:
+    count = sum(estimated.values())
+    if count and calibration is not None and calibration.factor is not None:
+        many = count > 1
+        return (
+            f"{count} course{'s' if many else ''} des 4 semaines sans effort perçu "
+            f"compte{'nt' if many else ''} par {'leur' if many else 'sa'} charge FC, "
+            f"estimée depuis la FC : × {calibration.written}, la médiane de tes "
+            f"{calibration.pairs} courses notées avec FC. Noter "
+            f"{'leur' if many else 'son'} effort perçu remplace l'estimation."
+        )
+    if awaiting and calibration is not None:
+        many = awaiting > 1
+        so_far = f"{calibration.pairs} pour l'instant" if calibration.pairs else "aucune encore"
+        return (
+            f"{awaiting} course{'s' if many else ''} avec FC sans effort perçu : "
+            f"{'elles entreront' if many else 'elle entrera'} dans la charge globale, "
+            f"estimée{'s' if many else ''} depuis la FC, à {MIN_PAIRS} courses notées avec "
+            f"FC — {so_far}."
+        )
+    return ""
+
+
+def _estimated_note(estimated: dict[str, int]) -> str:
+    count = sum(estimated.values())
+    if not count:
+        return ""
+    return (
+        f"Charge en partie estimée depuis la FC : {count} course{'s' if count > 1 else ''} "
+        "sans effort perçu sur 4 semaines."
     )
 
 

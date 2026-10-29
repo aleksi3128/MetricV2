@@ -40,6 +40,8 @@ const TRAINING: TrainingView = {
   monotony_text: 'Monotonie 1,4 : semaine variée.',
   unrated: {},
   unrated_text: '',
+  estimated: {},
+  estimated_text: '',
   series: [
     { date: '2026-10-19', load: 300, ctl: 40, atl: 50, tsb: -9, pain: null },
     { date: '2026-10-20', load: 200, ctl: 41.6, atl: 52.2, tsb: -10.6, pain: 4 },
@@ -113,6 +115,17 @@ describe('l’écran de la charge', () => {
     expect(screen.getByText('3 h 10')).toBeInTheDocument();
     expect(screen.getByText('course 2 h, vélo 1 h 10')).toBeInTheDocument();
     expect(screen.getByText('74 %')).toBeInTheDocument();
+  });
+
+  it('dit sous la forme les courses estimées depuis la FC, par la phrase du serveur', async () => {
+    const estimated_text =
+      '2 courses des 4 semaines sans effort perçu comptent par leur charge FC, estimée ' +
+      'depuis la FC : × 1,6, la médiane de tes 6 courses notées avec FC. Noter leur effort ' +
+      'perçu remplace l’estimation.';
+    serve({ '/api/training': { ...TRAINING, estimated: { course: 2 }, estimated_text } });
+    renderWith(<Load />);
+
+    expect(await screen.findByText(estimated_text)).toBeInTheDocument();
   });
 
   it('affiche les entiers servis, sans rien arrondir lui-même', async () => {

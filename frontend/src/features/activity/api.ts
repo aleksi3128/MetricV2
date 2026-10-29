@@ -189,6 +189,14 @@ export interface RunConditions {
   morning: Readiness | null;
   /** Ce qui entourait la sortie, en phrases rédigées par le serveur. */
   context: string[];
+  /**
+   * Ce que la sortie pèse dans la charge globale (M-02, point 4) : mesurée par l'effort
+   * perçu (`rpe`), estimée depuis la FC (`hr`), ou hors de la charge (`null`). La phrase est
+   * celle du serveur ; vide pour un doublon.
+   */
+  global_load: number | null;
+  global_load_source: 'rpe' | 'hr' | null;
+  global_load_text: string;
 }
 
 /** Découplage et efficacité, échauffement retiré (`docs/coach-course.md`). */

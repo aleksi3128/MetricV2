@@ -62,6 +62,8 @@ class Session:
     training_effect_aerobic: float | None = None
     training_effect_anaerobic: float | None = None
     rpe: int | None = None
+    #: `heart_rate` ou `pace` : ce que mesurent `zone_seconds` (`RunMetricsRow.zone_kind`).
+    zone_kind: str | None = None
 
     @property
     def load(self) -> float | None:
@@ -76,6 +78,18 @@ class Session:
         if self.pace_zone is not None:
             return round(self.duration_min * ZONE_WEIGHTS[self.pace_zone - 1], 1)
         return None
+
+    @property
+    def hr_load(self) -> float | None:
+        """La charge **FC** seule : celle que la charge globale sait convertir (M-02, point 4).
+
+        Une charge tirée des zones d'allure n'en est pas une : la décision du 28 octobre vise
+        une course avec FC, et une allure ne dit rien de ce qu'a coûté une côte.
+        """
+        if self.zone_kind != "heart_rate" or self.zone_seconds is None:
+            return None
+        value = self.load
+        return value if value is not None and value > 0 else None
 
     @property
     def hard(self) -> bool:

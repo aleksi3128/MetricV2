@@ -153,7 +153,17 @@ function stub(handler: (url: string, init?: RequestInit) => Response): ReturnTyp
         json(200, { current: null, missing: 'Importe ta prochaine sortie.', pending: false }),
       );
     if ((input as string).includes('/conditions'))
-      return Promise.resolve(json(200, { rpe: null, weather: null, morning: null, context: [] }));
+      return Promise.resolve(
+        json(200, {
+          rpe: null,
+          weather: null,
+          morning: null,
+          context: [],
+          global_load: null,
+          global_load_source: null,
+          global_load_text: '',
+        }),
+      );
     return Promise.resolve(handler(input as string, init));
   });
   vi.stubGlobal('fetch', mock);
