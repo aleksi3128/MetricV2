@@ -86,6 +86,8 @@ describe('le produit scanné', () => {
       saturated_fat_100g: null,
       fiber_100g: null,
       partial: false,
+      portion_g: null,
+      source: 'openfoodfacts',
     };
 
     const draft = foodFromProduct(product);

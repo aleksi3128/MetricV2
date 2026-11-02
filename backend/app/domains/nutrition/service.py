@@ -25,6 +25,7 @@ from app.domains.nutrition.models import (
     MealType,
 )
 from app.domains.nutrition.photos import PhotoError, build_path, content_type, storage_path
+from app.domains.nutrition.products import OpenFoodFactsClient, normalise_barcode
 from app.domains.nutrition.schemas import (
     CatalogCoverage,
     CatalogFood,
@@ -46,6 +47,7 @@ from app.domains.nutrition.schemas import (
     MealPayload,
     NutritionHistory,
     NutritionView,
+    Product,
 )
 from app.storage.csv_repo import CsvRepository, Row
 from app.storage.errors import StorageNotFoundError
@@ -546,6 +548,54 @@ class NutritionService:
         """Le catalogue, sans les lignes qu'on ne saurait pas rejouer."""
         rows = await self._ingredients.read_all()
         return [self._ingredient_to_schema(row) for row in rows if row.model.id and row.model.name]
+
+    async def product(self, raw: str, products: OpenFoodFactsClient) -> Product:
+        """Le produit derrière un code-barres : **ton catalogue d'abord**, puis Open Food
+        Facts (`NUT-28`).
+
+        Le code est rangé au catalogue depuis `NUT-20`, et personne ne le relisait. Un
+        produit qu'OFF ignore n'était donc jamais reconnu, même décrit une fois à la main
+        avec son code ; et la portion habituelle d'un produit scanné n'arrivait jamais à
+        l'écran. Lire le catalogue d'abord tient les deux promesses, sert une correction
+        verrouillée plutôt que la valeur de la base, et épargne un appel réseau par produit
+        déjà connu.
+
+        Le rapprochement se fait sur le **code exact**, réduit à ses chiffres des deux
+        côtés — jamais sur le nom : celui d'OFF n'est pas celui qu'on a tapé, et un
+        rapprochement approximatif est refusé partout dans ce dépôt.
+
+        Le code est vérifié **avant** toute lecture : un chiffre mal tapé ne coûte ni le
+        catalogue ni une requête du quota d'OFF.
+
+        **N'écrit rien.** Le produit n'entre au catalogue qu'à l'enregistrement d'un repas.
+        """
+        barcode = normalise_barcode(raw)
+        for row in await self._ingredients.read_all():
+            model = row.model
+            if not model.id or not model.name or not model.barcode:
+                continue
+            if "".join(c for c in model.barcode if c.isdigit()) != barcode:
+                continue
+            values = (
+                model.calories_100g,
+                model.protein_100g,
+                model.added_sugar_100g,
+                model.saturated_fat_100g,
+                model.fiber_100g,
+            )
+            return Product(
+                barcode=barcode,
+                name=model.name,
+                calories_100g=model.calories_100g,
+                protein_100g=model.protein_100g,
+                added_sugar_100g=model.added_sugar_100g,
+                saturated_fat_100g=model.saturated_fat_100g,
+                fiber_100g=model.fiber_100g,
+                partial=all(value is None for value in values),
+                portion_g=model.portion_g,
+                source="catalog",
+            )
+        return await products.product(barcode)
 
     @staticmethod
     def _ingredient_to_schema(row: Row[IngredientRow]) -> Ingredient:

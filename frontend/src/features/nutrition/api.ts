@@ -366,6 +366,13 @@ export interface Product {
   fiber_100g: number | null;
   /** Vrai quand **aucune** des cinq valeurs n'est connue : il n'y aura rien à totaliser. */
   partial: boolean;
+  /**
+   * La portion habituelle de l'entrée du catalogue qui porte ce code (`NUT-21`), `null`
+   * venant d'Open Food Facts. Elle arme une puce, jamais un champ (`NUT-28`).
+   */
+  portion_g: number | null;
+  /** D'où viennent les valeurs : le catalogue, lu d'abord, ou Open Food Facts (`NUT-28`). */
+  source: 'catalog' | 'openfoodfacts';
 }
 
 export interface MealFormValues {

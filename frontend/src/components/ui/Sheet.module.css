@@ -134,6 +134,60 @@
   padding: 0 var(--card-pad) var(--s4);
 }
 
+/* L'action d'en-tête (`NUT-28`) : le titre et sa phrase à gauche, l'action à droite, sur
+   la ligne du titre. `min-width: 0` : un titre long passe à la ligne au lieu de pousser
+   l'action hors du panneau. */
+.headWithAction {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+}
+
+.headText {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Une cible au plancher du projet, le pictogramme et son mot. Le cadre en tirets du
+   raccourci de portion (`NUT-21`) aurait dit « secondaire » ; c'est ici la porte d'un
+   geste entier, d'où un cadre plein et l'accent au survol comme les lignes de feuille. */
+.headAction {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: var(--t);
+  touch-action: manipulation;
+}
+
+.headAction:active {
+  transform: scale(0.97);
+  background: var(--bg);
+}
+
+.headAction:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .headAction:hover {
+    border-color: var(--signal);
+  }
+}
+
 .title {
   font-size: var(--t-h2);
 }

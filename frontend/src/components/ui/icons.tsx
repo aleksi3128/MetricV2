@@ -284,3 +284,18 @@ export function IconShare(props: IconProps) {
     </Svg>
   );
 }
+
+/**
+ * Scanner — un code-barres dans les quatre coins d'un viseur (`NUT-28`).
+ *
+ * Les coins disent « viser », les barres disent « quoi » : un code-barres seul se lirait
+ * comme un produit, un viseur seul comme un appareil photo.
+ */
+export function IconScan(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16" />
+      <path d="M8 8.5v7M10.5 8.5v7M13 8.5v7M16 8.5v7" />
+    </Svg>
+  );
+}

@@ -49,8 +49,14 @@ export function ScanStep({
 }: {
   onBack: () => void;
   onFound: (product: Product) => void;
-  /** « Ajouter à la main » — la suite que promet le message d'un produit inconnu. */
-  onManual: () => void;
+  /**
+   * « Ajouter à la main » — la suite que promet le message d'un produit inconnu.
+   *
+   * **Le code part avec** (`NUT-28`). Il se perdait : on décrivait l'aliment une fois, et
+   * le scan suivant ne le reconnaissait toujours pas. Réduit à ses chiffres — c'est ainsi
+   * que le serveur le range et le relit.
+   */
+  onManual: (barcode: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const scanner = useScanner({ videoRef, onProduct: onFound });
@@ -91,7 +97,12 @@ export function ScanStep({
             {scanner.error.message}
           </p>
           {unknown && (
-            <Button variant="ghost" onClick={onManual}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                onManual(scanner.code.replace(/\D/g, ''));
+              }}
+            >
               Ajouter cet aliment à la main
             </Button>
           )}

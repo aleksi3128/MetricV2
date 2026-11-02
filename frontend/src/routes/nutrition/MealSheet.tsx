@@ -85,6 +85,7 @@ import styles from '../Nutrition.module.css';
 import { estimateSentence } from './estimate';
 import { CompositionTotal, IngredientTable } from './Ingredients';
 import {
+  describedIngredient,
   emptyIngredient,
   ingredientFromCatalogue,
   ingredientFromProduct,
@@ -184,6 +185,7 @@ export function MealSheet({
   ingredients,
   days,
   initialDay,
+  initialBarcode,
   favorites,
 }: {
   open: boolean;
@@ -201,6 +203,12 @@ export function MealSheet({
    * noter.
    */
   initialDay?: string | undefined;
+  /**
+   * Le code-barres d'un produit que personne ne connaît — `?code=`, où mène « Ajouter cet
+   * aliment à la main » depuis le scan de « Noter » (`NUT-28`). La feuille s'ouvre sur le
+   * repas composé et une **ligne à décrire** qui porte ce code.
+   */
+  initialBarcode?: string | undefined;
   /** Les favoris, dans l'ordre servi (M-23). Vide : la bande n'est pas dessinée. */
   favorites: readonly Favorite[];
 }) {
@@ -221,6 +229,10 @@ export function MealSheet({
   // La feuille tient-elle déjà une saisie ? Une référence et non un état : l'effet de
   // reprise ne doit se rejouer qu'à l'ouverture, pas à chaque frappe.
   const live = useRef(false);
+  // Le code de l'adresse ne se pose **qu'une fois** par montage : l'écran remonte la
+  // feuille quand l'adresse en porte un autre (`key`), et rouvrir la même ne doit pas
+  // ajouter une seconde ligne pour le même produit.
+  const posted = useRef(false);
   /*
    * Chaque estimation demandée porte un numéro ; une réponse qui arrive après un
    * « Annuler », un enregistrement ou un changement de mode n'a plus de feuille où se
@@ -332,6 +344,45 @@ export function MealSheet({
   useEffect(() => {
     if (!open) return;
     const draft = readDraft();
+    /*
+     * Un code inconnu venu de « Noter » (`NUT-28`) : le repas composé, et une ligne à
+     * décrire qui le porte. **Une saisie en cours n'est pas écrasée** — le projet n'a
+     * aucune annulation : un plat composé en cours reçoit la ligne en plus ; une saisie
+     * dans un autre mode est reprise telle quelle, et la notification dit que le code
+     * attend.
+     */
+    if (initialBarcode !== undefined && !posted.current) {
+      posted.current = true;
+      const row = describedIngredient(initialBarcode);
+      const base = live.current ? null : draft;
+      if (base !== null && base.mode !== 'compose') {
+        resume(base);
+        notify(
+          `Un repas était en cours de saisie : il est repris tel quel. Enregistre-le, puis rescanne le code ${initialBarcode}.`,
+          'recover',
+        );
+        return;
+      }
+      const rows = base?.rows ?? [];
+      const posting: MealDraft = {
+        mode: 'compose',
+        // Sans brouillon, la feuille vient d'être montée : ses valeurs sont celles du départ.
+        values: base?.values ?? (initialDay === undefined ? EMPTY : { ...EMPTY, day: initialDay }),
+        rows: rows.some((item) => item.barcode === initialBarcode) ? rows : [...rows, row],
+        proposed: base?.proposed ?? [],
+        estimate: base?.estimate ?? null,
+        saved_at: Date.now(),
+      };
+      /* **Rangé tout de suite**, et pas au rendu suivant. Sans brouillon écrit, le
+         passage suivant de cet effet — le double appel du mode strict, vu au banc, ou
+         toute dépendance qui bouge avant l'écriture — tombait sur « rien de rangé, mais
+         une saisie vivante » et remettait la feuille à zéro : elle s'ouvrait sur le
+         choix du mode, sans la ligne ni le code. Aucun test ne l'avait vu. */
+      writeDraft(posting);
+      resume(posting);
+      setWeighing(row.key);
+      return;
+    }
     if (draft === null) {
       // Rien, ou plus rien : passé le délai, la feuille repart à zéro même si elle n'a
       // jamais été démontée. Une seule règle vaut mieux que deux durées de vie.
@@ -346,7 +397,7 @@ export function MealSheet({
           : { ...draft, values: { ...draft.values, day: initialDay } },
       );
     }
-  }, [open, reset, resume, initialDay]);
+  }, [open, reset, resume, initialDay, initialBarcode, notify]);
 
   /**
    * À chaque frappe : ranger. Le délai court depuis la dernière, pas depuis l'ouverture.
@@ -547,9 +598,13 @@ export function MealSheet({
    * fonction reste parce que ce chemin-là reste — et c'est le dernier à mener à une ligne
    * manuelle depuis la feuille.
    */
-  function addManual(): void {
-    const row = emptyIngredient();
-    setRows((current) => [...current, row]);
+  function addManual(barcode: string): void {
+    // **Le code suit la ligne** (`NUT-28`) : elle devient une ligne à décrire, la seule
+    // qui montre ses valeurs pour 100 g. Sans code — il n'en arrive pas d'autre chemin
+    // aujourd'hui —, la ligne vierge d'avant.
+    const row = barcode === '' ? emptyIngredient() : describedIngredient(barcode);
+    setRows((current) => [...current.filter((item) => !isBlank(item)), row]);
+    setWeighing(row.key);
     setStep({ kind: 'form' });
   }
 
@@ -968,6 +1023,20 @@ export function MealSheet({
                   setStep({ kind: 'food', key });
                 }}
                 onChange={(next) => {
+                  // **Le nom du plat suit le premier aliment** tant qu'on ne l'a pas changé
+                  // (`NUT-24`, tenu à la frappe depuis `NUT-28`). Il n'était repris qu'à
+                  // l'ajout d'une ligne — or une ligne à décrire arrive sans nom, et le plat
+                  // d'un seul produit demandait d'écrire le même mot deux fois.
+                  const before = rows[0]?.name.trim() ?? '';
+                  const after = next[0]?.name.trim() ?? '';
+                  if (before !== after) {
+                    setValues((current) => {
+                      const dish = current.comment.trim();
+                      return dish === '' || dish === before
+                        ? { ...current, comment: after }
+                        : current;
+                    });
+                  }
                   setRows(next);
                   // Le total appartient aux lignes qui l'ont produit : changer une
                   // quantité sans le jeter laisserait un chiffre d'un autre plat à

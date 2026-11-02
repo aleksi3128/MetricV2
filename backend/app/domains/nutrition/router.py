@@ -280,17 +280,17 @@ async def create_composed(payload: ComposedMealPayload, store: StoreDep) -> Meal
     response_model=Product,
     summary="Lire un produit par son code-barres",
 )
-async def read_product(barcode: str, products: ProductClientDep) -> Product:
-    """Interroge Open Food Facts. **N'écrit rien.**
+async def read_product(barcode: str, store: StoreDep, products: ProductClientDep) -> Product:
+    """Lit le catalogue, puis Open Food Facts (`NUT-28`). **N'écrit rien.**
 
     Le produit n'entre au catalogue qu'à l'enregistrement du repas, par le chemin qui y
     fait déjà entrer les ingrédients tapés (`NUT-12`) : un scan qu'on abandonne ne doit
     rien laisser derrière lui, comme le reste de la feuille.
 
-    La validation du code se fait avant l'appel réseau — voir `products.py` pour ce que
-    cela évite.
+    La validation du code se fait avant toute lecture — voir `products.py` pour ce que
+    cela évite. Le catalogue d'abord : voir `NutritionService.product`.
     """
-    return await products.product(barcode)
+    return await NutritionService(store).product(barcode, products)
 
 
 # ── Favoris (`NUT-10`) ────────────────────────────────

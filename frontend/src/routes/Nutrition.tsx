@@ -288,6 +288,14 @@ export function Nutrition() {
    */
   const [params, setParams] = useSearchParams();
   const askedDay = params.get('ajout') === 'hier' ? 'yesterday' : null;
+  /*
+   * `?code=…` : le code-barres qu'aucune base ne connaît, porté depuis le scan de « Noter »
+   * (`NUT-28`). La feuille s'ouvre sur une ligne à décrire qui le garde. Seuls des chiffres
+   * passent — un code-barres n'est rien d'autre, et le serveur le revérifie à la lecture.
+   */
+  const askedCode = /^\d{8,14}$/.test(params.get('code') ?? '')
+    ? (params.get('code') ?? undefined)
+    : undefined;
 
   function openSheetOn(day: 'hier' | null): void {
     if (day === null) {
@@ -307,9 +315,10 @@ export function Nutrition() {
 
   function closeSheet(): void {
     setOpened(false);
-    if (!params.has('ajout')) return;
+    if (!params.has('ajout') && !params.has('code')) return;
     const next = new URLSearchParams(params);
     next.delete('ajout');
+    next.delete('code');
     setParams(next, { replace: true });
   }
   // Le repas dont la fiche est ouverte, tel que le serveur l'a rendu en dernier — au
@@ -619,13 +628,14 @@ export function Nutrition() {
         <MealSheet
           // Remontée quand l'adresse impose un jour : c'est à l'initialisation qu'elle le
           // prend. Le brouillon, lui, survit au remontage — il est dans le navigateur.
-          key={askedDay ?? 'libre'}
+          key={`${askedDay ?? 'libre'}-${askedCode ?? ''}`}
           open={adding}
           suggested={data.suggested_type}
           types={data.types}
           ingredients={data.ingredients}
           days={data.days}
           initialDay={data.days.find((day) => day.key === askedDay)?.date}
+          initialBarcode={askedCode}
           favorites={data.favorites}
           onClose={closeSheet}
           onSaved={() => {

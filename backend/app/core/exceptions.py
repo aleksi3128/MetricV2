@@ -264,7 +264,7 @@ class InvalidBarcodeError(MetricError):
 
 
 class ProductNotFoundError(MetricError):
-    """Open Food Facts ne connaît pas ce code (`NUT-13`).
+    """Ni le catalogue ni Open Food Facts ne connaissent ce code (`NUT-13`, `NUT-28`).
 
     Ce n'est pas une panne : la base est collaborative et incomplète par nature. Le
     message dit donc la suite possible, et non l'échec — la saisie à la main reste
@@ -273,7 +273,12 @@ class ProductNotFoundError(MetricError):
 
     code = "product_not_found"
     status_code = 404
-    message = "Open Food Facts ne connaît pas ce produit. Tu peux l'ajouter à la main."
+    #: Les deux bases sont nommées depuis que le catalogue est lu d'abord (`NUT-28`) : ne
+    #: dire qu'Open Food Facts laisserait croire que le catalogue n'a pas été regardé.
+    message = (
+        "Ni ton catalogue ni Open Food Facts ne connaissent ce produit. "
+        "Tu peux l'ajouter à la main."
+    )
 
 
 class ProductLookupUnavailableError(MetricError):

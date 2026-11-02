@@ -38,7 +38,9 @@ import { Button, Combobox, Field, type Suggestion } from '@/components/ui';
 import type { ComposedLine, Ingredient } from '@/features/nutrition/api';
 import { integer, num } from '@/lib/format';
 
+import { PER_100 } from './catalog-draft';
 import { fieldText, hasValues, type IngredientDraft } from './ingredient-draft';
+import { NUTRIENTS } from './nutrients';
 
 import styles from '../Nutrition.module.css';
 
@@ -88,10 +90,18 @@ function IngredientRow({
    * et le dépôt le refuse partout ailleurs pour la même raison.
    */
   function recall(name: string): void {
-    const known = catalogue.find(
-      (item) => item.name.trim().toLowerCase() === name.trim().toLowerCase(),
-    );
+    const match = (text: string) =>
+      catalogue.find((item) => item.name.trim().toLowerCase() === text.trim().toLowerCase());
+    const known = match(name);
     if (!known) {
+      // **Une ligne à décrire garde ce qu'on y a tapé** (`NUT-28`). Ses valeurs ne
+      // s'effacent que si elles venaient du catalogue — c'est-à-dire si le nom d'avant y
+      // correspondait. Sans cette garde, retoucher le nom après avoir recopié l'emballage
+      // aurait vidé les cinq champs sans un mot.
+      if (row.described && match(row.name) === undefined) {
+        onChange({ ...row, name });
+        return;
+      }
       onChange({
         ...row,
         name,
@@ -101,7 +111,8 @@ function IngredientRow({
         saturated_fat_100g: '',
         fiber_100g: '',
         portion_g: '',
-        barcode: '',
+        // Le code d'une ligne à décrire est celui qu'on vient de scanner : il reste.
+        barcode: row.described ? row.barcode : '',
       });
       return;
     }
@@ -115,7 +126,9 @@ function IngredientRow({
       fiber_100g: fieldText(known.fiber_100g),
       // La portion ne remplit rien : elle arme la puce sous le champ (`NUT-21`).
       portion_g: fieldText(known.portion_g),
-      barcode: known.barcode,
+      // Le code scanné l'emporte : c'est lui que l'entrée gagnera à l'enregistrement, et
+      // c'est par lui que le prochain scan la retrouvera.
+      barcode: row.described ? row.barcode : known.barcode,
     });
   }
 
@@ -128,7 +141,10 @@ function IngredientRow({
         <div className={styles.foodPick}>
           <Combobox
             label="Ingrédient"
-            placeholder="riz basmati"
+            // Court : la colonne du nom fait 150 px à 402, et « nom sur l'emballage » y était coupé.
+            placeholder={row.described ? 'nom du produit' : 'riz basmati'}
+            // Une ligne à décrire arrive sans nom : c'est lui qu'on tape d'abord (`NUT-28`).
+            autoFocus={weighing && row.described}
             value={row.name}
             options={options}
             // Le même chemin pour la frappe et pour l'appui : deux chemins, c'est
@@ -152,7 +168,14 @@ function IngredientRow({
                   ajouté la hauteur d'un doigt par ligne à un plat qui en compte cinq. Les
                   calories pour 100 g sont ce qu'on vérifie d'un coup d'œil : c'est le
                   chiffre qui dit qu'on a rappelé le bon aliment. */}
-              {hasValues(row) ? `${row.calories_100g} kcal/100 g` : 'valeurs inconnues'}
+              {/* Sans calories mais avec une autre valeur — une ligne à décrire dont on a
+                  tapé d'abord les protéines —, « kcal/100 g » seul se lirait comme un
+                  chiffre effacé. */}
+              {!hasValues(row)
+                ? 'valeurs inconnues'
+                : row.calories_100g.trim() === ''
+                  ? 'kcal inconnues'
+                  : `${row.calories_100g} kcal/100 g`}
             </span>
           )}
         </div>
@@ -188,7 +211,8 @@ function IngredientRow({
         hideLabel
         unit="g"
         inputMode="decimal"
-        autoFocus={weighing}
+        // Une ligne à décrire commence par son nom : le focus y va, et le poids suit.
+        autoFocus={weighing && !row.described}
         value={row.quantity_g}
         onChange={(event) => {
           onChange({ ...row, quantity_g: event.target.value });
@@ -217,6 +241,29 @@ function IngredientRow({
         >
           {`${row.portion_g} g`}
         </button>
+      )}
+
+      {/* **Les valeurs pour 100 g, à la main — sur cette ligne seule** (`NUT-28`). Toutes
+          les autres les reçoivent d'une base et les tiennent sans les montrer (`NUT-14`) ;
+          celle-ci n'a pas de base, et l'emballage dans la main les donne pour 100 g. Le
+          serveur multiplie par le poids, comme pour les autres : rien ne se calcule ici. */}
+      {row.described && (
+        <div className={styles.foodValues}>
+          <p className={styles.foodValuesHead}>
+            {`code ${row.barcode} · pour 100 g, lus sur l’emballage — le prochain scan le reconnaîtra`}
+          </p>
+          {NUTRIENTS.map((nutrient) => (
+            <Field
+              key={nutrient.key}
+              label={nutrient.field}
+              inputMode={nutrient.inputMode}
+              value={row[PER_100[nutrient.key]]}
+              onChange={(event) => {
+                onChange({ ...row, [PER_100[nutrient.key]]: event.target.value });
+              }}
+            />
+          ))}
+        </div>
       )}
 
       {/* Une addition se défait sans confirmation : rien n'est encore écrit. */}

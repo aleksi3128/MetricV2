@@ -446,6 +446,13 @@ class Product(BaseModel):
     #: — elle dit ce qu'il y avait dans l'assiette — mais l'écran annonce qu'il n'y a rien
     #: à totaliser dessus, plutôt que d'afficher trois zéros.
     partial: bool = False
+    #: La portion habituelle de l'entrée du catalogue qui porte ce code (`NUT-21`), `None`
+    #: pour un produit venu d'Open Food Facts. Elle arme une **puce** sous le champ de
+    #: poids, jamais un préremplissage (`NUT-28`).
+    portion_g: float | None = None
+    #: D'où viennent les valeurs : ton catalogue, lu d'abord, ou Open Food Facts. L'écran
+    #: nomme la source — savoir d'où vient un chiffre n'est pas le marquer comme incertain.
+    source: Literal["catalog", "openfoodfacts"] = "openfoodfacts"
 
 
 class Ingredient(BaseModel):

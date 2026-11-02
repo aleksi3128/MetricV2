@@ -260,3 +260,139 @@ class TestRoute:
 
         view = product_app_client.get("/api/nutrition", headers=auth).json()
         assert all(item["name"] != "Nutella" for item in view["ingredients"])
+
+
+# ── Le catalogue d'abord (`NUT-28`) ───────────────────
+
+#: Un EAN-13 à la clé juste, que le double d'Open Food Facts ne connaît pas.
+UNKNOWN = "5000159407236"
+
+
+class TestCatalogFirst:
+    """Le code rangé au catalogue depuis `NUT-20` est enfin relu.
+
+    Sans cela, un produit décrit une fois à la main avec son code rendait encore
+    `product_not_found` au scan suivant, et la portion d'un produit scanné n'arrivait
+    jamais à l'écran.
+    """
+
+    def test_reconnait_un_produit_qu_off_ignore(
+        self, product_app_client: TestClient, auth: Headers, openfoodfacts: FakeOpenFoodFacts
+    ) -> None:
+        product_app_client.post(
+            "/api/nutrition/ingredients",
+            headers=auth,
+            json={
+                "name": "Skyr nature",
+                "calories_100g": 63,
+                "protein_100g": 11,
+                "portion_g": 150,
+                "barcode": UNKNOWN,
+            },
+        )
+
+        response = product_app_client.get(f"/api/nutrition/products/{UNKNOWN}", headers=auth)
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["name"] == "Skyr nature"
+        assert body["calories_100g"] == 63
+        assert body["portion_g"] == 150
+        assert body["source"] == "catalog"
+        assert body["partial"] is False
+        # Une entrée connue ne sort pas sur le réseau.
+        assert openfoodfacts.calls == []
+
+    def test_le_catalogue_l_emporte_sur_off(
+        self, product_app_client: TestClient, auth: Headers, openfoodfacts: FakeOpenFoodFacts
+    ) -> None:
+        # Une correction verrouillée au catalogue est ce qui doit revenir au scan, pas la
+        # valeur de la base collaborative.
+        product_app_client.post(
+            "/api/nutrition/ingredients",
+            headers=auth,
+            json={"name": "Pâte à tartiner", "calories_100g": 530, "barcode": "3017620422003"},
+        )
+
+        body = product_app_client.get("/api/nutrition/products/3017620422003", headers=auth).json()
+
+        assert body["name"] == "Pâte à tartiner"
+        assert body["calories_100g"] == 530
+        assert body["portion_g"] is None
+        assert body["source"] == "catalog"
+        assert openfoodfacts.calls == []
+
+    def test_sans_entree_va_chez_off(self, product_app_client: TestClient, auth: Headers) -> None:
+        body = product_app_client.get("/api/nutrition/products/3017620422003", headers=auth).json()
+
+        assert body["source"] == "openfoodfacts"
+        assert body["portion_g"] is None
+
+    def test_le_rapprochement_est_au_code_exact_jamais_au_nom(
+        self, product_app_client: TestClient, auth: Headers, openfoodfacts: FakeOpenFoodFacts
+    ) -> None:
+        # Une entrée qui porte le nom d'OFF mais aucun code n'est pas ce produit-là.
+        product_app_client.post(
+            "/api/nutrition/ingredients",
+            headers=auth,
+            json={"name": "Nutella", "calories_100g": 1},
+        )
+
+        body = product_app_client.get("/api/nutrition/products/3017620422003", headers=auth).json()
+
+        assert body["source"] == "openfoodfacts"
+        assert body["calories_100g"] == 539
+        assert len(openfoodfacts.calls) == 1
+
+    def test_un_code_invalide_est_refuse_avant_toute_lecture(
+        self, product_app_client: TestClient, auth: Headers, openfoodfacts: FakeOpenFoodFacts
+    ) -> None:
+        response = product_app_client.get("/api/nutrition/products/3017620422004", headers=auth)
+
+        assert response.json()["code"] == "invalid_barcode"
+        assert openfoodfacts.calls == []
+
+    def test_le_refus_nomme_les_deux_bases(
+        self, product_app_client: TestClient, auth: Headers
+    ) -> None:
+        response = product_app_client.get(f"/api/nutrition/products/{UNKNOWN}", headers=auth)
+
+        assert response.status_code == 404
+        message = response.json()["message"]
+        assert "catalogue" in message
+        assert "Open Food Facts" in message
+
+    def test_un_aliment_decrit_a_la_main_est_reconnu_au_scan_suivant(
+        self, product_app_client: TestClient, auth: Headers
+    ) -> None:
+        # La promesse du code inconnu (`NUT-28`, D11) : décrit une fois dans un repas
+        # composé, avec son code, il revient au scan d'après — portion comprise si on la
+        # pose ensuite, valeurs en tout cas.
+        assert (
+            product_app_client.get(f"/api/nutrition/products/{UNKNOWN}", headers=auth).status_code
+            == 404
+        )
+        saved = product_app_client.post(
+            "/api/nutrition/composed",
+            headers=auth,
+            json={
+                "meal_type": "collation",
+                "comment": "Skyr nature",
+                "lines": [
+                    {
+                        "name": "Skyr nature",
+                        "quantity_g": 150,
+                        "calories_100g": 63,
+                        "protein_100g": 11,
+                        "barcode": UNKNOWN,
+                    }
+                ],
+            },
+        )
+        assert saved.status_code == 201
+
+        body = product_app_client.get(f"/api/nutrition/products/{UNKNOWN}", headers=auth).json()
+
+        assert body["name"] == "Skyr nature"
+        assert body["calories_100g"] == 63
+        assert body["source"] == "catalog"

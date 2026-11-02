@@ -124,6 +124,33 @@ def test_an_ingredient_needs_a_positive_quantity(app_client: TestClient, auth: A
     assert response.status_code == 422
 
 
+@pytest.mark.parametrize(("quantity", "said"), [(0, "supérieur à 0"), (5001, "au plus 5\u202f000")])
+def test_a_refused_quantity_says_why_in_french_under_its_field(
+    app_client: TestClient, auth: Any, quantity: float, said: str
+) -> None:
+    """Le scan rapide de « Noter » (`NUT-28`) affiche ce refus sous son seul champ.
+
+    Il décide sur le code et le champ, jamais sur le texte — mais le texte s'affiche tel
+    quel, et il doit donc être français et dire la borne.
+    """
+    response = app_client.post(
+        COMPOSED,
+        json={
+            "meal_type": "déjeuner",
+            "comment": "Nutella",
+            "lines": [line("Nutella", quantity, calories_100g=539)],
+        },
+        headers=auth,
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "validation_error"
+    [field] = body["fields"]
+    assert field["field"].endswith("lines.0.quantity_g")
+    assert said in field["message"]
+
+
 def test_hundred_gram_values_have_their_own_bounds(app_client: TestClient, auth: Any) -> None:
     """300 g de protéines dans un repas est plausible ; pour 100 g d'aliment, non."""
     response = app_client.post(

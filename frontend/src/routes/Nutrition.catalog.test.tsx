@@ -365,4 +365,41 @@ describe('ajouter un aliment', () => {
       });
     });
   });
+  it('garde le code inconnu sur la fiche ajoutée à la main (NUT-28)', async () => {
+    // « Ajouter cet aliment à la main » revenait au formulaire sans le code : rangée sans
+    // lui, la fiche n'était pas reconnue au scan suivant.
+    stub((url, init) => {
+      if (url.includes('/api/nutrition/products/')) {
+        return json(404, {
+          code: 'product_not_found',
+          message: 'Ni ton catalogue ni Open Food Facts ne connaissent ce produit.',
+        });
+      }
+      return init?.method === 'POST' ? json(201, { ...RICE, name: 'skyr' }) : undefined;
+    });
+    renderCatalog();
+    await screen.findByText('3 fois · 540 g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ajouter un aliment' }));
+    const sheet = await screen.findByRole('dialog');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Scanner un code-barres' }));
+    await userEvent.type(within(sheet).getByLabelText('Code-barres'), '5000159407236');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Chercher ce code' }));
+    await userEvent.click(
+      await within(sheet).findByRole('button', { name: 'Ajouter cet aliment à la main' }),
+    );
+
+    expect(within(sheet).getByText(/Code 5000159407236 gardé/)).toBeInTheDocument();
+    await userEvent.type(within(sheet).getByLabelText('Nom'), 'skyr');
+    await userEvent.type(within(sheet).getByLabelText('Calories'), '63');
+    await userEvent.click(within(sheet).getByRole('button', { name: 'Ajouter au catalogue' }));
+
+    await waitFor(() => {
+      const post = calls.find((call) => call.init?.method === 'POST');
+      expect(JSON.parse(post?.init?.body as string)).toMatchObject({
+        name: 'skyr',
+        barcode: '5000159407236',
+      });
+    });
+  });
 });

@@ -32,6 +32,7 @@ export function Sheet({
   lede,
   fit,
   wide,
+  action,
   children,
   className,
 }: {
@@ -39,6 +40,30 @@ export function Sheet({
   onClose: () => void;
   title: string;
   lede?: string | undefined;
+  /**
+   * **Une action d'en-tête**, à droite du titre (`NUT-28`).
+   *
+   * Née pour « Scanner » dans « Noter » : « tout en haut », c'est l'en-tête — le corps
+   * défile, et une première rangée y serait déjà sous ce qui précède. Une seule action :
+   * deux pictogrammes à côté d'un titre font une barre d'outils, et une feuille n'en a pas.
+   *
+   * **Le pictogramme et le mot**, jamais le pictogramme seul : la barre d'onglets ne laisse
+   * aucune icône sans son mot, et un dessin de code-barres ne dit pas ce qu'il fait. Le nom
+   * accessible peut dire plus long que le mot (`label`).
+   *
+   * Dessinée ici et dans `Sheet.module.css` : le style suit le composant, et aucun écran
+   * ne peint son propre bouton d'en-tête.
+   */
+  action?:
+    | {
+        /** Le mot visible. */
+        text: string;
+        /** Le nom accessible, quand le mot seul ne dit pas tout. */
+        label?: string | undefined;
+        icon: ReactNode;
+        onClick: () => void;
+      }
+    | undefined;
   /**
    * La feuille suit la hauteur de son contenu, au lieu de tenir la hauteur commune.
    *
@@ -173,9 +198,22 @@ export function Sheet({
           <span className={styles.gripBar} />
         </button>
 
-        <div className={styles.head}>
-          <h2 className={styles.title}>{title}</h2>
-          {lede !== undefined && <p className={styles.lede}>{lede}</p>}
+        <div className={cx(styles.head, action !== undefined && styles.headWithAction)}>
+          <div className={styles.headText}>
+            <h2 className={styles.title}>{title}</h2>
+            {lede !== undefined && <p className={styles.lede}>{lede}</p>}
+          </div>
+          {action !== undefined && (
+            <button
+              type="button"
+              className={styles.headAction}
+              aria-label={action.label ?? action.text}
+              onClick={action.onClick}
+            >
+              {action.icon}
+              <span>{action.text}</span>
+            </button>
+          )}
         </div>
 
         <div className={styles.body}>{children}</div>

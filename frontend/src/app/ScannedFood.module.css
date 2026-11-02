@@ -1,0 +1,64 @@
+/* L'étape de la quantité (`NUT-28`) : une colonne, dans l'ordre où le pouce la descend —
+   le poids, sa portion, le repas, puis l'action qui termine. */
+.weigh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.note {
+  color: var(--ink-mid);
+  font-size: var(--t-sub);
+}
+
+/* La puce colle au champ qu'elle remplit : séparée de lui par l'écart commun, elle se
+   lirait comme une option du repas plutôt que du poids. */
+.portion {
+  margin-top: calc(var(--s2) - var(--s4));
+}
+
+.types {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+/* L'étiquette d'un groupe de pastilles, qui n'a pas de `<label>` : elle reprend
+   l'apparence de celle d'un champ. */
+.label {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+
+.typeChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.error {
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--recover);
+  border: 1px solid rgb(var(--recover-rgb) / var(--badge-border-a));
+  background: rgb(var(--recover-rgb) / var(--badge-bg-a));
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+/* L'action qui **termine** le geste : pleine largeur et grande taille, comme
+   « Enregistrer la pesée » de la même feuille. */
+.save {
+  width: 100%;
+  min-height: var(--tap-lg);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}

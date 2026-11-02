@@ -696,6 +696,27 @@
   min-width: 0;
 }
 
+/* Les valeurs d'une ligne à décrire (`NUT-28`) : une rangée de la grille sur toute sa
+   largeur, deux colonnes de champs. Sous le nom et le poids, parce que c'est l'ordre de
+   l'emballage qu'on retourne : on lit le nom, on pèse, puis on lit le tableau. */
+.foodValues {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+}
+
+/* La mention en tête, et non dans chaque étiquette : « / 100 g » suffixé à chaque champ
+   faisait passer la moitié des étiquettes à la ligne, et la grille montait en escalier —
+   vu sur la page catalogue (`NUT-20`), et corrigé là-bas de la même façon. */
+.foodValuesHead {
+  grid-column: 1 / -1;
+  font-family: var(--mono);
+  font-size: var(--t-meta);
+  color: var(--ink-low);
+  overflow-wrap: anywhere;
+}
+
 /* Le nom d'une ligne tapée à la main, et sous lui ce qu'elle vaut (`NUT-24`). Une colonne
    parce que la mention appartient au nom : posée ailleurs dans la grille, elle se serait
    lue comme un commentaire sur le poids. */

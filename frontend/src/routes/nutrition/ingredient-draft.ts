@@ -53,6 +53,17 @@ export interface IngredientDraft {
    */
   brand: string;
   barcode: string;
+  /**
+   * Une ligne **à décrire** : son code-barres n'est connu ni du catalogue ni d'Open Food
+   * Facts (`NUT-28`). Elle est la seule à montrer ses valeurs pour 100 g — `NUT-14` les a
+   * retirées des lignes qui les reçoivent d'une base ; ici aucune base ne les a, et
+   * l'emballage est dans la main. Elle ne rappelle rien du catalogue : ses valeurs sont
+   * celles qu'on tape, et un nom qui changerait les effacerait.
+   *
+   * Son code la suit jusqu'au catalogue, et c'est ce qui fera reconnaître l'aliment au
+   * scan suivant.
+   */
+  described: boolean;
 }
 
 let counter = 0;
@@ -72,7 +83,18 @@ export function emptyIngredient(): IngredientDraft {
     portion_g: '',
     brand: '',
     barcode: '',
+    described: false,
   };
+}
+
+/**
+ * La ligne d'un code-barres que personne ne connaît (`NUT-28`) : vide, sauf son code.
+ *
+ * Ce que « Ajouter cet aliment à la main » promettait sans le tenir : la ligne vierge
+ * d'avant perdait le code, et l'aliment décrit restait inconnu au scan d'après.
+ */
+export function describedIngredient(barcode: string): IngredientDraft {
+  return { ...emptyIngredient(), barcode, described: true };
 }
 
 /**
@@ -98,6 +120,9 @@ export function ingredientFromProduct(product: Product): IngredientDraft {
     added_sugar_100g: fieldText(product.added_sugar_100g),
     saturated_fat_100g: fieldText(product.saturated_fat_100g),
     fiber_100g: fieldText(product.fiber_100g),
+    // Depuis que le scan lit le catalogue d'abord (`NUT-28`), un produit déjà rangé
+    // revient avec sa portion : elle arme la puce, comme un aliment choisi au catalogue.
+    portion_g: fieldText(product.portion_g),
   };
 }
 
@@ -144,9 +169,16 @@ function per100(row: IngredientDraft): string[] {
   ];
 }
 
-/** Une ligne à laquelle on n'a rien touché — celle qu'un scan remplace plutôt que suivre. */
+/**
+ * Une ligne à laquelle on n'a rien touché — celle qu'un scan remplace plutôt que suivre.
+ *
+ * Le code compte : une ligne à décrire qui n'a encore que lui n'est pas vide, elle porte
+ * ce qui fera reconnaître l'aliment (`NUT-28`).
+ */
 export function isBlank(row: IngredientDraft): boolean {
-  return [row.name, row.quantity_g, ...per100(row)].every((field) => field.trim() === '');
+  return [row.name, row.quantity_g, row.barcode, ...per100(row)].every(
+    (field) => field.trim() === '',
+  );
 }
 
 /** Un champ de texte vers le nombre que l'API attend, ou `null` s'il est vide. */

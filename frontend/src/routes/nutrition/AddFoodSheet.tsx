@@ -86,7 +86,10 @@ export function AddFoodSheet({
             setDraft(foodFromProduct(product));
             setScanning(false);
           }}
-          onManual={() => {
+          // Le code inconnu reste sur la fiche (`NUT-28`) : rangé avec elle, il fera
+          // reconnaître l'aliment au prochain scan. Il se perdait.
+          onManual={(barcode) => {
+            setDraft((current) => ({ ...current, barcode }));
             setScanning(false);
           }}
         />
@@ -109,6 +112,14 @@ export function AddFoodSheet({
               setDraft({ ...draft, name: event.target.value });
             }}
           />
+
+          {/* Un code gardé se dit : sans champ pour lui, rien ne montrerait qu'il partira
+              avec la fiche — et c'est lui qui fera reconnaître l'aliment (`NUT-28`). */}
+          {draft.barcode !== '' && (
+            <p className={styles.note}>
+              {`Code ${draft.barcode} gardé : le prochain scan reconnaîtra cet aliment.`}
+            </p>
+          )}
 
           {/* **« pour 100 g » en tête, et non dans chaque étiquette.** Suffixée à chaque
               champ, la mention faisait passer « Protéines (g) / 100 g » à la ligne : les

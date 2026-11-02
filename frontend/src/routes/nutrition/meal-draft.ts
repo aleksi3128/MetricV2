@@ -157,6 +157,8 @@ function parseRows(raw: unknown): IngredientDraft[] {
     manual: row.manual !== false,
     brand: text(row.brand),
     barcode: text(row.barcode),
+    // Un brouillon d'avant `NUT-28` n'a pas le drapeau : ses lignes ne sont pas à décrire.
+    described: row.described === true,
   }));
 }
 

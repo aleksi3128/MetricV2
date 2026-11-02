@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -718,6 +719,9 @@ describe('repas composé', () => {
           added_sugar_100g: 0.2,
           saturated_fat_100g: 0.1,
           fiber_100g: null,
+          // Le code du scan inconnu qui a ouvert la ligne la suit (`NUT-28`) : c'est lui
+          // que l'entrée du catalogue gagnera, et par lui que le scan suivant la retrouvera.
+          barcode: '0000000000000',
         },
       ],
     });
@@ -795,6 +799,10 @@ describe('repas composé', () => {
     await addByHand();
     await userEvent.type(screen.getByLabelText('Ingrédient'), 'riz');
     await userEvent.type(screen.getByLabelText(/^Grammes/), '180');
+    // Le nom du plat suit le premier aliment à la frappe (`NUT-28`) : on l'efface pour
+    // éprouver le refus.
+    expect(screen.getByLabelText('Nom du plat')).toHaveValue('riz');
+    await userEvent.clear(screen.getByLabelText('Nom du plat'));
 
     expect(screen.getByRole('button', { name: 'Enregistrer le repas' })).toBeDisabled();
   });
@@ -1048,6 +1056,8 @@ describe('scanner un aliment', () => {
     saturated_fat_100g: 10.6,
     fiber_100g: null,
     partial: false,
+    portion_g: null,
+    source: 'openfoodfacts',
   };
 
   /** Le serveur, avec la route produit branchée sur une réponse donnée. */
@@ -1471,6 +1481,142 @@ describe('scanner un aliment', () => {
     ]);
     // Les macros ne partent pas : le serveur recalcule.
     expect(body).not.toHaveProperty('calories');
+  });
+
+  /** La ligne à décrire : celle qui porte le code inconnu, et ses cinq champs. */
+  function described(code: string) {
+    const head = screen.getByText(new RegExp(`code ${code} · pour 100 g`));
+    return within(head.parentElement as HTMLElement);
+  }
+
+  it('ouvre sur un code inconnu une ligne à décrire, qui garde son code (NUT-28)', async () => {
+    // « Ajouter cet aliment à la main » perdait le code : décrit une fois, l'aliment
+    // n'était toujours pas reconnu au scan suivant.
+    stub();
+    renderNutrition();
+
+    await openScan();
+    await userEvent.type(await screen.findByLabelText('Code-barres'), '5000159407236');
+    await userEvent.click(screen.getByRole('button', { name: 'Chercher ce code' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Ajouter cet aliment à la main' }),
+    );
+
+    // La seule ligne qui montre ses valeurs pour 100 g : aucune base ne les a.
+    const row = described('5000159407236');
+    await userEvent.type(screen.getByLabelText('Ingrédient'), 'Skyr nature');
+    await userEvent.type(row.getByLabelText('Calories'), '63');
+    await userEvent.type(row.getByLabelText('Protéines (g)'), '11');
+    await userEvent.type(screen.getByLabelText(/^Grammes/), '150');
+
+    // Le nom du plat suit celui de l'aliment : un plat d'un seul produit ne s'écrit
+    // qu'une fois.
+    expect(screen.getByLabelText('Nom du plat')).toHaveValue('Skyr nature');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enregistrer le repas' }));
+
+    await waitFor(() => {
+      expect(calls.some((item) => item.url === '/api/nutrition/composed')).toBe(true);
+    });
+    const call = calls.find((item) => item.url === '/api/nutrition/composed');
+    const body = JSON.parse(call?.init?.body as string) as { lines: unknown[]; comment: string };
+    expect(body.comment).toBe('Skyr nature');
+    expect(body.lines).toEqual([
+      {
+        name: 'Skyr nature',
+        quantity_g: 150,
+        calories_100g: 63,
+        protein_100g: 11,
+        added_sugar_100g: null,
+        saturated_fat_100g: null,
+        fiber_100g: null,
+        barcode: '5000159407236',
+      },
+    ]);
+  });
+
+  it('garde ce qu’on a tapé sur une ligne à décrire quand son nom change', async () => {
+    // Le rappel du catalogue efface les valeurs d'un nom qui cesse de correspondre —
+    // mais ici elles ont été recopiées de l'emballage, pas rappelées.
+    stub();
+    renderNutrition('/nutrition?ajout=repas&code=5000159407236');
+
+    await screen.findByLabelText('Nom du plat');
+    const row = described('5000159407236');
+    await userEvent.type(row.getByLabelText('Calories'), '63');
+    await userEvent.type(screen.getByLabelText('Ingrédient'), 'Skyr');
+    await userEvent.type(screen.getByLabelText('Ingrédient'), ' nature');
+
+    expect(row.getByLabelText('Calories')).toHaveValue('63');
+  });
+
+  it('ouvre la feuille sur la ligne à décrire depuis l’adresse de « Noter »', async () => {
+    stub();
+    renderNutrition('/nutrition?ajout=repas&code=5000159407236');
+
+    expect(await screen.findByLabelText('Nom du plat')).toBeInTheDocument();
+    expect(described('5000159407236').getByLabelText('Calories')).toHaveValue('');
+    expect(screen.getByLabelText('Ingrédient')).toHaveFocus();
+  });
+
+  it('ouvre la ligne à décrire même sous le mode strict', async () => {
+    // Vu au banc, pas dans la batterie : le double appel des effets du mode strict
+    // trouvait « rien de rangé, mais une saisie vivante » et remettait la feuille à zéro —
+    // elle s'ouvrait sur le choix du mode, sans la ligne ni le code.
+    stub();
+    render(
+      <StrictMode>
+        <QueryClientProvider client={createQueryClient()}>
+          <MemoryRouter initialEntries={['/nutrition?ajout=repas&code=5000159407236']}>
+            <Toaster>
+              <Nutrition />
+            </Toaster>
+          </MemoryRouter>
+        </QueryClientProvider>
+      </StrictMode>,
+    );
+
+    expect(await screen.findByLabelText('Nom du plat')).toBeInTheDocument();
+    expect(described('5000159407236').getByLabelText('Calories')).toBeInTheDocument();
+  });
+
+  it('n’écrase pas une saisie en cours dans un autre mode', async () => {
+    // Le projet n'a aucune annulation : la description en cours est reprise telle
+    // quelle, et la notification dit que le code attend.
+    stub();
+    localStorage.setItem(
+      'metric.meal-draft',
+      JSON.stringify({
+        mode: 'texte',
+        values: { comment: 'salade du midi' },
+        rows: [],
+        proposed: [],
+        estimate: null,
+        saved_at: Date.now(),
+      }),
+    );
+    renderNutrition('/nutrition?ajout=repas&code=5000159407236');
+
+    expect(await screen.findByLabelText('Description')).toHaveValue('salade du midi');
+    expect(await screen.findByText(/rescanne le code 5000159407236/)).toBeInTheDocument();
+    expect(screen.queryByText(/code 5000159407236 · pour 100 g/)).toBeNull();
+  });
+
+  it('pose la puce de portion d’un produit relu au catalogue', async () => {
+    // Le scan lit le catalogue d'abord (`NUT-28`) : un produit déjà rangé revient avec
+    // sa portion, et la puce la pèse d'un appui — sans rien inscrire d'office.
+    stubProduct(json(200, { ...NUTELLA, portion_g: 15, source: 'catalog' }));
+    renderNutrition();
+
+    await openScan();
+    await userEvent.type(await screen.findByLabelText('Code-barres'), NUTELLA.barcode);
+    await userEvent.click(screen.getByRole('button', { name: 'Chercher ce code' }));
+
+    expect(await screen.findByLabelText(/^Grammes/)).toHaveValue('');
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Peser la portion habituelle de Nutella, 15 g' }),
+    );
+    expect(screen.getByLabelText(/^Grammes/)).toHaveValue('15');
   });
 });
 
