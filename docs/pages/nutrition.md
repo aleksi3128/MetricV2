@@ -4,7 +4,9 @@
 les jours passés, tenir le catalogue des aliments.
 
 **Comment on y arrive.** « Plus » → Chaque jour → Nutrition ; « Ajouter un repas » dans la
-feuille « Noter », qui ouvre directement la feuille d'ajout (`?ajout=repas`, M-23) ; la ligne « Protéines » de l'accueil ; entrée de la barre du haut sur
+feuille « Noter », qui ouvre directement la feuille d'ajout (`?ajout=repas`, M-23) ; un code
+inconnu scanné depuis « Noter », qui l'ouvre sur une ligne à décrire (`?ajout=repas&code=…`,
+`NUT-28`) ; la ligne « Protéines » de l'accueil ; entrée de la barre du haut sur
 ordinateur.
 
 Fichiers : [`Nutrition.tsx`](../../frontend/src/routes/Nutrition.tsx),
@@ -43,7 +45,8 @@ Haut d'écran rempli : 3 124 px (3 312 avant M-23 ; banc du 22 octobre au soir, 
 Plage Jour / Semaine / Mois / 3 mois ; ce qui a été mangé (quantités, seulement les repas
 composés — « 0 sur 2 repas cette semaine ») ; « Au catalogue, jamais consigné » ;
 **Ajouter un aliment** (nom, portion, valeurs, ou **Scanner un code-barres** → Open Food
-Facts). Feuille d'un aliment : corriger, reprendre les valeurs de la base, l'ajouter au
+Facts — le catalogue est lu d'abord depuis `NUT-28` : un code déjà rangé y répond seul, avec
+sa portion). Feuille d'un aliment : corriger, reprendre les valeurs de la base, l'ajouter au
 catalogue s'il n'y est pas. Source : `GET /api/nutrition/catalog`,
 `GET /api/nutrition/catalog/{id}`, `GET /api/nutrition/products/{code}`. Écrit :
 `POST/PATCH/DELETE /api/nutrition/ingredients`.
@@ -72,6 +75,16 @@ parcours du matin ; `/nutrition?ajout=repas`, sur le jour par défaut — c'est 
 le repas ») et l'enregistrement attend un choix — et **Enregistrer le repas**. Brouillon gardé quinze minutes dans le
 navigateur, jour compris.
 
+### Le repas d'un seul produit, depuis « Noter » (`NUT-28`)
+
+Un aliment emballé se note sans venir ici : « Noter » → **Scanner** → code → quantité → OK.
+Il arrive au journal comme un repas composé d'une ligne, au nom du produit, et entre au
+catalogue et au journal des aliments comme tout repas composé. Un code inconnu ouvre cette
+feuille sur le repas composé et une **ligne à décrire** : nom, poids, et les cinq valeurs
+pour 100 g — la seule ligne qui les montre —, le code gardé ; le nom du plat suit celui de
+l'aliment. Une saisie en cours dans un autre mode n'est pas écrasée : elle est reprise, et
+une notification dit que le code attend. Voir [`scan-aliment.md`](../scan-aliment.md) §10.
+
 ## 4. Constats
 
 - ~~**Aucun repas ne se date dans le passé.**~~ Corrigé pour la feuille (M-01,
@@ -98,5 +111,6 @@ navigateur, jour compris.
 
 ## 5. Non vu
 
-L'estimation réelle d'une description ; le scan d'un code-barres (pas de caméra) ; les
+L'estimation réelle d'une description ; le scan d'un code-barres **par la caméra** (le champ
+des chiffres, lui, a été suivi de bout en bout le 2 novembre, depuis « Noter ») ; les
 repas anciens photographiés.

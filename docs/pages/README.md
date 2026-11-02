@@ -1,6 +1,6 @@
 # Les pages de Metric — inventaire du 22 octobre 2026
 
-À jour au 29 octobre : la navigation ci-dessous suit le code après les fiches M-01 à M-23 et
+À jour au 2 novembre (le scan de « Noter », `NUT-28`) : la navigation ci-dessous suit le code après les fiches M-01 à M-23 et
 les lots qui ont suivi. Où en est chaque fiche, ce qui reste ouvert et les décisions en
 attente : le [bilan de `modifications.md`](modifications.md#bilan).
 
@@ -64,6 +64,11 @@ chiffre, sans changer d'écran. La coquille la tient (`QuickLogProvider`) : le b
 l'ouvre, et l'état vide de l'accueil aussi (M-11) — sur ordinateur, où la barre basse est
 masquée, c'est sa seule porte.
 
+- En tête, l'action **Scanner** (`NUT-28`) : le viseur — ou le champ des chiffres —, puis la
+  quantité (puce de portion quand le catalogue en a une), le type de l'heure en pastilles, et
+  OK enregistre un repas au nom du produit (`POST /api/nutrition/composed`) ; la feuille se
+  ferme sur une notification. Un code que ni le catalogue ni Open Food Facts ne connaissent
+  mène à `/nutrition?ajout=repas&code=…`, sur une ligne à décrire qui garde le code ;
 - Hydratation : raccourcis, autre volume, total du jour ;
 - Suppléments à prendre (les dus non pris) ;
 - Pesée ;

@@ -32,7 +32,7 @@ Ne pas tout lire. Ouvrir ce qui correspond à la tâche.
 | La refonte de l'activité — tout par Cadence, la course à part | [`docs/refonte-activite.md`](docs/refonte-activite.md) |
 | L'historique de `/nutrition` — grille, courbe, objectif de calories | [`docs/nutrition-historique.md`](docs/nutrition-historique.md) |
 | Le cinquième mode de saisie — un plat par ses ingrédients | [`docs/repas-compose.md`](docs/repas-compose.md) |
-| Ajouter un aliment en le scannant — code-barres et Open Food Facts | [`docs/scan-aliment.md`](docs/scan-aliment.md) |
+| Ajouter un aliment en le scannant — code-barres, Open Food Facts, et en trois gestes depuis « Noter » | [`docs/scan-aliment.md`](docs/scan-aliment.md) |
 | Ajouter une sortie par le fichier `.fit` de la montre — et son tracé | [`docs/import-fit.md`](docs/import-fit.md) |
 | Les pages Course — constats, courbe et tracé liés, zones, meilleurs efforts | [`docs/analyse-course.md`](docs/analyse-course.md) |
 | La fiche d'un repas — correction, favori, graisses saturées et fibres | [`docs/fiche-repas.md`](docs/fiche-repas.md) |
@@ -194,8 +194,8 @@ et `routes/activity/`.
 ### Ce que `make check` couvre
 
 ```bash
-make check     # ruff, ruff format, mypy (353 fichiers), 2 523 tests backend
-               # prettier, eslint, tsc, 934 tests d'écran
+make check     # ruff, ruff format, mypy (353 fichiers), 2 531 tests backend
+               # prettier, eslint, tsc, 949 tests d'écran
 ```
 
 Il doit être vert **avant** de commiter, sans exception.

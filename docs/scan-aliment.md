@@ -289,7 +289,10 @@ désormais une **suite** d'appuis nommés : le scanner vit à trois appuis de l'
 
 ## 8. Ce qui reste ouvert
 
-* **Le code-barres n'est pas rangé dans `ingredients.csv`.** Rescanner un produit déjà
+* ~~**Le code-barres n'est pas rangé dans `ingredients.csv`.**~~ Il l'est depuis `NUT-20`,
+  et il est **relu** depuis `NUT-28` (§10) : un produit déjà rangé avec son code ne repasse
+  plus par le réseau. Ce qui suit est l'état d'avant.
+* *(avant `NUT-20`)* **Le code-barres n'est pas rangé dans `ingredients.csv`.** Rescanner un produit déjà
   connu repasse par le réseau. Le rappel par le nom, lui, marche déjà. Une colonne de plus
   dans un fichier existant est une migration, et elle mérite son propre lot.
 * **Rien n'a été essayé sur un vrai téléphone.** L'appareil simulé de Chrome prouve que le
@@ -355,7 +358,8 @@ maintenant dessiné en CSS, ce qui ne dépend d'aucune police.
 
 ## 10. Scanner depuis « Noter » — un aliment en trois gestes (`NUT-28`)
 
-**État : plan, écrit le 2 novembre 2026 avant le code.**
+**État : livré le 2 novembre 2026.** Le plan ci-dessous est celui d'avant le code ; le §10.6
+dit ce que l'écran a corrigé en route.
 
 La demande, dans les mots de l'utilisateur : noter un repas est chronophage. Il veut, dans
 la feuille « Noter » du téléphone, **une icône tout en haut** qui ouvre le scan, puis
@@ -506,3 +510,39 @@ bout en bout, la bascule et la ligne à décrire), puis l'écran : la vraie API 
 mort, et `/__bench/providers` relu avant et après pour **zéro appel réel**. Le chemin
 complet à 402 px dans les deux thèmes, au toucher, par le champ des chiffres ; puis
 `audit-surfaces.mjs`.
+
+### 10.6 Ce que l'écran a montré, et que la batterie ne voyait pas
+
+Vu sur la vraie API branchée sur `fake_webdav`, Open Food Facts, OpenRouter, Open-Meteo et
+l'agenda sur leurs doublures, proxy mort sur l'API : `/__bench/providers` a compté **zéro
+appel réel** avant et après, et cinq lectures servies par la doublure d’OFF. À 402 px, dans
+les deux thèmes, au toucher (`Input.dispatchTouchEvent`), par le champ des chiffres.
+
+* **Le chemin complet tient** : « Scanner » (105 × 44 px, en tête à droite) → code →
+  « Skyr nature », champ vide en 16 px, puce « 1 portion · 150 g », la pastille de l'heure
+  sélectionnée → OK → feuille fermée, « « Skyr nature », 150 g, noté en déjeuner —
+  94 kcal. » → le repas au journal de `/nutrition` et dans les protéines de l'accueil. Le
+  Nutella, d'abord lu chez OFF, est revenu au scan suivant comme « valeurs de ton
+  catalogue » : D3 et D7 ensemble.
+* **0 g et 6 000 g** refusés par le serveur, sous le champ : « Doit être supérieur à 0. »,
+  « Doit valoir au plus 5 000. » ; la feuille reste ouverte.
+* **Un code inconnu, décrit une fois, est reconnu au scan suivant** — vérifié de bout en
+  bout : « Skyr vanille », 82 kcal/100 g, relu au catalogue.
+
+Trois défauts, tous trouvés en regardant, aucun par la batterie :
+
+1. **La bascule ouvrait la feuille sur le choix du mode**, sans la ligne ni le code. Le
+   double appel des effets du mode strict trouvait « rien de rangé, mais une saisie
+   vivante » et remettait la feuille à zéro. Le brouillon est maintenant écrit dans le même
+   passage, et un test rend l'écran sous `StrictMode` — il échoue sans le correctif.
+2. **La bande des types coupait « collation »** au bord : à 16 h, le type de l'heure aurait
+   été sélectionné hors de l'écran. Les pastilles passent à la ligne.
+3. **« nom sur l'emballage » était tronqué** dans la colonne du nom ; « nom du produit ».
+
+`audit-surfaces.mjs` porte la nouvelle surface, « scanner depuis « Noter » » : **0 cible
+sous 44 px**, aucun zoom, plancher à 12 px, aucun débordement ni recouvrement, à 402, 390 et
+360 px, dans les deux thèmes. Le premier passage a rendu « bouton « Repas composé »
+introuvable » sur les cinq surfaces du repas composé : le brouillon laissé par le banc
+rouvrait le formulaire — le faux positif connu. Brouillon retiré, elles sont revenues à
+zéro défaut. Les autres « introuvable » visent des données que ce banc n'a pas (une sortie
+marche, un favori, un repas de 12:30, `Butterfly`…), comme à chaque banc vide.
