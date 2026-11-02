@@ -350,3 +350,159 @@ calculées par le serveur ; fiche ouverte et refermée sans perdre les grammes d
 Un défaut trouvé à l'œil et corrigé : le chevron du parcours était écrit « › », caractère
 absent de la police d'affichage, qui le remplaçait par un « > » de fortune. Il est
 maintenant dessiné en CSS, ce qui ne dépend d'aucune police.
+
+---
+
+## 10. Scanner depuis « Noter » — un aliment en trois gestes (`NUT-28`)
+
+**État : plan, écrit le 2 novembre 2026 avant le code.**
+
+La demande, dans les mots de l'utilisateur : noter un repas est chronophage. Il veut, dans
+la feuille « Noter » du téléphone, **une icône tout en haut** qui ouvre le scan, puis
+demande la quantité ; OK envoie l'aliment, qui apparaît comme un repas. Aujourd'hui le
+même geste coûte six appuis et deux écrans : « Noter » → « Ajouter un repas » → « Repas
+composé » → « Ajouter un aliment » → viser → peser → « Enregistrer le repas ».
+
+Quatre décisions de l'utilisateur, le 2 novembre : un code inconnu bascule vers la saisie
+complète **avec le code gardé** ; la quantité est un champ vide, avec une puce de portion
+quand elle existe ; le type est deviné par l'heure au serveur, affiché et modifiable ;
+après OK, la feuille se ferme, chaque aliment est un repas à part et porte le nom du
+produit.
+
+### 10.1 Ce que le code dit, lu avant d'écrire
+
+Quatre constats, et les deux premiers changent ce qu'il faut faire.
+
+1. **La recherche d'un produit ne lit pas le catalogue.** `GET /products/{code}` interroge
+   Open Food Facts et lui seul. La colonne `barcode` rangée depuis `NUT-20` n'est relue par
+   personne. Deux conséquences : un produit qu'OFF ignore n'est **jamais** reconnu, même
+   entré au catalogue avec son code — la promesse « le scan suivant reconnaît l'aliment »
+   est fausse aujourd'hui ; et la portion habituelle d'un produit scanné n'arrive jamais
+   à l'écran, puisque le produit ne vient pas du catalogue.
+2. **« Ajouter cet aliment à la main » perd le code.** Dans le repas composé, il pose une
+   ligne vierge sans code ; dans `AddFoodSheet`, il revient au formulaire sans code. Et
+   `recall` vide le code d'une ligne manuelle à chaque frappe d'un nom que le catalogue
+   ignore.
+3. **Le mode « Valeurs à la main » écrit un total, pas des valeurs pour 100 g**, et rien
+   au catalogue. Il ne peut pas tenir la promesse du scan suivant : un total sans poids ne
+   redevient pas une valeur pour 100 g, et l'emballage, lui, n'affiche que celles-là.
+4. **Une ligne manuelle du repas composé n'a aucun champ pour ses valeurs** (`NUT-14`) :
+   un produit inconnu partout y entre « valeurs inconnues », sans remède dans la feuille.
+
+### 10.2 Les décisions
+
+**D1 — L'icône est une action d'en-tête de `Sheet`.** « Tout en haut », c'est l'en-tête :
+le corps de « Noter » défile et commence par l'hydratation, une première rangée y serait
+déjà sous elle. `Sheet` n'a pas d'action d'en-tête ; elle en gagne **une**, déclarée par
+une prop `action` (libellé, pictogramme, appui) et dessinée dans `Sheet.module.css` — le
+style suit le composant, aucun écran ne la peint. Cible de `--tap` au moins. Pictogramme
+**et** mot, « Scanner » : la barre d'onglets elle-même ne laisse aucune icône sans son mot,
+et un pictogramme de code-barres seul ne dit pas ce qu'il fait. Nom accessible
+« Scanner un aliment ». Elle disparaît une fois le scan ouvert.
+
+**D2 — Le scan est `ScanStep`, réemployé tel quel, comme une étape de « Noter ».** Pas de
+`Sheet` empilée : l'en-tête de `ScanStep` dit pourquoi, et c'est vrai ici mot pour mot.
+Le champ des treize chiffres reste la seconde porte — c'est lui que la caméra refusée, le
+`make dev-lan` en clair et le banc sans tête emprunteront.
+
+**D3 — La recherche lit le catalogue d'abord, puis Open Food Facts.** Le code est réduit
+et vérifié comme avant ; une entrée du catalogue qui porte **exactement** ce code répond
+seule, sans sortir sur le réseau. `Product` gagne deux champs : `portion_g` (celle de
+l'entrée, `null` venant d'OFF) et `source` (`catalog` ou `openfoodfacts`), pour que
+l'écran nomme d'où viennent les chiffres. Le message de `product_not_found` devient
+« Ni ton catalogue ni Open Food Facts ne connaissent ce produit. Tu peux l'ajouter à la
+main. » — il ne nommait qu'une des deux bases.
+*Ce que ça coûte* : la route lit désormais le stockage. Nextcloud injoignable, le scan
+rend `storage_unavailable` au lieu d'aller chez OFF — mais l'enregistrement du repas
+échouerait de toute façon. *Ce que ça rapporte*, en plus de la promesse tenue : un appel à
+OFF de moins par produit déjà connu, et une correction faite au catalogue (le verrou de
+`NUT-20`) enfin servie au scan. *Ce qui est écarté* : rapprocher par le nom un produit OFF
+d'une entrée sans code. Le dépôt refuse tout rapprochement qui n'est pas exact, et le nom
+d'OFF n'est pas celui qu'on a tapé.
+
+**D4 — La quantité : un champ vide.** `Field` à unité « g », clavier décimal, 16 px, le
+focus dessus. Sous lui, si l'entrée a une portion, une puce **« 1 portion · 125 g »** qui
+remplit le champ d'un appui — la règle de `NUT-21`, inchangée : rien n'entre dans un champ
+sans que le doigt l'ait demandé.
+
+**D5 — Le type de repas : celui que sert le serveur, en pastilles.** `suggested_type` et
+`types` viennent de `GET /api/nutrition`, la requête de l'écran Nutrition, sous la même
+clé. Elle part **à l'ouverture du scan** et non à celle de « Noter », qui ne charge rien
+qu'on ne lui demande. La pastille de l'heure est sélectionnée, un appui en choisit une
+autre. Aujourd'hui seulement : hier reste à la feuille complète.
+
+**D6 — L'écriture : `POST /api/nutrition/composed`, une ligne.** Pas de route nouvelle.
+Celle-ci fait déjà les trois choses qu'il faut, dans le bon ordre : elle **totalise** (le
+serveur, pas l'écran), elle **retient** l'aliment au catalogue avec son code, elle écrit
+le **journal des aliments** (`NUT-18`) — ce qui fait apparaître l'aliment scanné dans
+`/nutrition/catalogue` au lieu de grossir la ligne « repas qui échappent ». Une route mince
+devrait refaire ces trois gestes ou les appeler. Le nom du produit devient le nom du repas.
+Le client renvoie les valeurs pour 100 g qu'il a reçues : c'est le contrat de
+`IngredientLine` — « les valeurs voyagent avec la ligne » —, pas un calcul.
+
+**D7 — Le catalogue, comme le repas composé.** Un produit venu d'OFF entre au catalogue à
+l'enregistrement, avec son code ; un produit venu du catalogue y met ses valeurs à jour,
+sauf verrou. Un scan abandonné n'écrit rien. Rien de nouveau : c'est `remember`.
+
+**D8 — La confirmation : la notification.** La même feuille le fait déjà pour la pesée —
+« Pesée enregistrée. », puis elle se ferme. Le scan dit
+« « Nutella » ajouté au déjeuner — 162 kcal. », les calories étant celles que le serveur a
+rendues ; sans valeurs connues, il le dit au lieu d'un chiffre. Aucun second vocabulaire.
+
+**D9 — Les invalidations.** `keys.nutrition.all()` — journal, historique, catalogue et
+fiche d'un aliment sont sous ce préfixe —, `keys.morning.flow()` comme le fait l'écran
+Nutrition, et `CROSS_CUTTING`, qui porte l'accueil.
+
+**D10 — Les erreurs restent dans la feuille.** 0 g ou plus de 5 000 g : refus du serveur
+(`validation_error`, champ `lines.0.quantity_g`, phrase française), affiché sous le champ.
+Un texte qui n'est pas un nombre est refusé à l'écran, comme la pesée de la même feuille
+le fait déjà. Réseau, stockage, type absent : le message du serveur sous le formulaire, la
+feuille reste ouverte et la saisie aussi.
+
+**D11 — Un code inconnu bascule vers « Ajouter un repas »… en mode Repas composé, et non
+« Valeurs à la main ».** C'est le seul écart à la lettre des décisions, et il tient au
+constat 3 : le mode « Valeurs à la main » ne peut pas faire reconnaître l'aliment au scan
+suivant. « Ajouter cet aliment à la main » mène à `/nutrition?ajout=repas&code=…`, qui
+ouvre la feuille complète sur une **ligne à décrire** : le nom, le poids, et les valeurs
+pour 100 g lues sur l'emballage — tapées à la main, c'est ce que la décision voulait dire.
+Le code suit la ligne. Le nom du plat suit le nom tapé tant qu'on ne l'a pas changé. À
+l'enregistrement, `remember` range l'aliment avec son code, et D3 le relit au scan
+suivant.
+Cette ligne est la **seule** à montrer ses valeurs pour 100 g : `NUT-14` les a retirées
+des lignes qui les reçoivent d'une base ; ici, aucune base ne les a, et l'emballage est
+dans la main. `AddFoodSheet` garde aussi le code après un code inconnu — une ligne, même
+promesse.
+Une saisie en cours dans un autre mode n'est pas écrasée : la feuille la reprend, et une
+notification dit que le code n'a pas été posé. Le projet n'a aucune annulation.
+
+### 10.3 Ce que ça coûte
+
+* Côté serveur, une lecture de `ingredients.csv` par scan (mise en cache par le
+  `FileCache`) ; deux champs de plus dans `Product`.
+* Une prop de plus à `Sheet`, un composant de plus dans `app/` pour l'étape de la
+  quantité, une requête de plus dans « Noter » — seulement quand on scanne.
+* `IngredientDraft` gagne un drapeau (`described`), relu par le brouillon.
+* **Aucune dépendance nouvelle.**
+
+### 10.4 Ce que ce lot ne fait pas
+
+* **Pas de total avant OK.** Il arrive après, dans la notification, rendu par le serveur.
+  Le montrer avant demanderait un aller-retour à chaque gramme tapé, pour un écran qui doit
+  tenir en trois gestes.
+* **Pas d'hier, pas de favoris** dans le scan rapide : ils sont à la feuille complète.
+* **Pas de portion pour une entrée sans code.** Une entrée rangée avant `NUT-20` gagne son
+  code au premier repas composé qui la scanne ; une entrée **verrouillée** — créée sur la
+  page catalogue — ne le gagne jamais, puisque `remember` ne touche à rien d'une entrée
+  corrigée à la main. La corriger sur sa fiche en y tapant le code reste possible.
+* **L'étape de la quantité n'entre pas dans `SURFACES`** : elle ne s'atteint qu'après un
+  code tapé, et `audit-surfaces.mjs` ne remplit aucun champ. Le scan, lui, y entre ; la
+  quantité se mesure au banc.
+
+### 10.5 Ce qui le vérifiera
+
+La batterie (route du produit, catalogue d'abord, bornes de la quantité ; « Noter » de
+bout en bout, la bascule et la ligne à décrire), puis l'écran : la vraie API sur
+`fake_webdav`, Open Food Facts sur sa doublure — un produit connu, un inconnu —, le proxy
+mort, et `/__bench/providers` relu avant et après pour **zéro appel réel**. Le chemin
+complet à 402 px dans les deux thèmes, au toucher, par le champ des chiffres ; puis
+`audit-surfaces.mjs`.
